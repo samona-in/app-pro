@@ -1,0 +1,56 @@
+// SAMONA database schema.
+//
+// Foundational only: the shared `User` record and its role. The full
+// marketplace schema (ProProfile, Job, JobStatusHistory, Payment, Earning,
+// Review, ...) lands with the features that need it — see CLAUDE.md
+// "Database" for the expected entity set.
+//
+// Schema changes go through migrations. Never edit a deployed database by hand.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+// Prisma 7 takes the connection URL from `prisma.config.ts` (for migrations)
+// and from the driver adapter passed to PrismaClient (at runtime), so no `url`
+// belongs here.
+datasource db {
+  provider = "postgresql"
+}
+
+/// One account per person, whichever app they use.
+///
+/// Customer, Pro and Admin share this table so a single authentication system
+/// serves all three (CLAUDE.md "Authentication"). Role-specific data belongs in
+/// a profile table joined to this one.
+model User {
+  id           String   @id @default(uuid())
+  role         UserRole @default(CUSTOMER)
+
+  /// At least one of email/phone is required; enforced in the auth domain.
+  email        String?  @unique
+  phone        String?  @unique
+
+  /// Argon2/bcrypt hash. Never plaintext, never returned to a client.
+  passwordHash String?
+
+  fullName     String?
+  avatarUrl    String?
+
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
+  @@map("users")
+}
+
+/// Mirrored by `UserRole` in `@samona/types` — keep the two in sync.
+enum UserRole {
+  CUSTOMER
+  PRO
+  ADMIN
+}

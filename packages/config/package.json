@@ -1,0 +1,26 @@
+{
+  "name": "@samona/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared constants and environment-key definitions for SAMONA.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "typecheck": "tsc -b",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}
