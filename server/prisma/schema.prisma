@@ -15,7 +15,8 @@ generator client {
 
 // Prisma 7 takes the connection URL from `prisma.config.ts` (for migrations)
 // and from the driver adapter passed to PrismaClient (at runtime), so no `url`
-// belongs here.
+// belongs here. Supabase is the managed host; see .env.example for why the
+// pooled and direct URLs differ.
 datasource db {
   provider = "postgresql"
 }
@@ -25,24 +26,35 @@ datasource db {
 /// Customer, Pro and Admin share this table so a single authentication system
 /// serves all three (CLAUDE.md "Authentication"). Role-specific data belongs in
 /// a profile table joined to this one.
+///
+/// Supabase Auth owns credentials and phone verification in the `auth.users`
+/// table of this same database. This row owns domain data and is the authority
+/// on `role`. There is no password column by design — the application never
+/// sees or stores a credential.
 model User {
-  id           String   @id @default(uuid())
-  role         UserRole @default(CUSTOMER)
+  /// Matches `auth.users.id`. Sharing the primary key keeps the join implicit
+  /// and makes any future RLS policy a plain `auth.uid() = id` comparison.
+  ///
+  /// No Prisma relation is declared: `auth.users` belongs to Supabase and must
+  /// not be managed by our migrations. The foreign key is added by hand in the
+  /// migration instead.
+  id        String   @id @db.Uuid
 
-  /// At least one of email/phone is required; enforced in the auth domain.
-  email        String?  @unique
-  phone        String?  @unique
+  /// Authoritative. Never read from a token claim or a client payload.
+  role      UserRole @default(CUSTOMER)
 
-  /// Argon2/bcrypt hash. Never plaintext, never returned to a client.
-  passwordHash String?
+  /// Mirrored from the verified token on sign-in. Supabase verifies the phone
+  /// number; we cache it for queries and display.
+  email     String?  @unique
+  phone     String?  @unique
 
-  fullName     String?
-  avatarUrl    String?
+  fullName  String?
+  avatarUrl String?
 
-  isActive     Boolean  @default(true)
+  isActive  Boolean  @default(true)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([role])
   @@map("users")

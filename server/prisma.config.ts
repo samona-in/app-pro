@@ -23,7 +23,9 @@ export default defineConfig({
   },
   // Used by migrate/introspect only. The running app connects through the
   // driver adapter in `src/database/prisma.service.ts`.
+  // Migrations only. They need a real session, so they use the DIRECT (5432)
+  // Supabase URL rather than the transaction pooler the app runs through.
   datasource: {
-    url: process.env.DATABASE_URL,
+    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
   },
 });

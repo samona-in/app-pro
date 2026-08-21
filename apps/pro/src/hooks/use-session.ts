@@ -1,19 +1,36 @@
-import { useSessionStore } from '@/stores/session';
+import { useQuery } from '@tanstack/react-query';
+import type { PublicUser } from '@samona/types';
+import { queryKeys } from '@/constants';
+import { useAuth } from '@/providers';
+import { api } from '@/services/api';
 
 /**
- * Read-only view of the current session.
+ * The current session: Supabase for authentication state, the API for the
+ * SAMONA user behind it.
  *
- * Screens use this to branch on auth state; they should not reach into the
- * store directly so the underlying implementation can change.
+ * The server record is the authority on `role` and profile data — a Supabase
+ * token proves identity only. It is fetched through TanStack Query rather than
+ * mirrored into Zustand, because it is server state (CLAUDE.md "React Native
+ * Architecture").
  */
 export function useSession() {
-  const status = useSessionStore((state) => state.status);
-  const user = useSessionStore((state) => state.user);
+  const { isLoaded, isSignedIn, signOut } = useAuth();
+
+  const query = useQuery({
+    queryKey: queryKeys.session,
+    queryFn: () => api.get<PublicUser>('/auth/me'),
+    // Only ask the API once Supabase actually has a session.
+    enabled: isLoaded && isSignedIn,
+    staleTime: 5 * 60_000,
+  });
 
   return {
-    status,
-    user,
-    isAuthenticated: status === 'authenticated',
-    isLoading: status === 'loading',
+    isLoading: !isLoaded || (isSignedIn && query.isPending),
+    isAuthenticated: isLoaded && isSignedIn,
+    /** The SAMONA user. Undefined while loading or signed out. */
+    user: query.data,
+    error: query.error,
+    refetch: query.refetch,
+    signOut,
   };
 }

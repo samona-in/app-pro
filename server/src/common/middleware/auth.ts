@@ -1,9 +1,12 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { UserRole } from '@samona/types';
+import type { AuthService } from '../../auth/auth.service';
+import { bearerToken, type TokenVerifier } from '../../auth/token';
 import { forbidden, unauthenticated } from '../errors';
 
 /** The authenticated principal, derived server-side from a verified token. */
 export interface AuthenticatedUser {
+  /** Matches both our `User.id` and Supabase's `auth.users.id`. */
   id: string;
   role: UserRole;
 }
@@ -17,18 +20,50 @@ declare global {
   }
 }
 
+export interface RequireAuthDeps {
+  verifier: TokenVerifier;
+  authService: AuthService;
+}
+
 /**
- * Rejects unauthenticated requests.
+ * Rejects unauthenticated requests and attaches the local principal.
  *
- * Scaffold: token verification lands with the auth domain. Until then this
- * denies by default — the safe direction for a guard that is not yet wired.
+ * The Supabase token is trusted for *identity* only. The role comes from our
+ * own database, never from a token claim — Supabase lets a project write custom
+ * claims, and anything we do not issue ourselves is not a basis for
+ * authorisation (CLAUDE.md "Authentication").
  */
-export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
-  if (!req.user) {
-    next(unauthenticated());
-    return;
-  }
-  next();
+export function createRequireAuth({ verifier, authService }: RequireAuthDeps): RequestHandler {
+  return async (req: Request, _res: Response, next: NextFunction) => {
+    const token = bearerToken(req.get('authorization'));
+
+    if (!token) {
+      next(unauthenticated());
+      return;
+    }
+
+    try {
+      const verified = await verifier.verify(token);
+
+      if (!verified) {
+        next(unauthenticated('Your session has expired. Please sign in again.'));
+        return;
+      }
+
+      // Creates the local row on first sign-in; a cheap lookup afterwards.
+      const user = await authService.syncUser(verified);
+
+      if (!user.isActive) {
+        next(forbidden('This account has been deactivated.'));
+        return;
+      }
+
+      req.user = { id: user.id, role: user.role };
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 /**

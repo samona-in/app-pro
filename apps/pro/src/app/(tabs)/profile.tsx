@@ -4,8 +4,6 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import { useSession } from '@/hooks';
-import { tokenStorage } from '@/services/token-storage';
-import { useSessionStore } from '@/stores/session';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -36,12 +34,14 @@ function SettingsRow({ icon, label }: { icon: IoniconName; label: string }) {
 }
 
 export default function Profile() {
-  const { user } = useSession();
-  const clearSession = useSessionStore((state) => state.clearSession);
+  const { user, signOut } = useSession();
 
-  async function signOut() {
-    await tokenStorage.clear();
-    clearSession();
+  /**
+   * Supabase clears the persisted session; the root layout observes the
+   * signed-out state and routes back to the auth stack.
+   */
+  async function onSignOut() {
+    await signOut();
     router.replace('/welcome');
   }
 
@@ -74,7 +74,7 @@ export default function Profile() {
       <Button
         label="Sign out"
         variant="secondary"
-        onPress={() => void signOut()}
+        onPress={() => void onSignOut()}
         className="mt-6"
       />
     </Screen>

@@ -10,6 +10,8 @@ export default function AuthLayout() {
       }}
     >
       <Stack.Screen name="welcome" />
+      <Stack.Screen name="phone" />
+      <Stack.Screen name="verify" />
     </Stack>
   );
 }

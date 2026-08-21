@@ -3,6 +3,7 @@ import type { PrismaClient } from './database/prisma';
 import type { Redis } from './database/redis';
 
 import { createAuthService, type AuthService } from './auth/auth.service';
+import { createTokenVerifier, type TokenVerifier } from './auth/token';
 import { createUsersService, type UsersService } from './users/users.service';
 import { createProsService, type ProsService } from './pros/pros.service';
 import { createCustomersService, type CustomersService } from './customers/customers.service';
@@ -27,6 +28,8 @@ import { createReviewsService, type ReviewsService } from './reviews/reviews.ser
  */
 export interface Services {
   auth: AuthService;
+  /** Verifies Supabase access tokens. Shared so the JWKS cache is reused. */
+  tokenVerifier: TokenVerifier;
   users: UsersService;
   pros: ProsService;
   customers: CustomersService;
@@ -48,11 +51,15 @@ export interface AppContext {
   services: Services;
 }
 
-export function createServices(prisma: PrismaClient): Services {
+export function createServices(prisma: PrismaClient, config: AppConfig): Services {
   const deps = { prisma };
 
   return {
-    auth: createAuthService(deps),
+    auth: createAuthService({ prisma, signupDefaultRole: config.signupDefaultRole }),
+    tokenVerifier: createTokenVerifier({
+      supabaseUrl: config.supabaseUrl,
+      jwtSecret: config.supabaseJwtSecret,
+    }),
     users: createUsersService(deps),
     pros: createProsService(deps),
     customers: createCustomersService(deps),

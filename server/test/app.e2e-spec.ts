@@ -15,8 +15,12 @@ const config: AppConfig = {
   port: 0,
   isProduction: false,
   databaseUrl: 'postgresql://unused',
+  directUrl: 'postgresql://unused',
   redisUrl: 'redis://unused',
-  jwtSecret: 'test-secret-that-is-long-enough-to-pass',
+  supabaseUrl: 'https://project.supabase.co',
+  supabaseJwtSecret: null,
+  supabaseServiceRoleKey: null,
+  signupDefaultRole: 'PRO',
   corsOrigins: [],
   googleMapsApiKey: null,
 };
