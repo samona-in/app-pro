@@ -1,0 +1,41 @@
+{
+  "name": "samona",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SAMONA monorepo — on-demand marketplace for local skilled professionals.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @samona/pro",
+    "dev:pro": "npm run dev --workspace @samona/pro",
+    "dev:server": "npm run dev --workspace @samona/server",
+    "build": "npm run build --workspaces --if-present",
+    "build:packages": "npm run build --workspace @samona/types --workspace @samona/config --workspace @samona/validation --workspace @samona/api-client",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run lint && npm run typecheck && npm run test",
+    "clean": "rimraf \"packages/*/dist\" server/dist apps/pro/.expo apps/pro/dist"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.0.0",
+    "prettier": "^3.9.6",
+    "rimraf": "^6.0.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.67.0"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    /* TypeScript 6 requires rootDir when inputs span src/ and test/.
+       tsconfig.build.json narrows this to ./src so `nest build` emits
+       dist/main.js rather than dist/src/main.js. */
+    "rootDir": "./",
+    "incremental": true,
+    /* Keep build info beside the output so deleting dist/ forces a full
+       rebuild instead of leaving a stale, partially-emitted dist. */
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
+    "skipLibCheck": true,
+
+    /* Global type packages. TypeScript 6 no longer auto-discovers @types that
+       npm has hoisted to the workspace root, so they are listed explicitly. */
+    "types": ["jest", "node"],
+
+    /* Strict mode, per CLAUDE.md "Code Quality". The Nest template ships with
+       several of these disabled; we turn them back on. */
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Nest's DI decorators require metadata on parameter properties, which
+       `noUnusedParameters` would otherwise flag. */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
