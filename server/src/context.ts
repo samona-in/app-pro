@@ -2,25 +2,28 @@ import type { AppConfig } from './config';
 import type { PrismaClient } from './database/prisma';
 import type { Redis } from './database/redis';
 
-import { AuthService } from './auth/auth.service';
-import { UsersService } from './users/users.service';
-import { ProsService } from './pros/pros.service';
-import { CustomersService } from './customers/customers.service';
-import { ServicesService } from './services/services.service';
-import { JobsService } from './jobs/jobs.service';
-import { MatchingService } from './matching/matching.service';
-import { LocationsService } from './locations/locations.service';
-import { PaymentsService } from './payments/payments.service';
-import { EarningsService } from './earnings/earnings.service';
-import { NotificationsService } from './notifications/notifications.service';
-import { ReviewsService } from './reviews/reviews.service';
+import { createAuthService, type AuthService } from './auth/auth.service';
+import { createUsersService, type UsersService } from './users/users.service';
+import { createProsService, type ProsService } from './pros/pros.service';
+import { createCustomersService, type CustomersService } from './customers/customers.service';
+import { createServicesService, type ServicesService } from './services/services.service';
+import { createJobsService, type JobsService } from './jobs/jobs.service';
+import { createMatchingService, type MatchingService } from './matching/matching.service';
+import { createLocationsService, type LocationsService } from './locations/locations.service';
+import { createPaymentsService, type PaymentsService } from './payments/payments.service';
+import { createEarningsService, type EarningsService } from './earnings/earnings.service';
+import {
+  createNotificationsService,
+  type NotificationsService,
+} from './notifications/notifications.service';
+import { createReviewsService, type ReviewsService } from './reviews/reviews.service';
 
 /**
  * Every domain service, constructed once per process.
  *
  * This replaces a DI container with plain composition: dependencies are passed
- * explicitly, which keeps wiring greppable and makes services trivial to
- * construct in tests with a stub client.
+ * explicitly, which keeps wiring greppable and makes services trivial to build
+ * in tests with a stub client.
  */
 export interface Services {
   auth: AuthService;
@@ -46,18 +49,20 @@ export interface AppContext {
 }
 
 export function createServices(prisma: PrismaClient): Services {
+  const deps = { prisma };
+
   return {
-    auth: new AuthService(prisma),
-    users: new UsersService(prisma),
-    pros: new ProsService(prisma),
-    customers: new CustomersService(prisma),
-    services: new ServicesService(prisma),
-    jobs: new JobsService(prisma),
-    matching: new MatchingService(prisma),
-    locations: new LocationsService(prisma),
-    payments: new PaymentsService(prisma),
-    earnings: new EarningsService(prisma),
-    notifications: new NotificationsService(prisma),
-    reviews: new ReviewsService(prisma),
+    auth: createAuthService(deps),
+    users: createUsersService(deps),
+    pros: createProsService(deps),
+    customers: createCustomersService(deps),
+    services: createServicesService(deps),
+    jobs: createJobsService(deps),
+    matching: createMatchingService(deps),
+    locations: createLocationsService(deps),
+    payments: createPaymentsService(deps),
+    earnings: createEarningsService(deps),
+    notifications: createNotificationsService(deps),
+    reviews: createReviewsService(deps),
   };
 }

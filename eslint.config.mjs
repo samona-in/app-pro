@@ -57,6 +57,22 @@ export default tseslint.config(
         'warn',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
+      // CLAUDE.md: the codebase is functional — no classes anywhere in our own
+      // code. Use factory functions and closures instead of instances, and
+      // build errors with `new Error()` plus a type guard rather than
+      // subclassing. Calling third-party constructors is unaffected.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ClassDeclaration',
+          message:
+            'Do not declare classes. Use a factory function that returns an object (see createApiClient / createJobsService).',
+        },
+        {
+          selector: 'ClassExpression',
+          message: 'Do not declare classes. Use a factory function that returns an object.',
+        },
+      ],
       // CLAUDE.md: never silently swallow errors.
       'no-empty': ['error', { allowEmptyCatch: false }],
       eqeqeq: ['error', 'smart'],
@@ -81,11 +97,6 @@ export default tseslint.config(
     files: ['server/**/*.ts'],
     languageOptions: {
       globals: { ...globals.node, ...globals.jest },
-    },
-    rules: {
-      // Domain services are scaffolded with their dependencies wired but no
-      // methods yet, so they legitimately hold only a constructor for now.
-      '@typescript-eslint/no-extraneous-class': 'off',
     },
   },
 
