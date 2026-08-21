@@ -2,7 +2,8 @@
   "name": "samona",
   "version": "0.0.0",
   "private": true,
-  "description": "SAMONA monorepo \u2014 on-demand marketplace for local skilled professionals.",
+  "main": "./scripts/expo-wrong-directory.js",
+  "description": "SAMONA monorepo — on-demand marketplace for local skilled professionals.",
   "license": "MIT",
   "engines": {
     "node": ">=20.19.0"
