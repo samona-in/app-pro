@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Services } from './context';
+import type { Limiters } from './common';
 
 import { createHealthRouter } from './health/health.routes';
 import { createAuthRouter } from './auth/auth.routes';
@@ -24,23 +25,37 @@ import { createReviewsRouter } from './reviews/reviews.routes';
  *
  * `matching` has no router by design: it is an internal domain service that
  * `jobs` drives.
+ *
+ * Rate limiting is applied per domain here, on top of the global budget in
+ * `app.ts`, so the tier is visible next to the routes it protects rather than
+ * buried inside each handler.
  */
-export function createApiRouter(services: Services): Router {
+export function createApiRouter(services: Services, limiters: Limiters): Router {
   const router = Router();
 
+  // Unlimited by design: load balancers poll this, and a limited health check
+  // reports unhealthy under exactly the load it exists to survive.
   router.use('/health', createHealthRouter());
 
-  router.use('/auth', createAuthRouter(services));
-  router.use('/users', createUsersRouter(services));
-  router.use('/pros', createProsRouter(services));
-  router.use('/customers', createCustomersRouter(services));
+  // Credentials: the credential-stuffing and OTP brute-force surface.
+  router.use('/auth', limiters.auth, createAuthRouter(services));
+
+  // Profile and catalogue reads/writes.
+  router.use('/users', limiters.write, createUsersRouter(services));
+  router.use('/pros', limiters.write, createProsRouter(services));
+  router.use('/customers', limiters.write, createCustomersRouter(services));
   router.use('/services', createServicesRouter(services));
-  router.use('/jobs', createJobsRouter(services));
-  router.use('/locations', createLocationsRouter(services));
-  router.use('/payments', createPaymentsRouter(services));
-  router.use('/earnings', createEarningsRouter(services));
-  router.use('/notifications', createNotificationsRouter(services));
-  router.use('/reviews', createReviewsRouter(services));
+  router.use('/jobs', limiters.write, createJobsRouter(services));
+  router.use('/reviews', limiters.write, createReviewsRouter(services));
+  router.use('/notifications', limiters.write, createNotificationsRouter(services));
+
+  // High-frequency telemetry gets its own, larger budget.
+  router.use('/locations', limiters.location, createLocationsRouter(services));
+
+  // Money and third-party fan-out: the tightest budget, because abuse costs
+  // real money rather than CPU.
+  router.use('/payments', limiters.expensive, createPaymentsRouter(services));
+  router.use('/earnings', limiters.expensive, createEarningsRouter(services));
 
   return router;
 }

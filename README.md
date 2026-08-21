@@ -237,6 +237,17 @@ contract. Clients *request* transitions; the server validates and applies them.
 errors and infrastructure details never reach a client. The API client
 normalises transport failures and timeouts into the same `ApiError` shape.
 
+**Abuse prevention.** Every route sits behind a Redis-backed rate limiter, tiered
+by how expensive the operation is (`auth`, `write`, `expensive`, `location`, plus a
+global baseline). Limits are keyed by user id when authenticated and by
+normalised IP otherwise, so one abusive account cannot hide behind rotating
+addresses. Credential endpoints add a per-identity lockout, because rate limits
+are keyed by *caller* and a password spray uses many callers against one account.
+Counters live in Redis so all instances share one budget; if Redis is down the
+limiters degrade to in-process counters rather than switching off. The client
+honours `Retry-After` and backs off with full jitter. See CLAUDE.md →
+*Abuse Prevention*.
+
 **No classes.** The codebase is functional throughout: factory functions and
 closures instead of instances, function components in React Native, and errors
 built with `new Error()` plus a type guard rather than an `Error` subclass.

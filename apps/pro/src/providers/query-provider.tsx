@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { isRetryable } from '@samona/api-client';
+import { isRetryable, retryDelayMs } from '@samona/api-client';
 
 /**
  * TanStack Query owns all server state (CLAUDE.md "React Native Architecture").
@@ -21,6 +21,10 @@ function createQueryClient(): QueryClient {
           if (!isRetryable(error)) return false;
           return failureCount < 2;
         },
+        // Honour the server's Retry-After when it sends one, otherwise back off
+        // exponentially with jitter so rate-limited clients do not retry in
+        // lockstep and rebuild the spike that limited them.
+        retryDelay: (attemptIndex, error) => retryDelayMs(error, attemptIndex),
         refetchOnWindowFocus: false,
       },
       mutations: {

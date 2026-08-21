@@ -29,6 +29,12 @@ export interface ApiClientOptions {
   /** Invoked once per 401 so the app can clear its session. */
   onUnauthenticated?: () => void | Promise<void>;
   defaultHeaders?: Record<string, string>;
+  /**
+   * Rejects non-HTTPS base URLs (loopback excepted). Enable in production
+   * builds so a misconfigured environment fails loudly instead of silently
+   * sending bearer tokens in the clear.
+   */
+  requireHttps?: boolean;
   /** Injectable for tests. */
   fetchImpl?: typeof fetch;
 }
@@ -46,6 +52,24 @@ export interface ApiClient {
     body?: unknown,
     options?: RequestOptions,
   ): Promise<T>;
+}
+
+/**
+ * Parses `Retry-After`, which is either a delay in seconds or an HTTP date.
+ *
+ * Returns undefined for anything unparseable so callers fall back to their own
+ * backoff rather than trusting a malformed header.
+ */
+function parseRetryAfter(header: string | null): number | undefined {
+  if (!header) return undefined;
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+
+  const date = Date.parse(header);
+  if (Number.isNaN(date)) return undefined;
+
+  return Math.max(0, date - Date.now());
 }
 
 function buildQueryString(query: Record<string, QueryValue> | undefined): string {
@@ -81,6 +105,17 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     throw new Error('createApiClient requires a baseUrl. Provide it from the environment.');
   }
 
+  // Refuse cleartext outside development. Bearer tokens over plain HTTP are
+  // readable by anyone on the network path; localhost is exempt because it
+  // never leaves the device.
+  const isLoopback = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(options.baseUrl);
+  if (options.requireHttps === true && !options.baseUrl.startsWith('https://') && !isLoopback) {
+    throw new Error(
+      `Refusing to send requests to ${options.baseUrl} over plain HTTP. ` +
+        'Use an https:// API URL, or a loopback address in development.',
+    );
+  }
+
   const baseUrl = options.baseUrl;
   const prefix = options.prefix ?? '';
   const defaultTimeoutMs = options.timeoutMs ?? DEFAULT_API_TIMEOUT_MS;
@@ -90,6 +125,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 
   async function handleResponse<T>(response: Response): Promise<T> {
     const requestId = response.headers.get('x-request-id') ?? undefined;
+    const retryAfterMs = parseRetryAfter(response.headers.get('retry-after'));
 
     if (response.status === 204 || response.headers.get('content-length') === '0') {
       if (response.ok) return undefined as T;
@@ -127,6 +163,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         status: response.status,
         details: parsed.error.details,
         requestId: parsed.error.requestId ?? requestId,
+        ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
       });
     }
 
@@ -135,6 +172,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       message: `Request failed with status ${response.status}.`,
       status: response.status,
       requestId,
+      ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
     });
   }
 

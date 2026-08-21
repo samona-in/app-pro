@@ -28,9 +28,20 @@ async function main(): Promise<void> {
   }
 
   const services = createServices(prisma);
-  const app = createApp({ config, services });
+  // `redis` is passed even if the connection failed above: ioredis queues and
+  // reconnects, and the limiters degrade to in-process counters if it cannot.
+  const app = createApp({ config, services, rateLimit: { redis } });
 
   const httpServer = createServer(app);
+
+  // Slowloris and friends: a client that opens a connection and dribbles bytes
+  // holds a socket forever unless the server bounds how long it will wait.
+  // headersTimeout must exceed requestTimeout or headers can time out first.
+  httpServer.requestTimeout = 30_000;
+  httpServer.headersTimeout = 35_000;
+  httpServer.keepAliveTimeout = 15_000;
+  // Bound the header table itself; the default is generous for an API.
+  httpServer.maxHeadersCount = 100;
   const io = createRealtimeGateway(httpServer, config);
 
   httpServer.listen(config.port, () => {
