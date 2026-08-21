@@ -76,20 +76,16 @@ export default tseslint.config(
     },
   },
 
-  // NestJS server: decorator-heavy, Node globals.
+  // Express server: Node globals.
   {
     files: ['server/**/*.ts'],
     languageOptions: {
       globals: { ...globals.node, ...globals.jest },
     },
     rules: {
-      // Nest DI relies on parameter properties and empty constructors/classes.
+      // Domain services are scaffolded with their dependencies wired but no
+      // methods yet, so they legitimately hold only a constructor for now.
       '@typescript-eslint/no-extraneous-class': 'off',
-      '@typescript-eslint/no-empty-object-type': 'off',
-      // `import type` erases the import, which breaks the `design:paramtypes`
-      // metadata Nest reads to resolve constructor dependencies. Injected
-      // classes must stay value imports.
-      '@typescript-eslint/consistent-type-imports': 'off',
     },
   },
 

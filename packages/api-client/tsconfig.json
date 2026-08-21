@@ -9,6 +9,9 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "composite": true,
+    /* Keep build info inside the output so removing dist/ forces a real
+       rebuild instead of leaving tsc -b thinking it is up to date. */
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true

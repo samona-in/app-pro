@@ -48,7 +48,7 @@ Backend:
 
 - Node.js
 - TypeScript
-- NestJS
+- Express
 - PostgreSQL
 - Prisma
 - Redis
@@ -109,7 +109,7 @@ services/
 models/
 ```
 
-Instead, keep related controller/service/schema/module files inside their domain.
+Instead, keep related route/service/schema files inside their domain.
 
 ## React Native Architecture
 

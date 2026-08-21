@@ -2,7 +2,7 @@
   "name": "samona",
   "version": "0.0.0",
   "private": true,
-  "description": "SAMONA monorepo — on-demand marketplace for local skilled professionals.",
+  "description": "SAMONA monorepo \u2014 on-demand marketplace for local skilled professionals.",
   "license": "MIT",
   "engines": {
     "node": ">=20.19.0"
@@ -25,7 +25,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify": "npm run lint && npm run typecheck && npm run test",
-    "clean": "rimraf \"packages/*/dist\" server/dist apps/pro/.expo apps/pro/dist"
+    "clean": "rimraf \"packages/*/dist\" \"packages/*/*.tsbuildinfo\" server/dist server/*.tsbuildinfo apps/pro/.expo apps/pro/dist"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
