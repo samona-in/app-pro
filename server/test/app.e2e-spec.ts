@@ -1,33 +1,98 @@
-import { Test, type TestingModule } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { HealthModule } from '../src/common/health/health.module';
+import { createApp } from '../src/app';
+import { logger } from '../src/common/logger';
+import type { AppConfig } from '../src/config';
+import type { Services } from '../src/context';
 
 /**
- * End-to-end check for the health route.
+ * End-to-end check across the real middleware chain.
  *
- * Boots only `HealthModule` so the suite runs without PostgreSQL or Redis;
- * full-stack e2e tests arrive with the features that need those services.
+ * `createApp` takes its dependencies as arguments, so the suite runs without
+ * PostgreSQL or Redis; services are stubbed because no route touches them yet.
  */
-describe('Health (e2e)', () => {
-  let app: INestApplication;
+const config: AppConfig = {
+  nodeEnv: 'test',
+  port: 0,
+  isProduction: false,
+  databaseUrl: 'postgresql://unused',
+  redisUrl: 'redis://unused',
+  jwtSecret: 'test-secret-that-is-long-enough-to-pass',
+  corsOrigins: [],
+  googleMapsApiKey: null,
+};
 
-  beforeAll(async () => {
-    const moduleRef: TestingModule = await Test.createTestingModule({
-      imports: [HealthModule],
-    }).compile();
+const services = {} as Services;
+// Limiting is on by default; these assertions stay well under the budget.
+const app = createApp({ config, services });
 
-    app = moduleRef.createNestApplication();
-    await app.init();
-  });
+// The in-process limiter fallback warns on construction; silence it here.
+beforeAll(() => {
+  jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+});
+afterAll(() => jest.restoreAllMocks());
 
-  afterAll(async () => {
-    await app.close();
-  });
-
-  it('GET /health returns ok', async () => {
-    const response = await request(app.getHttpServer()).get('/health').expect(200);
+describe('API (e2e)', () => {
+  it('GET /api/v1/health returns ok', async () => {
+    const response = await request(app).get('/api/v1/health').expect(200);
 
     expect(response.body).toMatchObject({ status: 'ok' });
+    expect(response.headers['x-request-id']).toEqual(expect.any(String));
+  });
+
+  it('returns the shared error envelope for an unknown route', async () => {
+    const response = await request(app).get('/api/v1/nope').expect(404);
+
+    expect(response.body).toEqual({
+      error: expect.objectContaining({
+        code: 'NOT_FOUND',
+        message: expect.stringContaining('Cannot GET'),
+      }),
+    });
+  });
+
+  it('does not advertise the server implementation', async () => {
+    const response = await request(app).get('/api/v1/health');
+
+    expect(response.headers['x-powered-by']).toBeUndefined();
+    expect(response.headers['etag']).toBeUndefined();
+  });
+
+  it('sends the hardened security headers', async () => {
+    const response = await request(app).get('/api/v1/health');
+
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
+    expect(response.headers['referrer-policy']).toBe('no-referrer');
+    expect(response.headers['strict-transport-security']).toContain('max-age=31536000');
+    // This origin serves JSON only, so scripts and framing are denied outright.
+    expect(response.headers['content-security-policy']).toContain("default-src 'none'");
+    expect(response.headers['content-security-policy']).toContain("frame-ancestors 'none'");
+  });
+
+  it('rejects a non-JSON write before parsing its body', async () => {
+    const response = await request(app)
+      .post('/api/v1/jobs')
+      .type('form')
+      .send('amount=1')
+      .expect(415);
+
+    expect(response.body.error.message).toContain('application/json');
+  });
+
+  it('applies rate limiting when it is enabled', async () => {
+    // A separate instance so exhausting the budget cannot affect other tests.
+    const limited = createApp({ config, services, rateLimit: { redis: null } });
+
+    let sawLimit = false;
+    for (let i = 0; i < 320; i += 1) {
+      const response = await request(limited).get('/api/v1/health');
+      if (response.status === 429) {
+        sawLimit = true;
+        expect(response.body.error.code).toBe('RATE_LIMITED');
+        expect(response.headers['retry-after']).toBeDefined();
+        break;
+      }
+    }
+
+    expect(sawLimit).toBe(true);
   });
 });

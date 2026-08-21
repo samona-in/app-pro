@@ -48,7 +48,7 @@ Backend:
 
 - Node.js
 - TypeScript
-- NestJS
+- Express
 - PostgreSQL
 - Prisma
 - Redis
@@ -109,7 +109,7 @@ services/
 models/
 ```
 
-Instead, keep related controller/service/schema/module files inside their domain.
+Instead, keep related route/service/schema files inside their domain.
 
 ## React Native Architecture
 
@@ -297,6 +297,44 @@ Never trust:
 
 provided by clients without server validation.
 
+## Abuse Prevention
+
+Every public endpoint must be rate limited. An unlimited endpoint is an
+invitation.
+
+Use the shared limiters in `server/src/common/middleware/rate-limit.ts`; do not
+invent per-route limits ad hoc. Pick the tier that matches the cost of the
+operation:
+
+- `auth` — credential endpoints (sign-in, OTP request/verify, password reset)
+- `write` — state-changing domain routes
+- `expensive` — anything that costs money: payments, geocoding, uploads
+- `location` — high-frequency telemetry
+- `global` — the baseline applied to everything in `app.ts`
+
+Rate limiting alone is not enough for credentials. Rate limits are keyed by
+caller; a password-spray attack uses many callers against one account. Pair
+them with the per-identity lockout in `common/security/brute-force.ts`, which is
+keyed by the account being targeted.
+
+Rate limit counters must live in Redis, never in process memory, or an attacker
+multiplies their allowance by the number of running instances.
+
+Never key a limiter on a value the client controls. `X-Forwarded-For` is
+client-supplied unless a trusted proxy overwrote it — trust exactly the number
+of proxy hops you actually run.
+
+Reject bad requests as early and as cheaply as possible. Validation runs after
+the body is parsed, so size, content-type and shape limits must come first.
+
+Compare secrets, tokens and OTPs with `safeEqual`, never `===`.
+
+Never let a security control fail open silently. If Redis is unavailable, fall
+back to a degraded limiter and log it loudly; do not disable protection.
+
+Client-side throttling is a courtesy to the server, never a control. Assume
+every client is hostile and enforce the real limit on the backend.
+
 ## Code Quality
 
 Prefer simple, readable code.
@@ -316,6 +354,21 @@ Do not use `any` unless there is a documented reason.
 Use meaningful names.
 
 Keep functions small and focused.
+
+Write functional code. Do not declare classes anywhere in this codebase.
+
+- Use factory functions that return an object, with private state held in the
+  closure, instead of classes and instances.
+- Use function components and hooks in React Native. Never class components.
+- Build errors with `new Error()` and attach fields, paired with a type guard
+  (`isApiError`, `isHttpError`). Do not subclass `Error`; `instanceof` on a
+  custom error type will not work.
+- Compose dependencies explicitly by passing them as arguments. Do not
+  introduce a DI container or decorators.
+
+Calling a constructor from a third-party or built-in API (`new Error()`,
+`PrismaClient`, `Redis`, `AbortController`) is fine — the rule is about the
+code we write. `no-restricted-syntax` enforces this in ESLint.
 
 ## UI
 

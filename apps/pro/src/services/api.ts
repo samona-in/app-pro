@@ -13,6 +13,8 @@ import { tokenStorage } from './token-storage';
 export const api = createApiClient({
   baseUrl: env.apiUrl,
   prefix: API_PREFIX,
+  // Production builds must not send bearer tokens over cleartext HTTP.
+  requireHttps: !env.isDev,
   getAccessToken: () => tokenStorage.getAccessToken(),
   onUnauthenticated: async () => {
     // The token is gone or rejected: drop local session state so the router

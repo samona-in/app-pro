@@ -1,0 +1,75 @@
+import { createServer } from 'node:http';
+import { API_PREFIX } from '@samona/config';
+import { createApp } from './app';
+import { logger } from './common/logger';
+import { loadConfig, loadEnvFile } from './config';
+import { createServices } from './context';
+import { createPrismaClient } from './database/prisma';
+import { createRedisClient } from './database/redis';
+import { createRealtimeGateway } from './realtime/gateway';
+
+/**
+ * Process entry point: load config, open connections, serve, shut down cleanly.
+ */
+async function main(): Promise<void> {
+  loadEnvFile();
+  const config = loadConfig();
+
+  const prisma = createPrismaClient(config.databaseUrl);
+  const redis = createRedisClient(config.redisUrl);
+
+  try {
+    await redis.connect();
+    logger.info('Connected to Redis.');
+  } catch (error) {
+    // Redis is not required to serve a request today, so a failure here is
+    // logged loudly rather than crashing the process.
+    logger.error('Could not connect to Redis.', error);
+  }
+
+  const services = createServices(prisma);
+  // `redis` is passed even if the connection failed above: ioredis queues and
+  // reconnects, and the limiters degrade to in-process counters if it cannot.
+  const app = createApp({ config, services, rateLimit: { redis } });
+
+  const httpServer = createServer(app);
+
+  // Slowloris and friends: a client that opens a connection and dribbles bytes
+  // holds a socket forever unless the server bounds how long it will wait.
+  // headersTimeout must exceed requestTimeout or headers can time out first.
+  httpServer.requestTimeout = 30_000;
+  httpServer.headersTimeout = 35_000;
+  httpServer.keepAliveTimeout = 15_000;
+  // Bound the header table itself; the default is generous for an API.
+  httpServer.maxHeadersCount = 100;
+  const io = createRealtimeGateway(httpServer, config);
+
+  httpServer.listen(config.port, () => {
+    logger.info(`SAMONA API listening on http://localhost:${config.port}${API_PREFIX}`);
+  });
+
+  /** Close connections in reverse order of opening, then exit. */
+  async function shutdown(signal: string): Promise<void> {
+    logger.info(`Received ${signal}, shutting down.`);
+
+    // Stop accepting work before tearing down the resources in-flight requests use.
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    await io.close();
+    await redis.quit().catch(() => undefined);
+    await prisma.$disconnect().catch(() => undefined);
+
+    logger.info('Shutdown complete.');
+    process.exit(0);
+  }
+
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.on(signal, () => {
+      void shutdown(signal);
+    });
+  }
+}
+
+main().catch((error: unknown) => {
+  logger.error('Failed to start the server.', error);
+  process.exit(1);
+});
