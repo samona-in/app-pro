@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import type { PrismaClient } from '../database/prisma';
 
 /**
  * Customers domain service.
@@ -8,5 +8,6 @@ import { Injectable } from '@nestjs/common';
  *
  * Scaffold only — no behaviour is implemented yet.
  */
-@Injectable()
-export class CustomersService {}
+export class CustomersService {
+  constructor(private readonly prisma: PrismaClient) {}
+}

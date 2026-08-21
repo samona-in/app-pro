@@ -22,7 +22,7 @@ apps/
   pro/                 SAMONA Pro — Expo + React Native app (the app being built)
   customer/            Reserved for the customer app; placeholder only
 
-server/                NestJS API — organised by business domain
+server/                Node.js + Express API — organised by business domain
 
 packages/
   types/               Shared domain types (UserRole, JobStatus, API envelopes)
@@ -61,17 +61,33 @@ Routes live under `src/app` (the Expo SDK 57 default); `@/*` maps to `src/*`.
 
 ```
 src/
-  common/              Error filter, Zod pipe, roles guard, request-id, health
+  index.ts             Entry point: config, connections, listen, shutdown
+  app.ts               Express app (no sockets) — importable by tests
+  context.ts           Explicit service composition, in place of a DI container
+  routes.ts            Mounts every domain router under /api/v1
+  common/
+    errors.ts          HttpError + typed constructors
+    logger.ts
+    middleware/        request-id · validate (Zod) · auth · error-handler
   config/              Env validation (Zod) and typed configuration
-  database/            Prisma and Redis services
+  database/            Prisma and Redis client factories
   realtime/            Socket.IO gateway (connection lifecycle only)
+  health/
 
   auth/ users/ pros/ customers/ services/ jobs/ matching/
   locations/ payments/ earnings/ notifications/ reviews/
 ```
 
-Each domain owns its own module, service and controller. There is no global
-`controllers/` or `services/` folder — see CLAUDE.md → *Architecture*.
+Each domain owns its own `<domain>.routes.ts` and `<domain>.service.ts`. There
+is no global `controllers/` or `services/` folder — see CLAUDE.md →
+*Architecture*. `matching` has no router by design: it is an internal service
+that `jobs` drives.
+
+**Dependency wiring.** There is no DI container. `context.ts` constructs every
+service once and passes it to the route factories, so wiring stays greppable and
+services are trivial to construct in tests with a stub client. `createApp()`
+takes its dependencies as arguments and opens no sockets, which is what lets the
+e2e suite run without PostgreSQL or Redis.
 
 ---
 
@@ -208,8 +224,9 @@ the API. Zustand holds only client concerns (the availability toggle, network
 status). Server data is never duplicated into Zustand.
 
 **One authentication system.** Customer, Pro and Admin share one `User` table and
-one auth system. Roles are enforced on the server via `@Roles()` and
-`RolesGuard`; a role sent by a client is never trusted.
+one auth system. Roles are enforced on the server via the `requireAuth` and
+`requireRole` middleware, which read the principal established from a verified
+token; a role sent by a client is never trusted.
 
 **Job state machine.** `JOB_STATUS_TRANSITIONS` in `@samona/types` is the shared
 contract. Clients *request* transitions; the server validates and applies them.
@@ -235,6 +252,8 @@ The client validates for fast feedback; the server's validation is authoritative
   return queries from `render()` under the `jest-expo` preset.
 - **TypeScript 6** no longer auto-discovers `@types` packages that npm hoists to
   the workspace root, so `types` is listed explicitly in each `tsconfig.json`.
+- **Express 5** handles rejected promises from `async` handlers natively, so
+  there is no `asyncHandler` wrapper. There is a test asserting this.
 - **The shared packages use TypeScript project references** and build with
   `tsc -b`. npm does not order workspace `prepare` scripts by dependency, so
   without references `@samona/validation` could compile before `@samona/types`

@@ -1,33 +1,50 @@
-import { Test, type TestingModule } from '@nestjs/testing';
-import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { HealthModule } from '../src/common/health/health.module';
+import { createApp } from '../src/app';
+import type { AppConfig } from '../src/config';
+import type { Services } from '../src/context';
 
 /**
- * End-to-end check for the health route.
+ * End-to-end check across the real middleware chain.
  *
- * Boots only `HealthModule` so the suite runs without PostgreSQL or Redis;
- * full-stack e2e tests arrive with the features that need those services.
+ * `createApp` takes its dependencies as arguments, so the suite runs without
+ * PostgreSQL or Redis; services are stubbed because no route touches them yet.
  */
-describe('Health (e2e)', () => {
-  let app: INestApplication;
+const config: AppConfig = {
+  nodeEnv: 'test',
+  port: 0,
+  isProduction: false,
+  databaseUrl: 'postgresql://unused',
+  redisUrl: 'redis://unused',
+  jwtSecret: 'test-secret-that-is-long-enough-to-pass',
+  corsOrigins: [],
+  googleMapsApiKey: null,
+};
 
-  beforeAll(async () => {
-    const moduleRef: TestingModule = await Test.createTestingModule({
-      imports: [HealthModule],
-    }).compile();
+const services = {} as Services;
+const app = createApp({ config, services });
 
-    app = moduleRef.createNestApplication();
-    await app.init();
-  });
-
-  afterAll(async () => {
-    await app.close();
-  });
-
-  it('GET /health returns ok', async () => {
-    const response = await request(app.getHttpServer()).get('/health').expect(200);
+describe('API (e2e)', () => {
+  it('GET /api/v1/health returns ok', async () => {
+    const response = await request(app).get('/api/v1/health').expect(200);
 
     expect(response.body).toMatchObject({ status: 'ok' });
+    expect(response.headers['x-request-id']).toEqual(expect.any(String));
+  });
+
+  it('returns the shared error envelope for an unknown route', async () => {
+    const response = await request(app).get('/api/v1/nope').expect(404);
+
+    expect(response.body).toEqual({
+      error: expect.objectContaining({
+        code: 'NOT_FOUND',
+        message: expect.stringContaining('Cannot GET'),
+      }),
+    });
+  });
+
+  it('does not advertise the server implementation', async () => {
+    const response = await request(app).get('/api/v1/health');
+
+    expect(response.headers['x-powered-by']).toBeUndefined();
   });
 });
