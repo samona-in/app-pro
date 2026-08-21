@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ApiErrorCode, type ApiErrorBody } from '@samona/types';
-import { HttpError, notFound } from '../errors';
+import { isHttpError, notFound } from '../errors';
 import { logger } from '../logger';
 
 /** Terminal 404 for unmatched routes; hands off to the error handler. */
@@ -32,7 +32,7 @@ export function errorHandler(
   }
 
   const requestId = req.get('x-request-id') ?? undefined;
-  const isKnown = error instanceof HttpError;
+  const isKnown = isHttpError(error);
   const status = isKnown ? error.status : 500;
 
   if (status >= 500) {

@@ -83,11 +83,12 @@ is no global `controllers/` or `services/` folder — see CLAUDE.md →
 *Architecture*. `matching` has no router by design: it is an internal service
 that `jobs` drives.
 
-**Dependency wiring.** There is no DI container. `context.ts` constructs every
-service once and passes it to the route factories, so wiring stays greppable and
-services are trivial to construct in tests with a stub client. `createApp()`
-takes its dependencies as arguments and opens no sockets, which is what lets the
-e2e suite run without PostgreSQL or Redis.
+**Dependency wiring.** There is no DI container. `context.ts` calls each
+`create<Domain>Service({ prisma })` factory once and passes the result to the
+route factories, so wiring stays greppable and services are trivial to build in
+tests with a stub client. `createApp()` takes its dependencies as arguments and
+opens no sockets, which is what lets the e2e suite run without PostgreSQL or
+Redis.
 
 ---
 
@@ -233,8 +234,15 @@ contract. Clients *request* transitions; the server validates and applies them.
 
 **One error envelope.** Every failure returns
 `{ error: { code, message, details?, requestId? } }`. Stack traces, database
-errors and infrastructure details never reach a client. `ApiClient` normalises
-transport failures and timeouts into the same `ApiError` type.
+errors and infrastructure details never reach a client. The API client
+normalises transport failures and timeouts into the same `ApiError` shape.
+
+**No classes.** The codebase is functional throughout: factory functions and
+closures instead of instances, function components in React Native, and errors
+built with `new Error()` plus a type guard rather than an `Error` subclass.
+Because there is no custom error class, identify errors with `isApiError` /
+`isHttpError`, never `instanceof`. ESLint enforces this via
+`no-restricted-syntax`; see CLAUDE.md → *Code Quality*.
 
 **Validation.** Zod schemas in `@samona/validation` are shared by both sides.
 The client validates for fast feedback; the server's validation is authoritative.

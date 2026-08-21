@@ -317,6 +317,21 @@ Use meaningful names.
 
 Keep functions small and focused.
 
+Write functional code. Do not declare classes anywhere in this codebase.
+
+- Use factory functions that return an object, with private state held in the
+  closure, instead of classes and instances.
+- Use function components and hooks in React Native. Never class components.
+- Build errors with `new Error()` and attach fields, paired with a type guard
+  (`isApiError`, `isHttpError`). Do not subclass `Error`; `instanceof` on a
+  custom error type will not work.
+- Compose dependencies explicitly by passing them as arguments. Do not
+  introduce a DI container or decorators.
+
+Calling a constructor from a third-party or built-in API (`new Error()`,
+`PrismaClient`, `Redis`, `AbortController`) is fine — the rule is about the
+code we write. `no-restricted-syntax` enforces this in ESLint.
+
 ## UI
 
 SAMONA Pro should feel like a premium consumer application.

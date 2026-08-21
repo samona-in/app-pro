@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { isApiError } from '@samona/api-client';
+import { isRetryable } from '@samona/api-client';
 
 /**
  * TanStack Query owns all server state (CLAUDE.md "React Native Architecture").
@@ -15,7 +15,10 @@ function createQueryClient(): QueryClient {
         staleTime: 30_000,
         gcTime: 5 * 60_000,
         retry: (failureCount, error) => {
-          if (isApiError(error) && !error.isRetryable) return false;
+          // Only transient API failures are worth retrying. Anything else — an
+          // auth error, a validation error, or a bug thrown inside the query
+          // function — will fail the same way on the next attempt.
+          if (!isRetryable(error)) return false;
           return failureCount < 2;
         },
         refetchOnWindowFocus: false,

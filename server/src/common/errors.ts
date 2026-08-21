@@ -1,45 +1,66 @@
 import { ApiErrorCode } from '@samona/types';
 
 /**
- * The error type route handlers throw.
+ * The error shape route handlers throw.
  *
- * Anything thrown that is not an `HttpError` is treated as an unexpected
+ * It is a real `Error` — built with the platform constructor so stack traces
+ * keep working — with our fields attached. There is no `HttpError` class to
+ * subclass, so identify one with `isHttpError` rather than `instanceof`.
+ *
+ * Anything thrown that is *not* an `HttpError` is treated as an unexpected
  * failure: logged in full server-side, reported to the client as a generic
  * message (CLAUDE.md "Error Handling").
  */
-export class HttpError extends Error {
+export interface HttpError extends Error {
+  readonly name: 'HttpError';
   readonly status: number;
   readonly code: ApiErrorCode;
   readonly details?: Record<string, string[]>;
+}
 
-  constructor(
-    status: number,
-    code: ApiErrorCode,
-    message: string,
-    options?: { details?: Record<string, string[]>; cause?: unknown },
-  ) {
-    super(message, { cause: options?.cause });
-    this.name = 'HttpError';
-    this.status = status;
-    this.code = code;
-    this.details = options?.details;
-  }
+export interface HttpErrorOptions {
+  details?: Record<string, string[]>;
+  cause?: unknown;
+}
+
+export function createHttpError(
+  status: number,
+  code: ApiErrorCode,
+  message: string,
+  options?: HttpErrorOptions,
+): HttpError {
+  const error = new Error(message, { cause: options?.cause }) as Error & {
+    -readonly [K in keyof HttpError]: HttpError[K];
+  };
+
+  error.name = 'HttpError';
+  error.status = status;
+  error.code = code;
+  if (options?.details) error.details = options.details;
+
+  return error;
+}
+
+export function isHttpError(error: unknown): error is HttpError {
+  return error instanceof Error && error.name === 'HttpError' && 'status' in error;
 }
 
 export const badRequest = (message = 'Request could not be processed.') =>
-  new HttpError(400, ApiErrorCode.BAD_REQUEST, message);
+  createHttpError(400, ApiErrorCode.BAD_REQUEST, message);
 
 export const validationFailed = (details: Record<string, string[]>) =>
-  new HttpError(422, ApiErrorCode.VALIDATION_FAILED, 'Some fields need attention.', { details });
+  createHttpError(422, ApiErrorCode.VALIDATION_FAILED, 'Some fields need attention.', {
+    details,
+  });
 
 export const unauthenticated = (message = 'You need to sign in to continue.') =>
-  new HttpError(401, ApiErrorCode.UNAUTHENTICATED, message);
+  createHttpError(401, ApiErrorCode.UNAUTHENTICATED, message);
 
 export const forbidden = (message = 'You do not have access to this resource.') =>
-  new HttpError(403, ApiErrorCode.FORBIDDEN, message);
+  createHttpError(403, ApiErrorCode.FORBIDDEN, message);
 
 export const notFound = (message = 'Not found.') =>
-  new HttpError(404, ApiErrorCode.NOT_FOUND, message);
+  createHttpError(404, ApiErrorCode.NOT_FOUND, message);
 
 export const conflict = (message = 'That conflicts with the current state.') =>
-  new HttpError(409, ApiErrorCode.CONFLICT, message);
+  createHttpError(409, ApiErrorCode.CONFLICT, message);
