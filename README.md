@@ -223,6 +223,31 @@ Run `npm run verify` before opening a pull request.
 
 ---
 
+## Troubleshooting
+
+### `Unable to resolve "../../App" from node_modules/expo/AppEntry.js`
+
+You started Expo from the **monorepo root** instead of `apps/pro`.
+
+The root `package.json` has no `main` field, so Expo falls back to its legacy
+entry point (`expo/AppEntry.js`), which looks for an `App.tsx` beside it. This
+project uses Expo Router, whose entry point is declared as
+`"main": "expo-router/entry"` in `apps/pro/package.json` — a file that only
+exists once Expo is looking at the app directory.
+
+Run it from the right place:
+
+```bash
+npm run dev:pro          # from the repo root — runs inside apps/pro
+# or
+cd apps/pro && npx expo start
+```
+
+The same applies to `expo export`, `expo-doctor` and `eas build`: all of them
+must run with `apps/pro` as the project root.
+
+---
+
 ## Architecture notes
 
 **Server state vs client state.** TanStack Query owns everything that comes from
