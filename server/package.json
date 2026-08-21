@@ -27,9 +27,11 @@
     "@samona/validation": "*",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
+    "rate-limit-redis": "^6.0.1",
     "socket.io": "^4.8.3",
     "zod": "^4.4.3"
   },

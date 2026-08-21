@@ -18,6 +18,13 @@ export interface ApiError extends Error {
   readonly status: number;
   readonly details?: Record<string, string[]>;
   readonly requestId?: string;
+  /**
+   * How long the server asked us to wait, from `Retry-After`, in milliseconds.
+   *
+   * Present on 429 and 503. Honouring it is the difference between backing off
+   * and turning a rate limit into a self-inflicted outage.
+   */
+  readonly retryAfterMs?: number;
 }
 
 export interface CreateApiErrorParams {
@@ -26,6 +33,7 @@ export interface CreateApiErrorParams {
   status?: number;
   details?: Record<string, string[]>;
   requestId?: string;
+  retryAfterMs?: number;
   cause?: unknown;
 }
 
@@ -39,6 +47,7 @@ export function createApiError(params: CreateApiErrorParams): ApiError {
   error.status = params.status ?? 0;
   if (params.details) error.details = params.details;
   if (params.requestId) error.requestId = params.requestId;
+  if (params.retryAfterMs !== undefined) error.retryAfterMs = params.retryAfterMs;
 
   return error;
 }
@@ -57,6 +66,26 @@ export function isRetryable(error: unknown): boolean {
     error.status >= 500 ||
     error.status === 429
   );
+}
+
+/** True when the caller has been rate limited. */
+export function isRateLimited(error: unknown): boolean {
+  return isApiError(error) && error.code === ApiErrorCode.RATE_LIMITED;
+}
+
+/**
+ * How long to wait before retrying, in milliseconds.
+ *
+ * Prefers the server's `Retry-After`; otherwise exponential backoff with full
+ * jitter. The jitter matters: without it every client rate-limited by the same
+ * event retries in lockstep and rebuilds the spike that caused the limit.
+ */
+export function retryDelayMs(error: unknown, attempt: number): number {
+  const serverAsked = isApiError(error) ? error.retryAfterMs : undefined;
+  if (serverAsked !== undefined) return serverAsked;
+
+  const capped = Math.min(30_000, 1_000 * 2 ** attempt);
+  return Math.round(Math.random() * capped);
 }
 
 /** True when the failure is an authentication or authorisation problem. */
