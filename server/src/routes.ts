@@ -2,7 +2,6 @@ import { Router } from 'express';
 import type { Services } from './context';
 import type { Limiters } from './common';
 
-import { createHealthRouter } from './health/health.routes';
 import { createAuthRouter } from './auth/auth.routes';
 import { createUsersRouter } from './users/users.routes';
 import { createProsRouter } from './pros/pros.routes';
@@ -33,9 +32,8 @@ import { createReviewsRouter } from './reviews/reviews.routes';
 export function createApiRouter(services: Services, limiters: Limiters): Router {
   const router = Router();
 
-  // Unlimited by design: load balancers poll this, and a limited health check
-  // reports unhealthy under exactly the load it exists to survive.
-  router.use('/health', createHealthRouter());
+  // Note: /health is mounted in app.ts, ahead of the Clerk middleware, so it
+  // stays available regardless of auth configuration.
 
   // Credentials: the credential-stuffing and OTP brute-force surface.
   router.use('/auth', limiters.auth, createAuthRouter(services));

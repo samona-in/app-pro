@@ -15,7 +15,8 @@ generator client {
 
 // Prisma 7 takes the connection URL from `prisma.config.ts` (for migrations)
 // and from the driver adapter passed to PrismaClient (at runtime), so no `url`
-// belongs here.
+// belongs here. Supabase is the managed host; see .env.example for why the
+// pooled and direct URLs differ.
 datasource db {
   provider = "postgresql"
 }
@@ -25,24 +26,31 @@ datasource db {
 /// Customer, Pro and Admin share this table so a single authentication system
 /// serves all three (CLAUDE.md "Authentication"). Role-specific data belongs in
 /// a profile table joined to this one.
+///
+/// Clerk owns credentials and phone verification; this row owns domain data and
+/// is the authority on `role`. There is no password column by design — the
+/// application never sees or stores a credential.
 model User {
-  id           String   @id @default(uuid())
-  role         UserRole @default(CUSTOMER)
+  id          String   @id @default(uuid())
 
-  /// At least one of email/phone is required; enforced in the auth domain.
-  email        String?  @unique
-  phone        String?  @unique
+  /// Clerk user id (`user_...`). The join between Clerk's identity and ours.
+  clerkUserId String   @unique
 
-  /// Argon2/bcrypt hash. Never plaintext, never returned to a client.
-  passwordHash String?
+  /// Authoritative. Never read from a token claim or a client payload.
+  role        UserRole @default(CUSTOMER)
 
-  fullName     String?
-  avatarUrl    String?
+  /// Mirrored from Clerk on sign-in and on webhook events. Clerk verifies the
+  /// phone number; we only cache the verified value for queries and display.
+  email       String?  @unique
+  phone       String?  @unique
 
-  isActive     Boolean  @default(true)
+  fullName    String?
+  avatarUrl   String?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([role])
   @@map("users")

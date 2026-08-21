@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import cors, { type CorsOptions } from 'cors';
 import helmet from 'helmet';
+import { clerkMiddleware } from '@clerk/express';
 import { API_PREFIX } from '@samona/config';
 import { ApiErrorCode } from '@samona/types';
 import type { AppConfig } from './config';
@@ -12,6 +13,8 @@ import {
   limitJsonShape,
 } from './common/middleware/request-guards';
 import { createLimiters, type RateLimiterDeps } from './common/middleware/rate-limit';
+import { createAuthWebhookRouter } from './auth/auth.webhook';
+import { createHealthRouter } from './health/health.routes';
 import { createApiRouter } from './routes';
 
 export interface CreateAppOptions {
@@ -101,6 +104,13 @@ export function createApp({ config, services, rateLimit }: CreateAppOptions): Ex
   // Global budget first: it is the cheapest possible rejection.
   app.use(limiters.global);
 
+  // Mounted before the JSON parser: Clerk signs the raw bytes, and parsing then
+  // re-serialising them invalidates the signature.
+  app.use(
+    `${API_PREFIX}/auth/webhook`,
+    createAuthWebhookRouter(services, config.clerkWebhookSigningSecret),
+  );
+
   app.use(enforceJsonContentType);
   // 100kb is generous for this API's payloads. Uploads must go to object
   // storage via a signed URL, never through a JSON body.
@@ -109,6 +119,23 @@ export function createApp({ config, services, rateLimit }: CreateAppOptions): Ex
 
   app.use(blockPrototypePollution);
   app.use(limitJsonShape());
+
+  // Health is mounted ahead of Clerk deliberately: a liveness probe must not
+  // depend on auth configuration, or a bad Clerk key makes the process look
+  // dead to the load balancer as well as broken to users.
+  app.use(`${API_PREFIX}/health`, createHealthRouter());
+
+  // Verifies the Clerk session token and caches the result on the request.
+  // It does not reject anything on its own — `requireAuth` decides that per
+  // route, so public routes stay public.
+  app.use(
+    clerkMiddleware({
+      secretKey: config.clerkSecretKey,
+      // The backend needs this to resolve the instance's Frontend API when
+      // verifying tokens; without it every request fails to authenticate.
+      publishableKey: config.clerkPublishableKey,
+    }),
+  );
 
   app.use(API_PREFIX, createApiRouter(services, limiters));
 

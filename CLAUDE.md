@@ -49,7 +49,7 @@ Backend:
 - Node.js
 - TypeScript
 - Express
-- PostgreSQL
+- PostgreSQL (hosted on Supabase)
 - Prisma
 - Redis
 - Socket.IO
@@ -164,6 +164,27 @@ Do not create separate authentication systems for each application.
 Role-based authorization must happen on the backend.
 
 Never trust role information sent by the client.
+
+Clerk is the identity provider. Phone number with SMS code is the sign-in
+method for professionals.
+
+- Clerk owns credentials and phone verification. No password, OTP or credential
+  is ever sent to, stored by, or logged by this codebase.
+- The `User` row is the authority on `role`. Never read a role from a token
+  claim, a header or a request body — a claim we do not issue is client-
+  influenced data.
+- A Clerk session token proves identity only. Resolve it to a local user and
+  read authorisation from that record.
+- Users are provisioned just-in-time on first authenticated request, and kept
+  current by the Clerk webhook. The webhook must verify its signature against
+  the raw body, before any JSON parsing.
+- Deactivate users on deletion; never hard-delete a row that jobs, payments or
+  earnings reference.
+
+Supabase provides the managed PostgreSQL instance. Prisma remains the data
+access layer; the Supabase client and RLS are not used, because this API is the
+only database client and enforces authorisation itself. Use the pooled
+(Supavisor, 6543) URL at runtime and the direct (5432) URL for migrations.
 
 ## Job State Machine
 

@@ -2,7 +2,6 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Screen, Text } from '@/components/ui';
-import { useSessionStore } from '@/stores/session';
 
 const VALUE_PROPS = [
   'Get job requests from customers near you',
@@ -11,24 +10,13 @@ const VALUE_PROPS = [
 ];
 
 export default function Welcome() {
-  const setSession = useSessionStore((state) => state.setSession);
-
   /**
-   * Scaffold only. This stands in for the real sign-in flow so the navigation
-   * structure is walkable end to end; it seeds a local placeholder session and
-   * performs no authentication. Replace with the auth feature.
+   * Both buttons lead to the same place: a professional entering their number
+   * does not know whether they already have an account, and the phone flow
+   * resolves that itself.
    */
-  function continueToApp() {
-    setSession({
-      id: 'placeholder-pro',
-      role: 'PRO',
-      email: null,
-      phone: null,
-      fullName: 'SAMONA Pro',
-      avatarUrl: null,
-      createdAt: new Date().toISOString(),
-    });
-    router.replace('/home');
+  function continueToPhone() {
+    router.push('/phone');
   }
 
   return (
@@ -56,10 +44,10 @@ export default function Welcome() {
       </View>
 
       <View className="gap-3 pb-4">
-        <Button label="Get started" size="lg" onPress={continueToApp} />
-        <Button label="I already have an account" variant="ghost" onPress={continueToApp} />
+        <Button label="Get started" size="lg" onPress={continueToPhone} />
+        <Button label="I already have an account" variant="ghost" onPress={continueToPhone} />
         <Text variant="caption" className="mt-2 text-center">
-          By continuing you agree to the SAMONA Pro terms and privacy policy.
+          We&apos;ll verify your phone number with a six-digit code.
         </Text>
       </View>
     </Screen>

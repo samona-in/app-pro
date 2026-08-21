@@ -7,17 +7,26 @@ export interface UsersServiceDeps {
 /**
  * Users domain service.
  *
- * Owns the shared `User` record and role assignment — the identity every
- * other profile hangs off.
- *
- * Scaffold only — no behaviour is implemented yet. Methods go on the returned
- * object and read their dependencies from the enclosing scope.
+ * Owns the shared `User` record and role assignment — the identity every other
+ * profile hangs off. Clerk owns credentials; this owns everything else.
  */
 export function createUsersService(deps: UsersServiceDeps) {
-  // Captured for the methods this service will expose.
-  void deps;
+  async function findById(id: string) {
+    return deps.prisma.user.findUnique({ where: { id } });
+  }
 
-  return {};
+  /**
+   * Changes a user's role.
+   *
+   * Intentionally not reachable from any route yet: role changes are an
+   * administrative action and must sit behind `requireRole('ADMIN')` once the
+   * admin surface exists.
+   */
+  async function setRole(id: string, role: 'CUSTOMER' | 'PRO' | 'ADMIN') {
+    return deps.prisma.user.update({ where: { id }, data: { role } });
+  }
+
+  return { findById, setRole };
 }
 
 export type UsersService = ReturnType<typeof createUsersService>;

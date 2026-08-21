@@ -48,11 +48,17 @@ export interface AppContext {
   services: Services;
 }
 
-export function createServices(prisma: PrismaClient): Services {
+export function createServices(prisma: PrismaClient, config: AppConfig): Services {
   const deps = { prisma };
 
   return {
-    auth: createAuthService(deps),
+    // Auth needs Clerk credentials and the provisioning default; every other
+    // service needs only the database.
+    auth: createAuthService({
+      prisma,
+      clerkSecretKey: config.clerkSecretKey,
+      signupDefaultRole: config.signupDefaultRole,
+    }),
     users: createUsersService(deps),
     pros: createProsService(deps),
     customers: createCustomersService(deps),

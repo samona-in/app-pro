@@ -15,8 +15,14 @@ const config: AppConfig = {
   port: 0,
   isProduction: false,
   databaseUrl: 'postgresql://unused',
+  directUrl: 'postgresql://unused',
   redisUrl: 'redis://unused',
-  jwtSecret: 'test-secret-that-is-long-enough-to-pass',
+  clerkSecretKey: 'sk_test_unused',
+  // Clerk parses this to derive the Frontend API host, so it must be a
+  // well-formed key: base64 of "clerk.example.com$".
+  clerkPublishableKey: 'pk_test_Y2xlcmsuZXhhbXBsZS5jb20k',
+  clerkWebhookSigningSecret: null,
+  signupDefaultRole: 'PRO',
   corsOrigins: [],
   googleMapsApiKey: null,
 };

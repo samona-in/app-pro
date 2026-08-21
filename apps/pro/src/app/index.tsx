@@ -1,18 +1,19 @@
 import { Redirect } from 'expo-router';
+import { useAuth } from '@clerk/clerk-expo';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { useBootstrapSession } from '@/hooks/use-bootstrap-session';
-import { useSession } from '@/hooks';
 
 /**
- * Entry route. Resolves the stored session once, then hands off to the correct
- * stack. Keeping the decision here means no other screen has to guard for it.
+ * Entry route.
+ *
+ * Waits for Clerk to restore any persisted session, then sends the user to the
+ * right stack. Keeping the decision here means no other screen has to guard
+ * for it.
  */
 export default function Index() {
-  useBootstrapSession();
-  const { isLoading, isAuthenticated } = useSession();
+  const { isLoaded, isSignedIn } = useAuth();
 
-  if (isLoading) {
+  if (!isLoaded) {
     return (
       <Screen edges={['top', 'bottom']}>
         <LoadingState message="Starting SAMONA Pro" />
@@ -20,5 +21,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={isAuthenticated ? '/home' : '/welcome'} />;
+  return <Redirect href={isSignedIn ? '/home' : '/welcome'} />;
 }

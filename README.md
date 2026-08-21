@@ -131,9 +131,14 @@ cp apps/pro/.env.example apps/pro/.env
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | server | PostgreSQL connection string |
+| `DATABASE_URL` | server | Supabase **pooled** connection (port 6543) used at runtime |
+| `DIRECT_URL` | server | Supabase **direct** connection (port 5432), migrations only |
+| `CLERK_SECRET_KEY` | server | Clerk server key |
+| `CLERK_PUBLISHABLE_KEY` | server | Also needed server-side, to verify tokens |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | server | Verifies Clerk webhook signatures |
+| `SIGNUP_DEFAULT_ROLE` | server | Role given on first sign-in (`PRO` today) |
+| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | app | Clerk key for the mobile app |
 | `REDIS_URL` | server | Redis connection string |
-| `JWT_SECRET` | server | Token signing secret (min. 32 chars) |
 | `PORT` | server | API port (default `4000`) |
 | `CORS_ORIGINS` | server | Comma-separated allowed origins |
 | `GOOGLE_MAPS_API_KEY` | server | Server-side geocoding / distance |
@@ -225,9 +230,12 @@ the API. Zustand holds only client concerns (the availability toggle, network
 status). Server data is never duplicated into Zustand.
 
 **One authentication system.** Customer, Pro and Admin share one `User` table and
-one auth system. Roles are enforced on the server via the `requireAuth` and
-`requireRole` middleware, which read the principal established from a verified
-token; a role sent by a client is never trusted.
+one auth system, with **Clerk** as the identity provider and phone + SMS code as
+the sign-in method. Clerk owns credentials and verification — no OTP or password
+ever reaches this codebase. A Clerk token proves *identity*; `role` is read from
+our own `User` row, so a token claim can never escalate privileges. Users are
+provisioned just-in-time on first authenticated request and kept current by a
+signature-verified Clerk webhook.
 
 **Job state machine.** `JOB_STATUS_TRANSITIONS` in `@samona/types` is the shared
 contract. Clients *request* transitions; the server validates and applies them.

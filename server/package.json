@@ -20,6 +20,8 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@clerk/backend": "^3.16.10",
+    "@clerk/express": "^2.1.61",
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "@samona/config": "*",

@@ -22,6 +22,14 @@ function required(name: string, value: string | undefined): string {
 
 export const env = {
   apiUrl: required(CLIENT_ENV_KEYS.apiUrl, process.env.EXPO_PUBLIC_API_URL),
+  /**
+   * Clerk publishable key. Public by design — it identifies the Clerk instance
+   * and carries no authority. The secret key stays on the server.
+   */
+  clerkPublishableKey: required(
+    'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  ),
   /** Optional until maps are wired up; features must handle its absence. */
   googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? null,
   isDev: __DEV__,
