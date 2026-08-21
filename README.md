@@ -246,6 +246,21 @@ cd apps/pro && npx expo start
 The same applies to `expo export`, `expo-doctor` and `eas build`: all of them
 must run with `apps/pro` as the project root.
 
+### An `EXPO_PUBLIC_*` change appears to have no effect
+
+Expo **inlines** `EXPO_PUBLIC_*` variables into the bundle at transform time, and
+Metro caches transformed modules. After editing `apps/pro/.env`, a plain restart
+can keep serving the previous value — silently, with no warning. This bites
+hardest with keys, because the app then talks to the wrong backend or the wrong
+Clerk instance while the `.env` on disk looks correct.
+
+Clear the cache whenever you change one:
+
+```bash
+npx expo start --clear
+npx expo export --platform android --clear
+```
+
 ---
 
 ## Architecture notes
