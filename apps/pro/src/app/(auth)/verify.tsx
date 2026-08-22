@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { OTP_LENGTH } from '@samona/config';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { usePhoneAuth } from '@/hooks';
 
-const CODE_LENGTH = 6;
+/** Placeholder mirrors the expected length, e.g. "1234". */
+const CODE_PLACEHOLDER = Array.from({ length: OTP_LENGTH }, (_, i) => (i + 1) % 10).join('');
 
 /**
  * Step 2 of phone authentication: verify the code.
@@ -45,12 +47,12 @@ export default function VerifyScreen() {
         <Input
           label="Verification code"
           value={code}
-          onChangeText={(next) => setCode(next.replace(/\D/g, '').slice(0, CODE_LENGTH))}
-          placeholder="123456"
+          onChangeText={(next) => setCode(next.replace(/\D/g, '').slice(0, OTP_LENGTH))}
+          placeholder={CODE_PLACEHOLDER}
           keyboardType="number-pad"
           autoComplete="sms-otp"
           textContentType="oneTimeCode"
-          maxLength={CODE_LENGTH}
+          maxLength={OTP_LENGTH}
           autoFocus
           editable={!isBusy}
           error={error ?? undefined}
@@ -64,7 +66,7 @@ export default function VerifyScreen() {
           label="Verify"
           size="lg"
           loading={isBusy}
-          disabled={code.length < CODE_LENGTH}
+          disabled={code.length < OTP_LENGTH}
           onPress={() => void onVerify()}
         />
         <Button

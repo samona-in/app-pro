@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { OTP_LENGTH } from '@samona/config';
 import { phoneSchema } from '@samona/validation';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Input, Screen, Text } from '@/components/ui';
@@ -41,7 +42,7 @@ export default function PhoneScreen() {
           Enter your phone number
         </Text>
         <Text variant="body" className="mt-2 text-text-secondary">
-          We&apos;ll text you a six-digit code to verify it&apos;s you.
+          We&apos;ll text you a {OTP_LENGTH}-digit code to verify it&apos;s you.
         </Text>
 
         <Input

@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { OTP_LENGTH } from '@samona/config';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Screen, Text } from '@/components/ui';
 
@@ -47,7 +48,7 @@ export default function Welcome() {
         <Button label="Get started" size="lg" onPress={continueToPhone} />
         <Button label="I already have an account" variant="ghost" onPress={continueToPhone} />
         <Text variant="caption" className="mt-2 text-center">
-          We&apos;ll verify your phone number with a six-digit code.
+          We&apos;ll verify your phone number with a {OTP_LENGTH}-digit code.
         </Text>
       </View>
     </Screen>
