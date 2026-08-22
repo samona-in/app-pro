@@ -7,6 +7,8 @@
 export const queryKeys = {
   session: ['session'] as const,
   profile: ['profile'] as const,
+  proProfile: ['pro-profile'] as const,
+  catalogue: ['catalogue'] as const,
   jobs: {
     all: ['jobs'] as const,
     list: (filter?: string) => ['jobs', 'list', filter ?? 'all'] as const,

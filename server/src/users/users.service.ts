@@ -12,7 +12,7 @@ export interface UsersServiceDeps {
  */
 export function createUsersService(deps: UsersServiceDeps) {
   async function findById(id: string) {
-    return deps.prisma.user.findUnique({ where: { id } });
+    return deps.prisma.profile.findUnique({ where: { id } });
   }
 
   /**
@@ -23,7 +23,7 @@ export function createUsersService(deps: UsersServiceDeps) {
    * admin surface exists.
    */
   async function setRole(id: string, role: 'CUSTOMER' | 'PRO' | 'ADMIN') {
-    return deps.prisma.user.update({ where: { id }, data: { role } });
+    return deps.prisma.profile.update({ where: { id }, data: { role } });
   }
 
   return { findById, setRole };

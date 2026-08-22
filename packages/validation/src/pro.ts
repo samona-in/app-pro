@@ -1,0 +1,91 @@
+import { z } from 'zod';
+import { EXPERIENCE_LEVELS, LANGUAGE_MAX } from './constants';
+import { fullNameSchema, idSchema, coordinatesSchema } from './primitives';
+
+/**
+ * Onboarding input schemas, shared by the app and the API.
+ *
+ * Each onboarding step submits only its own fields, so progress is saved as the
+ * Pro goes rather than lost if they close the app. Every field is optional at
+ * the schema level for that reason; the *completeness* rule lives in
+ * `isProProfileComplete` in `@samona/types`, not here.
+ *
+ * Server-controlled fields — isVerified, rating, completedJobs, userId — are
+ * absent by construction. A client cannot submit what the schema will not
+ * accept, so the API strips them before they reach Prisma.
+ */
+export const displayNameSchema = fullNameSchema;
+
+export const bioSchema = z.string().trim().max(600, 'Keep your description under 600 characters.');
+
+export const experienceLevelSchema = z.enum(EXPERIENCE_LEVELS);
+
+export const serviceRadiusSchema = z
+  .number()
+  .int('Choose one of the offered distances.')
+  .min(1, 'Service radius must be at least 1 km.')
+  .max(50, 'Service radius cannot exceed 50 km.');
+
+export const languagesSchema = z
+  .array(z.string().trim().min(2).max(40))
+  .max(LANGUAGE_MAX, `Pick at most ${LANGUAGE_MAX} languages.`);
+
+/** Step 2 — name. */
+export const onboardingNameSchema = z.object({
+  displayName: displayNameSchema,
+});
+
+/** Step 3 — services. At least one, or there is nothing to match on. */
+export const onboardingServicesSchema = z.object({
+  serviceIds: z.array(idSchema).min(1, 'Choose at least one service.'),
+});
+
+/** Step 4 — specialties within the chosen services. */
+export const onboardingSkillsSchema = z.object({
+  skillIds: z.array(idSchema).min(1, 'Choose at least one specialty.'),
+});
+
+/** Step 5 — experience. */
+export const onboardingExperienceSchema = z.object({
+  experienceLevel: experienceLevelSchema,
+});
+
+/** Step 6 — where they work. Coordinates are optional: a Pro may decline the
+ *  location permission and still pick a radius. */
+export const onboardingLocationSchema = z.object({
+  serviceRadiusKm: serviceRadiusSchema,
+  coordinates: coordinatesSchema.optional(),
+  locationLabel: z.string().trim().max(120).optional(),
+});
+
+/** Step 7 — how they describe themselves. */
+export const onboardingAboutSchema = z.object({
+  bio: bioSchema.optional(),
+  languages: languagesSchema.optional(),
+  avatarUrl: z.url().optional(),
+});
+
+/**
+ * Any single onboarding step.
+ *
+ * A partial update: only the keys present are written, so one step cannot
+ * blank out another step's answers.
+ */
+export const onboardingPatchSchema = z
+  .object({
+    displayName: displayNameSchema.optional(),
+    serviceIds: z.array(idSchema).optional(),
+    skillIds: z.array(idSchema).optional(),
+    experienceLevel: experienceLevelSchema.optional(),
+    serviceRadiusKm: serviceRadiusSchema.optional(),
+    coordinates: coordinatesSchema.optional(),
+    locationLabel: z.string().trim().max(120).optional(),
+    bio: bioSchema.optional(),
+    languages: languagesSchema.optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Nothing to update.',
+  });
+
+export type OnboardingPatchInput = z.infer<typeof onboardingPatchSchema>;
+export type OnboardingLocationInput = z.infer<typeof onboardingLocationSchema>;

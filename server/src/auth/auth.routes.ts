@@ -1,8 +1,27 @@
 import { Router } from 'express';
-import type { PublicUser } from '@samona/types';
+import {
+  nextIncompleteStep,
+  type OnboardingStatus,
+  type OnboardingStep,
+  type ProProfile,
+  type PublicUser,
+} from '@samona/types';
 import type { Services } from '../context';
 import { createRequireAuth } from '../common';
 import type { LocalUser } from './auth.service';
+
+/**
+ * Everything the app needs after sign-in, in one response.
+ *
+ * `nextStep` is computed from the profile's own data, so resuming onboarding
+ * and entering the app are the same decision made in one place.
+ */
+export interface SessionResponse {
+  user: PublicUser;
+  proProfile: ProProfile;
+  onboardingStatus: OnboardingStatus;
+  nextStep: OnboardingStep;
+}
 
 /** Shapes a local user for the wire. Never exposes internal columns. */
 function toPublicUser(user: LocalUser): PublicUser {
@@ -32,10 +51,12 @@ export function createAuthRouter(services: Services): Router {
   });
 
   /**
-   * The current user, provisioning the local record on first call.
+   * The current user, plus everything the app needs to decide where to send
+   * them.
    *
-   * The app calls this once Supabase reports a session, which is what turns a
-   * Supabase identity into a SAMONA user.
+   * Returning the routing decision here rather than making the app assemble it
+   * from several calls means there is one answer, computed server-side, and no
+   * window where the client routes on half-loaded data.
    */
   router.get('/me', requireAuth, async (req, res, next) => {
     try {
@@ -47,7 +68,16 @@ export function createAuthRouter(services: Services): Router {
         });
         return;
       }
-      res.json(toPublicUser(user as LocalUser));
+
+      const proProfile = await services.pros.ensureForUser(req.user!.id);
+
+      const body: SessionResponse = {
+        user: toPublicUser(user as LocalUser),
+        proProfile,
+        onboardingStatus: proProfile.onboardingStatus,
+        nextStep: nextIncompleteStep(proProfile),
+      };
+      res.json(body);
     } catch (error) {
       next(error);
     }
