@@ -25,8 +25,10 @@ export default function AuthLayout() {
     );
   }
 
+  // Route through "/" so the onboarding decision is made in one place rather
+  // than duplicated here.
   if (isSignedIn) {
-    return <Redirect href="/home" />;
+    return <Redirect href="/" />;
   }
 
   return (

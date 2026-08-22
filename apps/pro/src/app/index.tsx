@@ -1,19 +1,23 @@
 import { Redirect } from 'expo-router';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { useAuth } from '@/providers';
+import { useSession } from '@/hooks';
 
 /**
- * Entry route.
+ * Entry route — the single place the post-sign-in decision is made.
  *
- * Waits for Supabase to restore any persisted session, then sends the user to
- * the right stack. Keeping the decision here means no other screen has to guard
- * for it.
+ *   not authenticated        -> phone flow
+ *   no/incomplete onboarding -> resume at the first unanswered step
+ *   onboarding complete      -> home
+ *
+ * `nextStep` is computed by the server from the profile's own data, so the app
+ * never has to assemble the decision from several requests, and resuming works
+ * the same whether the Pro closed the app one step in or six.
  */
 export default function Index() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoading, isAuthenticated, isOnboardingComplete, nextStep, error } = useSession();
 
-  if (!isLoaded) {
+  if (isLoading) {
     return (
       <Screen edges={['top', 'bottom']}>
         <LoadingState message="Starting SAMONA Pro" />
@@ -21,5 +25,20 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={isSignedIn ? '/home' : '/welcome'} />;
+  if (!isAuthenticated) {
+    return <Redirect href="/welcome" />;
+  }
+
+  // The session loaded but the profile call failed. Sending the Pro into the
+  // app on unknown state would show a broken home screen, so start onboarding,
+  // which is safe to re-enter and will resume correctly once the API recovers.
+  if (error) {
+    return <Redirect href="/onboarding/intro" />;
+  }
+
+  if (!isOnboardingComplete) {
+    return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
+  }
+
+  return <Redirect href="/home" />;
 }

@@ -1,15 +1,56 @@
 import { Router } from 'express';
+import { onboardingPatchSchema } from '@samona/validation';
 import type { Services } from '../context';
+import { createRequireAuth, requireRole, validate } from '../common';
 
 /**
  * HTTP surface for the pros domain, mounted at `/pros`.
  *
- * Scaffold only — no routes are exposed yet. Every protected route added here
- * must go through `requireAuth`/`requireRole` and validate its input with a
- * shared Zod schema (CLAUDE.md "Security", "Validation").
+ * Every route is scoped to the caller's own profile: the user id comes from the
+ * verified token, never from the path or body, so there is no route on which a
+ * Pro can name someone else's profile (CLAUDE.md "Security").
  */
 export function createProsRouter(services: Services): Router {
   const router = Router();
-  void services;
+  const requireAuth = createRequireAuth({
+    verifier: services.tokenVerifier,
+    authService: services.auth,
+  });
+
+  router.use(requireAuth, requireRole('PRO', 'ADMIN'));
+
+  /** The service and specialty catalogue for onboarding steps 3 and 4. */
+  router.get('/catalogue', async (_req, res, next) => {
+    try {
+      res.json(await services.pros.listCatalogue());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /** The caller's own professional profile, created empty on first access. */
+  router.get('/me', async (req, res, next) => {
+    try {
+      res.json(await services.pros.ensureForUser(req.user!.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Saves one onboarding step.
+   *
+   * A partial update by design, so progress survives the Pro closing the app
+   * mid-flow. `onboardingStatus` is recomputed server-side from the resulting
+   * data and is deliberately not accepted from the client.
+   */
+  router.patch('/me/onboarding', validate(onboardingPatchSchema), async (req, res, next) => {
+    try {
+      res.json(await services.pros.applyOnboardingPatch(req.user!.id, req.body));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return router;
 }

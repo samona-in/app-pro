@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ColorValue } from 'react-native';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { useAuth } from '@/providers';
+import { useSession } from '@/hooks';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -22,9 +22,9 @@ function tabIcon(outline: IoniconName, filled: IoniconName) {
 }
 
 export default function TabsLayout() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
 
-  if (!isLoaded) {
+  if (isLoading) {
     return (
       <Screen edges={['top', 'bottom']}>
         <LoadingState message="Starting SAMONA Pro" />
@@ -35,8 +35,14 @@ export default function TabsLayout() {
   // Covers signing out and any deep link into the app while signed out. The
   // server rejects unauthenticated requests regardless; this is navigation, not
   // a security control.
-  if (!isSignedIn) {
+  if (!isAuthenticated) {
     return <Redirect href="/welcome" />;
+  }
+
+  // A Pro without a usable profile cannot be matched to work, so the tabs would
+  // be empty and confusing. Send them back to finish.
+  if (!isOnboardingComplete) {
+    return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
   }
 
   return (

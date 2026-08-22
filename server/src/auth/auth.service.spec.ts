@@ -9,7 +9,7 @@ function fakePrisma() {
   const update = jest.fn();
   return {
     calls: { findUnique, upsert, update },
-    client: { user: { findUnique, upsert, update } } as unknown as PrismaClient,
+    client: { profile: { findUnique, upsert, update } } as unknown as PrismaClient,
   };
 }
 

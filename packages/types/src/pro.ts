@@ -1,0 +1,127 @@
+/**
+ * Professional profile and onboarding.
+ *
+ * Mirrors `OnboardingStatus` / `ExperienceLevel` in the Prisma schema — keep
+ * the two in sync.
+ */
+export const OnboardingStatus = {
+  NOT_STARTED: 'NOT_STARTED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+export type OnboardingStatus = (typeof OnboardingStatus)[keyof typeof OnboardingStatus];
+
+export const ExperienceLevel = {
+  UNDER_1_YEAR: 'UNDER_1_YEAR',
+  ONE_TO_THREE: 'ONE_TO_THREE',
+  THREE_TO_FIVE: 'THREE_TO_FIVE',
+  FIVE_TO_TEN: 'FIVE_TO_TEN',
+  TEN_PLUS: 'TEN_PLUS',
+} as const;
+
+export type ExperienceLevel = (typeof ExperienceLevel)[keyof typeof ExperienceLevel];
+
+export const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
+  { value: ExperienceLevel.UNDER_1_YEAR, label: 'Less than 1 year' },
+  { value: ExperienceLevel.ONE_TO_THREE, label: '1–3 years' },
+  { value: ExperienceLevel.THREE_TO_FIVE, label: '3–5 years' },
+  { value: ExperienceLevel.FIVE_TO_TEN, label: '5–10 years' },
+  { value: ExperienceLevel.TEN_PLUS, label: '10+ years' },
+];
+
+export interface ServiceOption {
+  id: string;
+  slug: string;
+  name: string;
+  icon: string | null;
+}
+
+export interface SkillOption {
+  id: string;
+  serviceId: string;
+  slug: string;
+  name: string;
+}
+
+/** A professional profile as returned to the owning client. */
+export interface ProProfile {
+  id: string;
+  userId: string;
+  onboardingStatus: OnboardingStatus;
+  displayName: string | null;
+  bio: string | null;
+  experienceLevel: ExperienceLevel | null;
+  serviceRadiusKm: number;
+  latitude: number | null;
+  longitude: number | null;
+  locationLabel: string | null;
+  languages: string[];
+  /** Server-controlled; shown, never submitted. */
+  isOnline: boolean;
+  isVerified: boolean;
+  rating: number | null;
+  completedJobs: number;
+  serviceIds: string[];
+  skillIds: string[];
+}
+
+/**
+ * The one definition of "onboarding is done".
+ *
+ * Centralised deliberately: scattering these checks across screens is how a
+ * Pro ends up stuck on a step the server thinks is finished, or admitted to the
+ * app with an unusable profile. Both the API and the app import this, so they
+ * cannot disagree.
+ *
+ * Documents, bank details and certifications are intentionally absent — they
+ * are collected later, and requiring them here would block a Pro who is
+ * otherwise ready to work.
+ */
+export function isProProfileComplete(
+  profile: Pick<
+    ProProfile,
+    'displayName' | 'experienceLevel' | 'serviceRadiusKm' | 'serviceIds' | 'skillIds'
+  > | null,
+): boolean {
+  if (!profile) return false;
+
+  return (
+    typeof profile.displayName === 'string' &&
+    profile.displayName.trim().length >= 2 &&
+    profile.experienceLevel !== null &&
+    profile.serviceRadiusKm > 0 &&
+    profile.serviceIds.length > 0 &&
+    profile.skillIds.length > 0
+  );
+}
+
+/** The onboarding steps, in order. Drives both the UI and resume routing. */
+export const ONBOARDING_STEPS = [
+  'intro',
+  'name',
+  'services',
+  'skills',
+  'experience',
+  'location',
+  'about',
+  'review',
+] as const;
+
+export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
+
+/**
+ * The first step still missing data.
+ *
+ * This is what makes onboarding resumable: a Pro who closed the app after
+ * choosing services returns to specialties, not to the beginning.
+ */
+export function nextIncompleteStep(profile: ProProfile | null): OnboardingStep {
+  if (!profile) return 'intro';
+  if (!profile.displayName || profile.displayName.trim().length < 2) return 'name';
+  if (profile.serviceIds.length === 0) return 'services';
+  if (profile.skillIds.length === 0) return 'skills';
+  if (!profile.experienceLevel) return 'experience';
+  if (!profile.serviceRadiusKm) return 'location';
+  return 'review';
+}

@@ -39,7 +39,7 @@ export function createAuthService(deps: AuthServiceDeps) {
    * costs one database round trip and never calls the Auth API.
    */
   async function syncUser(token: VerifiedToken): Promise<LocalUser> {
-    const existing = await deps.prisma.user.findUnique({ where: { id: token.userId } });
+    const existing = await deps.prisma.profile.findUnique({ where: { id: token.userId } });
 
     if (existing) {
       // Keep the mirrored contact details fresh, but never touch `role`:
@@ -48,7 +48,7 @@ export function createAuthService(deps: AuthServiceDeps) {
 
       if (!contactChanged) return existing as LocalUser;
 
-      const updated = await deps.prisma.user.update({
+      const updated = await deps.prisma.profile.update({
         where: { id: token.userId },
         data: { phone: token.phone, email: token.email },
       });
@@ -57,7 +57,7 @@ export function createAuthService(deps: AuthServiceDeps) {
 
     // upsert, not create: two concurrent first requests would otherwise race
     // and one would fail on the primary key.
-    const user = await deps.prisma.user.upsert({
+    const user = await deps.prisma.profile.upsert({
       where: { id: token.userId },
       create: {
         id: token.userId,
