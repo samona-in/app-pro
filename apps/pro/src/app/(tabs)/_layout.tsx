@@ -1,6 +1,9 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ColorValue } from 'react-native';
+import { LoadingState } from '@/components/feedback';
+import { Screen } from '@/components/ui';
+import { useAuth } from '@/providers';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -19,6 +22,23 @@ function tabIcon(outline: IoniconName, filled: IoniconName) {
 }
 
 export default function TabsLayout() {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <LoadingState message="Starting SAMONA Pro" />
+      </Screen>
+    );
+  }
+
+  // Covers signing out and any deep link into the app while signed out. The
+  // server rejects unauthenticated requests regardless; this is navigation, not
+  // a security control.
+  if (!isSignedIn) {
+    return <Redirect href="/welcome" />;
+  }
+
   return (
     <Tabs
       screenOptions={{
