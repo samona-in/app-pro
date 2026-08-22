@@ -29,6 +29,8 @@ export interface VerifiedToken {
 
 export interface TokenVerifierDeps {
   supabaseUrl: string;
+  /** Explicit JWKS endpoint. Derived from `supabaseUrl` when omitted. */
+  jwksUrl?: string | null;
   /** Legacy HS256 secret. Omit when the project uses asymmetric keys. */
   jwtSecret: string | null;
 }
@@ -50,7 +52,7 @@ export function createTokenVerifier(deps: TokenVerifierDeps) {
   const issuer = `${deps.supabaseUrl.replace(/\/+$/, '')}/auth/v1`;
 
   // jose caches the key set and refetches on rotation, so this is created once.
-  const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+  const jwks = createRemoteJWKSet(new URL(deps.jwksUrl ?? `${issuer}/.well-known/jwks.json`));
   const hmacKey = deps.jwtSecret ? new TextEncoder().encode(deps.jwtSecret) : null;
 
   /**

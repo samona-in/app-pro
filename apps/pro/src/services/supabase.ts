@@ -10,7 +10,7 @@ import { secureStorage } from './secure-storage';
  * is the single place authorisation is enforced — querying tables directly from
  * the client would put that decision in two places.
  */
-export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
+export const supabase = createClient(env.supabaseUrl, env.supabasePublishableKey, {
   auth: {
     storage: secureStorage,
     autoRefreshToken: true,

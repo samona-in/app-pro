@@ -58,6 +58,7 @@ export function createServices(prisma: PrismaClient, config: AppConfig): Service
     auth: createAuthService({ prisma, signupDefaultRole: config.signupDefaultRole }),
     tokenVerifier: createTokenVerifier({
       supabaseUrl: config.supabaseUrl,
+      jwksUrl: config.supabaseJwksUrl,
       jwtSecret: config.supabaseJwtSecret,
     }),
     users: createUsersService(deps),

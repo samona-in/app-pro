@@ -7,6 +7,16 @@ import { z } from 'zod';
  * The process fails fast at boot if anything is missing or malformed — a
  * misconfigured server should never start and serve broken requests.
  */
+/**
+ * Treats an empty string as "not set".
+ *
+ * `.env.example` ships optional values as `FOO=""`, and dotenv reads that as an
+ * empty string rather than an absent key. Without this, an untouched optional
+ * URL fails validation and the server refuses to start.
+ */
+const optional = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
@@ -28,17 +38,25 @@ const envSchema = z.object({
   SUPABASE_URL: z.url({ message: 'SUPABASE_URL must be a valid URL.' }),
 
   /**
+   * JWKS endpoint used to verify access tokens. Optional: it is derived from
+   * SUPABASE_URL when omitted. Set it only if the project publishes keys
+   * somewhere non-standard.
+   */
+  SUPABASE_JWKS_URL: optional(z.url()),
+
+  /**
    * Legacy HS256 signing secret. Optional: newer Supabase projects sign with
    * asymmetric keys and publish a JWKS instead, which needs no shared secret.
    * Set this only if the project still uses the legacy shared secret.
    */
-  SUPABASE_JWT_SECRET: z.string().optional(),
+  SUPABASE_JWT_SECRET: optional(z.string()),
 
   /**
-   * Service-role key. Bypasses row-level security, so it must never reach a
-   * client. Only needed for administrative reads of `auth.users`.
+   * Secret API key (`sb_secret_...`). Bypasses row-level security, so it must
+   * never reach a client. Only needed for administrative reads of `auth.users`;
+   * ordinary requests are authorised by the caller's own token.
    */
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_SECRET_KEY: optional(z.string()),
 
   /**
    * Role assigned to a user provisioned on first sign-in.
@@ -52,7 +70,7 @@ const envSchema = z.object({
   /** Comma-separated list of allowed browser origins. */
   CORS_ORIGINS: z.string().default(''),
 
-  GOOGLE_MAPS_API_KEY: z.string().optional(),
+  GOOGLE_MAPS_API_KEY: optional(z.string()),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -66,7 +84,8 @@ export interface AppConfig {
   redisUrl: string;
   supabaseUrl: string;
   supabaseJwtSecret: string | null;
-  supabaseServiceRoleKey: string | null;
+  supabaseJwksUrl: string | null;
+  supabaseSecretKey: string | null;
   signupDefaultRole: 'CUSTOMER' | 'PRO' | 'ADMIN';
   corsOrigins: string[];
   googleMapsApiKey: string | null;
@@ -113,7 +132,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     redisUrl: env.REDIS_URL,
     supabaseUrl: env.SUPABASE_URL,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET ?? null,
-    supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY ?? null,
+    supabaseJwksUrl: env.SUPABASE_JWKS_URL ?? null,
+    supabaseSecretKey: env.SUPABASE_SECRET_KEY ?? null,
     signupDefaultRole: env.SIGNUP_DEFAULT_ROLE,
     corsOrigins: env.CORS_ORIGINS.split(',')
       .map((origin) => origin.trim())

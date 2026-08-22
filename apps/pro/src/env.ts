@@ -25,12 +25,13 @@ export const env = {
   /** Supabase project URL. */
   supabaseUrl: required('EXPO_PUBLIC_SUPABASE_URL', process.env.EXPO_PUBLIC_SUPABASE_URL),
   /**
-   * Supabase anon key. Public by design — it identifies the project and grants
-   * only what row-level security allows. The service-role key never ships.
+   * Supabase publishable key (`sb_publishable_...`). Public by design — it
+   * identifies the project and grants only what row-level security allows.
+   * The secret key never ships in a bundle.
    */
-  supabaseAnonKey: required(
-    'EXPO_PUBLIC_SUPABASE_ANON_KEY',
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  supabasePublishableKey: required(
+    'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   ),
   /** Optional until maps are wired up; features must handle its absence. */
   googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? null,
