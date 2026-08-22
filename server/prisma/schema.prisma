@@ -21,7 +21,7 @@ datasource db {
   provider = "postgresql"
 }
 
-/// One account per person, whichever app they use.
+/// One account per person, whichever app they use — the identity layer.
 ///
 /// Customer, Pro and Admin share this table so a single authentication system
 /// serves all three (CLAUDE.md "Authentication"). Role-specific data belongs in
@@ -31,7 +31,7 @@ datasource db {
 /// table of this same database. This row owns domain data and is the authority
 /// on `role`. There is no password column by design — the application never
 /// sees or stores a credential.
-model User {
+model Profile {
   /// Matches `auth.users.id`. Sharing the primary key keeps the join implicit
   /// and makes any future RLS policy a plain `auth.uid() = id` comparison.
   ///
@@ -56,8 +56,124 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  proProfile ProProfile?
+
   @@index([role])
-  @@map("users")
+  @@map("profiles")
+}
+
+/// What kind of professional this person is.
+///
+/// Split from `Profile` on purpose: identity ("who is this person in SAMONA")
+/// and professional profile ("what do they do") change independently, and a
+/// customer will never have one of these.
+model ProProfile {
+  id     String @id @default(uuid()) @db.Uuid
+  /// One Pro profile per account. Unique, not just indexed.
+  userId String @unique @map("user_id") @db.Uuid
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Derived from the required fields on write; see `isProProfileComplete`.
+  /// Stored so routing does not have to recompute it on every request.
+  onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
+
+  displayName     String? @map("display_name")
+  bio             String?
+  experienceLevel ExperienceLevel? @map("experience_level")
+
+  /// Kilometres. Bounded by LOCATION_DEFAULTS in @samona/config.
+  serviceRadiusKm Int    @default(10) @map("service_radius_km")
+  latitude        Float?
+  longitude       Float?
+  /// Human-readable label for the service area, shown back to the Pro.
+  locationLabel   String? @map("location_label")
+
+  languages String[] @default([])
+
+  /// Server-controlled. A client must never write these.
+  isOnline      Boolean @default(false) @map("is_online")
+  isVerified    Boolean @default(false) @map("is_verified")
+  rating        Float?
+  completedJobs Int     @default(0) @map("completed_jobs")
+
+  services ProService[]
+  skills   ProSkill[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([onboardingStatus])
+  @@index([isOnline])
+  @@map("pro_profiles")
+}
+
+/// The service catalogue a professional selects from (onboarding step 3).
+model Service {
+  id       String  @id @default(uuid()) @db.Uuid
+  /// Stable machine name, safe to reference from code and seeds.
+  slug     String  @unique
+  name     String
+  icon     String?
+  sortOrder Int    @default(0) @map("sort_order")
+  isActive Boolean @default(true) @map("is_active")
+
+  skills Skill[]
+  pros   ProService[]
+
+  @@map("services")
+}
+
+/// A specialty within a service (onboarding step 4), e.g. "AC installation".
+model Skill {
+  id        String  @id @default(uuid()) @db.Uuid
+  serviceId String  @map("service_id") @db.Uuid
+  slug      String  @unique
+  name      String
+  sortOrder Int     @default(0) @map("sort_order")
+  isActive  Boolean @default(true) @map("is_active")
+
+  service Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  pros    ProSkill[]
+
+  @@index([serviceId])
+  @@map("skills")
+}
+
+model ProService {
+  proProfileId String @map("pro_profile_id") @db.Uuid
+  serviceId    String @map("service_id") @db.Uuid
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  service    Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([proProfileId, serviceId])
+  @@map("pro_services")
+}
+
+model ProSkill {
+  proProfileId String @map("pro_profile_id") @db.Uuid
+  skillId      String @map("skill_id") @db.Uuid
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  skill      Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([proProfileId, skillId])
+  @@map("pro_skills")
+}
+
+enum OnboardingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ExperienceLevel {
+  UNDER_1_YEAR
+  ONE_TO_THREE
+  THREE_TO_FIVE
+  FIVE_TO_TEN
+  TEN_PLUS
 }
 
 /// Mirrored by `UserRole` in `@samona/types` — keep the two in sync.
