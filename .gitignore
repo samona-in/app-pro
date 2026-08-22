@@ -55,3 +55,6 @@ yarn-error.log*
 .cache/
 .turbo/
 .eslintcache
+
+# Working notes — scratch context for picking the project back up, not docs.
+CURRENTPROGRESS.md
