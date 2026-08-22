@@ -1,7 +1,12 @@
 export * from './errors';
 export { logger } from './logger';
 export { createBruteForceGuard, safeEqual, type BruteForceGuard } from './security/brute-force';
-export { requireAuth, requireRole, type AuthenticatedUser } from './middleware/auth';
+export {
+  createRequireAuth,
+  requireRole,
+  type AuthenticatedUser,
+  type RequireAuthDeps,
+} from './middleware/auth';
 export { errorHandler, notFoundHandler } from './middleware/error-handler';
 export { createLimiters, type Limiters, type RateLimiterDeps } from './middleware/rate-limit';
 export {

@@ -10,6 +10,20 @@ export const SECURE_STORE_KEYS = {
   refreshToken: 'samona.auth.refreshToken',
 } as const;
 
+/**
+ * Number of digits in the SMS verification code.
+ *
+ * This must match the OTP length configured in the identity provider — for
+ * Twilio Verify that is the Verify Service's code length, otherwise it is
+ * Supabase Auth's phone provider setting. If they disagree, the app will refuse
+ * a code the provider considers valid.
+ *
+ * Shorter codes are easier to type and easier to guess: four digits is 10,000
+ * combinations against 1,000,000 for six. The provider's attempt limit and code
+ * expiry are what keep that safe, so keep both tight.
+ */
+export const OTP_LENGTH = 4;
+
 /** API route prefix; kept here so client and server agree on one value. */
 export const API_PREFIX = '/api/v1';
 

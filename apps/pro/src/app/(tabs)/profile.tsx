@@ -1,11 +1,8 @@
 import { View } from 'react-native';
 import { Pressable } from 'react-native';
-import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import { useSession } from '@/hooks';
-import { tokenStorage } from '@/services/token-storage';
-import { useSessionStore } from '@/stores/session';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -36,13 +33,15 @@ function SettingsRow({ icon, label }: { icon: IoniconName; label: string }) {
 }
 
 export default function Profile() {
-  const { user } = useSession();
-  const clearSession = useSessionStore((state) => state.clearSession);
+  const { user, signOut } = useSession();
 
-  async function signOut() {
-    await tokenStorage.clear();
-    clearSession();
-    router.replace('/welcome');
+  /**
+   * Supabase clears the persisted session; the tabs layout guard observes the
+   * signed-out state and redirects to the auth stack, so there is no manual
+   * navigation here to race it.
+   */
+  async function onSignOut() {
+    await signOut();
   }
 
   return (
@@ -74,7 +73,7 @@ export default function Profile() {
       <Button
         label="Sign out"
         variant="secondary"
-        onPress={() => void signOut()}
+        onPress={() => void onSignOut()}
         className="mt-6"
       />
     </Screen>

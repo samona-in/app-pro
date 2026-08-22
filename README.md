@@ -131,9 +131,14 @@ cp apps/pro/.env.example apps/pro/.env
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | server | PostgreSQL connection string |
+| `DATABASE_URL` | server | Supabase **pooled** connection (6543), used at runtime |
+| `DIRECT_URL` | server | Supabase **direct** connection (5432), migrations only |
+| `SUPABASE_URL` | server | Project URL, used to fetch the JWKS |
+| `SUPABASE_JWT_SECRET` | server | Only for legacy HS256 projects |
+| `SIGNUP_DEFAULT_ROLE` | server | Role given on first sign-in (`PRO` today) |
+| `EXPO_PUBLIC_SUPABASE_URL` | app | Supabase project URL |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | app | Public anon key |
 | `REDIS_URL` | server | Redis connection string |
-| `JWT_SECRET` | server | Token signing secret (min. 32 chars) |
 | `PORT` | server | API port (default `4000`) |
 | `CORS_ORIGINS` | server | Comma-separated allowed origins |
 | `GOOGLE_MAPS_API_KEY` | server | Server-side geocoding / distance |
@@ -225,9 +230,12 @@ the API. Zustand holds only client concerns (the availability toggle, network
 status). Server data is never duplicated into Zustand.
 
 **One authentication system.** Customer, Pro and Admin share one `User` table and
-one auth system. Roles are enforced on the server via the `requireAuth` and
-`requireRole` middleware, which read the principal established from a verified
-token; a role sent by a client is never trusted.
+one auth system, with **Supabase Auth** as the identity provider and phone + SMS
+code as the sign-in method. Supabase owns credentials and verification — no OTP
+or password ever reaches this codebase. A Supabase token proves *identity*;
+`role` is read from our own `User` row, so a custom claim can never escalate
+privileges. `User.id` equals `auth.users.id`, and users are provisioned
+just-in-time on first authenticated request.
 
 **Job state machine.** `JOB_STATUS_TRANSITIONS` in `@samona/types` is the shared
 contract. Clients *request* transitions; the server validates and applies them.
@@ -271,6 +279,9 @@ The client validates for fast feedback; the server's validation is authoritative
   return queries from `render()` under the `jest-expo` preset.
 - **TypeScript 6** no longer auto-discovers `@types` packages that npm hoists to
   the workspace root, so `types` is listed explicitly in each `tsconfig.json`.
+- **`jose` is pinned to 5.x.** Version 6 is ESM-only and loads into this
+  CommonJS server only through Node's newer `require(esm)`, which is not
+  available across the whole Node range we support. 5.x ships a real CJS build.
 - **Express 5** handles rejected promises from `async` handlers natively, so
   there is no `asyncHandler` wrapper. There is a test asserting this.
 - **The shared packages use TypeScript project references** and build with

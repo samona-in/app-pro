@@ -27,7 +27,7 @@ async function main(): Promise<void> {
     logger.error('Could not connect to Redis.', error);
   }
 
-  const services = createServices(prisma);
+  const services = createServices(prisma, config);
   // `redis` is passed even if the connection failed above: ioredis queues and
   // reconnects, and the limiters degrade to in-process counters if it cannot.
   const app = createApp({ config, services, rateLimit: { redis } });

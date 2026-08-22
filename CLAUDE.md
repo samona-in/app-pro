@@ -49,7 +49,8 @@ Backend:
 - Node.js
 - TypeScript
 - Express
-- PostgreSQL
+- PostgreSQL (hosted on Supabase)
+- Supabase Auth
 - Prisma
 - Redis
 - Socket.IO
@@ -164,6 +165,28 @@ Do not create separate authentication systems for each application.
 Role-based authorization must happen on the backend.
 
 Never trust role information sent by the client.
+
+Supabase Auth is the identity provider. Phone number with SMS code is the
+sign-in method for professionals.
+
+- Supabase owns credentials and phone verification. No password, OTP or
+  credential is ever sent to, stored by, or logged by this codebase.
+- The `User` row is the authority on `role`. Never read a role from a token
+  claim, a header or a request body. Supabase allows custom claims, and a claim
+  we do not issue ourselves is not a basis for authorization.
+- `User.id` equals `auth.users.id`. Sharing the key keeps the join implicit and
+  makes any future RLS policy a plain `auth.uid() = id` comparison.
+- Verify access tokens locally against the project's JWKS. Calling the Auth API
+  per request would add a round trip and tie our availability to theirs.
+- Users are provisioned just-in-time on first authenticated request. Everything
+  needed is already in the verified token, so provisioning costs one query.
+- Never manage the `auth` schema from our migrations. It belongs to Supabase.
+
+Supabase provides the managed PostgreSQL instance. Prisma remains the data
+access layer; the Supabase client is used in the app for authentication only,
+never to query domain tables, because this API is the single place
+authorization is enforced. Use the pooled (Supavisor, 6543) URL at runtime and
+the direct (5432) URL for migrations.
 
 ## Job State Machine
 
