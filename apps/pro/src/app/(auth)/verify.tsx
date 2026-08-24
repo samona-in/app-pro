@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { getAppHashAsync, useOtpAutoFill } from 'expo-otp-autofill';
 import { OTP_LENGTH } from '@samona/config';
 import { Button, Input, Screen, Text } from '@/components/ui';
-import { usePhoneAuth } from '@/hooks';
+import { useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
 
 /** Placeholder mirrors the expected length, e.g. "1234". */
 const CODE_PLACEHOLDER = Array.from({ length: OTP_LENGTH }, (_, i) => (i + 1) % 10).join('');
@@ -35,7 +34,7 @@ export default function VerifyScreen() {
 
   useEffect(() => {
     if (__DEV__ && Platform.OS === 'android') {
-      void getAppHashAsync().then((hash) =>
+      void getAppHash().then((hash) =>
         console.log('[verify] SMS Retriever app hash:', hash),
       );
     }
