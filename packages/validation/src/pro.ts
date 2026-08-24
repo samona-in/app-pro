@@ -51,19 +51,35 @@ export const onboardingExperienceSchema = z.object({
 });
 
 /** Step 6 — where they work. Coordinates are optional: a Pro may decline the
- *  location permission and still pick a radius. */
+ *  location permission and still finish onboarding. */
 export const onboardingLocationSchema = z.object({
-  serviceRadiusKm: serviceRadiusSchema,
   coordinates: coordinatesSchema.optional(),
   locationLabel: z.string().trim().max(120).optional(),
 });
 
-/** Step 7 — how they describe themselves. */
+/** Step 7 — how far they travel to jobs. */
+export const onboardingRadiusSchema = z.object({
+  serviceRadiusKm: serviceRadiusSchema,
+});
+
+/** Step 8 — how they describe themselves. */
 export const onboardingAboutSchema = z.object({
   bio: bioSchema.optional(),
   languages: languagesSchema.optional(),
   avatarUrl: z.url().optional(),
 });
+
+/**
+ * Step 9 — face verification.
+ *
+ * Both requests carry no fields by design. The storage path is derived from
+ * the caller's verified user id server-side, so there is nothing a client
+ * could forge: one account can only ever mint upload URLs for, and confirm,
+ * its own selfie.
+ */
+export const selfieUploadStartSchema = z.strictObject({});
+
+export const selfieCompleteSchema = z.strictObject({});
 
 /**
  * Any single onboarding step.
@@ -89,3 +105,6 @@ export const onboardingPatchSchema = z
 
 export type OnboardingPatchInput = z.infer<typeof onboardingPatchSchema>;
 export type OnboardingLocationInput = z.infer<typeof onboardingLocationSchema>;
+export type OnboardingRadiusInput = z.infer<typeof onboardingRadiusSchema>;
+export type SelfieUploadStartInput = z.infer<typeof selfieUploadStartSchema>;
+export type SelfieCompleteInput = z.infer<typeof selfieCompleteSchema>;

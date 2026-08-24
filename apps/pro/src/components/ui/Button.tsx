@@ -7,30 +7,23 @@ import { cn } from '@/utils/cn';
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'success' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
-const variantStyles: Record<ButtonVariant, { container: string; label: string; spinner: string }> =
-  {
-    primary: {
-      container: 'bg-brand',
-      label: 'text-brand-contrast',
-      spinner: color['brand-contrast'],
-    },
-    secondary: {
-      container: 'bg-surface border border-border-strong',
-      label: 'text-text-primary',
-      spinner: color['text-primary'],
-    },
-    ghost: {
-      container: 'bg-transparent',
-      label: 'text-text-primary',
-      spinner: color['text-primary'],
-    },
-    success: {
-      container: 'bg-success',
-      label: 'text-text-inverse',
-      spinner: color['text-inverse'],
-    },
-    danger: { container: 'bg-danger', label: 'text-text-inverse', spinner: color['text-inverse'] },
-  };
+/**
+ * Label and spinner colours come straight from tokens rather than Tailwind
+ * classes: `<Text variant>` already sets a text colour, and NativeWind resolves
+ * competing colour utilities by stylesheet order, not className order — so a
+ * class-based override silently loses and labels render invisible on brand
+ * backgrounds.
+ */
+const variantStyles: Record<ButtonVariant, { container: string; labelColor: string }> = {
+  primary: { container: 'bg-brand', labelColor: color['brand-contrast'] },
+  secondary: {
+    container: 'bg-surface border border-border-strong',
+    labelColor: color['text-primary'],
+  },
+  ghost: { container: 'bg-transparent', labelColor: color['text-primary'] },
+  success: { container: 'bg-success', labelColor: color['text-inverse'] },
+  danger: { container: 'bg-danger', labelColor: color['text-inverse'] },
+};
 
 // Heights sit at or above the 44pt minimum touch target.
 const sizeStyles: Record<ButtonSize, { container: string; text: 'body' | 'bodyLg' }> = {
@@ -98,11 +91,15 @@ export function Button({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={styles.spinner} />
+        <ActivityIndicator size="small" color={styles.labelColor} />
       ) : (
         <>
           {leading ? <View className="mr-2">{leading}</View> : null}
-          <Text variant={sizing.text} className={cn('font-semibold', styles.label)}>
+          <Text
+            variant={sizing.text}
+            className="font-semibold"
+            style={{ color: styles.labelColor }}
+          >
             {label}
           </Text>
         </>

@@ -6,6 +6,7 @@ import { createHealthRouter } from './health/health.routes';
 import { createAuthRouter } from './auth/auth.routes';
 import { createUsersRouter } from './users/users.routes';
 import { createProsRouter } from './pros/pros.routes';
+import { createFilesRouter } from './files/files.routes';
 import { createCustomersRouter } from './customers/customers.routes';
 import { createServicesRouter } from './services/services.routes';
 import { createJobsRouter } from './jobs/jobs.routes';
@@ -60,6 +61,10 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
   // real money rather than CPU.
   router.use('/payments', limiters.expensive, createPaymentsRouter(services));
   router.use('/earnings', limiters.expensive, createEarningsRouter(services));
+
+  // Signed upload URLs hand out write access to object storage — the same
+  // "costs money if abused" tier as payments and geocoding.
+  router.use('/files', limiters.expensive, createFilesRouter(services));
 
   return router;
 }

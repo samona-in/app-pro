@@ -190,6 +190,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       ...requestOptions.headers,
     };
 
+    // Ngrok's free tier serves an HTML interstitial to unknown clients, which
+    // would corrupt API responses during tunnel-based testing. The header
+    // opts this client out; it is meaningless to every other host.
+    if (baseUrl.includes('ngrok')) {
+      headers['ngrok-skip-browser-warning'] = 'true';
+    }
+
     if (body !== undefined) {
       headers['Content-Type'] ??= 'application/json';
     }

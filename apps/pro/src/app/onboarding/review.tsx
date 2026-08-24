@@ -72,7 +72,11 @@ export default function OnboardingReview() {
       onPrimary={() => void onFinish()}
     >
       <Card className="flex-row items-center">
-        <Avatar name={profile.displayName ?? 'SAMONA Pro'} size="lg" />
+        <Avatar
+          name={profile.displayName ?? 'SAMONA Pro'}
+          size="lg"
+          uri={profile.selfiePhotoUrl}
+        />
         <View className="ml-4 flex-1">
           <Text variant="title">{profile.displayName ?? 'Your name'}</Text>
           <Text variant="footnote" className="mt-0.5">
