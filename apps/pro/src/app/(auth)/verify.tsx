@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { getAppHashAsync, useOtpAutoFill } from 'expo-otp-autofill';
 import { OTP_LENGTH } from '@samona/config';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { usePhoneAuth } from '@/hooks';
@@ -19,6 +20,26 @@ export default function VerifyScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const { verifyCode, sendCode, isBusy, error, clearError } = usePhoneAuth();
   const [code, setCode] = useState('');
+
+  // Android zero-tap fill via Google's SMS Retriever; iOS/web no-op.
+  // The retriever only fires when the SMS ends with this build's hash,
+  // which must be appended to the Supabase Auth SMS template.
+  const { otp } = useOtpAutoFill({ length: OTP_LENGTH });
+
+  useEffect(() => {
+    if (!otp) return;
+    clearError();
+    setCode(otp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp]);
+
+  useEffect(() => {
+    if (__DEV__ && Platform.OS === 'android') {
+      void getAppHashAsync().then((hash) =>
+        console.log('[verify] SMS Retriever app hash:', hash),
+      );
+    }
+  }, []);
 
   async function onVerify() {
     if (!phone) return;
