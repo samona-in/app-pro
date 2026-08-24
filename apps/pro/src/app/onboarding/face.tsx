@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, View } from 'react-native';
+import { Image, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { FaceCamera } from '@/components/onboarding/FaceCamera';
@@ -14,26 +14,16 @@ type Stage = 'intro' | 'scan' | 'confirm';
  *
  * The Pro is photographed live — the camera only fires once a face sits
  * steady in the guide, so a photo of a photo or of someone else doesn't pass.
- * The capture then uploads automatically; "Retake" restarts detection.
+ * The capture is then shown for approval: nothing uploads until the Pro taps
+ * "Use this photo"; "Retake" restarts detection instead.
  */
 export default function OnboardingFace() {
   const [stage, setStage] = useState<Stage>('intro');
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const { mutate, reset, isPending, isError, isSuccess } = useUploadSelfie();
 
-  /**
-   * Exactly-once guards keyed on intent, not mutation status: deriving
-   * "should we start?" from isPending/isSuccess re-fires the upload after
-   * every failure, which loops the screen between spinner and error state.
-   */
-  const startedUploadFor = useRef<string | null>(null);
+  // A completed navigation must never stack a second review screen.
   const navigated = useRef(false);
-
-  useEffect(() => {
-    if (!capturedUri || startedUploadFor.current === capturedUri) return;
-    startedUploadFor.current = capturedUri;
-    mutate({ localUri: capturedUri });
-  }, [capturedUri, mutate]);
 
   useEffect(() => {
     if (!isSuccess || navigated.current) return;
@@ -44,11 +34,15 @@ export default function OnboardingFace() {
 
   function onRetake() {
     reset();
-    // A retake can land on the same temp file path, so the guards must clear.
-    startedUploadFor.current = null;
     navigated.current = false;
     setCapturedUri(null);
     setStage('scan');
+  }
+
+  function onApprove() {
+    if (capturedUri && !isPending) {
+      mutate({ localUri: capturedUri });
+    }
   }
 
   if (stage === 'intro') {
@@ -92,14 +86,6 @@ export default function OnboardingFace() {
             accessibilityLabel="Your captured verification photo"
           />
         ) : null}
-        {isPending ? (
-          <View className="absolute items-center gap-2 rounded-xl bg-black/60 px-6 py-4">
-            <ActivityIndicator color="white" />
-            <Text variant="body" className="text-white">
-              Verifying…
-            </Text>
-          </View>
-        ) : null}
       </View>
 
       <View className="gap-3 pb-4 pt-6">
@@ -108,8 +94,13 @@ export default function OnboardingFace() {
             Upload failed. Check your connection and try again.
           </Text>
         ) : null}
-        {isError ? (
-          <Button label="Try again" onPress={() => capturedUri && mutate({ localUri: capturedUri })} disabled={!capturedUri} />
+        {!isSuccess ? (
+          <Button
+            label={isPending ? 'Uploading…' : isError ? 'Try again' : 'Use this photo'}
+            loading={isPending}
+            disabled={!capturedUri}
+            onPress={onApprove}
+          />
         ) : null}
         {!isPending && !isSuccess ? (
           <Button label="Retake" variant="secondary" onPress={onRetake} />
