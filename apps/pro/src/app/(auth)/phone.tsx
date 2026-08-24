@@ -5,7 +5,7 @@ import { OTP_LENGTH } from '@samona/config';
 import { phoneSchema } from '@samona/validation';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Input, Screen, Text } from '@/components/ui';
-import { usePhoneAuth } from '@/hooks';
+import { usePhoneAuth, usePhoneHint } from '@/hooks';
 
 /**
  * Step 1 of phone authentication: collect the number.
@@ -17,6 +17,10 @@ export default function PhoneScreen() {
   const { sendCode, isBusy, error, clearError } = usePhoneAuth();
   const [phone, setPhone] = useState('+91');
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // Android only: offer the SIM numbers as one-tap suggestions until the Pro
+  // starts typing their own.
+  usePhoneHint(setPhone, phone.trim() === '+91');
 
   async function onContinue() {
     setLocalError(null);
