@@ -1,9 +1,29 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import * as PhoneNumberHint from 'expo-phone-number-hint';
+import type * as PhoneNumberHintTypes from 'expo-phone-number-hint';
 
 /** Lets the navigation transition finish before the system sheet appears. */
 export const PHONE_HINT_DELAY_MS = 750;
+
+type HintModule = typeof PhoneNumberHintTypes;
+
+/**
+ * Resolves the hint module on first use rather than at import time.
+ *
+ * The package's JS calls `requireNativeModule` while evaluating, so a static
+ * import throws in any environment without the compiled native side — Expo Go,
+ * or an iOS dev build — and takes every route down with it. Requiring lazily
+ * keeps that failure inside this one guarded call, and the app degrades to
+ * manual number entry instead.
+ */
+function loadHintModule(): HintModule | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('expo-phone-number-hint') as HintModule;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Offers the Android Phone Number Hint sheet — the same SIM-number picker
@@ -35,9 +55,10 @@ export function usePhoneHint(onPick: (e164: string) => void, isEnabled: boolean)
     const timer = setTimeout(() => {
       void (async () => {
         try {
-          if (!(await PhoneNumberHint.isAvailableAsync())) return;
+          const hint = loadHintModule();
+          if (!hint || !(await hint.isAvailableAsync())) return;
 
-          const result = await PhoneNumberHint.showPhoneNumberHintAsync();
+          const result = await hint.showPhoneNumberHintAsync();
           const suggestion = result.hint ? (result.hint.e164 ?? result.hint.number) : null;
           if (!result.canceled && suggestion) {
             onPickRef.current(suggestion);

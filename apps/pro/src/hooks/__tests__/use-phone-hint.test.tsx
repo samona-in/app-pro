@@ -104,4 +104,22 @@ describe('usePhoneHint', () => {
 
     expect(onPick).not.toHaveBeenCalled();
   });
+
+  /**
+   * Expo Go has no compiled native side: requiring the package yields an
+   * unusable module. The hook must treat that like any other failure instead
+   * of crashing the route.
+   */
+  it('degrades silently when the module loads without its native counterpart', async () => {
+    platform('android');
+    isAvailable.mockRejectedValue(new Error("Cannot find native module 'ExpoPhoneNumberHint'"));
+
+    renderHook(onPick, true);
+    await act(async () => {
+      jest.advanceTimersByTime(PHONE_HINT_DELAY_MS);
+    });
+
+    expect(showHint).not.toHaveBeenCalled();
+    expect(onPick).not.toHaveBeenCalled();
+  });
 });
