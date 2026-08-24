@@ -11,8 +11,7 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://8124-49-37-146-195.ngrok-free.app",
         "EXPO_PUBLIC_SUPABASE_URL": "https://mbylupexffssmyiqgwnb.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_l85O2w4wihFAyH06_oiXHA_6tTyAIwa",
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": ""
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_l85O2w4wihFAyH06_oiXHA_6tTyAIwa"
       }
     },
     "production": {
