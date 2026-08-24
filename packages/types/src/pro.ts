@@ -62,6 +62,13 @@ export interface ProProfile {
   isVerified: boolean;
   rating: number | null;
   completedJobs: number;
+  /**
+   * True once a live-captured face photo has been uploaded. Part of the
+   * onboarding gate: the API is the only writer.
+   */
+  hasSelfie: boolean;
+  /** Read URL for the stored selfie; null until one exists. */
+  selfiePhotoUrl: string | null;
   serviceIds: string[];
   skillIds: string[];
 }
@@ -76,12 +83,18 @@ export interface ProProfile {
  *
  * Documents, bank details and certifications are intentionally absent — they
  * are collected later, and requiring them here would block a Pro who is
- * otherwise ready to work.
+ * otherwise ready to work. The selfie is different: it is the one proof that
+ * the account belongs to a real person, so it gates completion.
  */
 export function isProProfileComplete(
   profile: Pick<
     ProProfile,
-    'displayName' | 'experienceLevel' | 'serviceRadiusKm' | 'serviceIds' | 'skillIds'
+    | 'displayName'
+    | 'experienceLevel'
+    | 'serviceRadiusKm'
+    | 'serviceIds'
+    | 'skillIds'
+    | 'hasSelfie'
   > | null,
 ): boolean {
   if (!profile) return false;
@@ -92,7 +105,8 @@ export function isProProfileComplete(
     profile.experienceLevel !== null &&
     profile.serviceRadiusKm > 0 &&
     profile.serviceIds.length > 0 &&
-    profile.skillIds.length > 0
+    profile.skillIds.length > 0 &&
+    profile.hasSelfie
   );
 }
 
@@ -106,6 +120,7 @@ export const ONBOARDING_STEPS = [
   'location',
   'radius',
   'about',
+  'face',
   'review',
 ] as const;
 
@@ -126,5 +141,6 @@ export function nextIncompleteStep(profile: ProProfile | null): OnboardingStep {
   // Coordinates are optional, so the radius is the only persisted signal for
   // both work-area steps. Resuming at `location` keeps their natural order.
   if (!profile.serviceRadiusKm) return 'location';
+  if (!profile.hasSelfie) return 'face';
   return 'review';
 }

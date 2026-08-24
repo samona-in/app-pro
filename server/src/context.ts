@@ -19,6 +19,7 @@ import {
   type NotificationsService,
 } from './notifications/notifications.service';
 import { createReviewsService, type ReviewsService } from './reviews/reviews.service';
+import { createStorageService, type StorageService } from './files/storage.service';
 
 /**
  * Every domain service, constructed once per process.
@@ -42,6 +43,8 @@ export interface Services {
   earnings: EarningsService;
   notifications: NotificationsService;
   reviews: ReviewsService;
+  /** Supabase Storage access for file uploads (selfies today, files later). */
+  storage: StorageService;
 }
 
 /** Shared infrastructure plus the service layer built on top of it. */
@@ -53,7 +56,11 @@ export interface AppContext {
 }
 
 export function createServices(prisma: PrismaClient, config: AppConfig): Services {
-  const deps = { prisma };
+  const storage = createStorageService({
+    supabaseUrl: config.supabaseUrl,
+    supabaseSecretKey: config.supabaseSecretKey,
+  });
+  const deps = { prisma, storage };
 
   return {
     auth: createAuthService({ prisma, signupDefaultRole: config.signupDefaultRole }),
@@ -73,5 +80,6 @@ export function createServices(prisma: PrismaClient, config: AppConfig): Service
     earnings: createEarningsService(deps),
     notifications: createNotificationsService(deps),
     reviews: createReviewsService(deps),
+    storage,
   };
 }

@@ -6,10 +6,13 @@ import {
 } from '@samona/types';
 import type { OnboardingPatchInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
+import type { StorageService } from '../files/storage.service';
 import { badRequest } from '../common/errors';
 
 export interface ProsServiceDeps {
   prisma: PrismaClient;
+  /** Builds the read URL for a stored selfie; also probes upload completion. */
+  storage: StorageService;
 }
 
 /** Prisma row plus its join rows, as every read here selects them. */
@@ -25,6 +28,7 @@ const proProfileSelect = {
   longitude: true,
   locationLabel: true,
   languages: true,
+  selfiePhotoPath: true,
   isOnline: true,
   isVerified: true,
   rating: true,
@@ -36,12 +40,15 @@ const proProfileSelect = {
 type ProProfileRow = {
   services: { serviceId: string }[];
   skills: { skillId: string }[];
-} & Omit<ProProfile, 'serviceIds' | 'skillIds'>;
+  selfiePhotoPath: string | null;
+} & Omit<ProProfile, 'serviceIds' | 'skillIds' | 'hasSelfie' | 'selfiePhotoUrl'>;
 
-function toProProfile(row: ProProfileRow): ProProfile {
-  const { services, skills, ...rest } = row;
+function toProProfile(row: ProProfileRow, storage: StorageService): ProProfile {
+  const { services, skills, selfiePhotoPath, ...rest } = row;
   return {
     ...rest,
+    hasSelfie: selfiePhotoPath !== null,
+    selfiePhotoUrl: selfiePhotoPath ? storage.selfiePublicUrl(selfiePhotoPath) : null,
     serviceIds: services.map((s) => s.serviceId),
     skillIds: skills.map((s) => s.skillId),
   };
@@ -83,7 +90,7 @@ export function createProsService(deps: ProsServiceDeps) {
       where: { userId },
       select: proProfileSelect,
     });
-    return row ? toProProfile(row as ProProfileRow) : null;
+    return row ? toProProfile(row as ProProfileRow, deps.storage) : null;
   }
 
   /**
@@ -100,7 +107,29 @@ export function createProsService(deps: ProsServiceDeps) {
       update: {},
       select: proProfileSelect,
     });
-    return toProProfile(row as ProProfileRow);
+    return toProProfile(row as ProProfileRow, deps.storage);
+  }
+
+  /**
+   * Records that the caller's selfie finished uploading.
+   *
+   * The files route has already confirmed the object exists in the bucket;
+   * this writes the deterministic path and re-derives onboarding status, which
+   * is what makes the face step a real gate rather than a UI suggestion.
+   */
+  async function setSelfieUploaded(userId: string): Promise<ProProfile> {
+    const existing = await ensureForUser(userId);
+
+    const row = await deps.prisma.proProfile.update({
+      where: { id: existing.id },
+      data: {
+        selfiePhotoPath: deps.storage.selfiePath(userId),
+        selfieCapturedAt: new Date(),
+      },
+      select: proProfileSelect,
+    });
+
+    return recomputeStatus(toProProfile(row as ProProfileRow, deps.storage));
   }
 
   /**
@@ -177,7 +206,7 @@ export function createProsService(deps: ProsServiceDeps) {
         where: { userId },
         select: proProfileSelect,
       });
-      return toProProfile(row as ProProfileRow);
+      return toProProfile(row as ProProfileRow, deps.storage);
     });
 
     return recomputeStatus(updated);
@@ -222,7 +251,7 @@ export function createProsService(deps: ProsServiceDeps) {
     }
   }
 
-  return { listCatalogue, findByUserId, ensureForUser, applyOnboardingPatch };
+  return { listCatalogue, findByUserId, ensureForUser, applyOnboardingPatch, setSelfieUploaded };
 }
 
 export type ProsService = ReturnType<typeof createProsService>;

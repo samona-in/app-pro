@@ -91,6 +91,12 @@ model ProProfile {
 
   languages String[] @default([])
 
+  /// Storage path of the live-captured face photo inside the selfie bucket.
+  /// The public URL is derived from it on read; a client never writes this.
+  selfiePhotoPath String?    @map("selfie_photo_path")
+  /// When the accepted selfie finished uploading. Drives re-verification UX.
+  selfieCapturedAt DateTime? @map("selfie_captured_at")
+
   /// Server-controlled. A client must never write these.
   isOnline      Boolean @default(false) @map("is_online")
   isVerified    Boolean @default(false) @map("is_verified")

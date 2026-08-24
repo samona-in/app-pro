@@ -2,6 +2,8 @@ import {
   onboardingPatchSchema,
   onboardingServicesSchema,
   onboardingSkillsSchema,
+  selfieCompleteSchema,
+  selfieUploadStartSchema,
 } from '@samona/validation';
 
 /**
@@ -69,5 +71,21 @@ describe('step schemas', () => {
 
   it('reject ids that are not ids', () => {
     expect(onboardingServicesSchema.safeParse({ serviceIds: ['not-a-uuid'] }).success).toBe(false);
+  });
+});
+
+describe('selfie schemas', () => {
+  // The selfie endpoints accept no fields by design: the storage path comes
+  // from the verified token, so there is nothing to forge and nothing to strip.
+  it('accept an empty body only', () => {
+    expect(selfieUploadStartSchema.safeParse({}).success).toBe(true);
+    expect(selfieCompleteSchema.safeParse({}).success).toBe(true);
+  });
+
+  it('reject any supplied path or id', () => {
+    expect(
+      selfieUploadStartSchema.safeParse({ path: 'pros/someone-else/selfie.jpg' }).success,
+    ).toBe(false);
+    expect(selfieCompleteSchema.safeParse({ userId: 'someone-else' }).success).toBe(false);
   });
 });

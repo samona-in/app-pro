@@ -70,6 +70,18 @@ export const onboardingAboutSchema = z.object({
 });
 
 /**
+ * Step 9 — face verification.
+ *
+ * Both requests carry no fields by design. The storage path is derived from
+ * the caller's verified user id server-side, so there is nothing a client
+ * could forge: one account can only ever mint upload URLs for, and confirm,
+ * its own selfie.
+ */
+export const selfieUploadStartSchema = z.strictObject({});
+
+export const selfieCompleteSchema = z.strictObject({});
+
+/**
  * Any single onboarding step.
  *
  * A partial update: only the keys present are written, so one step cannot
@@ -94,3 +106,5 @@ export const onboardingPatchSchema = z
 export type OnboardingPatchInput = z.infer<typeof onboardingPatchSchema>;
 export type OnboardingLocationInput = z.infer<typeof onboardingLocationSchema>;
 export type OnboardingRadiusInput = z.infer<typeof onboardingRadiusSchema>;
+export type SelfieUploadStartInput = z.infer<typeof selfieUploadStartSchema>;
+export type SelfieCompleteInput = z.infer<typeof selfieCompleteSchema>;
