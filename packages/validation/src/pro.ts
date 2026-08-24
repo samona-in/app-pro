@@ -51,14 +51,18 @@ export const onboardingExperienceSchema = z.object({
 });
 
 /** Step 6 — where they work. Coordinates are optional: a Pro may decline the
- *  location permission and still pick a radius. */
+ *  location permission and still finish onboarding. */
 export const onboardingLocationSchema = z.object({
-  serviceRadiusKm: serviceRadiusSchema,
   coordinates: coordinatesSchema.optional(),
   locationLabel: z.string().trim().max(120).optional(),
 });
 
-/** Step 7 — how they describe themselves. */
+/** Step 7 — how far they travel to jobs. */
+export const onboardingRadiusSchema = z.object({
+  serviceRadiusKm: serviceRadiusSchema,
+});
+
+/** Step 8 — how they describe themselves. */
 export const onboardingAboutSchema = z.object({
   bio: bioSchema.optional(),
   languages: languagesSchema.optional(),
@@ -89,3 +93,4 @@ export const onboardingPatchSchema = z
 
 export type OnboardingPatchInput = z.infer<typeof onboardingPatchSchema>;
 export type OnboardingLocationInput = z.infer<typeof onboardingLocationSchema>;
+export type OnboardingRadiusInput = z.infer<typeof onboardingRadiusSchema>;

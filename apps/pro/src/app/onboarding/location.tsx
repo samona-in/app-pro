@@ -1,22 +1,14 @@
 import { useState } from 'react';
-import { View } from 'react-native';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
-import { LOCATION_DEFAULTS } from '@samona/config';
-import { OnboardingStepLayout, SelectableCard } from '@/components/onboarding';
+import { OnboardingStepLayout } from '@/components/onboarding';
 import { Button, Text } from '@/components/ui';
 import { useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
-
-const RADIUS_OPTIONS = [5, 10, 15, 20];
 
 export default function OnboardingLocation() {
   const { data: profile } = useProProfile();
   const save = useSaveOnboardingStep();
 
-  const [radius, setRadius] = useSeededState<number>(
-    profile?.serviceRadiusKm,
-    LOCATION_DEFAULTS.serviceRadiusKm,
-  );
   const [coords, setCoords] = useSeededState<{ latitude: number; longitude: number } | null>(
     profile?.latitude != null && profile.longitude != null
       ? { latitude: profile.latitude, longitude: profile.longitude }
@@ -31,7 +23,7 @@ export default function OnboardingLocation() {
    *
    * The permission is requested at the moment it is used and explained first,
    * rather than on app launch (CLAUDE.md "Location"). Declining is fine: the
-   * radius alone is enough to finish onboarding.
+   * radius on the next step is enough to finish onboarding.
    */
   async function detectCurrentLocation() {
     setIsLocating(true);
@@ -40,7 +32,7 @@ export default function OnboardingLocation() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setLocationError('Location permission was declined. You can still set your radius.');
+        setLocationError('Location permission was declined. You can still continue.');
         return;
       }
 
@@ -52,18 +44,18 @@ export default function OnboardingLocation() {
         longitude: position.coords.longitude,
       });
     } catch {
-      setLocationError('Could not read your location. You can still set your radius.');
+      setLocationError('Could not read your location. You can still continue.');
     } finally {
       setIsLocating(false);
     }
   }
 
   async function onContinue() {
-    await save.mutateAsync({
-      serviceRadiusKm: radius,
-      ...(coords ? { coordinates: coords } : {}),
-    });
-    router.push('/onboarding/about');
+    // Coordinates are optional, so there may be nothing to persist here.
+    if (coords) {
+      await save.mutateAsync({ coordinates: coords });
+    }
+    router.push('/onboarding/radius');
   }
 
   return (
@@ -73,7 +65,7 @@ export default function OnboardingLocation() {
       subtitle="We use this to send you jobs nearby. Only you see your exact location."
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
-      error={save.isError ? 'Could not save your service area. Please try again.' : null}
+      error={save.isError ? 'Could not save your location. Please try again.' : null}
     >
       <Button
         label={coords ? 'Location set' : 'Use my current location'}
@@ -87,21 +79,6 @@ export default function OnboardingLocation() {
           {locationError}
         </Text>
       ) : null}
-
-      <Text variant="label" className="mt-8">
-        How far will you travel?
-      </Text>
-      <View className="mt-3 gap-3">
-        {RADIUS_OPTIONS.map((option) => (
-          <SelectableCard
-            key={option}
-            label={`${option} km`}
-            single
-            selected={radius === option}
-            onToggle={() => setRadius(option)}
-          />
-        ))}
-      </View>
     </OnboardingStepLayout>
   );
 }

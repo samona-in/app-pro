@@ -104,6 +104,7 @@ export const ONBOARDING_STEPS = [
   'skills',
   'experience',
   'location',
+  'radius',
   'about',
   'review',
 ] as const;
@@ -122,6 +123,8 @@ export function nextIncompleteStep(profile: ProProfile | null): OnboardingStep {
   if (profile.serviceIds.length === 0) return 'services';
   if (profile.skillIds.length === 0) return 'skills';
   if (!profile.experienceLevel) return 'experience';
+  // Coordinates are optional, so the radius is the only persisted signal for
+  // both work-area steps. Resuming at `location` keeps their natural order.
   if (!profile.serviceRadiusKm) return 'location';
   return 'review';
 }
