@@ -25,4 +25,14 @@ describe('Button', () => {
 
     expect(onPress).not.toHaveBeenCalled();
   });
+
+  /**
+   * Guards against the label inheriting the variant's text colour from the
+   * type scale — dark-on-dark made primary labels invisible (see Button.tsx).
+   */
+  it('renders the primary label in the brand contrast colour', () => {
+    const { getByText } = render(<Button label="Get started" onPress={jest.fn()} />);
+
+    expect(getByText('Get started')).toHaveStyle({ color: '#FFFFFF' });
+  });
 });
