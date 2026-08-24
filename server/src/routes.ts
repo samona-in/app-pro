@@ -37,8 +37,12 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
   // reports unhealthy under exactly the load it exists to survive.
   router.use('/health', createHealthRouter());
 
-  // Credentials: the credential-stuffing and OTP brute-force surface.
-  router.use('/auth', limiters.auth, createAuthRouter(services));
+  // No credential endpoints exist: Supabase Auth owns sign-in and OTP, so the
+  // `auth` tier stays reserved for them. `/auth/me` is session validation — a
+  // high-frequency read every app boot depends on. Putting it behind the
+  // failures-only credential budget meant one database outage locked every
+  // signed-in user out for 15 minutes; it rides the global baseline instead.
+  router.use('/auth', createAuthRouter(services));
 
   // Profile and catalogue reads/writes.
   router.use('/users', limiters.write, createUsersRouter(services));
