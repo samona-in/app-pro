@@ -65,7 +65,12 @@ export function usePhoneHint(onPick: (e164: string) => void, isEnabled: boolean)
           }
         } catch (error) {
           // A failed hint must never block sign-in; the field works by hand.
-          console.warn('[usePhoneHint] phone number hint unavailable:', error);
+          // Expected under Expo Go / iOS (no compiled native side), so keep
+          // this off LogBox — a plain breadcrumb for debugging only.
+          console.log(
+            '[usePhoneHint] unavailable:',
+            error instanceof Error ? error.message : error,
+          );
         }
       })();
     }, PHONE_HINT_DELAY_MS);
