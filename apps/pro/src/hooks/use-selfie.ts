@@ -8,26 +8,40 @@ interface SelfieUploadTicket {
   uploadUrl: string;
 }
 
+const SELFIE_CONTENT_TYPE = 'image/jpeg';
+
 /**
  * Streams the captured JPEG to the signed URL the API minted.
  *
+ * XMLHttpRequest rather than fetch: React Native's fetch-with-Blob PUT is
+ * unreliable against presigned endpoints (bodies can go out chunked and get
+ * rejected by storage), while XHR streams the Blob natively and surfaces the
+ * status code needed to distinguish "bad network" from "bad ticket".
+ *
  * The bytes never pass through our API (its JSON bodies are capped far below
  * any image size): they go device-to-bucket, and the ticket URL carries the
- * authorization, so this is a plain fetch rather than the authed API client.
+ * authorization, so this is a plain request rather than the authed API client.
  */
-async function putSelfieBytes(ticket: SelfieUploadTicket, localUri: string): Promise<void> {
-  const file = await fetch(localUri);
-  const blob = await file.blob();
-
-  const response = await fetch(ticket.uploadUrl, {
-    method: 'PUT',
-    headers: { 'content-type': 'image/jpeg' },
-    body: blob,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Selfie upload failed with status ${response.status}.`);
-  }
+function putSelfieBytes(ticket: SelfieUploadTicket, localUri: string): Promise<void> {
+  return fetch(localUri)
+    .then((file) => file.blob())
+    .then(
+      (blob) =>
+        new Promise<void>((resolve, reject) => {
+          const request = new XMLHttpRequest();
+          request.open('PUT', ticket.uploadUrl);
+          request.setRequestHeader('content-type', SELFIE_CONTENT_TYPE);
+          request.onload = () => {
+            if (request.status >= 200 && request.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`Selfie upload failed with status ${request.status}.`));
+            }
+          };
+          request.onerror = () => reject(new Error('Selfie upload could not reach storage.'));
+          request.send(blob);
+        }),
+    );
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
@@ -21,21 +21,32 @@ export default function OnboardingFace() {
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const { mutate, reset, isPending, isError, isSuccess } = useUploadSelfie();
 
-  // Kick off the upload exactly once per capture.
-  useEffect(() => {
-    if (capturedUri && !isPending && !isSuccess) {
-      mutate({ localUri: capturedUri });
-    }
-  }, [capturedUri, mutate, isPending, isSuccess]);
+  /**
+   * Exactly-once guards keyed on intent, not mutation status: deriving
+   * "should we start?" from isPending/isSuccess re-fires the upload after
+   * every failure, which loops the screen between spinner and error state.
+   */
+  const startedUploadFor = useRef<string | null>(null);
+  const navigated = useRef(false);
 
   useEffect(() => {
-    if (!isSuccess) return;
+    if (!capturedUri || startedUploadFor.current === capturedUri) return;
+    startedUploadFor.current = capturedUri;
+    mutate({ localUri: capturedUri });
+  }, [capturedUri, mutate]);
+
+  useEffect(() => {
+    if (!isSuccess || navigated.current) return;
+    navigated.current = true;
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     router.push('/onboarding/review');
   }, [isSuccess]);
 
   function onRetake() {
     reset();
+    // A retake can land on the same temp file path, so the guards must clear.
+    startedUploadFor.current = null;
+    navigated.current = false;
     setCapturedUri(null);
     setStage('scan');
   }
