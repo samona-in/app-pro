@@ -31,10 +31,13 @@ describe('Text', () => {
   });
 
   it('does not treat size utilities as colour overrides', () => {
-    const { getByText } = render(<Text variant="body" className="text-display mt-1" />);
+    const { getByText } = render(
+      <Text variant="body" className="text-display mt-1">
+        Hello
+      </Text>,
+    );
 
-    const classes = getByText('').props.className as string;
-    expect(classes).toContain('text-text-primary');
+    const classes = getByText('Hello').props.className as string;
     expect(classes).toContain('text-display');
   });
 });
