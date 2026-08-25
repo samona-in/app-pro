@@ -16,15 +16,19 @@ async function main(): Promise<void> {
   const config = loadConfig();
 
   const prisma = createPrismaClient(config.databaseUrl);
-  const redis = createRedisClient(config.redisUrl);
-
+  let redis: ReturnType<typeof createRedisClient> | null = null;
   try {
-    await redis.connect();
-    logger.info('Connected to Redis.');
+    const client = createRedisClient(config.redisUrl);
+    await client.connect();
+    if (client.status === 'ready') {
+      redis = client;
+      logger.info('Connected to Redis.');
+    } else {
+      logger.error(`Redis status: ${client.status}. Falling back to in-memory rate limiting.`);
+      await client.quit().catch(() => undefined);
+    }
   } catch (error) {
-    // Redis is not required to serve a request today, so a failure here is
-    // logged loudly rather than crashing the process.
-    logger.error('Could not connect to Redis.', error);
+    logger.error('Could not connect to Redis. Falling back to in-memory rate limiting.', error);
   }
 
   const services = createServices(prisma, config);
@@ -55,7 +59,7 @@ async function main(): Promise<void> {
     // Stop accepting work before tearing down the resources in-flight requests use.
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     await io.close();
-    await redis.quit().catch(() => undefined);
+    if (redis) await redis.quit().catch(() => undefined);
     await prisma.$disconnect().catch(() => undefined);
 
     logger.info('Shutdown complete.');
