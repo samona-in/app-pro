@@ -22,6 +22,14 @@ export interface LocalUser {
 }
 
 /**
+ * The app type sent by the mobile clients via the `X-App-Type` header.
+ *
+ * Used during first sign-in to assign the correct role. Once a role is stored
+ * in the database it is never changed — the header only affects provisioning.
+ */
+const VALID_APP_TYPES = new Set(['customer', 'pro']);
+
+/**
  * Auth domain service.
  *
  * Supabase Auth owns credentials and phone verification; this service owns the
@@ -37,8 +45,12 @@ export function createAuthService(deps: AuthServiceDeps) {
    *
    * Everything needed to provision is already in the verified token, so this
    * costs one database round trip and never calls the Auth API.
+   *
+   * `appType` comes from the `X-App-Type` header and determines the role for
+   * new users. It is ignored for existing users: role is set once and never
+   * changes (except by admin).
    */
-  async function syncUser(token: VerifiedToken): Promise<LocalUser> {
+  async function syncUser(token: VerifiedToken, appType?: string): Promise<LocalUser> {
     const existing = await deps.prisma.profile.findUnique({ where: { id: token.userId } });
 
     if (existing) {
@@ -55,20 +67,27 @@ export function createAuthService(deps: AuthServiceDeps) {
       return updated as LocalUser;
     }
 
+    // Determine the role from the app type header. Falls back to the server
+    // default when the header is missing or invalid.
+    const role: UserRole =
+      appType && VALID_APP_TYPES.has(appType)
+        ? (appType.toUpperCase() as UserRole)
+        : deps.signupDefaultRole;
+
     // upsert, not create: two concurrent first requests would otherwise race
     // and one would fail on the primary key.
     const user = await deps.prisma.profile.upsert({
       where: { id: token.userId },
       create: {
         id: token.userId,
-        role: deps.signupDefaultRole,
+        role,
         phone: token.phone,
         email: token.email,
       },
       update: { phone: token.phone, email: token.email },
     });
 
-    logger.info(`Provisioned local user ${user.id}.`);
+    logger.info(`Provisioned local user ${user.id} as ${role}.`);
     return user as LocalUser;
   }
 

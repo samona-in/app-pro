@@ -60,6 +60,47 @@ describe('syncUser', () => {
     });
   });
 
+  it('provisions a customer when appType is "customer"', async () => {
+    const prisma = fakePrisma();
+    prisma.calls.findUnique.mockResolvedValue(null);
+    prisma.calls.upsert.mockResolvedValue({ id: token.userId, role: 'CUSTOMER' });
+
+    await service(prisma.client).syncUser(token, 'customer');
+
+    const args = prisma.calls.upsert.mock.calls[0][0];
+    expect(args.create).toMatchObject({
+      id: token.userId,
+      role: 'CUSTOMER',
+    });
+  });
+
+  it('ignores an invalid appType and falls back to the default role', async () => {
+    const prisma = fakePrisma();
+    prisma.calls.findUnique.mockResolvedValue(null);
+    prisma.calls.upsert.mockResolvedValue({ id: token.userId, role: 'PRO' });
+
+    await service(prisma.client).syncUser(token, 'hacker');
+
+    const args = prisma.calls.upsert.mock.calls[0][0];
+    expect(args.create.role).toBe('PRO');
+  });
+
+  it('never changes the role of an existing user even if appType is sent', async () => {
+    const prisma = fakePrisma();
+    prisma.calls.findUnique.mockResolvedValue({
+      id: token.userId,
+      role: 'CUSTOMER',
+      phone: token.phone,
+      email: null,
+    });
+
+    const user = await service(prisma.client).syncUser(token, 'pro');
+
+    // Existing user keeps their role; appType is only for provisioning.
+    expect(user.role).toBe('CUSTOMER');
+    expect(prisma.calls.upsert).not.toHaveBeenCalled();
+  });
+
   it('uses the auth user id as the primary key', async () => {
     const prisma = fakePrisma();
     prisma.calls.findUnique.mockResolvedValue(null);
