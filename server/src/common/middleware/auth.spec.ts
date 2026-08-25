@@ -97,6 +97,22 @@ describe('createRequireAuth', () => {
       .expect(403);
   });
 
+  it('passes the X-App-Type header to syncUser for provisioning', async () => {
+    const verify = jest.fn().mockResolvedValue({ userId: activeUser.id, phone: null, email: null });
+    const syncUser = jest.fn().mockResolvedValue({ ...activeUser, role: 'CUSTOMER' });
+
+    await request(appWith({ verify }, { syncUser }))
+      .get('/me')
+      .set('authorization', 'Bearer good.token.value')
+      .set('x-app-type', 'customer')
+      .expect(200);
+
+    expect(syncUser).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: activeUser.id }),
+      'customer',
+    );
+  });
+
   it('refuses a deactivated account', async () => {
     const verify = jest.fn().mockResolvedValue({ userId: activeUser.id, phone: null, email: null });
     const syncUser = jest.fn().mockResolvedValue({ ...activeUser, isActive: false });

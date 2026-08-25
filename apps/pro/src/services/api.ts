@@ -29,6 +29,7 @@ export const api = createApiClient({
   prefix: API_PREFIX,
   // Production builds must not send bearer tokens over cleartext HTTP.
   requireHttps: !env.isDev,
+  defaultHeaders: { 'X-App-Type': 'pro' },
   getAccessToken: async () => {
     if (!getSessionToken) return null;
     try {

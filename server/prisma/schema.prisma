@@ -57,6 +57,7 @@ model Profile {
   updatedAt DateTime @updatedAt
 
   proProfile ProProfile?
+  customerProfile CustomerProfile?
 
   @@index([role])
   @@map("profiles")
@@ -112,6 +113,34 @@ model ProProfile {
   @@index([onboardingStatus])
   @@index([isOnline])
   @@map("pro_profiles")
+}
+
+/// A customer's profile, storing their display identity and default location.
+///
+/// Much simpler than ProProfile: customers do not offer services, have no
+/// skill matrix, and do not need verification. The profile exists so the
+/// marketplace knows who is requesting work and where they are.
+model CustomerProfile {
+  id     String @id @default(uuid()) @db.Uuid
+  /// One customer profile per account. Unique, not just indexed.
+  userId String @unique @map("user_id") @db.Uuid
+
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Derived from required fields on write; see `isCustomerProfileComplete`.
+  onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
+
+  displayName   String? @map("display_name")
+  addressLabel  String? @map("address_label")
+  locationLabel String? @map("location_label")
+  latitude      Float?
+  longitude     Float?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([onboardingStatus])
+  @@map("customer_profiles")
 }
 
 /// The service catalogue a professional selects from (onboarding step 3).

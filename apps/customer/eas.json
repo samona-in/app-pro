@@ -1,0 +1,32 @@
+{
+  "cli": {
+    "version": ">= 22.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      },
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://8124-49-37-146-195.ngrok-free.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://mbylupexffssmyiqgwnb.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_l85O2w4wihFAyH06_oiXHA_6tTyAIwa"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://8124-49-37-146-195.ngrok-free.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://mbylupexffssmyiqgwnb.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_l85O2w4wihFAyH06_oiXHA_6tTyAIwa"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

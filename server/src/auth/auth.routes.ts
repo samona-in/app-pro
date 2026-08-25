@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import {
   nextIncompleteStep,
+  nextIncompleteCustomerStep,
+  type CustomerOnboardingStep,
+  type CustomerProfile,
   type OnboardingStatus,
   type OnboardingStep,
   type ProProfile,
@@ -16,11 +19,18 @@ import type { LocalUser } from './auth.service';
  * `nextStep` is computed from the profile's own data, so resuming onboarding
  * and entering the app are the same decision made in one place.
  */
-export interface SessionResponse {
+export interface ProSessionResponse {
   user: PublicUser;
   proProfile: ProProfile;
   onboardingStatus: OnboardingStatus;
   nextStep: OnboardingStep;
+}
+
+export interface CustomerSessionResponse {
+  user: PublicUser;
+  customerProfile: CustomerProfile;
+  onboardingStatus: OnboardingStatus;
+  nextStep: CustomerOnboardingStep;
 }
 
 /** Shapes a local user for the wire. Never exposes internal columns. */
@@ -69,10 +79,25 @@ export function createAuthRouter(services: Services): Router {
         return;
       }
 
+      const publicUser = toPublicUser(user as LocalUser);
+
+      if (publicUser.role === 'CUSTOMER') {
+        const customerProfile = await services.customers.ensureForUser(req.user!.id);
+
+        const body: CustomerSessionResponse = {
+          user: publicUser,
+          customerProfile,
+          onboardingStatus: customerProfile.onboardingStatus,
+          nextStep: nextIncompleteCustomerStep(customerProfile),
+        };
+        res.json(body);
+        return;
+      }
+
       const proProfile = await services.pros.ensureForUser(req.user!.id);
 
-      const body: SessionResponse = {
-        user: toPublicUser(user as LocalUser),
+      const body: ProSessionResponse = {
+        user: publicUser,
         proProfile,
         onboardingStatus: proProfile.onboardingStatus,
         nextStep: nextIncompleteStep(proProfile),

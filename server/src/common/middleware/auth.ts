@@ -51,7 +51,9 @@ export function createRequireAuth({ verifier, authService }: RequireAuthDeps): R
       }
 
       // Creates the local row on first sign-in; a cheap lookup afterwards.
-      const user = await authService.syncUser(verified);
+      // The X-App-Type header tells us which role to assign on provisioning.
+      const appType = req.get('x-app-type');
+      const user = await authService.syncUser(verified, appType);
 
       if (!user.isActive) {
         next(forbidden('This account has been deactivated.'));
