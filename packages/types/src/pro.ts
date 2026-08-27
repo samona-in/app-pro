@@ -1,8 +1,10 @@
+import type { Gender } from './user';
+
 /**
  * Professional profile and onboarding.
  *
- * Mirrors `OnboardingStatus` / `ExperienceLevel` in the Prisma schema — keep
- * the two in sync.
+ * Mirrors `OnboardingStatus` / `ExperienceLevel` / `Gender` in the Prisma
+ * schema — keep these in sync.
  */
 export const OnboardingStatus = {
   NOT_STARTED: 'NOT_STARTED',
@@ -50,6 +52,7 @@ export interface ProProfile {
   userId: string;
   onboardingStatus: OnboardingStatus;
   displayName: string | null;
+  gender: Gender | null;
   bio: string | null;
   experienceLevel: ExperienceLevel | null;
   serviceRadiusKm: number;
@@ -90,6 +93,7 @@ export function isProProfileComplete(
   profile: Pick<
     ProProfile,
     | 'displayName'
+    | 'gender'
     | 'experienceLevel'
     | 'serviceRadiusKm'
     | 'serviceIds'
@@ -102,6 +106,7 @@ export function isProProfileComplete(
   return (
     typeof profile.displayName === 'string' &&
     profile.displayName.trim().length >= 2 &&
+    profile.gender !== null &&
     profile.experienceLevel !== null &&
     profile.serviceRadiusKm > 0 &&
     profile.serviceIds.length > 0 &&
@@ -114,6 +119,7 @@ export function isProProfileComplete(
 export const ONBOARDING_STEPS = [
   'intro',
   'name',
+  'gender',
   'services',
   'skills',
   'experience',
@@ -135,6 +141,7 @@ export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 export function nextIncompleteStep(profile: ProProfile | null): OnboardingStep {
   if (!profile) return 'intro';
   if (!profile.displayName || profile.displayName.trim().length < 2) return 'name';
+  if (!profile.gender) return 'gender';
   if (profile.serviceIds.length === 0) return 'services';
   if (profile.skillIds.length === 0) return 'skills';
   if (!profile.experienceLevel) return 'experience';

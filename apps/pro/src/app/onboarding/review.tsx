@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { EXPERIENCE_LEVELS, isProProfileComplete, nextIncompleteStep } from '@samona/types';
+import {
+  EXPERIENCE_LEVELS,
+  GENDER_OPTIONS,
+  isProProfileComplete,
+  nextIncompleteStep,
+} from '@samona/types';
 import { LoadingState } from '@/components/feedback';
 import { OnboardingStepLayout } from '@/components/onboarding';
 import { Avatar, Badge, Card, Divider, Text } from '@/components/ui';
@@ -32,6 +37,7 @@ export default function OnboardingReview() {
       from.filter((item) => ids.includes(item.id)).map((item) => item.name);
 
     return {
+      gender: GENDER_OPTIONS.find((option) => option.value === profile.gender)?.label ?? '—',
       services: names(profile.serviceIds, catalogue.data.services),
       skills: names(profile.skillIds, catalogue.data.skills),
       experience:
@@ -72,11 +78,7 @@ export default function OnboardingReview() {
       onPrimary={() => void onFinish()}
     >
       <Card className="flex-row items-center">
-        <Avatar
-          name={profile.displayName ?? 'SAMONA Pro'}
-          size="lg"
-          uri={profile.selfiePhotoUrl}
-        />
+        <Avatar name={profile.displayName ?? 'SAMONA Pro'} size="lg" uri={profile.selfiePhotoUrl} />
         <View className="ml-4 flex-1">
           <Text variant="title">{profile.displayName ?? 'Your name'}</Text>
           <Text variant="footnote" className="mt-0.5">
@@ -91,6 +93,8 @@ export default function OnboardingReview() {
       </Card>
 
       <Card className="mt-4" padded={false}>
+        <SummaryRow label="Gender" value={summary.gender} />
+        <Divider />
         <SummaryRow label="Services" value={summary.services.join(', ') || '—'} />
         <Divider />
         <SummaryRow label="Specialties" value={summary.skills.join(', ') || '—'} />

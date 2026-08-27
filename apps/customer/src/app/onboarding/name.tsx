@@ -20,7 +20,7 @@ export default function OnboardingName() {
 
     setError(null);
     await save.mutateAsync({ displayName: parsed.data });
-    router.push('/onboarding/address');
+    router.push('/onboarding/gender');
   }
 
   return (

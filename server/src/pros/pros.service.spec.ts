@@ -13,6 +13,7 @@ const baseRow = {
   userId: 'user-1',
   onboardingStatus: OnboardingStatus.IN_PROGRESS as string,
   displayName: 'Asha Kumar',
+  gender: 'FEMALE',
   bio: null,
   experienceLevel: 'THREE_TO_FIVE',
   serviceRadiusKm: 10,
@@ -34,6 +35,7 @@ const base: ProProfile = {
   userId: 'user-1',
   onboardingStatus: OnboardingStatus.IN_PROGRESS,
   displayName: 'Asha Kumar',
+  gender: 'FEMALE',
   bio: null,
   experienceLevel: 'THREE_TO_FIVE',
   serviceRadiusKm: 10,
@@ -46,7 +48,8 @@ const base: ProProfile = {
   rating: null,
   completedJobs: 0,
   hasSelfie: true,
-  selfiePhotoUrl: 'https://project.supabase.co/storage/v1/object/public/pro-selfies/pros/user-1/selfie.jpg',
+  selfiePhotoUrl:
+    'https://project.supabase.co/storage/v1/object/public/pro-selfies/pros/user-1/selfie.jpg',
   serviceIds: ['svc-1'],
   skillIds: ['skl-1'],
 };
@@ -64,6 +67,7 @@ describe('isProProfileComplete', () => {
     ['no name', { displayName: null }],
     ['a name too short to be real', { displayName: 'A' }],
     ['a whitespace-only name', { displayName: '   ' }],
+    ['no gender', { gender: null }],
     ['no experience', { experienceLevel: null }],
     ['no services', { serviceIds: [] }],
     ['no specialties', { skillIds: [] }],
@@ -110,16 +114,33 @@ describe('nextIncompleteStep', () => {
     const empty: ProProfile = {
       ...base,
       displayName: null,
+      gender: null,
       serviceIds: [],
       skillIds: [],
       experienceLevel: null,
     };
 
     expect(nextIncompleteStep(empty)).toBe('name');
-    expect(nextIncompleteStep({ ...empty, displayName: 'Asha' })).toBe('services');
-    expect(nextIncompleteStep({ ...empty, displayName: 'Asha', serviceIds: ['s'] })).toBe('skills');
+    expect(nextIncompleteStep({ ...empty, displayName: 'Asha' })).toBe('gender');
+    expect(nextIncompleteStep({ ...empty, displayName: 'Asha', gender: 'FEMALE' })).toBe(
+      'services',
+    );
     expect(
-      nextIncompleteStep({ ...empty, displayName: 'Asha', serviceIds: ['s'], skillIds: ['k'] }),
+      nextIncompleteStep({
+        ...empty,
+        displayName: 'Asha',
+        gender: 'FEMALE',
+        serviceIds: ['s'],
+      }),
+    ).toBe('skills');
+    expect(
+      nextIncompleteStep({
+        ...empty,
+        displayName: 'Asha',
+        gender: 'FEMALE',
+        serviceIds: ['s'],
+        skillIds: ['k'],
+      }),
     ).toBe('experience');
   });
 
@@ -127,8 +148,22 @@ describe('nextIncompleteStep', () => {
     // The progress bar and resume routing both read this array; the face step
     // must sit immediately before review so "almost there" stays accurate.
     const steps = ONBOARDING_STEPS;
+    expect(steps.indexOf('gender')).toBe(steps.indexOf('name') + 1);
     expect(steps.indexOf('face')).toBe(steps.indexOf('about') + 1);
     expect(steps[steps.length - 1]).toBe('review');
+    expect(steps).toEqual([
+      'intro',
+      'name',
+      'gender',
+      'services',
+      'skills',
+      'experience',
+      'location',
+      'radius',
+      'about',
+      'face',
+      'review',
+    ]);
   });
 });
 

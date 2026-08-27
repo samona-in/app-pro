@@ -2,6 +2,7 @@ import {
   isCustomerProfileComplete,
   OnboardingStatus,
   type CustomerProfile,
+  type Gender,
 } from '@samona/types';
 import type { CustomerOnboardingPatchInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
@@ -16,6 +17,7 @@ const customerProfileSelect = {
   userId: true,
   onboardingStatus: true,
   displayName: true,
+  gender: true,
   locationLabel: true,
   latitude: true,
   longitude: true,
@@ -87,6 +89,7 @@ export function createCustomersService(deps: CustomersServiceDeps) {
         where: { userId },
         data: {
           ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
+          ...(patch.gender !== undefined ? { gender: patch.gender as Gender } : {}),
           ...(patch.locationLabel !== undefined ? { locationLabel: patch.locationLabel } : {}),
           ...(patch.coordinates !== undefined
             ? { latitude: patch.coordinates.latitude, longitude: patch.coordinates.longitude }
@@ -114,7 +117,8 @@ export function createCustomersService(deps: CustomersServiceDeps) {
   /** Derives and persists onboarding status from the profile's own data. */
   async function recomputeStatus(profile: CustomerProfile): Promise<CustomerProfile> {
     const complete = isCustomerProfileComplete(profile);
-    const hasAnyAnswer = Boolean(profile.displayName) || Boolean(profile.locationLabel);
+    const hasAnyAnswer =
+      Boolean(profile.displayName) || Boolean(profile.gender) || Boolean(profile.locationLabel);
 
     const status = complete
       ? OnboardingStatus.COMPLETED

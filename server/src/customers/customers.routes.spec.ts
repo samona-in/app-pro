@@ -22,6 +22,7 @@ const profile: CustomerProfile = {
   userId: 'user-1',
   onboardingStatus: OnboardingStatus.NOT_STARTED,
   displayName: null,
+  gender: null,
   locationLabel: null,
   latitude: null,
   longitude: null,
@@ -30,11 +31,17 @@ const profile: CustomerProfile = {
 
 function buildServices(overrides: Partial<Services> = {}) {
   return {
-    tokenVerifier: { verify: jest.fn().mockResolvedValue({ userId: activeUser.id, phone: activeUser.phone, email: null }) },
+    tokenVerifier: {
+      verify: jest
+        .fn()
+        .mockResolvedValue({ userId: activeUser.id, phone: activeUser.phone, email: null }),
+    },
     auth: { syncUser: jest.fn().mockResolvedValue(activeUser) },
     customers: {
       ensureForUser: jest.fn().mockResolvedValue(profile),
-      applyOnboardingPatch: jest.fn().mockResolvedValue({ ...profile, onboardingStatus: OnboardingStatus.COMPLETED }),
+      applyOnboardingPatch: jest
+        .fn()
+        .mockResolvedValue({ ...profile, onboardingStatus: OnboardingStatus.COMPLETED }),
     },
     ...overrides,
   } as unknown as Services;

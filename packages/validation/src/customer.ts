@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GENDER_VALUES } from './constants';
 import { coordinatesSchema } from './primitives';
 import { displayNameSchema } from './pro';
 
@@ -9,6 +10,10 @@ import { displayNameSchema } from './pro';
  */
 export const customerOnboardingNameSchema = z.object({
   displayName: displayNameSchema,
+});
+
+export const customerOnboardingGenderSchema = z.object({
+  gender: z.enum(GENDER_VALUES),
 });
 
 export const customerOnboardingAddressSchema = z.object({
@@ -24,6 +29,7 @@ export const customerOnboardingAddressSchema = z.object({
 export const customerOnboardingPatchSchema = z
   .object({
     displayName: displayNameSchema.optional(),
+    gender: z.enum(GENDER_VALUES).optional(),
     coordinates: coordinatesSchema.optional(),
     locationLabel: z.string().trim().max(120).optional(),
     avatarUrl: z.url().optional(),

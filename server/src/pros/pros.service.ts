@@ -2,6 +2,7 @@ import {
   isProProfileComplete,
   OnboardingStatus,
   type ExperienceLevel,
+  type Gender,
   type ProProfile,
 } from '@samona/types';
 import type { OnboardingPatchInput } from '@samona/validation';
@@ -21,6 +22,7 @@ const proProfileSelect = {
   userId: true,
   onboardingStatus: true,
   displayName: true,
+  gender: true,
   bio: true,
   experienceLevel: true,
   serviceRadiusKm: true,
@@ -157,6 +159,7 @@ export function createProsService(deps: ProsServiceDeps) {
         where: { userId },
         data: {
           ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
+          ...(patch.gender !== undefined ? { gender: patch.gender as Gender } : {}),
           ...(patch.bio !== undefined ? { bio: patch.bio } : {}),
           ...(patch.experienceLevel !== undefined
             ? { experienceLevel: patch.experienceLevel as ExperienceLevel }
@@ -216,7 +219,10 @@ export function createProsService(deps: ProsServiceDeps) {
   async function recomputeStatus(profile: ProProfile): Promise<ProProfile> {
     const complete = isProProfileComplete(profile);
     const hasAnyAnswer =
-      Boolean(profile.displayName) || profile.serviceIds.length > 0 || Boolean(profile.bio);
+      Boolean(profile.displayName) ||
+      Boolean(profile.gender) ||
+      profile.serviceIds.length > 0 ||
+      Boolean(profile.bio);
 
     const status = complete
       ? OnboardingStatus.COMPLETED
