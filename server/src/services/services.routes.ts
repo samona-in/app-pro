@@ -26,5 +26,23 @@ export function createServicesRouter(services: Services): Router {
     }
   });
 
+  /**
+   * The exact-need categories for one service (the booking flow's "what
+   * exactly" step). An unknown slug simply returns an empty list rather than
+   * leaking catalogue ids.
+   */
+  router.get('/:slug/skills', requireAuth, async (req, res, next) => {
+    try {
+      const slug = req.params.slug;
+      if (typeof slug !== 'string') {
+        res.json([]);
+        return;
+      }
+      res.json(await services.services.listSkillsForService(slug));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return router;
 }

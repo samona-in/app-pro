@@ -1,5 +1,5 @@
 import type { PrismaClient } from '../database/prisma';
-import type { ServiceOption } from '@samona/types';
+import type { ServiceOption, SkillOption } from '@samona/types';
 
 export interface ServicesServiceDeps {
   prisma: PrismaClient;
@@ -29,7 +29,23 @@ export function createServicesService(deps: ServicesServiceDeps) {
     return services;
   }
 
-  return { listActive };
+  /**
+   * The active job categories for one service, in display order.
+   *
+   * This is what the booking flow's "exact need" step renders after the
+   * customer picks a service on the home grid.
+   */
+  async function listSkillsForService(slug: string): Promise<SkillOption[]> {
+    const skills = await deps.prisma.skill.findMany({
+      where: { isActive: true, service: { slug } },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, serviceId: true, slug: true, name: true },
+    });
+
+    return skills;
+  }
+
+  return { listActive, listSkillsForService };
 }
 
 export type ServicesService = ReturnType<typeof createServicesService>;
