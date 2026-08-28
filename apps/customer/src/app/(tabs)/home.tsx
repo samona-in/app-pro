@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import type { ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
-import { Screen, Text } from '@/components/ui';
+import { Screen } from '@/components/ui';
 import { useServiceCategories, useSession } from '@/hooks';
 
 export default function Home() {
@@ -24,10 +24,6 @@ export default function Home() {
       <View className="mt-5">
         <SearchBar onPress={() => router.push('/bookings')} />
       </View>
-
-      <Text variant="title" className="mt-7">
-        Categories
-      </Text>
 
       <View className="mt-5">
         {categories.isPending ? (
