@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import type { ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
-import { Screen } from '@/components/ui';
+import { Screen, IconButton } from '@/components/ui';
 import { useServiceCategories, useSession } from '@/hooks';
 
 export default function Home() {
@@ -19,7 +19,16 @@ export default function Home() {
 
   return (
     <Screen scrollable>
-      <HomeHeader locationLabel={customerProfile?.locationLabel ?? undefined}>
+      <HomeHeader
+        locationLabel={customerProfile?.locationLabel ?? undefined}
+        trailing={
+          <IconButton
+            name="notifications-outline"
+            accessibilityLabel="Notifications"
+            onPress={() => router.push('/notifications')}
+          />
+        }
+      >
         <SearchBar onPress={() => router.push('/bookings')} />
       </HomeHeader>
 
