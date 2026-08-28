@@ -24,7 +24,7 @@ export function HomeHeader({
   ...rest
 }: HomeHeaderProps) {
   return (
-    <View className={cn('-mx-5 bg-green-50 px-5 pb-6 pt-3', className)}>
+    <View className={cn('-mx-5 bg-surface-muted px-5 pb-6 pt-3', className)}>
       <View className="flex-row items-center justify-between">
         <Pressable
           accessibilityRole="button"
@@ -33,11 +33,11 @@ export function HomeHeader({
           className="flex-1 flex-row items-center active:opacity-70"
           {...rest}
         >
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-green-100">
-            <Ionicons name="location" size={20} color={color.success} />
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-brand">
+            <Ionicons name="location" size={20} color={color['brand-contrast']} />
           </View>
           <View className="ml-3 flex-1">
-            <Text variant="caption" className="text-green-700">
+            <Text variant="caption" className="text-brand-muted">
               Your location
             </Text>
             <Text
