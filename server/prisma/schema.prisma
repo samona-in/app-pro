@@ -107,6 +107,8 @@ model ProProfile {
 
   services ProService[]
   skills   ProSkill[]
+  /// Jobs this professional accepted. Authorised against ProProfile.userId.
+  jobs Job[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -137,6 +139,8 @@ model CustomerProfile {
   latitude      Float?
   longitude     Float?
 
+  jobs Job[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -156,6 +160,7 @@ model Service {
 
   skills Skill[]
   pros   ProService[]
+  jobs   Job[]
 
   @@map("services")
 }
@@ -171,6 +176,7 @@ model Skill {
 
   service Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   pros    ProSkill[]
+  jobs    Job[]
 
   @@index([serviceId])
   @@map("skills")
@@ -196,6 +202,107 @@ model ProSkill {
 
   @@id([proProfileId, skillId])
   @@map("pro_skills")
+}
+
+/// A service request placed by a customer.
+///
+/// Created in `REQUESTED` and moved exclusively by the backend through the
+/// transitions in `@samona/types` `JOB_STATUS_TRANSITIONS`. The customer never
+/// asserts a status; it only requests a transition.
+model Job {
+  id        String @id @default(uuid()) @db.Uuid
+  /// The CustomerProfile that placed the request.
+  customerId String @map("customer_id") @db.Uuid
+  /// The ProProfile that accepted it; null until then.
+  proId     String? @map("pro_id") @db.Uuid
+
+  customer  CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  pro       ProProfile?     @relation(fields: [proId], references: [id], onDelete: SetNull)
+
+  serviceId String @map("service_id") @db.Uuid
+  skillId   String @map("skill_id") @db.Uuid
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Restrict)
+
+  status JobStatus @default(REQUESTED)
+
+  /// Where the work will happen. `placeDescription` is captured when
+  /// `placeType` is OTHER.
+  placeType         PlaceType @map("place_type")
+  placeDescription  String?   @map("place_description")
+
+  /// Free-text description of the requested job.
+  description String
+
+  /// Storage paths of reference photos (0–5), inside the job-images bucket.
+  /// Public URLs are derived on read; a client never writes these.
+  imagePaths String[] @default([]) @map("image_paths")
+
+  /// The guaranteed amount, in paise, the customer commits to paying. It is
+  /// what makes acceptance attractive; the professional may still agree a
+  /// different final charge once they understand the scope.
+  basePayPaise Int @map("base_pay_paise")
+  /// Amount agreed after the professional prices the actual scope.
+  agreedPayPaise Int? @map("agreed_pay_paise")
+  /// Amount actually settled, after the final charge is agreed.
+  finalPayPaise Int? @map("final_pay_paise")
+
+  acceptedAt  DateTime? @map("accepted_at")
+  completedAt DateTime? @map("completed_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  statusHistory JobStatusHistory[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([customerId, status])
+  @@index([serviceId, status])
+  @@index([proId, status])
+  @@index([createdAt])
+  @@map("jobs")
+}
+
+/// One recorded transition in a job's life, for audit and the client timeline.
+///
+/// `fromStatus` is null for the row that records the job's creation.
+model JobStatusHistory {
+  id      String    @id @default(uuid()) @db.Uuid
+  jobId   String    @map("job_id") @db.Uuid
+  job     Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  /// Null means the job was created into `toStatus`.
+  fromStatus JobStatus? @map("from_status")
+  toStatus   JobStatus  @map("to_status")
+  /// The profile/user that drove the transition; null for a system action.
+  changedById String? @map("changed_by_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([jobId])
+  @@map("job_status_history")
+}
+
+/// Mirrored by `PlaceType` in `@samona/types` — keep the two in sync.
+enum PlaceType {
+  RESIDENCE
+  OFFICE
+  OTHER
+}
+
+/// Mirrored by `JobStatus` in `@samona/types` — keep the two in sync.
+enum JobStatus {
+  REQUESTED
+  OFFERED
+  ACCEPTED
+  TRAVELLING
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  PAYMENT_PENDING
+  PAID
+  CANCELLED
+  EXPIRED
 }
 
 enum OnboardingStatus {
