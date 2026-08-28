@@ -19,11 +19,9 @@ export default function Home() {
 
   return (
     <Screen scrollable>
-      <HomeHeader locationLabel={customerProfile?.locationLabel ?? undefined} />
-
-      <View className="mt-5">
+      <HomeHeader locationLabel={customerProfile?.locationLabel ?? undefined}>
         <SearchBar onPress={() => router.push('/bookings')} />
-      </View>
+      </HomeHeader>
 
       <View className="mt-5">
         {categories.isPending ? (

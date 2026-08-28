@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, View, type PressableProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
@@ -7,6 +8,8 @@ import { cn } from '@/utils/cn';
 export interface HomeHeaderProps extends Omit<PressableProps, 'style'> {
   /** The customer's location label shown under the pin. */
   locationLabel?: string;
+  /** Extra content rendered below the location row, inside the same band. */
+  children?: ReactNode;
   className?: string;
 }
 
@@ -14,12 +17,14 @@ export interface HomeHeaderProps extends Omit<PressableProps, 'style'> {
  * Full-width soft-coloured header for the customer home.
  *
  * The location row is the hero: a pin, the address beneath it, and a dropdown
- * affordance on the right to change the saved location. Carries a soft tint so
- * the header reads as a distinct band from the white content below.
+ * affordance on the right to change the saved location. Children (e.g. the
+ * search bar) render below it within the same coloured band. Carries a soft
+ * tint so the header reads as a distinct section from the white content below.
  */
 export function HomeHeader({
   locationLabel = 'Set your location',
   onPress,
+  children,
   className,
   ...rest
 }: HomeHeaderProps) {
@@ -51,6 +56,8 @@ export function HomeHeader({
           <Ionicons name="chevron-down" size={20} color={color['text-secondary']} />
         </Pressable>
       </View>
+
+      {children ? <View className="mt-5">{children}</View> : null}
     </View>
   );
 }
