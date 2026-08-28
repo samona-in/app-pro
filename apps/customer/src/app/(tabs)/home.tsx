@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import type { ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
-import { Screen, IconButton, Text } from '@/components/ui';
+import { Screen, IconButton } from '@/components/ui';
 import { useServiceCategories, useSession } from '@/hooks';
 
 export default function Home() {
@@ -18,7 +19,8 @@ export default function Home() {
   }
 
   return (
-    <Screen scrollable>
+    <Screen scrollable edges={['bottom']}>
+      <StatusBar style="dark" />
       <HomeHeader
         locationLabel={customerProfile?.locationLabel ?? undefined}
         trailing={
@@ -30,11 +32,6 @@ export default function Home() {
         }
       >
         <SearchBar onPress={() => router.push('/bookings')} />
-        <View className="mt-5 h-16 items-center justify-center rounded-lg border border-dashed border-border-strong bg-white/40">
-          <Text variant="caption" className="text-text-muted">
-            Offers &amp; greetings coming soon
-          </Text>
-        </View>
       </HomeHeader>
 
       <View className="mt-5">

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, View, type PressableProps } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
 import { color } from '@/theme';
@@ -20,9 +21,10 @@ export interface HomeHeaderProps extends Omit<PressableProps, 'style'> {
  *
  * The location row is the hero: a pin and the address beneath it, with an
  * optional trailing control (e.g. notifications) on the right. Children (e.g.
- * the search bar) render below it within the same coloured band. Carries a
- * soft tint so the header reads as a distinct section from the white content
- * below.
+ * the search bar) render below it within the same coloured band. The band
+ * extends under the status bar — which the screen edges make room for — and
+ * clears the inset with its own top padding, so the status bar matches the
+ * header background.
  */
 export function HomeHeader({
   locationLabel = 'Set your location',
@@ -32,8 +34,13 @@ export function HomeHeader({
   className,
   ...rest
 }: HomeHeaderProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View className={cn('-mx-5 bg-surface-muted px-5 pb-6 pt-3', className)}>
+    <View
+      style={{ paddingTop: insets.top + 12 }}
+      className={cn('-mx-5 bg-surface-muted px-5 pb-6', className)}
+    >
       <View className="flex-row items-center justify-between">
         <Pressable
           accessibilityRole="button"
