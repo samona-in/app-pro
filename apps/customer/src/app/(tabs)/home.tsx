@@ -23,6 +23,7 @@ export default function Home() {
       <StatusBar style="dark" />
       <HomeHeader
         locationLabel={customerProfile?.locationLabel ?? undefined}
+        onPress={() => router.push('/location-picker')}
         trailing={
           <IconButton
             name="notifications-outline"
