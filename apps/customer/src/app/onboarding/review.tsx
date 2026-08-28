@@ -1,9 +1,13 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { isCustomerProfileComplete, nextIncompleteCustomerStep } from '@samona/types';
+import {
+  GENDER_OPTIONS,
+  isCustomerProfileComplete,
+  nextIncompleteCustomerStep,
+} from '@samona/types';
 import { LoadingState } from '@/components/feedback';
 import { OnboardingStepLayout } from '@/components/onboarding';
-import { Avatar, Badge, Card, Text } from '@/components/ui';
+import { Avatar, Badge, Card, Divider, Text } from '@/components/ui';
 import { useCustomerProfile, useSession } from '@/hooks';
 
 export default function OnboardingReview() {
@@ -38,11 +42,7 @@ export default function OnboardingReview() {
       onPrimary={() => void onFinish()}
     >
       <Card className="flex-row items-center">
-        <Avatar
-          name={profile.displayName ?? 'SAMONA Customer'}
-          size="lg"
-          uri={profile.avatarUrl}
-        />
+        <Avatar name={profile.displayName ?? 'SAMONA Customer'} size="lg" uri={profile.avatarUrl} />
         <View className="ml-4 flex-1">
           <Text variant="title">{profile.displayName ?? 'Your name'}</Text>
           <Text variant="footnote" className="mt-0.5">
@@ -53,6 +53,26 @@ export default function OnboardingReview() {
             tone={complete ? 'success' : 'warning'}
             className="mt-2"
           />
+        </View>
+      </Card>
+
+      <Card className="mt-4" padded={false}>
+        <View className="flex-row items-start justify-between px-4 py-3">
+          <Text variant="body" className="mr-4 text-text-secondary">
+            Gender
+          </Text>
+          <Text variant="bodyStrong" className="flex-1 text-right">
+            {GENDER_OPTIONS.find((option) => option.value === profile.gender)?.label ?? '—'}
+          </Text>
+        </View>
+        <Divider />
+        <View className="flex-row items-start justify-between px-4 py-3">
+          <Text variant="body" className="mr-4 text-text-secondary">
+            Address
+          </Text>
+          <Text variant="bodyStrong" className="flex-1 text-right">
+            {profile.locationLabel ?? 'Not set'}
+          </Text>
         </View>
       </Card>
 

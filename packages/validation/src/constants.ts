@@ -7,5 +7,8 @@ export const EXPERIENCE_LEVELS = [
   'TEN_PLUS',
 ] as const;
 
+/** Mirrors `Gender` in `@samona/types` and the Prisma enum. */
+export const GENDER_VALUES = ['MALE', 'FEMALE', 'OTHER'] as const;
+
 /** Upper bound on languages a Pro can list. */
 export const LANGUAGE_MAX = 8;

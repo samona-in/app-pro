@@ -21,7 +21,7 @@ export default function OnboardingName() {
     setError(null);
     // Saved now, not at the end, so closing the app here loses nothing.
     await save.mutateAsync({ displayName: parsed.data });
-    router.push('/onboarding/services');
+    router.push('/onboarding/gender');
   }
 
   return (

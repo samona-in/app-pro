@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EXPERIENCE_LEVELS, LANGUAGE_MAX } from './constants';
+import { EXPERIENCE_LEVELS, GENDER_VALUES, LANGUAGE_MAX } from './constants';
 import { fullNameSchema, idSchema, coordinatesSchema } from './primitives';
 
 /**
@@ -35,34 +35,41 @@ export const onboardingNameSchema = z.object({
   displayName: displayNameSchema,
 });
 
-/** Step 3 — services. At least one, or there is nothing to match on. */
+/** Step 3 — gender. Male, female or other. */
+export const genderSchema = z.enum(GENDER_VALUES);
+
+export const onboardingGenderSchema = z.object({
+  gender: genderSchema,
+});
+
+/** Step 4 — services. At least one, or there is nothing to match on. */
 export const onboardingServicesSchema = z.object({
   serviceIds: z.array(idSchema).min(1, 'Choose at least one service.'),
 });
 
-/** Step 4 — specialties within the chosen services. */
+/** Step 5 — specialties within the chosen services. */
 export const onboardingSkillsSchema = z.object({
   skillIds: z.array(idSchema).min(1, 'Choose at least one specialty.'),
 });
 
-/** Step 5 — experience. */
+/** Step 6 — experience. */
 export const onboardingExperienceSchema = z.object({
   experienceLevel: experienceLevelSchema,
 });
 
-/** Step 6 — where they work. Coordinates are optional: a Pro may decline the
+/** Step 7 — where they work. Coordinates are optional: a Pro may decline the
  *  location permission and still finish onboarding. */
 export const onboardingLocationSchema = z.object({
   coordinates: coordinatesSchema.optional(),
   locationLabel: z.string().trim().max(120).optional(),
 });
 
-/** Step 7 — how far they travel to jobs. */
+/** Step 8 — how far they travel to jobs. */
 export const onboardingRadiusSchema = z.object({
   serviceRadiusKm: serviceRadiusSchema,
 });
 
-/** Step 8 — how they describe themselves. */
+/** Step 9 — how they describe themselves. */
 export const onboardingAboutSchema = z.object({
   bio: bioSchema.optional(),
   languages: languagesSchema.optional(),
@@ -70,7 +77,7 @@ export const onboardingAboutSchema = z.object({
 });
 
 /**
- * Step 9 — face verification.
+ * Step 10 — face verification.
  *
  * Both requests carry no fields by design. The storage path is derived from
  * the caller's verified user id server-side, so there is nothing a client
@@ -90,6 +97,7 @@ export const selfieCompleteSchema = z.strictObject({});
 export const onboardingPatchSchema = z
   .object({
     displayName: displayNameSchema.optional(),
+    gender: genderSchema.optional(),
     serviceIds: z.array(idSchema).optional(),
     skillIds: z.array(idSchema).optional(),
     experienceLevel: experienceLevelSchema.optional(),

@@ -12,6 +12,7 @@ const base: CustomerProfile = {
   userId: 'user-1',
   onboardingStatus: OnboardingStatus.IN_PROGRESS,
   displayName: 'Priya Sharma',
+  gender: 'FEMALE',
   locationLabel: 'MG Road, Hyderabad, Telangana 500001',
   latitude: 17.385,
   longitude: 78.4867,
@@ -35,6 +36,10 @@ describe('isCustomerProfileComplete', () => {
     expect(isCustomerProfileComplete({ ...base, displayName: 'A' })).toBe(false);
   });
 
+  it('rejects a profile with no gender', () => {
+    expect(isCustomerProfileComplete({ ...base, gender: null })).toBe(false);
+  });
+
   it('rejects a whitespace-only name', () => {
     expect(isCustomerProfileComplete({ ...base, displayName: '   ' })).toBe(false);
   });
@@ -54,14 +59,17 @@ describe('nextIncompleteCustomerStep', () => {
   });
 
   it('walks the whole flow in order', () => {
-    const empty: CustomerProfile = { ...base, displayName: null };
+    const empty: CustomerProfile = { ...base, displayName: null, gender: null };
 
     expect(nextIncompleteCustomerStep(empty)).toBe('name');
-    expect(nextIncompleteCustomerStep({ ...empty, displayName: 'Priya' })).toBe('review');
+    expect(nextIncompleteCustomerStep({ ...empty, displayName: 'Priya' })).toBe('gender');
+    expect(nextIncompleteCustomerStep({ ...empty, displayName: 'Priya', gender: 'FEMALE' })).toBe(
+      'review',
+    );
   });
 
   it('keeps the customer step list finite and correct', () => {
-    expect(CUSTOMER_ONBOARDING_STEPS).toEqual(['intro', 'name', 'address', 'review']);
+    expect(CUSTOMER_ONBOARDING_STEPS).toEqual(['intro', 'name', 'gender', 'address', 'review']);
     expect(CUSTOMER_ONBOARDING_STEPS[CUSTOMER_ONBOARDING_STEPS.length - 1]).toBe('review');
   });
 });

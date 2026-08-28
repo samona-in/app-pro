@@ -80,6 +80,7 @@ model ProProfile {
   onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
 
   displayName     String? @map("display_name")
+  gender          Gender?
   bio             String?
   experienceLevel ExperienceLevel? @map("experience_level")
 
@@ -131,6 +132,7 @@ model CustomerProfile {
   onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
 
   displayName   String? @map("display_name")
+  gender        Gender?
   addressLabel  String? @map("address_label")
   locationLabel String? @map("location_label")
   latitude      Float?
@@ -209,6 +211,13 @@ enum ExperienceLevel {
   THREE_TO_FIVE
   FIVE_TO_TEN
   TEN_PLUS
+}
+
+/// Mirrored by `Gender` in `@samona/types` — keep the two in sync.
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
 }
 
 /// Mirrored by `UserRole` in `@samona/types` — keep the two in sync.
