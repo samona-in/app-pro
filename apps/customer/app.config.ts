@@ -7,11 +7,7 @@ import appJson from './app.json';
  */
 const config = {
   ...appJson.expo,
-  plugins: [
-    ...(appJson.expo.plugins ?? []),
-    // Registers MapLibre Native; no API keys or billing involved.
-    '@maplibre/maplibre-react-native',
-  ],
+  plugins: [...(appJson.expo.plugins ?? [])],
 };
 
 export default config;
