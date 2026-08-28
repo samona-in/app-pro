@@ -17,9 +17,7 @@
     "doctor": "expo-doctor"
   },
   "dependencies": {
-    "@expo/vector-icons": "^15.1.1",
-    "@maplibre/maplibre-react-native": "^11.3.7",
-    "@noma4i/vision-camera-face-detector": "^3.0.1",
+"@expo/vector-icons": "^15.1.1",
     "@samona/api-client": "*",
     "@samona/config": "*",
     "@samona/types": "*",
