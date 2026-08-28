@@ -22,6 +22,7 @@ const job = {
   proId: null,
   service: { id: 'svc-1', slug: 'electrical', name: 'Electrical', icon: 'flash-outline' },
   skill: { id: 'skill-1', slug: 'fan-installation', name: 'Fan installation' },
+  customSkill: null,
   status: JobStatus.REQUESTED,
   placeType: 'RESIDENCE',
   placeDescription: null,
@@ -83,6 +84,18 @@ describe('jobs routes', () => {
       .post('/jobs')
       .set('authorization', 'Bearer good.token')
       .send({ ...validBody, basePayPaise: 1 })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('POST /jobs requires a free-text category with the Other skill', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send({ ...validBody, skillSlug: 'other' })
       .expect(422);
 
     expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);

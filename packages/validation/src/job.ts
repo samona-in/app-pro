@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { JOB_DESCRIPTION_MIN, JOB_IMAGE_LIMIT, PLACE_TYPES } from '@samona/types';
+import {
+  JOB_CUSTOM_SKILL_MAX,
+  JOB_CUSTOM_SKILL_MIN,
+  JOB_DESCRIPTION_MIN,
+  JOB_IMAGE_LIMIT,
+  OTHER_SKILL_SLUG,
+  PLACE_TYPES,
+} from '@samona/types';
 import { slugSchema } from './primitives';
 
 /** Where the work happens. Mirrors the `PlaceType` enum in @samona/types. */
@@ -36,16 +43,30 @@ export const jobImagePathSchema = z
   .max(300, 'Image path is invalid.');
 
 /**
+ * The free-text category next to the `other` sentinel skill. Only meaningful
+ * (and only accepted) when `skillSlug` is `other` — see `createJobSchema`.
+ */
+export const customSkillSchema = z
+  .string()
+  .trim()
+  .min(JOB_CUSTOM_SKILL_MIN, `Tell us a little more — at least ${JOB_CUSTOM_SKILL_MIN} characters.`)
+  .max(JOB_CUSTOM_SKILL_MAX, `Keep it under ${JOB_CUSTOM_SKILL_MAX} characters.`);
+
+/**
  * Creates a job request (the customer booking flow's final step).
  *
  * The service and skill are addressed by slug so the request stays stable
  * across catalogue re-seeds. The server resolves them to ids and confirms the
  * skill belongs to the service; nothing id-based from the client is trusted.
+ *
+ * Choosing the `other` sentinel skill requires `customSkill` — the free-text
+ * category; any other skill must leave it empty.
  */
 export const createJobSchema = z
   .object({
     serviceSlug: slugSchema,
     skillSlug: slugSchema,
+    customSkill: customSkillSchema.optional(),
     placeType: z.enum(placeTypeOptions),
     placeDescription: placeDescriptionSchema.optional(),
     description: jobDescriptionSchema,
@@ -58,6 +79,22 @@ export const createJobSchema = z
         code: z.ZodIssueCode.custom,
         message: 'Tell us what kind of place it is.',
         path: ['placeDescription'],
+      });
+    }
+
+    if (value.skillSlug === OTHER_SKILL_SLUG && !value.customSkill) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Tell us what you need done.',
+        path: ['customSkill'],
+      });
+    }
+
+    if (value.skillSlug !== OTHER_SKILL_SLUG && value.customSkill) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Only the "Other" category takes a custom skill.',
+        path: ['customSkill'],
       });
     }
   });

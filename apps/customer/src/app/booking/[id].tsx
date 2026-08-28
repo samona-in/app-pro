@@ -62,7 +62,7 @@ export default function BookingDetail() {
           {job.service.name}
         </Text>
         <Text variant="footnote" className="mt-1">
-          {job.skill.name} · placed {formatDate(job.createdAt)}
+          {job.customSkill ?? job.skill.name} · placed {formatDate(job.createdAt)}
         </Text>
       </View>
 

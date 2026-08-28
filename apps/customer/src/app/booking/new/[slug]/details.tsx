@@ -15,6 +15,7 @@ export default function BookingDetails() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const draft = useBookingDraft();
   const [description, setDescription] = useState(draft.description);
+  const [cameraDenied, setCameraDenied] = useState(false);
 
   const images = draft.images;
   const wordCount = description.trim().length;
@@ -37,6 +38,27 @@ export default function BookingDetails() {
     for (const asset of result.assets.slice(0, remaining)) {
       addImage(asset.uri);
     }
+  }
+
+  async function takePhoto() {
+    const remaining = JOB_IMAGE_LIMIT - images.length;
+    if (remaining <= 0) return;
+
+    // The camera needs your permission to capture photos of the work; the
+    // photo never leaves the device except to storage when you submit the job.
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setCameraDenied(true);
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      cameraType: ImagePicker.CameraType.back,
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    if (result.assets[0]) addImage(result.assets[0].uri);
   }
 
   function addImage(uri: string) {
@@ -147,17 +169,36 @@ export default function BookingDetails() {
             ))}
 
             {images.length < JOB_IMAGE_LIMIT ? (
-              <Pressable
-                onPress={() => void pickPhotos()}
-                accessibilityRole="button"
-                accessibilityLabel="Add photos"
-                className="h-24 w-24 items-center justify-center rounded-lg border border-dashed border-border-strong active:opacity-70"
-              >
-                <Ionicons name="camera-outline" size={22} color={color['text-secondary']} />
-                <Text variant="caption" className="mt-1">
-                  {images.length === 0 ? 'Add photos' : `${images.length}/${JOB_IMAGE_LIMIT}`}
-                </Text>
-              </Pressable>
+              <>
+                <Pressable
+                  onPress={() => void takePhoto()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Take a photo"
+                  className="h-24 w-24 items-center justify-center rounded-lg border border-dashed border-border-strong active:opacity-70"
+                >
+                  <Ionicons name="camera-outline" size={22} color={color['text-secondary']} />
+                  <Text variant="caption" className="mt-1">
+                    Camera
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void pickPhotos()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose photos from gallery"
+                  className="h-24 w-24 items-center justify-center rounded-lg border border-dashed border-border-strong active:opacity-70"
+                >
+                  <Ionicons name="images-outline" size={22} color={color['text-secondary']} />
+                  <Text variant="caption" className="mt-1">
+                    {images.length === 0 ? 'Gallery' : `${images.length}/${JOB_IMAGE_LIMIT}`}
+                  </Text>
+                </Pressable>
+              </>
+            ) : null}
+
+            {cameraDenied ? (
+              <Text variant="footnote" className="w-full text-danger">
+                Camera access is off. Enable it in Settings to capture photos of the work.
+              </Text>
             ) : null}
           </View>
 

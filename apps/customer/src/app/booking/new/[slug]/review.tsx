@@ -37,6 +37,7 @@ export default function BookingReview() {
     const job = await create.mutateAsync({
       serviceSlug: draft.service.slug,
       skillSlug: draft.skill.slug,
+      customSkill: draft.customSkill.trim() || undefined,
       placeType: draft.placeType,
       placeDescription:
         draft.placeType === PlaceType.OTHER ? draft.placeDescription || undefined : undefined,
@@ -78,7 +79,7 @@ export default function BookingReview() {
           </View>
           <View className="ml-3 flex-1">
             <Text variant="title">{draft.service?.name ?? '—'}</Text>
-            <Text variant="caption">{draft.skill?.name ?? '—'}</Text>
+            <Text variant="caption">{draft.customSkill || draft.skill?.name || '—'}</Text>
           </View>
         </View>
 

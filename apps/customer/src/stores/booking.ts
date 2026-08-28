@@ -18,6 +18,8 @@ export interface DraftImage {
 interface BookingDraftState {
   service: ServiceOption | null;
   skill: SkillOption | null;
+  /** Free-text category when the `other` sentinel skill is chosen. */
+  customSkill: string;
   placeType: PlaceType | null;
   placeDescription: string;
   description: string;
@@ -25,7 +27,7 @@ interface BookingDraftState {
   basePayPaise: number;
 
   start: (service: ServiceOption) => void;
-  setSkill: (skill: SkillOption) => void;
+  setSkill: (skill: SkillOption, customSkill?: string) => void;
   setPlace: (placeType: PlaceType, placeDescription?: string) => void;
   setDescription: (description: string) => void;
   setImages: (images: DraftImage[] | ((prev: DraftImage[]) => DraftImage[])) => void;
@@ -35,9 +37,16 @@ interface BookingDraftState {
 
 const blank: Pick<
   BookingDraftState,
-  'skill' | 'placeType' | 'placeDescription' | 'description' | 'images' | 'basePayPaise'
+  | 'skill'
+  | 'customSkill'
+  | 'placeType'
+  | 'placeDescription'
+  | 'description'
+  | 'images'
+  | 'basePayPaise'
 > = {
   skill: null,
+  customSkill: '',
   placeType: null,
   placeDescription: '',
   description: '',
@@ -57,7 +66,7 @@ export const useBookingDraft = create<BookingDraftState>((set) => ({
   ...blank,
 
   start: (service) => set({ service, ...blank }),
-  setSkill: (skill) => set({ skill }),
+  setSkill: (skill, customSkill = '') => set({ skill, customSkill }),
   setPlace: (placeType, placeDescription = '') => set({ placeType, placeDescription }),
   setDescription: (description) => set({ description }),
   setImages: (imagesOrUpdater) =>

@@ -1,4 +1,4 @@
-import { JobStatus, type Job } from '@samona/types';
+import { JobStatus, OTHER_SKILL_SLUG, type Job } from '@samona/types';
 import type { CreateJobInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
@@ -37,6 +37,7 @@ function toJobDto(
     updatedAt: Date;
     service: Job['service'];
     skill: Job['skill'];
+    customSkill: string | null;
   },
   storage: StorageService,
 ): Job {
@@ -46,6 +47,7 @@ function toJobDto(
     proId: row.proId,
     service: row.service,
     skill: row.skill,
+    customSkill: row.customSkill,
     status: row.status,
     placeType: row.placeType,
     placeDescription: row.placeDescription,
@@ -101,6 +103,18 @@ export function createJobsService(deps: JobsServiceDeps) {
       throw badRequest('That job category does not belong to the chosen service.');
     }
 
+    // The `other` category carries the customer's own words; a predefined
+    // category must not. Mirrors the placeDescription/placeType pairing above
+    // so a mismatch cannot slip through (validation already blocks it, this
+    // keeps the domain safe even if a different caller ever reaches it).
+    const customSkill = input.customSkill ?? null;
+    if (input.skillSlug === OTHER_SKILL_SLUG && !customSkill) {
+      throw badRequest('Tell us what you need done.');
+    }
+    if (input.skillSlug !== OTHER_SKILL_SLUG && customSkill) {
+      throw badRequest('Only the "Other" category takes a custom skill.');
+    }
+
     // Reference photos: every submitted path must be scoped to this caller and
     // must point at an object that really reached storage. Without the scope
     // check a customer could reference another account's photos; without the
@@ -122,6 +136,7 @@ export function createJobsService(deps: JobsServiceDeps) {
           customerId: customer.id,
           serviceId: service.id,
           skillId: skill.id,
+          customSkill,
           status: JobStatus.REQUESTED,
           placeType: input.placeType,
           placeDescription: input.placeType === 'OTHER' ? (input.placeDescription ?? null) : null,

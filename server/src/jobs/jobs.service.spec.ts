@@ -21,6 +21,7 @@ const jobRow = {
     slug: 'electrical-socket-switch-installation',
     name: 'Electrical socket and switch installation',
   },
+  customSkill: null,
 };
 
 function buildJobs() {
@@ -129,6 +130,39 @@ describe('createJobsService.createForCustomer', () => {
         data: expect.objectContaining({ placeDescription: 'Community hall basement' }),
       }),
     );
+  });
+
+  it('stores the free-text category when the Other skill is chosen', async () => {
+    const ctx = buildJobs();
+    await ctx.jobs.createForCustomer('user-1', {
+      ...baseInput,
+      skillSlug: 'other',
+      customSkill: 'Inverter battery bank',
+    });
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ customSkill: 'Inverter battery bank' }),
+      }),
+    );
+  });
+
+  it('rejects the Other skill without a free-text category', async () => {
+    const ctx = buildJobs();
+
+    await expect(
+      ctx.jobs.createForCustomer('user-1', { ...baseInput, skillSlug: 'other' }),
+    ).rejects.toMatchObject({ name: 'HttpError', status: 400 });
+    expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a free-text category on a predefined skill', async () => {
+    const ctx = buildJobs();
+
+    await expect(
+      ctx.jobs.createForCustomer('user-1', { ...baseInput, customSkill: 'Not allowed here' }),
+    ).rejects.toMatchObject({ name: 'HttpError', status: 400 });
+    expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('asks for the profile before creating anything', async () => {
