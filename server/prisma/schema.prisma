@@ -169,7 +169,7 @@ model Service {
 model Skill {
   id        String  @id @default(uuid()) @db.Uuid
   serviceId String  @map("service_id") @db.Uuid
-  slug      String  @unique
+  slug      String
   name      String
   sortOrder Int     @default(0) @map("sort_order")
   isActive  Boolean @default(true) @map("is_active")
@@ -178,6 +178,7 @@ model Skill {
   pros    ProSkill[]
   jobs    Job[]
 
+  @@unique([serviceId, slug])
   @@index([serviceId])
   @@map("skills")
 }
@@ -224,6 +225,10 @@ model Job {
 
   service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Restrict)
+
+  /// The free-text category when `skill.slug` is `other` (a service-level
+  /// sentinel skill). Null for any predefined category saved "as is".
+  customSkill String? @map("custom_skill")
 
   status JobStatus @default(REQUESTED)
 
