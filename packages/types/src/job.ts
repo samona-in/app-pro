@@ -1,3 +1,5 @@
+import type { ServiceOption, SkillOption } from './pro';
+
 /**
  * The job lifecycle (CLAUDE.md "Job State Machine").
  *
@@ -51,4 +53,57 @@ export function canTransition(from: JobStatus, to: JobStatus): boolean {
 
 export function isTerminalStatus(status: JobStatus): boolean {
   return JOB_STATUS_TRANSITIONS[status].length === 0;
+}
+
+/**
+ * Where the customer needs the work done.
+ *
+ * Mirrors `PlaceType` in the Prisma schema. OTHER records a free-text
+ * `placeDescription` on the job instead of choosing a bucket.
+ */
+export const PlaceType = {
+  RESIDENCE: 'RESIDENCE',
+  OFFICE: 'OFFICE',
+  OTHER: 'OTHER',
+} as const;
+
+export type PlaceType = (typeof PlaceType)[keyof typeof PlaceType];
+
+/** Display choices for the booking flow's "where" step, in order. */
+export const PLACE_TYPES: { value: PlaceType; label: string; icon: string }[] = [
+  { value: PlaceType.RESIDENCE, label: 'Residence', icon: 'home-outline' },
+  { value: PlaceType.OFFICE, label: 'Office', icon: 'business-outline' },
+  { value: PlaceType.OTHER, label: 'Other', icon: 'ellipsis-horizontal-circle-outline' },
+];
+
+/** Maximum reference photos a customer may attach to a job request. */
+export const JOB_IMAGE_LIMIT = 5;
+
+/** Minimum length of the free-text job description, shared with validation. */
+export const JOB_DESCRIPTION_MIN = 10;
+
+/**
+ * A job request as returned to its owner — the customer who placed it.
+ *
+ * `service` and `skill` are embedded so a client renders a booking without a
+ * second lookup. Image paths are never exposed; only public URLs are.
+ */
+export interface Job {
+  id: string;
+  customerId: string;
+  /** The accepting professional's ProProfile id; null until accepted. */
+  proId: string | null;
+  service: Pick<ServiceOption, 'id' | 'slug' | 'name' | 'icon'>;
+  skill: Pick<SkillOption, 'id' | 'slug' | 'name'>;
+  status: JobStatus;
+  placeType: PlaceType;
+  placeDescription: string | null;
+  description: string;
+  imageUrls: string[];
+  /** Guaranteed amount, in paise. */
+  basePayPaise: number;
+  agreedPayPaise: number | null;
+  finalPayPaise: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
