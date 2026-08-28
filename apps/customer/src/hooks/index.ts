@@ -1,4 +1,5 @@
 export { useCustomerProfile, useSaveOnboardingStep } from './use-onboarding';
+export { useBooking, useBookings, useCreateBooking, useServiceSkills } from './use-bookings';
 export { getAppHash, extractOtpCode, useOtpAutoFill } from './use-otp-autofill';
 export { usePhoneAuth } from './use-phone-auth';
 export { PHONE_HINT_DELAY_MS, usePhoneHint } from './use-phone-hint';

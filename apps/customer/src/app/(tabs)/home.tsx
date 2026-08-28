@@ -7,15 +7,18 @@ import { ErrorState, LoadingState } from '@/components/feedback';
 import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
 import { Screen, IconButton } from '@/components/ui';
 import { useServiceCategories, useSession } from '@/hooks';
+import { useBookingDraft } from '@/stores/booking';
 
 export default function Home() {
   const { customerProfile } = useSession();
   const categories = useServiceCategories();
+  const bookingDraft = useBookingDraft();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
 
   function handleSelectService(service: ServiceOption) {
     setActiveSlug(service.slug);
-    router.push('/bookings');
+    bookingDraft.start(service);
+    router.push(`/booking/new/${service.slug}/place`);
   }
 
   return (
