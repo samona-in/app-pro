@@ -1,74 +1,60 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Wordmark } from '@/components/brand/Wordmark';
-import { EmptyState } from '@/components/feedback';
-import { Card, IconButton, Screen, Text } from '@/components/ui';
-import { color } from '@/theme';
-
-const QUICK_ACTIONS = [
-  { icon: 'search-outline' as const, label: 'Find services', route: '/bookings' },
-  { icon: 'location-outline' as const, label: 'Nearby pros', route: '/bookings' },
-  { icon: 'receipt-outline' as const, label: 'Past bookings', route: '/bookings' },
-];
+import { StatusBar } from 'expo-status-bar';
+import type { ServiceOption } from '@samona/types';
+import { ErrorState, LoadingState } from '@/components/feedback';
+import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
+import { Screen, IconButton } from '@/components/ui';
+import { useServiceCategories, useSession } from '@/hooks';
+import { useBookingDraft } from '@/stores/booking';
 
 export default function Home() {
+  const { customerProfile } = useSession();
+  const categories = useServiceCategories();
+  const bookingDraft = useBookingDraft();
+  const [activeSlug, setActiveSlug] = useState<string | null>(null);
+
+  function handleSelectService(service: ServiceOption) {
+    setActiveSlug(service.slug);
+    bookingDraft.start(service);
+    router.push(`/booking/new/${service.slug}/place`);
+  }
+
   return (
-    <Screen scrollable>
-      <View className="flex-row items-center justify-between pt-2">
-        <Wordmark size="sm" />
-        <IconButton
-          name="notifications-outline"
-          accessibilityLabel="Notifications"
-          onPress={() => router.push('/notifications')}
-        />
+    <Screen scrollable edges={['bottom']}>
+      <StatusBar style="dark" />
+      <HomeHeader
+        locationLabel={customerProfile?.locationLabel ?? undefined}
+        onPress={() => router.push('/location-picker')}
+        trailing={
+          <IconButton
+            name="notifications-outline"
+            accessibilityLabel="Notifications"
+            onPress={() => router.push('/notifications')}
+          />
+        }
+      >
+        <SearchBar onPress={() => router.push('/bookings')} />
+      </HomeHeader>
+
+      <View className="mt-5">
+        {categories.isPending ? (
+          <LoadingState message="Loading services" size="inline" />
+        ) : categories.isError ? (
+          <ErrorState
+            title="Couldn't load services"
+            message="Check your connection and try again."
+            onRetry={() => void categories.refetch()}
+          />
+        ) : (
+          <ServiceGrid
+            services={categories.data ?? []}
+            activeSlug={activeSlug ?? undefined}
+            onSelect={handleSelectService}
+          />
+        )}
       </View>
-
-      <View className="mt-6">
-        <Card variant="raised" className="bg-surface">
-          <Text variant="label" className="text-text-secondary">
-            Welcome back
-          </Text>
-          <Text variant="titleLg" className="mt-1">
-            What do you need today?
-          </Text>
-          <Text variant="footnote" className="mt-1">
-            Find skilled professionals for any task.
-          </Text>
-        </Card>
-      </View>
-
-      <Text variant="title" className="mt-8">
-        Quick actions
-      </Text>
-
-      <View className="mt-3 gap-3">
-        {QUICK_ACTIONS.map((action) => (
-          <Card key={action.label}>
-            <View className="flex-row items-center">
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-surface-muted">
-                <Ionicons name={action.icon} size={20} color={color['text-secondary']} />
-              </View>
-              <Text variant="bodyStrong" className="flex-1">
-                {action.label}
-              </Text>
-              <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
-            </View>
-          </Card>
-        ))}
-      </View>
-
-      <Text variant="title" className="mt-8">
-        Recent bookings
-      </Text>
-
-      <Card className="mt-3 min-h-[160px] justify-center">
-        <EmptyState
-          icon="calendar-outline"
-          title="No bookings yet"
-          message="Your bookings will appear here once you make your first request."
-        />
-      </Card>
     </Screen>
   );
 }

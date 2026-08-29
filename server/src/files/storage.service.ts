@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import { ApiErrorCode } from '@samona/types';
 import { createHttpError } from '../common/errors';
 
@@ -16,6 +17,9 @@ export const SELFIE_MAX_BYTES = 5 * 1024 * 1024;
 
 export const SELFIE_CONTENT_TYPE = 'image/jpeg';
 
+/** The public-read bucket holding job reference photos. */
+export const JOB_IMAGES_BUCKET = 'job-images';
+
 /**
  * The storage path for an account's selfie.
  *
@@ -25,6 +29,18 @@ export const SELFIE_CONTENT_TYPE = 'image/jpeg';
  */
 function selfiePathFor(userId: string): string {
   return `pros/${userId}/selfie.jpg`;
+}
+
+/**
+ * A job reference photo's storage path.
+ *
+ * The `customerUserId` prefix scopes all of one customer's photos under their
+ * own folder, and the random suffix keeps simultaneous uploads from colliding.
+ * The path is minted server-side; a client cannot choose where its bytes land
+ * and cannot reference another customer's photos.
+ */
+function jobImagePathFor(customerUserId: string): string {
+  return `jobs/${customerUserId}/${randomUUID()}.jpg`;
 }
 
 /**
@@ -66,9 +82,7 @@ export function createStorageService(deps: StorageServiceDeps) {
    * deterministic path rather than failing on it. The URL expires quickly
    * (storage's default), so it is only usable for this one immediate upload.
    */
-  async function createSelfieUpload(
-    userId: string,
-  ): Promise<{ path: string; uploadUrl: string }> {
+  async function createSelfieUpload(userId: string): Promise<{ path: string; uploadUrl: string }> {
     const path = selfiePathFor(userId);
     const { data, error } = await requireAdmin()
       .storage.from(SELFIES_BUCKET)
@@ -99,7 +113,62 @@ export function createStorageService(deps: StorageServiceDeps) {
     }
   }
 
-  return { createSelfieUpload, selfieExists, selfiePublicUrl, selfiePath: selfiePathFor };
+  /**
+   * Begins the one job-image upload handshake.
+   *
+   * Mints a unique deterministic-by-scope path for the customer and a signed
+   * URL they PUT the image bytes to directly. Nothing in the request body
+   * influences the path, so there is no client-controlled location (CLAUDE.md
+   * "Security").
+   */
+  async function createJobImageUpload(
+    customerUserId: string,
+  ): Promise<{ path: string; uploadUrl: string }> {
+    const path = jobImagePathFor(customerUserId);
+    const { data, error } = await requireAdmin()
+      .storage.from(JOB_IMAGES_BUCKET)
+      .createSignedUploadUrl(path, { upsert: true });
+
+    if (error || !data) {
+      throw createHttpError(502, ApiErrorCode.INTERNAL, 'Could not start the image upload.', {
+        cause: error,
+      });
+    }
+
+    return { path, uploadUrl: data.signedUrl };
+  }
+
+  /**
+   * Whether a submitted job-image path points at an object that really
+   * reached storage. Used by the jobs domain before it records a path, so a
+   * job can never reference a photo that was never uploaded.
+   */
+  async function jobImageExists(path: string): Promise<boolean> {
+    try {
+      const response = await fetch(
+        `${supabaseUrl}/storage/v1/object/public/${JOB_IMAGES_BUCKET}/${path}`,
+        { method: 'HEAD' },
+      );
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The public read URL for a stored job image. */
+  function jobImagePublicUrl(path: string): string {
+    return `${supabaseUrl}/storage/v1/object/public/${JOB_IMAGES_BUCKET}/${path}`;
+  }
+
+  return {
+    createSelfieUpload,
+    selfieExists,
+    selfiePublicUrl,
+    selfiePath: selfiePathFor,
+    createJobImageUpload,
+    jobImageExists,
+    jobImagePublicUrl,
+  };
 }
 
 export type StorageService = ReturnType<typeof createStorageService>;

@@ -6,6 +6,8 @@ export const queryKeys = {
   profile: ['profile'] as const,
   customerProfile: ['customer-profile'] as const,
   catalogue: ['catalogue'] as const,
+  services: ['services'] as const,
+  serviceSkills: (serviceSlug: string) => ['services', 'skills', serviceSlug] as const,
   bookings: {
     all: ['bookings'] as const,
     list: (filter?: string) => ['bookings', 'list', filter ?? 'all'] as const,
