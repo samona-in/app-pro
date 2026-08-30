@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ColorValue } from 'react-native';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { useSession } from '@/hooks';
+import { useRealtimeSync, useSession } from '@/hooks';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -22,6 +22,10 @@ function tabIcon(outline: IoniconName, filled: IoniconName) {
 
 export default function TabsLayout() {
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
+
+  // Realtime events (shortlist updated, status changed, payment settled)
+  // invalidate the bookings cache wherever the signed-in app is mounted.
+  useRealtimeSync();
 
   if (isLoading) {
     return (
