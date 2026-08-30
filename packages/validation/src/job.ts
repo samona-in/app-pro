@@ -4,10 +4,15 @@ import {
   JOB_CUSTOM_SKILL_MIN,
   JOB_DESCRIPTION_MIN,
   JOB_IMAGE_LIMIT,
+  JOB_STATUSES,
   OTHER_SKILL_SLUG,
   PLACE_TYPES,
+  type JobStatus,
 } from '@samona/types';
 import { slugSchema } from './primitives';
+
+/** Every valid lifecycle status, for filtering a caller's own job lists. */
+const jobStatusOptions = JOB_STATUSES as [JobStatus, ...JobStatus[]];
 
 /** Where the work happens. Mirrors the `PlaceType` enum in @samona/types. */
 const placeTypeOptions = PLACE_TYPES.map((option) => option.value) as [
@@ -100,3 +105,31 @@ export const createJobSchema = z
   });
 
 export type CreateJobInput = z.infer<typeof createJobSchema>;
+
+/** The on-site stages an assigned pro drives a confirmed job through. */
+export const JOB_ACTIONS = ['travel', 'arrived', 'start', 'complete'] as const;
+export type JobAction = (typeof JOB_ACTIONS)[number];
+
+/** Moves a confirmed job through one on-site stage. */
+export const transitionJobSchema = z.object({
+  action: z.enum(JOB_ACTIONS),
+  /** Optional context, e.g. a note to the customer. */
+  note: z.string().trim().max(200, 'Keep the note under 200 characters.').optional(),
+});
+
+export type TransitionJobInput = z.infer<typeof transitionJobSchema>;
+
+/** Optional context for a cancellation; never loaded with meaning. */
+export const cancelJobSchema = z.object({
+  note: z.string().trim().max(200, 'Keep the note under 200 characters.').optional(),
+});
+
+export type CancelJobInput = z.infer<typeof cancelJobSchema>;
+
+/** List of a caller's own jobs, optionally filtered by one status. */
+export const jobListQuerySchema = z.object({
+  status: z.enum(jobStatusOptions).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+});
+
+export type JobListQuery = z.infer<typeof jobListQuerySchema>;

@@ -124,3 +124,62 @@ export interface Job {
   createdAt: string;
   updatedAt: string;
 }
+
+/** A status an assigned pro is actively working right now. */
+export const ACTIVE_JOB_STATUSES: readonly JobStatus[] = [
+  JobStatus.ACCEPTED,
+  JobStatus.TRAVELLING,
+  JobStatus.ARRIVED,
+  JobStatus.IN_PROGRESS,
+] as const;
+
+export function isActiveJobStatus(status: JobStatus): boolean {
+  return (ACTIVE_JOB_STATUSES as readonly JobStatus[]).includes(status);
+}
+
+/**
+ * Customer context shared with the assigned pro.
+ *
+ * Hidden from a pro until the job is accepted: the pro meets the customer only
+ * once they are committed to the work.
+ */
+export interface JobCustomerSummary {
+  userId: string;
+  displayName: string | null;
+  locationLabel: string | null;
+}
+
+/**
+ * A job plus the fields one side needs to act on it.
+ *
+ * `Job` (the deployed shape) is always the payload; the optional extras are
+ * filled in per reader — distance/ETA for the pro's available jobs, the
+ * counterparty's identity for detail reads.
+ */
+export interface JobDetail extends Job {
+  /** Straight-line distance from the viewing pro, km. Null unless filled. */
+  distanceKm: number | null;
+  /** Derived travel time from the viewing pro, minutes. Null unless filled. */
+  estimatedEtaMinutes: number | null;
+  /** The customer who placed the job; shared with the pro once assigned. */
+  customer: JobCustomerSummary | null;
+  /** The assigned professional, shared back to the customer. */
+  pro: {
+    proId: string;
+    displayName: string | null;
+    rating: number | null;
+  } | null;
+}
+
+/**
+ * An open, unassigned job in the pro's available-jobs pool.
+ *
+ * A `REQUESTED` job with no `proId` yet, surfaced to every eligible pro. The
+ * first eligible pro to accept takes it atomically.
+ */
+export interface AvailableJob extends Job {
+  /** Straight-line distance from the viewing pro, km. Null if no location. */
+  distanceKm: number | null;
+  /** Derived travel time, minutes. Null if no location. */
+  estimatedEtaMinutes: number | null;
+}

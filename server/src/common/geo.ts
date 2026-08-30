@@ -1,4 +1,4 @@
-import { ORDER_LIFECYCLE } from '@samona/config';
+import { JOB_DEFAULTS } from '@samona/config';
 
 /**
  * Distance heuristics for matching and job presentation.
@@ -31,6 +31,6 @@ export function distanceKm(
 /** Minutes a pro should expect to reach the request at the configured speed. */
 export function etaMinutes(distanceKmValue: number): number {
   if (distanceKmValue <= 0) return 1;
-  const minutes = (distanceKmValue / ORDER_LIFECYCLE.etaSpeedKmh) * 60;
+  const minutes = (distanceKmValue / JOB_DEFAULTS.etaSpeedKmh) * 60;
   return Math.max(1, Math.round(minutes));
 }
