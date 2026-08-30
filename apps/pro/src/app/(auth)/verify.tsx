@@ -22,19 +22,21 @@ export default function VerifyScreen() {
 
   // Android zero-tap fill via Google's SMS Retriever; iOS/web no-op.
   // The retriever only fires when the SMS ends with this build's hash,
-  // which must be appended to the Supabase Auth SMS template.
-  const { otp } = useOtpAutoFill({ length: OTP_LENGTH });
-
-  useEffect(() => {
-    if (!otp) return;
-    clearError();
-    setCode(otp);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [otp]);
+  // which must be appended to the Supabase Auth SMS template. The callback
+  // fills the field when the code lands — no effect, no manual state sync.
+  useOtpAutoFill({
+    length: OTP_LENGTH,
+    onOtpReceived: (next) => {
+      if (!next) return;
+      clearError();
+      setCode(next);
+    },
+  });
 
   useEffect(() => {
     if (__DEV__ && Platform.OS === 'android') {
       void getAppHash().then((hash) =>
+        // eslint-disable-next-line no-console
         console.log('[verify] SMS Retriever app hash:', hash),
       );
     }
