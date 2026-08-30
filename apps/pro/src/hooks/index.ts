@@ -6,3 +6,13 @@ export { useSeededState } from './use-seeded-state';
 export { useSession, type SessionResponse } from './use-session';
 export { useSubmitGuard } from './use-submit-guard';
 export { useUploadSelfie } from './use-selfie';
+export {
+  useAvailableJobs,
+  useExpressInterest,
+  useProJobs,
+  useProOffers,
+  useRespondToOffer,
+  useToggleAvailability,
+  useTransitionJob,
+} from './use-jobs';
+export { useRealtimeSync } from './use-realtime';

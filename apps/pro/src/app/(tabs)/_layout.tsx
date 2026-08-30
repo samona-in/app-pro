@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ColorValue } from 'react-native';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { useSession } from '@/hooks';
+import { useRealtimeSync, useSession } from '@/hooks';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -23,6 +23,10 @@ function tabIcon(outline: IoniconName, filled: IoniconName) {
 
 export default function TabsLayout() {
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
+
+  // The signed-in surface of the app: keep every jobs query in step with the
+  // realtime channel (offers, status changes, payments).
+  useRealtimeSync();
 
   if (isLoading) {
     return (
