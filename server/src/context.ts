@@ -20,6 +20,7 @@ import {
 } from './notifications/notifications.service';
 import { createReviewsService, type ReviewsService } from './reviews/reviews.service';
 import { createStorageService, type StorageService } from './files/storage.service';
+import type { RealtimeService } from './realtime/gateway';
 
 /**
  * Every domain service, constructed once per process.
@@ -55,12 +56,22 @@ export interface AppContext {
   services: Services;
 }
 
-export function createServices(prisma: PrismaClient, config: AppConfig): Services {
+export function createServices(
+  prisma: PrismaClient,
+  config: AppConfig,
+  realtime: RealtimeService,
+): Services {
   const storage = createStorageService({
     supabaseUrl: config.supabaseUrl,
     supabaseSecretKey: config.supabaseSecretKey,
   });
   const deps = { prisma, storage };
+
+  // Order matters: jobs' dispatch drives matching, payments settles through
+  // jobs, and both notify through realtime. Each service reads only what it
+  // received, so nothing is reachable behind the composition boundary.
+  const matching = createMatchingService({ prisma });
+  const jobs = createJobsService({ prisma, matching, realtime });
 
   return {
     auth: createAuthService({ prisma, signupDefaultRole: config.signupDefaultRole }),
@@ -73,10 +84,10 @@ export function createServices(prisma: PrismaClient, config: AppConfig): Service
     pros: createProsService(deps),
     customers: createCustomersService(deps),
     services: createServicesService(deps),
-    jobs: createJobsService(deps),
-    matching: createMatchingService(deps),
+    jobs,
+    matching,
     locations: createLocationsService(deps),
-    payments: createPaymentsService(deps),
+    payments: createPaymentsService({ prisma, jobs, realtime }),
     earnings: createEarningsService(deps),
     notifications: createNotificationsService(deps),
     reviews: createReviewsService(deps),

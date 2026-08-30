@@ -50,7 +50,8 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
   router.use('/pros', limiters.write, createProsRouter(services));
   router.use('/customers', limiters.write, createCustomersRouter(services));
   router.use('/services', createServicesRouter(services));
-  router.use('/jobs', limiters.write, createJobsRouter(services));
+  // The customer-facing order lifecycle. Pro side sits on the pros router.
+  router.use('/service-requests', limiters.write, createJobsRouter(services));
   router.use('/reviews', limiters.write, createReviewsRouter(services));
   router.use('/notifications', limiters.write, createNotificationsRouter(services));
 

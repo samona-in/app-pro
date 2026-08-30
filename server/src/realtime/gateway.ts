@@ -2,19 +2,49 @@ import type { Server as HttpServer } from 'node:http';
 import { Server as SocketServer } from 'socket.io';
 import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
+import type { AuthService } from '../auth/auth.service';
+import { bearerToken, type TokenVerifier } from '../auth/token';
 
 /**
- * Socket.IO connection lifecycle.
+ * Realtime delivery for the order-service lifecycle.
  *
- * Foundation only: it accepts connections and logs them. No job, location or
- * payment events are wired up yet.
- *
- * Two rules govern what gets added here (CLAUDE.md "Realtime"):
+ * Two rules govern everything here (CLAUDE.md "Realtime"):
  *  - REST stays the source of truth for persistent state. A socket event
- *    notifies clients that something changed; it never *is* the change.
- *  - Handshakes must be authenticated before any room is joined. Until the auth
- *    domain lands, this gateway exposes no subscriptions.
+ *    *notifies* a client that something changed; it never *is* the change.
+ *  - Handshakes are authenticated before any room is joined. The role is read
+ *    from our database via `authService.syncUser`, never from the token.
  */
+
+/**
+ * Event names the API emits. The mobile clients subscribe to the ones they
+ * care about; the payload for each is the REST DTO for the changed resource.
+ */
+export const REALTIME_EVENTS = {
+  /** A pro received an instant dispatch offer. Payload: JobOfferDto. */
+  JOB_OFFER: 'job:offer',
+  /** The pro's own offer changed (accepted service-side, selected, cancelled...). */
+  JOB_OFFER_STATUS: 'job:offer-status',
+  /** A request the caller is party to changed state. Payload: ServiceRequestDto. */
+  REQUEST_STATUS: 'request:status',
+  /** The customer's shortlist gained a responder. Payload: ServiceRequestDto. */
+  SHORTLIST_UPDATED: 'request:shortlist-updated',
+  /** Money moved on a request. Payload: ServiceRequestDto. */
+  PAYMENT_STATUS: 'request:payment-status',
+} as const;
+
+export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];
+
+/**
+ * Authentication + authorization for the socket handshake.
+ *
+ * The token is verified the same way as any REST request and the local user is
+ * looked up from the database, so a cancelled account cannot keep a socket
+ * open and a role is never taken from the token.
+ */
+export interface RealtimeSession {
+  verifier: TokenVerifier;
+  authService: AuthService;
+}
 
 /**
  * Concurrent sockets allowed from one address.
@@ -25,51 +55,114 @@ import { logger } from '../common/logger';
  */
 const MAX_SOCKETS_PER_IP = 20;
 
-export function createRealtimeGateway(httpServer: HttpServer, config: AppConfig): SocketServer {
-  const io = new SocketServer(httpServer, {
-    path: '/realtime',
-    cors: {
-      origin: config.corsOrigins.length > 0 ? config.corsOrigins : !config.isProduction,
-      credentials: true,
-    },
-    // Bound a single frame. Without this, one client can stream an unbounded
-    // buffer into server memory.
-    maxHttpBufferSize: 100_000,
-    // Drop a peer that stops answering pings rather than holding the socket,
-    // its buffers and its room memberships open indefinitely.
-    pingInterval: 25_000,
-    pingTimeout: 20_000,
-    // Long-poll fallback keeps a request open per poll; prefer a real upgrade.
-    transports: ['websocket', 'polling'],
-    connectTimeout: 10_000,
-  });
+const UNAUTHORIZED = new Error('unauthorized');
+
+export interface RealtimeService {
+  /** Binds the Socket.IO server to the HTTP server and enforces auth. */
+  attach(httpServer: HttpServer, session: RealtimeSession): void;
+  /** Fires an event to every socket of one user (all their devices). */
+  emitToUser(userId: string, event: RealtimeEvent, payload: unknown): void;
+  /** Fires an event to a list of users in one pass. */
+  emitToUsers(userIds: string[], event: RealtimeEvent, payload: unknown): void;
+  close(): Promise<void>;
+}
+
+export function createRealtimeService(config: AppConfig): RealtimeService {
+  let io: SocketServer | null = null;
 
   const socketsByIp = new Map<string, number>();
 
-  io.on('connection', (socket) => {
-    const ip = socket.handshake.address;
-    const current = socketsByIp.get(ip) ?? 0;
+  function attach(httpServer: HttpServer, session: RealtimeSession): void {
+    if (io) return;
 
-    if (current >= MAX_SOCKETS_PER_IP) {
-      logger.warn(`Refusing socket from ${ip}: ${current} connections already open.`);
-      // disconnect(true) closes the underlying transport, not just the namespace.
-      socket.disconnect(true);
+    io = new SocketServer(httpServer, {
+      path: '/realtime',
+      cors: {
+        origin: config.corsOrigins.length > 0 ? config.corsOrigins : !config.isProduction,
+        credentials: true,
+      },
+      // Bound a single frame. Without this, one client can stream an unbounded
+      // buffer into server memory.
+      maxHttpBufferSize: 100_000,
+      // Drop a peer that stops answering pings rather than holding the socket,
+      // its buffers and its room memberships open indefinitely.
+      pingInterval: 25_000,
+      pingTimeout: 20_000,
+      // Long-poll fallback keeps a request open per poll; prefer a real upgrade.
+      transports: ['websocket', 'polling'],
+      connectTimeout: 10_000,
+    });
+
+    io.use((socket, next) => {
+      const token =
+        (socket.handshake.auth?.token as string | undefined) ??
+        bearerToken(socket.handshake.headers.authorization);
+      // The client knows which surface it is; provisioning new accounts needs it.
+      const appType = socket.handshake.auth?.appType as string | undefined;
+
+      if (!token) return next(UNAUTHORIZED);
+
+      void session.verifier
+        .verify(token)
+        .then(async (verified) => {
+          if (!verified) return next(UNAUTHORIZED);
+          const user = await session.authService.syncUser(verified, appType);
+          if (!user.isActive) return next(new Error('forbidden'));
+          socket.data.user = { id: user.id, role: user.role };
+          next();
+        })
+        .catch(next);
+    });
+
+    io.on('connection', (socket) => {
+      const ip = socket.handshake.address;
+      const current = socketsByIp.get(ip) ?? 0;
+
+      if (current >= MAX_SOCKETS_PER_IP) {
+        logger.warn(`Refusing socket from ${ip}: ${current} connections already open.`);
+        // disconnect(true) closes the underlying transport, not just the namespace.
+        socket.disconnect(true);
+        return;
+      }
+
+      socketsByIp.set(ip, current + 1);
+      logger.debug(`Socket connected: ${socket.id} (${current + 1} from ${ip})`);
+
+      // Authenticated already, so the room key is the identity the events fan out on.
+      void socket.join(`user:${socket.data.user.id}`);
+      socket.data.userId = socket.data.user.id;
+
+      socket.on('disconnect', (reason) => {
+        const remaining = (socketsByIp.get(ip) ?? 1) - 1;
+        // Delete at zero so the map cannot grow unbounded across many addresses —
+        // otherwise this counter becomes its own slow memory leak.
+        if (remaining <= 0) socketsByIp.delete(ip);
+        else socketsByIp.set(ip, remaining);
+
+        logger.debug(`Socket disconnected: ${socket.id} (${reason})`);
+      });
+    });
+  }
+
+  function emitToUser(userId: string, event: RealtimeEvent, payload: unknown): void {
+    if (!io) {
+      logger.debug(`Realtime not attached; dropped ${event} for ${userId}.`);
       return;
     }
+    io.to(`user:${userId}`).emit(event, payload);
+  }
 
-    socketsByIp.set(ip, current + 1);
-    logger.debug(`Socket connected: ${socket.id} (${current + 1} from ${ip})`);
+  function emitToUsers(userIds: string[], event: RealtimeEvent, payload: unknown): void {
+    if (!io || userIds.length === 0) return;
+    io.to(userIds.map((id) => `user:${id}`)).emit(event, payload);
+  }
 
-    socket.on('disconnect', (reason) => {
-      const remaining = (socketsByIp.get(ip) ?? 1) - 1;
-      // Delete at zero so the map cannot grow unbounded across many addresses —
-      // otherwise this counter becomes its own slow memory leak.
-      if (remaining <= 0) socketsByIp.delete(ip);
-      else socketsByIp.set(ip, remaining);
+  async function close(): Promise<void> {
+    if (!io) return;
+    const server = io;
+    io = null;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
 
-      logger.debug(`Socket disconnected: ${socket.id} (${reason})`);
-    });
-  });
-
-  return io;
+  return { attach, emitToUser, emitToUsers, close };
 }
