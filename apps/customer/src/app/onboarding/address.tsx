@@ -163,7 +163,13 @@ export default function OnboardingAddress() {
           <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
             <View
               className="h-5 w-5 rounded-full border-[3px] border-surface bg-brand"
-              style={{ shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 6 }}
+              style={{
+                shadowColor: '#000',
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: 6,
+              }}
             />
           </View>
         </View>
@@ -178,7 +184,9 @@ export default function OnboardingAddress() {
               : phase === 'resolving'
                 ? 'Finding address…'
                 : (label ??
-                  (coords ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` : 'Move the map to pick a spot'))}
+                  (coords
+                    ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
+                    : 'Move the map to pick a spot'))}
           </Text>
         </View>
       </View>

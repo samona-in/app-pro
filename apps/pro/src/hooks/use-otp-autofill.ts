@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 type OtpAutofillModule = {
@@ -27,10 +27,7 @@ function loadOtpAutofillModule(): OtpAutofillModule | null {
 
 /** Pulls the OTP digits out of a provider SMS body; null when absent. */
 export function extractOtpCode(message: string, length: number): string | null {
-  const keywordFirst = new RegExp(
-    `(?:code|otp|passcode|password)\\D{0,16}(\\d{${length}})`,
-    'i',
-  );
+  const keywordFirst = new RegExp(`(?:code|otp|passcode|password)\\D{0,16}(\\d{${length}})`, 'i');
   const bare = new RegExp(`(?<!\\d)(\\d{${length}})(?!\\d)`);
   return message.match(keywordFirst)?.[1] ?? message.match(bare)?.[1] ?? null;
 }
@@ -40,18 +37,29 @@ export function extractOtpCode(message: string, length: number): string | null {
  * the native side is missing; the SMS must end with this build's app hash
  * (see getAppHash) or Play Services will not deliver it.
  */
-export function useOtpAutoFill(options?: { length?: number }): {
-  otp: string | null;
-} {
+export function useOtpAutoFill(options?: {
+  length?: number;
+  /** Fired with the extracted code as it lands, so callers can fill a field. */
+  onOtpReceived?: (code: string | null) => void;
+}): { otp: string | null } {
   const length = options?.length ?? 6;
   const [otp, setOtp] = useState<string | null>(null);
+
+  // A ref keeps the listener current without re-subscribing on every render.
+  const onOtpReceivedRef = useRef(options?.onOtpReceived);
+
+  useEffect(() => {
+    onOtpReceivedRef.current = options?.onOtpReceived;
+  }, [options?.onOtpReceived]);
 
   useEffect(() => {
     const mod = loadOtpAutofillModule();
     if (!mod || Platform.OS !== 'android') return;
 
     const subscription = mod.addListener('onOtpReceived', ({ message }) => {
-      setOtp(extractOtpCode(message, length));
+      const code = extractOtpCode(message, length);
+      setOtp(code);
+      onOtpReceivedRef.current?.(code);
     });
     mod.startSmsRetrieverAsync().catch(() => {
       // Retriever needs Play Services; one-tap autofill props still apply.

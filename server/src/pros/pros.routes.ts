@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { onboardingPatchSchema } from '@samona/validation';
+import { onboardingPatchSchema, availabilityPatchSchema } from '@samona/validation';
 import type { Services } from '../context';
 import { createRequireAuth, requireRole, validate } from '../common';
 
@@ -9,6 +9,10 @@ import { createRequireAuth, requireRole, validate } from '../common';
  * Every route is scoped to the caller's own profile: the user id comes from the
  * verified token, never from the path or body, so there is no route on which a
  * Pro can name someone else's profile (CLAUDE.md "Security").
+ *
+ * Job work lives on the jobs router (`/jobs/mine`, `/jobs/available`,
+ * `/jobs/:id/accept` ...) now that the marketplace is a single job entity; the
+ * pros router keeps profile, onboarding and availability only.
  */
 export function createProsRouter(services: Services): Router {
   const router = Router();
@@ -47,6 +51,15 @@ export function createProsRouter(services: Services): Router {
   router.patch('/me/onboarding', validate(onboardingPatchSchema), async (req, res, next) => {
     try {
       res.json(await services.pros.applyOnboardingPatch(req.user!.id, req.body));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /** The online/offline switch that gates matching. */
+  router.post('/availability', validate(availabilityPatchSchema), async (req, res, next) => {
+    try {
+      res.json(await services.pros.setAvailability(req.user!.id, req.body));
     } catch (error) {
       next(error);
     }

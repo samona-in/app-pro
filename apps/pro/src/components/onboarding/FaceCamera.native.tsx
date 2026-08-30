@@ -152,19 +152,31 @@ export function FaceCamera({ onCaptured }: FaceCameraProps) {
 
   return (
     <View className="flex-1 bg-black">
-      <Camera {...face.camera} device={device} isActive mirrorMode="on" style={StyleSheet.absoluteFill} />
+      <Camera
+        {...face.camera}
+        device={device}
+        isActive
+        mirrorMode="on"
+        style={StyleSheet.absoluteFill}
+      />
 
       {/* Dim everything outside the guide circle. */}
       <View className="absolute inset-x-0 top-0 bg-black/55" style={{ height: Math.max(top, 0) }} />
       <View className="absolute inset-x-0 bg-black/55" style={{ top: top + diameter, bottom: 0 }} />
-      <View className="absolute bg-black/55" style={{ left: 0, top, width: Math.max(left, 0), height: diameter }} />
+      <View
+        className="absolute bg-black/55"
+        style={{ left: 0, top, width: Math.max(left, 0), height: diameter }}
+      />
       <View
         className="absolute bg-black/55"
         style={{ left: left + diameter, top, right: 0, height: diameter }}
       />
 
       {/* Guide ring and countdown. */}
-      <View className="absolute rounded-full border-[3px] border-white/90" style={{ left, top, width: diameter, height: diameter }}>
+      <View
+        className="absolute rounded-full border-[3px] border-white/90"
+        style={{ left, top, width: diameter, height: diameter }}
+      >
         {countdown !== null ? (
           <View className="flex-1 items-center justify-center">
             <Text variant="display" className="text-white">
@@ -175,7 +187,11 @@ export function FaceCamera({ onCaptured }: FaceCameraProps) {
       </View>
 
       {countdown === null && face.status === 'unavailable' ? (
-        <ActivityIndicator className="absolute self-center" style={{ top: top + diameter / 2 }} color="white" />
+        <ActivityIndicator
+          className="absolute self-center"
+          style={{ top: top + diameter / 2 }}
+          color="white"
+        />
       ) : null}
 
       <View

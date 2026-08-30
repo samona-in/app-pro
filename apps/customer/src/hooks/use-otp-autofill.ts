@@ -21,10 +21,7 @@ function loadOtpAutofillModule(): OtpAutofillModule | null {
 }
 
 export function extractOtpCode(message: string, length: number): string | null {
-  const keywordFirst = new RegExp(
-    `(?:code|otp|passcode|password)\\D{0,16}(\\d{${length}})`,
-    'i',
-  );
+  const keywordFirst = new RegExp(`(?:code|otp|passcode|password)\\D{0,16}(\\d{${length}})`, 'i');
   const bare = new RegExp(`(?<!\\d)(\\d{${length}})(?!\\d)`);
   return message.match(keywordFirst)?.[1] ?? message.match(bare)?.[1] ?? null;
 }

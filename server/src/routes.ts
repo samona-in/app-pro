@@ -11,7 +11,6 @@ import { createCustomersRouter } from './customers/customers.routes';
 import { createServicesRouter } from './services/services.routes';
 import { createJobsRouter } from './jobs/jobs.routes';
 import { createLocationsRouter } from './locations/locations.routes';
-import { createPaymentsRouter } from './payments/payments.routes';
 import { createEarningsRouter } from './earnings/earnings.routes';
 import { createNotificationsRouter } from './notifications/notifications.routes';
 import { createReviewsRouter } from './reviews/reviews.routes';
@@ -50,6 +49,8 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
   router.use('/pros', limiters.write, createProsRouter(services));
   router.use('/customers', limiters.write, createCustomersRouter(services));
   router.use('/services', createServicesRouter(services));
+  // The whole order lifecycle: customers file jobs, pros take them on, and
+  // settlement lands on the same entity. Roles are gated per-route.
   router.use('/jobs', limiters.write, createJobsRouter(services));
   router.use('/reviews', limiters.write, createReviewsRouter(services));
   router.use('/notifications', limiters.write, createNotificationsRouter(services));
@@ -58,8 +59,7 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
   router.use('/locations', limiters.location, createLocationsRouter(services));
 
   // Money and third-party fan-out: the tightest budget, because abuse costs
-  // real money rather than CPU.
-  router.use('/payments', limiters.expensive, createPaymentsRouter(services));
+  // real money rather than CPU. Job payment settles on the jobs router.
   router.use('/earnings', limiters.expensive, createEarningsRouter(services));
 
   // Signed upload URLs hand out write access to object storage — the same

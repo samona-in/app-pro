@@ -24,9 +24,7 @@ export default function VerifyScreen() {
 
   useEffect(() => {
     if (__DEV__ && Platform.OS === 'android') {
-      void getAppHash().then((hash) =>
-        console.log('[verify] SMS Retriever app hash:', hash),
-      );
+      void getAppHash().then((hash) => console.log('[verify] SMS Retriever app hash:', hash));
     }
   }, []);
 

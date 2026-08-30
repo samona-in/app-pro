@@ -6,7 +6,7 @@ import { loadConfig, loadEnvFile } from './config';
 import { createServices } from './context';
 import { createPrismaClient } from './database/prisma';
 import { createRedisClient } from './database/redis';
-import { createRealtimeGateway } from './realtime/gateway';
+import { createRealtimeService } from './realtime/gateway';
 
 /**
  * Process entry point: load config, open connections, serve, shut down cleanly.
@@ -31,12 +31,23 @@ async function main(): Promise<void> {
     logger.error('Could not connect to Redis. Falling back to in-memory rate limiting.', error);
   }
 
-  const services = createServices(prisma, config);
+  // Realtime is built before the services so the lifecycle domains can push
+  // on it, then handed the HTTP server once that exists.
+  const realtime = createRealtimeService(config);
+
+  const services = createServices(prisma, config, realtime);
   // `redis` is passed even if the connection failed above: ioredis queues and
   // reconnects, and the limiters degrade to in-process counters if it cannot.
   const app = createApp({ config, services, rateLimit: { redis } });
 
   const httpServer = createServer(app);
+
+  // The gateway authenticates with the same token verifier and auth service
+  // the REST API uses, sharing the JWKS cache.
+  realtime.attach(httpServer, {
+    verifier: services.tokenVerifier,
+    authService: services.auth,
+  });
 
   // Slowloris and friends: a client that opens a connection and dribbles bytes
   // holds a socket forever unless the server bounds how long it will wait.
@@ -46,7 +57,6 @@ async function main(): Promise<void> {
   httpServer.keepAliveTimeout = 15_000;
   // Bound the header table itself; the default is generous for an API.
   httpServer.maxHeadersCount = 100;
-  const io = createRealtimeGateway(httpServer, config);
 
   httpServer.listen(config.port, () => {
     logger.info(`SAMONA API listening on http://localhost:${config.port}${API_PREFIX}`);
@@ -58,7 +68,7 @@ async function main(): Promise<void> {
 
     // Stop accepting work before tearing down the resources in-flight requests use.
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    await io.close();
+    await realtime.close();
     if (redis) await redis.quit().catch(() => undefined);
     await prisma.$disconnect().catch(() => undefined);
 

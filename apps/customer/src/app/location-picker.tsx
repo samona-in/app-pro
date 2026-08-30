@@ -52,18 +52,17 @@ export default function LocationPicker() {
       />
       <Screen scrollable={false} padded={false} edges={['bottom']}>
         <View className="flex-1">
-          <LocationMapPicker
-            value={coords}
-            onChange={handleChange}
-            className="flex-1"
-          />
+          <LocationMapPicker value={coords} onChange={handleChange} className="flex-1" />
 
           <View className="border-t border-border bg-surface px-5 pb-5 pt-3">
             <Text variant="footnote" className="text-text-secondary">
               Selected location
             </Text>
             <Text variant="body" className="mt-0.5" numberOfLines={2}>
-              {label ?? (coords ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}` : 'Move the map to pick a spot')}
+              {label ??
+                (coords
+                  ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
+                  : 'Move the map to pick a spot')}
             </Text>
 
             <Button

@@ -34,6 +34,16 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="available-jobs"
+          options={{
+            headerShown: true,
+            title: 'Available jobs',
+            headerBackTitle: 'Back',
+            headerTintColor: color['text-primary'],
+            headerStyle: { backgroundColor: color.surface },
+          }}
+        />
+        <Stack.Screen
           name="notifications"
           options={{
             headerShown: true,

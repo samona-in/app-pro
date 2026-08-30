@@ -22,9 +22,7 @@ const COLOR_UTILITIES = new Set(
 );
 
 function hasColorOverride(className: string | undefined): boolean {
-  return (
-    className !== undefined && className.split(/\s+/).some((cls) => COLOR_UTILITIES.has(cls))
-  );
+  return className !== undefined && className.split(/\s+/).some((cls) => COLOR_UTILITIES.has(cls));
 }
 
 /**

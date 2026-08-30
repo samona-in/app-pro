@@ -1,5 +1,6 @@
 export * from './errors';
 export { logger } from './logger';
+export { routeParamId } from './params';
 export { createBruteForceGuard, safeEqual, type BruteForceGuard } from './security/brute-force';
 export {
   createRequireAuth,

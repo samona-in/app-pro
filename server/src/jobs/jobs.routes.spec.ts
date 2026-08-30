@@ -52,6 +52,21 @@ function buildServices(overrides: Partial<Services> = {}) {
   } as unknown as Services;
 }
 
+function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> = {}) {
+  return {
+    createForCustomer: jest.fn().mockResolvedValue(job),
+    listForCustomer: jest.fn().mockResolvedValue([job]),
+    getForCustomer: jest.fn().mockResolvedValue(job),
+    payForCustomer: jest.fn().mockResolvedValue(job),
+    cancelJob: jest.fn().mockResolvedValue(job),
+    listAvailableJobs: jest.fn().mockResolvedValue([job]),
+    listProJobs: jest.fn().mockResolvedValue([job]),
+    acceptJob: jest.fn().mockResolvedValue(job),
+    transitionJob: jest.fn().mockResolvedValue(job),
+    ...partial,
+  };
+}
+
 function appWith(services: Services) {
   return express().use(express.json()).use('/jobs', createJobsRouter(services)).use(errorHandler);
 }
@@ -140,5 +155,58 @@ describe('jobs routes', () => {
       .expect(403);
 
     expect(response.body.error.code).toBe(ApiErrorCode.FORBIDDEN);
+  });
+
+  it('PRO can list available jobs (not shadowed by customer /:id)', async () => {
+    const proUser = { ...activeUser, role: 'PRO' as const };
+    const services = buildServices({
+      auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
+      jobs: jobsService(),
+    });
+
+    const response = await request(appWith(services))
+      .get('/jobs/available')
+      .set('authorization', 'Bearer good.token')
+      .expect(200);
+
+    expect(response.body).toHaveLength(1);
+    expect(services.jobs.listAvailableJobs).toHaveBeenCalledWith('user-1', { limit: 20 });
+  });
+
+  it('PRO can list their own jobs via /jobs/mine', async () => {
+    const proUser = { ...activeUser, role: 'PRO' as const };
+    const services = buildServices({
+      auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
+      jobs: jobsService(),
+    });
+
+    const response = await request(appWith(services))
+      .get('/jobs/mine')
+      .set('authorization', 'Bearer good.token')
+      .expect(200);
+
+    expect(response.body).toHaveLength(1);
+    expect(services.jobs.listProJobs).toHaveBeenCalledWith('user-1', {
+      status: undefined,
+      limit: undefined,
+    });
+  });
+
+  it('CUSTOMER cannot read available or mine feeds', async () => {
+    const services = buildServices({
+      jobs: jobsService({ getForCustomer: jest.fn() }),
+    });
+
+    await request(appWith(services))
+      .get('/jobs/available')
+      .set('authorization', 'Bearer good.token')
+      .expect(403);
+
+    await request(appWith(services))
+      .get('/jobs/mine')
+      .set('authorization', 'Bearer good.token')
+      .expect(403);
+
+    expect(services.jobs.getForCustomer).not.toHaveBeenCalled();
   });
 });

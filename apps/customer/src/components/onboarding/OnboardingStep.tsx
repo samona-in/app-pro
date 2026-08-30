@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-import {
-  CUSTOMER_ONBOARDING_STEPS,
-  type CustomerOnboardingStep as StepName,
-} from '@samona/types';
+import { CUSTOMER_ONBOARDING_STEPS, type CustomerOnboardingStep as StepName } from '@samona/types';
 import { Button, Screen, Text } from '@/components/ui';
 import { cn } from '@/utils/cn';
 

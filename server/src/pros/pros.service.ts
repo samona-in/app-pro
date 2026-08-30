@@ -5,7 +5,7 @@ import {
   type Gender,
   type ProProfile,
 } from '@samona/types';
-import type { OnboardingPatchInput } from '@samona/validation';
+import type { OnboardingPatchInput, AvailabilityPatchInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
 import { badRequest } from '../common/errors';
@@ -257,7 +257,42 @@ export function createProsService(deps: ProsServiceDeps) {
     }
   }
 
-  return { listCatalogue, findByUserId, ensureForUser, applyOnboardingPatch, setSelfieUploaded };
+  /**
+   * The online/offline switch that gates matching.
+   *
+   * `isOnline` is server-controlled for a reason: an attacker must not be able
+   * to toggle it at will once this becomes algorithmic. Coordinates refresh on
+   * every online transition; going offline keeps the last known position.
+   */
+  async function setAvailability(
+    userId: string,
+    patch: AvailabilityPatchInput,
+  ): Promise<ProProfile> {
+    const existing = await ensureForUser(userId);
+
+    const row = await deps.prisma.proProfile.update({
+      where: { id: existing.id },
+      data: {
+        isOnline: patch.isOnline,
+        ...(patch.coordinates
+          ? { latitude: patch.coordinates.latitude, longitude: patch.coordinates.longitude }
+          : {}),
+        ...(patch.locationLabel !== undefined ? { locationLabel: patch.locationLabel } : {}),
+      },
+      select: proProfileSelect,
+    });
+
+    return toProProfile(row as ProProfileRow, deps.storage);
+  }
+
+  return {
+    listCatalogue,
+    findByUserId,
+    ensureForUser,
+    applyOnboardingPatch,
+    setSelfieUploaded,
+    setAvailability,
+  };
 }
 
 export type ProsService = ReturnType<typeof createProsService>;

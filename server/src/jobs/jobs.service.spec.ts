@@ -30,6 +30,15 @@ function buildJobs() {
     jobImagePublicUrl: jest.fn().mockImplementation((path: string) => `https://cdn/${path}`),
   };
 
+  const matching = {
+    findEligiblePros: jest.fn().mockResolvedValue([]),
+  };
+
+  const realtime = {
+    emitToUsers: jest.fn(),
+    emitToUser: jest.fn(),
+  };
+
   const txJobCreate = jest.fn().mockResolvedValue(jobRow);
   const txHistoryCreate = jest.fn().mockResolvedValue({});
 
@@ -49,8 +58,13 @@ function buildJobs() {
     job: { findMany: jest.fn(), findFirst: jest.fn() },
   };
 
-  const jobs = createJobsService({ prisma: prisma as never, storage } as never);
-  return { jobs, prisma, storage, txJobCreate, txHistoryCreate };
+  const jobs = createJobsService({
+    prisma: prisma as never,
+    storage,
+    matching: matching as never,
+    realtime: realtime as never,
+  } as never);
+  return { jobs, prisma, storage, matching, realtime, txJobCreate, txHistoryCreate };
 }
 
 const baseInput = {

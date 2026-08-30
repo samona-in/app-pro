@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase';
 import { setSessionTokenGetter } from '@/services/api';
+import { connectRealtime, disconnectRealtime } from '@/services/realtime';
 
 interface AuthState {
   isLoaded: boolean;
@@ -42,6 +43,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return data.session?.access_token ?? null;
     });
     return () => setSessionTokenGetter(null);
+  }, []);
+
+  // Keep the realtime socket in lockstep with the session. The socket
+  // authenticates with the same access token and surface as REST; the gateway
+  // rejects a handshake with no valid token, so nothing here is a control.
+  useEffect(() => {
+    const token = session?.access_token ?? null;
+    if (token) connectRealtime(token);
+    else disconnectRealtime();
+  }, [session]);
+
+  // The socket outlives a render but not the app; drop it on provider unmount.
+  useEffect(() => {
+    return () => disconnectRealtime();
   }, []);
 
   const value = useMemo<AuthState>(
