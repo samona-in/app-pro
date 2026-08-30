@@ -44,7 +44,7 @@ export const SERVICE_REQUEST_STATUSES = Object.values(ServiceRequestStatus);
 export const SERVICE_REQUEST_TRANSITIONS: Readonly<
   Record<ServiceRequestStatus, readonly ServiceRequestStatus[]>
 > = {
-  REQUESTED: [ServiceRequestStatus.DISPATCHING, ServiceRequestStatus.CANCELLED, ServiceRequestStatus.EXPIRED],
+  REQUESTED: [ServiceRequestStatus.DISPATCHING, ServiceRequestStatus.OPEN, ServiceRequestStatus.CANCELLED, ServiceRequestStatus.EXPIRED],
   DISPATCHING: [ServiceRequestStatus.CHOOSING_PRO, ServiceRequestStatus.OPEN, ServiceRequestStatus.CANCELLED, ServiceRequestStatus.EXPIRED],
   CHOOSING_PRO: [ServiceRequestStatus.CONFIRMED, ServiceRequestStatus.CANCELLED, ServiceRequestStatus.EXPIRED],
   OPEN: [ServiceRequestStatus.CHOOSING_PRO, ServiceRequestStatus.CANCELLED, ServiceRequestStatus.EXPIRED],
@@ -110,6 +110,8 @@ export const JOB_OFFER_TRANSITIONS: Readonly<Record<JobOfferStatus, readonly Job
   EXPIRED: [],
   CANCELLED: [],
 };
+
+export const JOB_OFFER_STATUSES = Object.values(JobOfferStatus);
 
 export const ProInterestStatus = {
   INTERESTED: 'INTERESTED',
