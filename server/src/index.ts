@@ -58,15 +58,6 @@ async function main(): Promise<void> {
   // Bound the header table itself; the default is generous for an API.
   httpServer.maxHeadersCount = 100;
 
-  // Age out unreplied offers and requests no one took, independent of any
-  // traffic. Each request also lazily re-checks expiry on read.
-  const expirySweeper = setInterval(() => {
-    void services.jobs.runExpirySweeper().catch((error: unknown) => {
-      logger.error('Expiry sweeper failed.', error);
-    });
-  }, 30_000);
-  expirySweeper.unref();
-
   httpServer.listen(config.port, () => {
     logger.info(`SAMONA API listening on http://localhost:${config.port}${API_PREFIX}`);
   });
@@ -78,7 +69,6 @@ async function main(): Promise<void> {
     // Stop accepting work before tearing down the resources in-flight requests use.
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     await realtime.close();
-    clearInterval(expirySweeper);
     if (redis) await redis.quit().catch(() => undefined);
     await prisma.$disconnect().catch(() => undefined);
 

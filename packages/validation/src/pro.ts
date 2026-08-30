@@ -116,3 +116,15 @@ export type OnboardingLocationInput = z.infer<typeof onboardingLocationSchema>;
 export type OnboardingRadiusInput = z.infer<typeof onboardingRadiusSchema>;
 export type SelfieUploadStartInput = z.infer<typeof selfieUploadStartSchema>;
 export type SelfieCompleteInput = z.infer<typeof selfieCompleteSchema>;
+
+/**
+ * The online/offline switch that gates matching. Coordinates refresh when a
+ * Pro goes online; going offline keeps the last known position.
+ */
+export const availabilityPatchSchema = z.object({
+  isOnline: z.boolean(),
+  coordinates: coordinatesSchema.optional(),
+  locationLabel: z.string().trim().max(120).optional(),
+});
+
+export type AvailabilityPatchInput = z.infer<typeof availabilityPatchSchema>;

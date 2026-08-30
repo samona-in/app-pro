@@ -10,7 +10,7 @@ export interface MatchingServiceDeps {
  * A pro the marketplace would like to surface this request to.
  */
 export interface EligiblePro {
-  /** pro_profiles.id — the join key for offers/interests. */
+  /** pro_profiles.id — the join key for a job assignment. */
   proId: string;
   /** profiles.id — the account a socket/notification lands on. */
   userId: string;
@@ -28,8 +28,6 @@ export interface MatchingCriteria {
   /** The request location; matching is meaningless without it. */
   latitude: number;
   longitude: number;
-  /** Skip this many already-dispatched pros (next dispatch round). */
-  skipProIds?: string[];
   limit?: number;
 }
 
@@ -45,8 +43,7 @@ export function createMatchingService(deps: MatchingServiceDeps) {
    * Nearest eligible pros for a request, ordered by distance.
    *
    * Request coordinates are required: without them there is no "nearby",
-   * which is the whole point of the marketplace. The caller opens the request
-   * to interest when there is nothing to match against.
+   * which is the whole point of the marketplace.
    */
   async function findEligiblePros(criteria: MatchingCriteria): Promise<EligiblePro[]> {
     const candidates = await deps.prisma.proProfile.findMany({
@@ -57,7 +54,7 @@ export function createMatchingService(deps: MatchingServiceDeps) {
         longitude: { not: null },
         services: { some: { serviceId: criteria.serviceId } },
         // A pro already heading to a job cannot accept another.
-        selectedRequests: { none: { status: { in: [...ACTIVE_JOB_STATUSES] } } },
+        jobs: { none: { status: { in: [...ACTIVE_JOB_STATUSES] } } },
       },
       select: {
         id: true,
@@ -72,10 +69,8 @@ export function createMatchingService(deps: MatchingServiceDeps) {
     });
 
     const request = { latitude: criteria.latitude, longitude: criteria.longitude };
-    const skipProIds = new Set(criteria.skipProIds ?? []);
 
     const eligible = candidates
-      .filter((pro) => !skipProIds.has(pro.id))
       .map((pro) => {
         const proPoint = { latitude: pro.latitude as number, longitude: pro.longitude as number };
         const km = distanceKm(request, proPoint);
@@ -99,8 +94,8 @@ export function createMatchingService(deps: MatchingServiceDeps) {
   }
 
   /**
-   * Whether a pro may take interest in an open request right now: online,
-   * onboarded, serving the service, inside their radius, no conflicting job.
+   * Whether a pro may take a request right now: online, onboarded, serving the
+   * service, inside their radius, no conflicting job.
    */
   async function isProEligible(proId: string, criteria: MatchingCriteria): Promise<boolean> {
     const matches = await deps.prisma.proProfile.findFirst({
@@ -111,7 +106,7 @@ export function createMatchingService(deps: MatchingServiceDeps) {
         latitude: { not: null },
         longitude: { not: null },
         services: { some: { serviceId: criteria.serviceId } },
-        selectedRequests: { none: { status: { in: [...ACTIVE_JOB_STATUSES] } } },
+        jobs: { none: { status: { in: [...ACTIVE_JOB_STATUSES] } } },
       },
       select: { id: true, latitude: true, longitude: true, serviceRadiusKm: true },
     });

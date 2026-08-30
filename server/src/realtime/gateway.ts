@@ -20,16 +20,17 @@ import { bearerToken, type TokenVerifier } from '../auth/token';
  * care about; the payload for each is the REST DTO for the changed resource.
  */
 export const REALTIME_EVENTS = {
-  /** A pro received an instant dispatch offer. Payload: JobOfferDto. */
-  JOB_OFFER: 'job:offer',
-  /** The pro's own offer changed (accepted service-side, selected, cancelled...). */
-  JOB_OFFER_STATUS: 'job:offer-status',
-  /** A request the caller is party to changed state. Payload: ServiceRequestDto. */
-  REQUEST_STATUS: 'request:status',
-  /** The customer's shortlist gained a responder. Payload: ServiceRequestDto. */
-  SHORTLIST_UPDATED: 'request:shortlist-updated',
-  /** Money moved on a request. Payload: ServiceRequestDto. */
-  PAYMENT_STATUS: 'request:payment-status',
+  /**
+   * A new open (REQUESTED, unassigned) job landed that eligible pros may want.
+   * Payload: `AvailableJob`. The pull-style available-jobs feed is the source
+   * of truth; this is a nudge to refetch.
+   */
+  JOB_NEW: 'job:new',
+  /**
+   * A job the recipient is party to changed state. Payload: `JobDetail`
+   * shaped for the viewer. REST remains the source of truth.
+   */
+  JOB_STATUS: 'job:status',
 } as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];

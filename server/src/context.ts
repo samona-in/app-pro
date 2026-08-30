@@ -12,7 +12,6 @@ import { createServicesService, type ServicesService } from './services/services
 import { createJobsService, type JobsService } from './jobs/jobs.service';
 import { createMatchingService, type MatchingService } from './matching/matching.service';
 import { createLocationsService, type LocationsService } from './locations/locations.service';
-import { createPaymentsService, type PaymentsService } from './payments/payments.service';
 import { createEarningsService, type EarningsService } from './earnings/earnings.service';
 import {
   createNotificationsService,
@@ -40,7 +39,6 @@ export interface Services {
   jobs: JobsService;
   matching: MatchingService;
   locations: LocationsService;
-  payments: PaymentsService;
   earnings: EarningsService;
   notifications: NotificationsService;
   reviews: ReviewsService;
@@ -67,11 +65,11 @@ export function createServices(
   });
   const deps = { prisma, storage };
 
-  // Order matters: jobs' dispatch drives matching, payments settles through
-  // jobs, and both notify through realtime. Each service reads only what it
-  // received, so nothing is reachable behind the composition boundary.
+  // Order matters: jobs' dispatch drives matching, and jobs notifies through
+  // realtime. Each service reads only what it received, so nothing is reachable
+  // behind the composition boundary.
   const matching = createMatchingService({ prisma });
-  const jobs = createJobsService({ prisma, matching, realtime });
+  const jobs = createJobsService({ prisma, storage, matching, realtime });
 
   return {
     auth: createAuthService({ prisma, signupDefaultRole: config.signupDefaultRole }),
@@ -87,7 +85,6 @@ export function createServices(
     jobs,
     matching,
     locations: createLocationsService(deps),
-    payments: createPaymentsService({ prisma, jobs, realtime }),
     earnings: createEarningsService(deps),
     notifications: createNotificationsService(deps),
     reviews: createReviewsService(deps),
