@@ -290,6 +290,25 @@ describe('transitionJob', () => {
     expect(realtime.calls.emitToUser).toHaveBeenCalledWith(CUSTOMER, REALTIME_EVENTS.PAYMENT_STATUS, dto);
   });
 
+  it('travels an assigned confirmed job and tells the customer', async () => {
+    const prisma = fakePrisma();
+    const realtime = fakeRealtime();
+    const jobs = service(prisma.client, realtime.client);
+    prisma.calls.proProfile.findUnique.mockResolvedValue({ id: pro.id, latitude: null, longitude: null });
+    prisma.calls.serviceRequest.findFirst.mockResolvedValue(
+      makeRow({ status: ServiceRequestStatus.CONFIRMED, selectedProId: pro.id }),
+    );
+    prisma.calls.serviceRequest.findFirstOrThrow.mockResolvedValue(
+      makeRow({ status: ServiceRequestStatus.TRAVELLING, selectedProId: pro.id }),
+    );
+
+    const dto = await jobs.transitionJob(PRO_USER, REQUEST_ID, 'travel');
+
+    expect(dto.status).toBe(ServiceRequestStatus.TRAVELLING);
+    expect(prisma.calls.payment.upsert).not.toHaveBeenCalled();
+    expect(realtime.calls.emitToUser).toHaveBeenCalledWith(CUSTOMER, REALTIME_EVENTS.REQUEST_STATUS, dto);
+  });
+
   it('refuses to complete a job that is not assigned to the pro', async () => {
     const prisma = fakePrisma();
     const realtime = fakeRealtime();

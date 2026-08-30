@@ -144,6 +144,13 @@ export function createProsRouter(services: Services): Router {
   });
 
   /** On-site job stages, driven by the assigned pro. */
+  router.post('/jobs/:id/travel', validate(jobTransitionSchema), async (req, res, next) => {
+    try {
+      res.json(await services.jobs.transitionJob(req.user!.id, routeParamId(req.params.id), 'travel', req.body.note));
+    } catch (error) {
+      next(error);
+    }
+  });
   router.post('/jobs/:id/arrived', validate(jobTransitionSchema), async (req, res, next) => {
     try {
       res.json(await services.jobs.transitionJob(req.user!.id, routeParamId(req.params.id), 'arrived', req.body.note));

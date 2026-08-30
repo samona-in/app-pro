@@ -943,14 +943,14 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
-   * On-site stages driven by the assigned pro: arrived → in progress → done.
-   * Completing the job anchors the price server-side and records the pending
-   * payment to collect.
+   * On-site stages driven by the assigned pro: en route → arrived → in
+   * progress → done. Completing the job anchors the price server-side and
+   * records the pending payment to collect.
    */
   async function transitionJob(
     proUserId: string,
     id: string,
-    action: 'arrived' | 'start' | 'complete',
+    action: 'travel' | 'arrived' | 'start' | 'complete',
     note?: string,
   ): Promise<ServiceRequestDto> {
     const pro = await findProByUserId(proUserId);
@@ -964,11 +964,13 @@ export function createJobsService(deps: JobsServiceDeps) {
       if (!row) throw notFound('This job is not assigned to you.');
 
       const target =
-        action === 'arrived'
-          ? ServiceRequestStatus.ARRIVED
-          : action === 'start'
-            ? ServiceRequestStatus.IN_PROGRESS
-            : ServiceRequestStatus.COMPLETED;
+        action === 'travel'
+          ? ServiceRequestStatus.TRAVELLING
+          : action === 'arrived'
+            ? ServiceRequestStatus.ARRIVED
+            : action === 'start'
+              ? ServiceRequestStatus.IN_PROGRESS
+              : ServiceRequestStatus.COMPLETED;
 
       await transitionRequest(tx, id, row.status, target, proUserId, note);
 
