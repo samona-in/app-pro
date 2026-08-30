@@ -28,12 +28,14 @@ export function createJobsRouter(services: Services): Router {
     verifier: services.tokenVerifier,
     authService: services.auth,
   });
+  const customerOnly = requireRole('CUSTOMER', 'ADMIN');
+  const proOnly = requireRole('PRO', 'ADMIN');
 
   const customer = Router();
-  customer.use(requireAuth, requireRole('CUSTOMER', 'ADMIN'));
+  customer.use(requireAuth);
 
   /** The caller's own requests, newest first. */
-  customer.get('/', validate(paginationSchema, 'query'), async (req, res, next) => {
+  customer.get('/', customerOnly, validate(paginationSchema, 'query'), async (req, res, next) => {
     try {
       const limit = typeof req.query.limit === 'number' ? req.query.limit : 20;
       res.json(await services.jobs.listForCustomer(req.user!.id, limit));
@@ -50,7 +52,7 @@ export function createJobsRouter(services: Services): Router {
    * storage and to live under this customer's own scope before they are
    * recorded.
    */
-  customer.post('/', validate(createJobSchema), async (req, res, next) => {
+  customer.post('/', customerOnly, validate(createJobSchema), async (req, res, next) => {
     try {
       res.status(201).json(await services.jobs.createForCustomer(req.user!.id, req.body));
     } catch (error) {
@@ -59,7 +61,7 @@ export function createJobsRouter(services: Services): Router {
   });
 
   /** One of the caller's own requests. */
-  customer.get('/:id', async (req, res, next) => {
+  customer.get('/:id', customerOnly, async (req, res, next) => {
     try {
       res.json(await services.jobs.getForCustomer(req.user!.id, routeParamId(req.params.id)));
     } catch (error) {
@@ -71,7 +73,7 @@ export function createJobsRouter(services: Services): Router {
    * Settles a completed job: PAYMENT_PENDING → PAID. Exactly once, in the
    * service; the price was anchored server-side when the job was completed.
    */
-  customer.post('/:id/pay', async (req, res, next) => {
+  customer.post('/:id/pay', customerOnly, async (req, res, next) => {
     try {
       res.json(await services.jobs.payForCustomer(req.user!.id, routeParamId(req.params.id)));
     } catch (error) {
@@ -80,10 +82,10 @@ export function createJobsRouter(services: Services): Router {
   });
 
   const pro = Router();
-  pro.use(requireAuth, requireRole('PRO', 'ADMIN'));
+  pro.use(requireAuth);
 
   /** The caller's own confirmed and in-flight jobs, newest first. */
-  pro.get('/mine', validate(jobListQuerySchema, 'query'), async (req, res, next) => {
+  pro.get('/mine', proOnly, validate(jobListQuerySchema, 'query'), async (req, res, next) => {
     try {
       const query = req.query as { status?: string; limit?: number };
       res.json(
@@ -101,7 +103,7 @@ export function createJobsRouter(services: Services): Router {
    * Open (REQUESTED, unassigned) jobs the caller serves, distance-ordered.
    * Realtime `job:new` nudges this feed; it stays the source of truth.
    */
-  pro.get('/available', validate(paginationSchema, 'query'), async (req, res, next) => {
+  pro.get('/available', proOnly, validate(paginationSchema, 'query'), async (req, res, next) => {
     try {
       const limit = typeof req.query.limit === 'number' ? req.query.limit : 20;
       res.json(await services.jobs.listAvailableJobs(req.user!.id, { limit }));
@@ -111,7 +113,7 @@ export function createJobsRouter(services: Services): Router {
   });
 
   /** Accepts an open job atomically. The first eligible pro to claim it wins. */
-  pro.post('/:id/accept', async (req, res, next) => {
+  pro.post('/:id/accept', proOnly, async (req, res, next) => {
     try {
       res.json(await services.jobs.acceptJob(req.user!.id, routeParamId(req.params.id)));
     } catch (error) {
@@ -120,7 +122,7 @@ export function createJobsRouter(services: Services): Router {
   });
 
   /** One on-site stage of an accepted job, enforced by the state machine. */
-  pro.post('/:id/transition', validate(transitionJobSchema), async (req, res, next) => {
+  pro.post('/:id/transition', proOnly, validate(transitionJobSchema), async (req, res, next) => {
     try {
       res.json(
         await services.jobs.transitionJob(
@@ -135,14 +137,22 @@ export function createJobsRouter(services: Services): Router {
     }
   });
 
-  router.use(customer);
+  // The pro router must win over the customer `/:id` catch-all: a literal
+  // `/available` or `/mine` request from a pro must never be captured as a
+  // customer `GET /jobs/:id`. The role guard for each group is applied per
+  // route (not per router), so a CUSTOMER hitting `/jobs/available` is still
+  // rejected by the pro route's own guard.
   router.use(pro);
+  router.use(customer);
 
   // A party to the job may cancel it until it leaves cancellation territory.
-  // Registered last so `/mine` and `/available` always win the match.
-  const either = Router();
-  either.use(requireAuth, requireRole('CUSTOMER', 'PRO', 'ADMIN'));
-  either.post('/:id/cancel', validate(cancelJobSchema), async (req, res, next) => {
+  // Registered last so `/mine`, `/available` and `/:id` always win the match.
+  const cancelGuard = [
+    requireAuth,
+    requireRole('CUSTOMER', 'PRO', 'ADMIN'),
+    validate(cancelJobSchema),
+  ];
+  router.post('/:id/cancel', ...cancelGuard, async (req, res, next) => {
     try {
       res.json(
         await services.jobs.cancelJob(req.user!.id, routeParamId(req.params.id), req.body.note),
@@ -151,7 +161,6 @@ export function createJobsRouter(services: Services): Router {
       next(error);
     }
   });
-  router.use(either);
 
   return router;
 }

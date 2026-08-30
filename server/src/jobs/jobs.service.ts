@@ -296,8 +296,12 @@ export function createJobsService(deps: JobsServiceDeps) {
     let proUserId: string | null = null;
 
     const updated = await prisma.$transaction(async (tx) => {
+      const customer = await tx.customerProfile.findUnique({
+        where: { userId: customerUserId },
+      });
+      if (!customer) throw notFound('That booking could not be found.');
       const row = await tx.job.findFirst({
-        where: { id: jobId, customerId: customerUserId },
+        where: { id: jobId, customerId: customer.id },
         include: {
           ...jobDetailInclude,
           pro: { select: { id: true, userId: true, displayName: true, rating: true } },
@@ -314,7 +318,6 @@ export function createJobsService(deps: JobsServiceDeps) {
           fromStatus: row.status,
           toStatus: JobStatus.PAID,
           changedById: customerUserId,
-          note: 'Paid by the customer.',
         },
       });
       await tx.job.update({
@@ -354,7 +357,7 @@ export function createJobsService(deps: JobsServiceDeps) {
   async function cancelJob(
     actorUserId: string,
     jobId: string,
-    note?: string,
+    _note?: string,
   ): Promise<{ detail: JobDetail; customerUserId: string; proUserId: string | null }> {
     const row = await prisma.job.findUnique({
       where: { id: jobId },
@@ -381,8 +384,6 @@ export function createJobsService(deps: JobsServiceDeps) {
           fromStatus: row.status,
           toStatus: JobStatus.CANCELLED,
           changedById: actorUserId,
-          note:
-            note ?? `${actorIsCustomer ? 'The customer' : 'The professional'} cancelled the job.`,
         },
       });
       return tx.job.update({
@@ -527,7 +528,6 @@ export function createJobsService(deps: JobsServiceDeps) {
           fromStatus: JobStatus.REQUESTED,
           toStatus: JobStatus.ACCEPTED,
           changedById: proUserId,
-          note: 'Accepted by a professional.',
         },
       });
 
@@ -537,7 +537,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
     const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
-    realtime.emitToUser(updated.customerId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     return proDetail;
   }
 
@@ -550,7 +550,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     proUserId: string,
     jobId: string,
     action: JobAction,
-    note?: string,
+    _note?: string,
   ): Promise<JobDetail> {
     const pro = await findProByUserId(proUserId);
 
@@ -579,7 +579,6 @@ export function createJobsService(deps: JobsServiceDeps) {
           fromStatus: row.status,
           toStatus: target,
           changedById: proUserId,
-          note,
         },
       });
 
@@ -606,7 +605,6 @@ export function createJobsService(deps: JobsServiceDeps) {
             fromStatus: JobStatus.COMPLETED,
             toStatus: JobStatus.PAYMENT_PENDING,
             changedById: proUserId,
-            note: 'Awaiting payment from the customer.',
           },
         });
       }
@@ -617,7 +615,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
     const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
-    realtime.emitToUser(updated.customerId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     return proDetail;
   }
 
