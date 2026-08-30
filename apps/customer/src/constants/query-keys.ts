@@ -5,11 +5,12 @@ export const queryKeys = {
   session: ['session'] as const,
   profile: ['profile'] as const,
   customerProfile: ['customer-profile'] as const,
+  /** The service catalogue, mounted at `/services`. */
   catalogue: ['catalogue'] as const,
   bookings: {
     all: ['bookings'] as const,
     list: (filter?: string) => ['bookings', 'list', filter ?? 'all'] as const,
-    detail: (jobId: string) => ['bookings', 'detail', jobId] as const,
+    detail: (requestId: string) => ['bookings', 'detail', requestId] as const,
   },
   search: {
     all: ['search'] as const,
