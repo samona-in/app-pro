@@ -38,3 +38,24 @@ export const LOCATION_DEFAULTS = {
   /** Minimum time between location updates, in milliseconds. */
   updateTimeIntervalMs: 15_000,
 } as const;
+
+/**
+ * Timing and volume knobs for the order-service lifecycle
+ * (architecture §12, §20, §32). Expiry is always applied server-side.
+ */
+export const ORDER_LIFECYCLE = {
+  /** How long a pro has to answer an instant offer, in seconds. */
+  offerSeconds: 30,
+  /** How long an open request accepts pro interest, in minutes. */
+  openJobMinutes: 240,
+  /** How long the customer has to pick a pro after responses arrive, in minutes. */
+  selectionMinutes: 30,
+  /** Cap on interested pros for one open request (§20: 3–5). */
+  maxInterestedPros: 5,
+  /** Pros dispatched per round (§12: "nearest 5"). */
+  dispatchBatchSize: 5,
+  /** Rounds before an instant request falls back to OPEN (§12). */
+  maxDispatchRounds: 2,
+  /** Assumed en-route speed used to derive ETA from distance, km/h. */
+  etaSpeedKmh: 30,
+} as const;
