@@ -108,6 +108,15 @@ model ProProfile {
   services ProService[]
   skills   ProSkill[]
 
+  /// The requests this pro chose to take on. The client never writes
+  /// `ServiceRequest.selectedProId`; only the backend's atomic selection
+  /// transaction sets it.
+  selectedRequests ServiceRequest[] @relation("selectedRequests")
+
+  /// Dispatched offers and open-job interests, one row per request.
+  offers    JobOffer[]
+  interests ProInterest[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -141,6 +150,8 @@ model CustomerProfile {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  requests ServiceRequest[] @relation("customerRequests")
+
   @@index([onboardingStatus])
   @@map("customer_profiles")
 }
@@ -157,6 +168,7 @@ model Service {
 
   skills Skill[]
   pros   ProService[]
+  requests ServiceRequest[]
 
   @@map("services")
 }
@@ -225,4 +237,208 @@ enum UserRole {
   CUSTOMER
   PRO
   ADMIN
+}
+
+// ---------------------------------------------------------------------------
+// Order service lifecycle — SAMONA__Onboarding_&_Order_Service_Architecture.md
+//
+// A customer first files a ServiceRequest; there is no confirmed Job yet. The
+// request carries the whole lifecycle while the customer has not chosen a pro.
+// Dispatch is modelled as JobOffers (one per pro, instant dispatch) and open
+// supply gaps as ProInterests (available jobs). When the customer selects a
+// pro the request becomes the confirmed "job", and the same row moves through
+// the on-site stages. REST is the source of truth; realtime only delivers it.
+// ---------------------------------------------------------------------------
+
+/// The lifecycle of `service_requests` (architecture §21).
+///
+/// Temporary states REQUESTED/DISPATCHING/OPEN/CHOOSING_PRO have an
+/// `expires_at`; the expiry sweeper moves them to EXPIRED. After the customer
+/// selects a pro the request is the confirmed job and the pro drives the
+/// on-site stages.
+enum ServiceRequestStatus {
+  REQUESTED
+  DISPATCHING
+  CHOOSING_PRO
+  OPEN
+  CONFIRMED
+  TRAVELLING
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  PAID
+  CANCELLED
+  EXPIRED
+}
+
+/// A single pro's dispatch offer, separate from the request (architecture §22).
+///
+/// At most one offer per pro per request; distance and ETA are snapshots made
+/// at offer time so history stays meaningful after the pro moves.
+enum JobOfferStatus {
+  OFFERED
+  ACCEPTED
+  /// The customer picked this pro. Exactly one of a request's offers reaches
+  /// SELECTED; every other non-terminal one is CANCELLED in the same
+  /// transaction.
+  SELECTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+/// A pro's expression of interest in an open request (architecture §27).
+enum ProInterestStatus {
+  INTERESTED
+  SELECTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+/// A customer's request for a service, before and after a pro is chosen.
+model ServiceRequest {
+  id String @id @default(uuid()) @db.Uuid
+
+  customerId String @map("customer_id") @db.Uuid
+  serviceId  String @map("service_id") @db.Uuid
+  status     ServiceRequestStatus @default(REQUESTED)
+
+  /// The problem, free text plus optional photo references (as produced by the
+  /// files domain; never an arbitrary client URL).
+  description String?
+  photos      String[] @default([])
+  /// Where the work must happen. Nullable so a customer far from a network
+  /// still gets an open request listed for the pro to view.
+  latitude  Float?
+  longitude Float?
+  address   String?
+
+  /// Set only by the atomic selection transaction. A confirmed request is the
+  /// pro's current job.
+  selectedProId String? @map("selected_pro_id") @db.Uuid
+
+  /// Rupees. `estimatedPrice` is a V1 budget/quote anchor from creation;
+  /// `finalPrice` is set server-side at completion and never borrowed from a
+  /// client payload.
+  estimatedPrice Int? @map("estimated_price")
+  finalPrice     Int? @map("final_price")
+
+  requestedAt DateTime @default(now()) @map("requested_at")
+  /// When a temporary state lapses into EXPIRED. Null while confirmed/in-flight.
+  expiresAt DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  customer CustomerProfile @relation("customerRequests", fields: [customerId], references: [userId], onDelete: Cascade)
+  service  Service         @relation(fields: [serviceId], references: [id])
+  selectedPro ProProfile?  @relation("selectedRequests", fields: [selectedProId], references: [id])
+
+  offers   JobOffer[]
+  interests ProInterest[]
+
+  /// Every state change of this request, in order.
+  statusHistory JobStatusHistory[]
+  payment Payment?
+
+  @@index([customerId, status])
+  @@index([serviceId])
+  @@index([status, expiresAt])
+  @@index([selectedProId, status])
+  @@map("service_requests")
+}
+
+/// Instant-dispatch offer to one pro (architecture §22, §26).
+model JobOffer {
+  id String @id @default(uuid()) @db.Uuid
+
+  serviceRequestId String @map("service_request_id") @db.Uuid
+  proId            String @map("pro_id") @db.Uuid
+  status           JobOfferStatus @default(OFFERED)
+
+  /// Snapshots taken when the offer was created.
+  distanceKm           Float @map("distance_km")
+  estimatedEtaMinutes  Int   @map("estimated_eta_minutes")
+
+  offeredAt   DateTime  @default(now()) @map("offered_at")
+  respondedAt DateTime? @map("responded_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  pro ProProfile @relation(fields: [proId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceRequestId, proId])
+  @@index([proId, status, expiresAt])
+  @@index([serviceRequestId, status])
+  @@map("job_offers")
+}
+
+/// A pro's interest in an open request (architecture §27).
+model ProInterest {
+  id String @id @default(uuid()) @db.Uuid
+
+  serviceRequestId String @map("service_request_id") @db.Uuid
+  proId            String @map("pro_id") @db.Uuid
+  status           ProInterestStatus @default(INTERESTED)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  pro ProProfile @relation(fields: [proId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceRequestId, proId])
+  @@index([proId, status])
+  @@index([serviceRequestId, status])
+  @@map("pro_interests")
+}
+
+/// History of a request's status changes, so the timeline is reproducible
+/// even after REST state has moved on.
+model JobStatusHistory {
+  id String @id @default(uuid()) @db.Uuid
+
+  serviceRequestId String @map("service_request_id") @db.Uuid
+  status           ServiceRequestStatus
+  /// The verified user id of whoever triggered the change.
+  changedById String @map("changed_by_id") @db.Uuid
+  /// Optional context, e.g. "offer expired while dispatching".
+  note String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+
+  @@index([serviceRequestId, createdAt])
+  @@map("job_status_history")
+}
+
+/// Money recorded for a confirmed request. The gateway is not wired for V1:
+/// `markPaid` in the payments domain is the authoritative transition.
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+
+  serviceRequestId String @unique @map("service_request_id") @db.Uuid
+  status PaymentStatus @default(PENDING)
+
+  /// Rupees, set server-side from the request's authoritative price.
+  amount Int
+
+  paidAt   DateTime? @map("paid_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
 }
