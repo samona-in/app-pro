@@ -5,9 +5,9 @@ import * as Haptics from 'expo-haptics';
 import type { AvailabilityPatchInput } from '@samona/validation';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { EmptyState } from '@/components/feedback';
-import { OfferCard } from '@/components/jobs';
+import { AvailableJobCard } from '@/components/jobs';
 import { Badge, Card, IconButton, Screen, Text } from '@/components/ui';
-import { useProJobs, useProOffers, useProProfile, useSubmitGuard, useToggleAvailability } from '@/hooks';
+import { useAvailableJobs, useProJobs, useProProfile, useSubmitGuard, useToggleAvailability } from '@/hooks';
 import { readCurrentLocation } from '@/services/location';
 import { useAppStore } from '@/stores/app';
 import { color } from '@/theme';
@@ -91,9 +91,12 @@ function AvailabilityCard() {
 function TodaySnapshot() {
   const { data: jobs } = useProJobs();
   const finished = (jobs ?? []).filter(
-    (job) => job.status === 'COMPLETED' || job.status === 'PAID',
+    (job) => job.status === 'PAYMENT_PENDING' || job.status === 'PAID',
   );
-  const earned = finished.reduce((sum, job) => sum + (job.finalPrice ?? job.estimatedPrice ?? 0), 0);
+  const earned = finished.reduce(
+    (sum, job) => sum + (job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise ?? 0),
+    0,
+  );
 
   return (
     <View className="mt-4 flex-row gap-3">
@@ -113,10 +116,10 @@ function TodaySnapshot() {
   );
 }
 
-/** Incoming instant-dispatch offers, newest first, with a buzz on arrival. */
-function OfferFeed() {
-  const { data: offers, isPending } = useProOffers('OFFERED');
-  const count = offers?.length ?? 0;
+/** Open jobs the pro can take, newest first, with a buzz when a new one lands. */
+function AvailableFeed() {
+  const { data: jobs, isPending } = useAvailableJobs();
+  const count = jobs?.length ?? 0;
   const previousCount = useRef(count);
 
   useEffect(() => {
@@ -143,8 +146,8 @@ function OfferFeed() {
 
       {count > 0 ? (
         <View className="mt-3 gap-3">
-          {(offers ?? []).map((offer) => (
-            <OfferCard key={offer.id} offer={offer} />
+          {(jobs ?? []).map((job) => (
+            <AvailableJobCard key={job.id} job={job} />
           ))}
         </View>
       ) : (
@@ -166,7 +169,7 @@ function OfferFeed() {
         className="mt-4 text-center font-semibold text-brand"
         onPress={() => router.push('/available-jobs')}
       >
-        Browse available jobs →
+        Browse all available jobs →
       </Text>
     </View>
   );
@@ -189,7 +192,7 @@ export default function Home() {
         <TodaySnapshot />
       </View>
 
-      <OfferFeed />
+      <AvailableFeed />
     </Screen>
   );
 }

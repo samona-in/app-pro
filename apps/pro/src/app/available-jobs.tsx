@@ -5,9 +5,8 @@ import { Screen, Text } from '@/components/ui';
 import { useAvailableJobs } from '@/hooks';
 
 /**
- * Open requests nearby. These requests waited past their dispatch rounds, so
- * any eligible pro can put themselves forward; the customer picks from the
- * interested list.
+ * Open jobs nearby. Every eligible pro can accept them; the first to accept
+ * claims the job atomically.
  */
 export default function AvailableJobs() {
   const { data: jobs, isPending } = useAvailableJobs();
@@ -17,7 +16,7 @@ export default function AvailableJobs() {
       <View className="pt-2">
         <Text variant="titleLg">Available jobs</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
-          Open requests customers are waiting on. Express interest to be shortlisted.
+          Open jobs near you. Accept one before another professional does.
         </Text>
       </View>
 
@@ -36,7 +35,7 @@ export default function AvailableJobs() {
           <EmptyState
             icon="globe-outline"
             title="No open jobs right now"
-            message="Requests that no pro could take immediately appear here. Check back soon, or go online to receive direct offers."
+            message="Jobs no one has taken yet appear here. Check back soon, or go online to be among the first to know."
           />
         </View>
       )}

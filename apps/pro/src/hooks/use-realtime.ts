@@ -18,16 +18,11 @@ export function useRealtimeSync() {
     const invalidateJobs = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     };
-    const invalidateMarketplace = () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.available });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.offers() });
-    };
-
+    // A `job:new` nudge refreshes the open pool; a `job:status` refresh keeps
+    // every screen that holds the same job current.
     const unsubscribes = [
-      subscribe('job:offer', invalidateMarketplace),
-      subscribe('job:offer-status', invalidateJobs),
-      subscribe('request:status', invalidateJobs),
-      subscribe('request:payment-status', invalidateJobs),
+      subscribe('job:new', invalidateJobs),
+      subscribe('job:status', invalidateJobs),
     ];
 
     return () => {

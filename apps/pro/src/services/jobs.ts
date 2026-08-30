@@ -1,52 +1,37 @@
-import type {
-  AvailableJobDto,
-  JobOfferDto,
-  JobOfferStatus,
-  ProProfile,
-  ServiceRequestDto,
-} from '@samona/types';
-import type { AvailabilityPatchInput } from '@samona/validation';
+import type { AvailableJob, JobDetail, JobStatus, ProProfile } from '@samona/types';
+import type { AvailabilityPatchInput, JobAction } from '@samona/validation';
 import { api } from './api';
 
 /**
- * Typed lifecycle requests for the Pro surface.
+ * Typed job requests for the Pro surface.
  *
  * Thin functions over the shared `api` client. The server is the only writer of
  * statuses, distances, prices and availability; these merely state what the Pro
- * wants. The empty `{}` bodies on offers are deliberate — the server schemas
- * are `strictObject` and expect a JSON object, not an empty body.
+ * wants. The `{ note }` bodies on cancellations are optional — the server
+ * schema accepts a JSON object, never a raw string.
  */
-export type ProJobTransitionAction = 'travel' | 'arrived' | 'start' | 'complete';
-
-export interface RespondOfferResult {
-  offerStatus: JobOfferStatus;
-  requestId: string;
-}
+export type ProJobTransitionAction = JobAction;
+export type { JobAction } from '@samona/validation';
 
 export const jobsApi = {
-  /** The caller's confirmed and in-flight jobs, newest first. */
-  list: (options: { status?: string; limit?: number } = {}) =>
-    api.get<ServiceRequestDto[]>('/pros/jobs', { query: options }),
+  /** The caller's own assigned jobs, newest first; filterable by one status. */
+  list: (options: { status?: JobStatus; limit?: number } = {}) =>
+    api.get<JobDetail[]>('/jobs/mine', { query: options }),
 
-  /** Instant-dispatch offers for the caller. */
-  offers: (options: { status?: string; limit?: number } = {}) =>
-    api.get<JobOfferDto[]>('/pros/job-offers', { query: options }),
+  /** Open, unassigned jobs the caller serves, distance-ordered. */
+  available: (options: { limit?: number } = {}) =>
+    api.get<AvailableJob[]>('/jobs/available', { query: options }),
 
-  /** Open requests the caller is eligible to serve. */
-  available: (options: { limit?: number; offset?: number } = {}) =>
-    api.get<AvailableJobDto[]>('/pros/available-jobs', { query: options }),
+  /** Accepts an open job. The first eligible pro to claim it wins. */
+  accept: (jobId: string) => api.post<JobDetail>(`/jobs/${jobId}/accept`, {}),
 
-  acceptOffer: (offerId: string) =>
-    api.post<RespondOfferResult>(`/pros/job-offers/${offerId}/accept`, {}),
-
-  declineOffer: (offerId: string) =>
-    api.post<RespondOfferResult>(`/pros/job-offers/${offerId}/decline`, {}),
-
-  expressInterest: (serviceRequestId: string) =>
-    api.post<ServiceRequestDto>('/pros/pro-interests', { serviceRequestId }),
-
+  /** Advances an assigned job through one on-site stage. */
   transition: (jobId: string, action: ProJobTransitionAction, note?: string) =>
-    api.post<ServiceRequestDto>(`/pros/jobs/${jobId}/${action}`, note ? { note } : {}),
+    api.post<JobDetail>(`/jobs/${jobId}/transition`, note ? { action, note } : { action }),
+
+  /** Cancels a job the caller is party to, before it leaves cancellation land. */
+  cancel: (jobId: string, note?: string) =>
+    api.post<JobDetail>(`/jobs/${jobId}/cancel`, note ? { note } : {}),
 
   setAvailability: (patch: AvailabilityPatchInput) =>
     api.post<ProProfile>('/pros/availability', patch),

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ACTIVE_JOB_STATUSES, type ServiceRequestStatus } from '@samona/types';
+import { isActiveJobStatus, type JobStatus } from '@samona/types';
 import { EmptyState } from '@/components/feedback';
 import { Card, Divider, Screen, Text } from '@/components/ui';
 import { JobStatusBadge } from '@/components/jobs';
@@ -14,12 +14,12 @@ import { formatInr } from '@/utils/format';
 const FILTERS = ['Active', 'Completed', 'All'] as const;
 type Filter = (typeof FILTERS)[number];
 
-function isActive(status: ServiceRequestStatus): boolean {
-  return (ACTIVE_JOB_STATUSES as readonly ServiceRequestStatus[]).includes(status);
+function isActive(status: JobStatus): boolean {
+  return isActiveJobStatus(status);
 }
 
-function isCompleted(status: ServiceRequestStatus): boolean {
-  return status === 'COMPLETED' || status === 'PAID';
+function isCompleted(status: JobStatus): boolean {
+  return status === 'PAYMENT_PENDING' || status === 'PAID';
 }
 
 export default function Jobs() {
@@ -84,11 +84,13 @@ export default function Jobs() {
                     </View>
                     <Text variant="footnote" className="mt-1 text-text-secondary" numberOfLines={1}>
                       {job.customer?.displayName ?? 'Customer'}
-                      {job.address ? ` · ${job.address}` : ''}
+                      {job.customer?.locationLabel ? ` · ${job.customer.locationLabel}` : ''}
                     </Text>
                   </View>
                   <View className="items-end gap-1">
-                    <Text variant="bodyStrong">{formatInr(job.estimatedPrice)}</Text>
+                    <Text variant="bodyStrong">
+                      {formatInr(job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise)}
+                    </Text>
                     <Ionicons name="chevron-forward" size={16} color={color['text-muted']} />
                   </View>
                 </View>
@@ -103,7 +105,7 @@ export default function Jobs() {
             title={isPending ? 'Loading your jobs' : `No ${filter.toLowerCase()} jobs`}
             message={
               filter === 'Active'
-                ? 'When a customer picks you, the job appears here with everything you need to get to them.'
+                ? 'When you accept a job, it appears here with everything you need to get to the customer.'
                 : 'Completed jobs with their payouts will show up here.'
             }
           />

@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
-import type { JobOfferDto, ServiceRequestDto } from '@samona/types';
+import type { AvailableJob, JobDetail } from '@samona/types';
 import { env } from '@/env';
 
 /**
@@ -14,11 +14,10 @@ import { env } from '@/env';
  *    closed: no token, no connection.
  */
 export interface RealtimeEventMap {
-  'job:offer': JobOfferDto;
-  'job:offer-status': JobOfferDto;
-  'request:status': ServiceRequestDto;
-  'request:shortlist-updated': ServiceRequestDto;
-  'request:payment-status': ServiceRequestDto;
+  /** A new open job landed the pro may want. Payload: AvailableJob. */
+  'job:new': AvailableJob;
+  /** A job the pro is party to changed state. Payload: JobDetail. */
+  'job:status': JobDetail;
 }
 type RealtimeEvent = keyof RealtimeEventMap;
 /** Union over every event's payload; the socket itself is untyped. */

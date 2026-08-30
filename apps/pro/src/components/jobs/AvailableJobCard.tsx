@@ -1,20 +1,27 @@
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { AvailableJobDto } from '@samona/types';
+import type { AvailableJob } from '@samona/types';
 import { Button, Card, Text } from '@/components/ui';
-import { useExpressInterest, useSubmitGuard } from '@/hooks';
+import { useAcceptJob, useSubmitGuard } from '@/hooks';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import { formatDistance, formatEta, formatInr, formatRelativeTime } from '@/utils/format';
 
 /**
- * One open request in the Available Jobs marketplace. Expressing interest puts
- * the pro on the customer's shortlist; the customer picks from there.
+ * One open job in the Available Jobs marketplace. Accepting claims it
+ * atomically server-side; a fire-and-forget refetch reconciles the pool.
  */
-export function AvailableJobCard({ job, className }: { job: AvailableJobDto; className?: string }) {
-  const interest = useExpressInterest();
+export function AvailableJobCard({ job, className }: { job: AvailableJob; className?: string }) {
+  const accept = useAcceptJob();
   const { run, isSubmitting } = useSubmitGuard(async () => {
-    await interest.mutateAsync(job.id);
+    try {
+      await accept.mutateAsync(job.id);
+    } catch (error) {
+      Alert.alert(
+        'This job was just taken',
+        error instanceof Error ? error.message : 'Another professional may have accepted it first.',
+      );
+    }
   });
 
   return (
@@ -22,11 +29,16 @@ export function AvailableJobCard({ job, className }: { job: AvailableJobDto; cla
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
           <Text variant="bodyStrong">{job.service.name}</Text>
+          {job.customSkill ? (
+            <Text variant="footnote" className="mt-0.5 text-text-secondary">
+              {job.customSkill}
+            </Text>
+          ) : null}
           <Text variant="footnote" className="mt-0.5 text-text-secondary" numberOfLines={2}>
             {job.description ?? 'No description provided.'}
           </Text>
         </View>
-        <Text variant="title">{formatInr(job.estimatedPrice)}</Text>
+        <Text variant="title">{formatInr(job.basePayPaise)}</Text>
       </View>
 
       <View className="flex-row items-center gap-4">
@@ -37,21 +49,14 @@ export function AvailableJobCard({ job, className }: { job: AvailableJobDto; cla
           </Text>
         </View>
         <Text variant="caption" className="text-text-muted">
-          {formatRelativeTime(job.requestedAt)}
+          {formatRelativeTime(job.createdAt)}
         </Text>
       </View>
 
-      {job.address ? (
-        <Text variant="footnote" className="text-text-muted" numberOfLines={1}>
-          {job.address}
-        </Text>
-      ) : null}
-
       <Button
-        label={job.isInterested ? 'Interested' : "I'm interested"}
-        variant={job.isInterested ? 'secondary' : 'primary'}
+        label="Accept this job"
+        variant="primary"
         size="sm"
-        disabled={job.isInterested}
         loading={isSubmitting}
         onPress={() => void run()}
       />

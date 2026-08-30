@@ -1,31 +1,31 @@
 import { useMemo } from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { ServiceRequestStatus, type ServiceRequestStatus as Status } from '@samona/types';
+import { JobStatus, type JobStatus as Status } from '@samona/types';
 import { EmptyState } from '@/components/feedback';
 import { JobStatusBadge } from '@/components/jobs';
 import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
-import { useProJobs, useSubmitGuard, useTransitionJob } from '@/hooks';
+import { useCancelJob, useProJobs, useSubmitGuard, useTransitionJob } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
 import { formatInr } from '@/utils/format';
 
 /**
- * On-site journey once the customer has picked the pro. The server validates
+ * On-site journey once the pro has accepted the job. The server validates
  * every step against the state machine; the button only requests it.
  */
 const STAGES: { status: Status; label: string }[] = [
-  { status: ServiceRequestStatus.CONFIRMED, label: 'Customer picked you' },
-  { status: ServiceRequestStatus.TRAVELLING, label: 'On the way' },
-  { status: ServiceRequestStatus.ARRIVED, label: 'Arrived' },
-  { status: ServiceRequestStatus.IN_PROGRESS, label: 'Working' },
-  { status: ServiceRequestStatus.COMPLETED, label: 'Completed' },
+  { status: JobStatus.ACCEPTED, label: 'Job accepted' },
+  { status: JobStatus.TRAVELLING, label: 'On the way' },
+  { status: JobStatus.ARRIVED, label: 'Arrived' },
+  { status: JobStatus.IN_PROGRESS, label: 'Working' },
+  { status: JobStatus.PAYMENT_PENDING, label: 'Completed, awaiting payment' },
 ];
 
 const NEXT_ACTIONS: Partial<
   Record<Status, { action: ProJobTransitionAction; label: string; variant: 'primary' | 'success' }>
 > = {
-  CONFIRMED: { action: 'travel', label: "Start trip — I'm on my way", variant: 'primary' },
+  ACCEPTED: { action: 'travel', label: "Start trip — I'm on my way", variant: 'primary' },
   TRAVELLING: { action: 'arrived', label: 'I have arrived', variant: 'primary' },
   ARRIVED: { action: 'start', label: 'Start the job', variant: 'success' },
   IN_PROGRESS: { action: 'complete', label: 'Complete the job', variant: 'success' },
@@ -46,13 +46,18 @@ function actionFor(
 ): { kind: 'transition'; config: ActionConfig } | { kind: 'notice'; label: string; variant: 'secondary' | 'success' } | null {
   const config = NEXT_ACTIONS[status];
   if (config) return { kind: 'transition', config };
-  if (status === ServiceRequestStatus.COMPLETED) {
+  if (status === JobStatus.PAYMENT_PENDING) {
     return { kind: 'notice', label: 'Payment pending', variant: 'secondary' };
   }
-  if (status === ServiceRequestStatus.PAID) {
+  if (status === JobStatus.PAID) {
     return { kind: 'notice', label: 'Paid in full', variant: 'success' };
   }
   return null;
+}
+
+/** A live job the pro is working can still be cancelled before the money moves. */
+function canCancel(status: Status): boolean {
+  return status === JobStatus.ACCEPTED || status === JobStatus.TRAVELLING || status === JobStatus.ARRIVED;
 }
 
 export default function JobDetail() {
@@ -60,6 +65,7 @@ export default function JobDetail() {
   const { data: jobs, isPending } = useProJobs();
   const jobId = id;
   const transition = useTransitionJob();
+  const cancel = useCancelJob();
   const { run, isSubmitting } = useSubmitGuard(async (action: ProJobTransitionAction) => {
     try {
       await transition.mutateAsync({ jobId, action });
@@ -69,6 +75,27 @@ export default function JobDetail() {
         error instanceof Error ? error.message : 'Please try again.',
       );
     }
+  });
+  const requestCancel = useSubmitGuard(async () => {
+    Alert.alert('Cancel this job?', 'You will no longer be committed to this job.', [
+      { text: 'Keep the job', style: 'cancel' },
+      {
+        text: 'Cancel job',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await cancel.mutateAsync({ jobId: jobId as string });
+            } catch (error) {
+              Alert.alert(
+                'Could not cancel this job',
+                error instanceof Error ? error.message : 'Please try again.',
+              );
+            }
+          })();
+        },
+      },
+    ]);
   });
 
   const job = useMemo(() => (jobs ?? []).find((item) => item.id === jobId), [jobId, jobs]);
@@ -95,10 +122,10 @@ export default function JobDetail() {
     );
   }
 
-  const price = job.finalPrice ?? job.estimatedPrice;
-  const paidLabel = job.status === ServiceRequestStatus.PAID ? 'Amount paid' : 'Amount';
+  const price = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
+  const paidLabel = job.status === JobStatus.PAID ? 'Amount paid' : 'Amount';
   const timelineIndex =
-    job.status === ServiceRequestStatus.PAID
+    job.status === JobStatus.PAID
       ? STAGES.length - 1
       : STAGES.findIndex((step) => step.status === job.status);
   const outcome = actionFor(job.status);
@@ -132,12 +159,12 @@ export default function JobDetail() {
           <Text variant="label">{paidLabel}</Text>
           <Text variant="title">{formatInr(price)}</Text>
         </View>
-        {job.address ? (
+        {job.placeType === 'OTHER' && job.placeDescription ? (
           <>
             <Divider spaced />
-            <Text variant="label">Address</Text>
+            <Text variant="label">Place</Text>
             <Text variant="body" className="mt-1">
-              {job.address}
+              {job.placeDescription}
             </Text>
           </>
         ) : null}
@@ -173,19 +200,30 @@ export default function JobDetail() {
         })}
       </Card>
 
-      {job.status === ServiceRequestStatus.PAID ? (
+      {job.status === JobStatus.PAID ? (
         <Badge label={formatInr(price)} tone="success" className="mt-4" />
       ) : null}
 
       <View className="mt-8 gap-3">
         {outcome?.kind === 'transition' ? (
-          <Button
-            label={outcome.config.label}
-            variant={outcome.config.variant}
-            size="lg"
-            loading={isSubmitting}
-            onPress={() => void run(outcome.config.action)}
-          />
+          <>
+            <Button
+              label={outcome.config.label}
+              variant={outcome.config.variant}
+              size="lg"
+              loading={isSubmitting}
+              onPress={() => void run(outcome.config.action)}
+            />
+            {canCancel(job.status) ? (
+              <Button
+                label="Cancel this job"
+                variant="ghost"
+                size="md"
+                loading={requestCancel.isSubmitting}
+                onPress={() => void requestCancel.run()}
+              />
+            ) : null}
+          </>
         ) : outcome?.kind === 'notice' ? (
           <Button label={outcome.label} variant={outcome.variant} size="lg" disabled />
         ) : (

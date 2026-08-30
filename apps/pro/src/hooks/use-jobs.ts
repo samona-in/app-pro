@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { JobOfferStatus, ServiceRequestStatus } from '@samona/types';
+import type { JobStatus } from '@samona/types';
 import type { AvailabilityPatchInput } from '@samona/validation';
 import { queryKeys } from '@/constants';
 import { jobsApi, type ProJobTransitionAction } from '@/services/jobs';
 
-/** The caller's confirmed and in-flight jobs. */
-export function useProJobs(status?: ServiceRequestStatus) {
+/** The caller's own assigned jobs. */
+export function useProJobs(status?: JobStatus) {
   return useQuery({
     queryKey: queryKeys.jobs.list(status),
     queryFn: () => jobsApi.list({ status }),
@@ -14,26 +14,15 @@ export function useProJobs(status?: ServiceRequestStatus) {
 }
 
 /**
- * Instant dispatch offers.
- *
- * Offers live for seconds, so a short refetch keeps countdowns and the
- * expired/answered boundary honest even if a realtime event is missed.
+ * Open jobs the caller can take. A short refetch keeps the pool honest even if
+ * a `job:new` nudge is missed while the app was backgrounded.
  */
-export function useProOffers(status?: JobOfferStatus) {
-  return useQuery({
-    queryKey: queryKeys.jobs.offers(status),
-    queryFn: () => jobsApi.offers({ status }),
-    staleTime: 15_000,
-    refetchInterval: 15_000,
-  });
-}
-
-/** Open requests the caller can browse and express interest in. */
 export function useAvailableJobs() {
   return useQuery({
     queryKey: queryKeys.jobs.available,
     queryFn: () => jobsApi.available(),
-    staleTime: 30_000,
+    staleTime: 20_000,
+    refetchInterval: 20_000,
   });
 }
 
@@ -55,23 +44,11 @@ export function useToggleAvailability() {
   });
 }
 
-/** Accepts or declines one dispatch offer. */
-export function useRespondToOffer() {
+/** Accepts one open job. The server keeps the claim atomic. */
+export function useAcceptJob() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ offerId, action }: { offerId: string; action: 'accept' | 'decline' }) =>
-      action === 'accept' ? jobsApi.acceptOffer(offerId) : jobsApi.declineOffer(offerId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-    },
-  });
-}
-
-/** Expresses interest in an open request. */
-export function useExpressInterest() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (serviceRequestId: string) => jobsApi.expressInterest(serviceRequestId),
+    mutationFn: (jobId: string) => jobsApi.accept(jobId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     },
@@ -84,6 +61,17 @@ export function useTransitionJob() {
   return useMutation({
     mutationFn: ({ jobId, action }: { jobId: string; action: ProJobTransitionAction }) =>
       jobsApi.transition(jobId, action),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    },
+  });
+}
+
+/** Cancels a job the pro is party to. */
+export function useCancelJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, note }: { jobId: string; note?: string }) => jobsApi.cancel(jobId, note),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     },
