@@ -1,11 +1,11 @@
-import { Image, ScrollView, View } from 'react-native';
+import { Alert, Image, ScrollView, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { JobStatus, type Job } from '@samona/types';
+import { JobStatus, type JobDetail } from '@samona/types';
 import { bookingStatusLabel } from '@/components/booking';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { Badge, Card, Divider, Screen, Text } from '@/components/ui';
-import { useBooking } from '@/hooks';
+import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
+import { useBooking, useCancelBooking, usePayBooking, useSubmitGuard } from '@/hooks';
 import { color } from '@/theme';
 import { formatRupees } from '@/utils/format';
 
@@ -16,16 +16,65 @@ const TIMELINE: { status: JobStatus; label: string }[] = [
   { status: JobStatus.ARRIVED, label: 'Arrived' },
   { status: JobStatus.IN_PROGRESS, label: 'Work in progress' },
   { status: JobStatus.COMPLETED, label: 'Completed' },
+  { status: JobStatus.PAYMENT_PENDING, label: 'Awaiting payment' },
+  { status: JobStatus.PAID, label: 'Paid' },
 ];
 
-function currentStepIndex(job: Job): number {
+function currentStepIndex(job: JobDetail): number {
   const index = TIMELINE.findIndex((step) => step.status === job.status);
   return index === -1 ? 0 : index;
+}
+
+/** Statuses the customer may still cancel: before work is underway and after completion. */
+const CANCELLABLE: JobStatus[] = [
+  JobStatus.REQUESTED,
+  JobStatus.ACCEPTED,
+  JobStatus.TRAVELLING,
+  JobStatus.ARRIVED,
+  JobStatus.PAYMENT_PENDING,
+];
+
+function canCancel(status: JobStatus): boolean {
+  return CANCELLABLE.includes(status);
 }
 
 export default function BookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: job, isPending, isError, refetch } = useBooking(id);
+
+  const pay = usePayBooking(id);
+  const cancel = useCancelBooking(id);
+  const { run: requestPayment, isSubmitting: paying } = useSubmitGuard(async () => {
+    try {
+      await pay.mutateAsync();
+    } catch (error) {
+      Alert.alert(
+        'Could not settle this booking',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    }
+  });
+  const { run: requestCancel, isSubmitting: cancelling } = useSubmitGuard(() => {
+    Alert.alert('Cancel this booking?', 'The job will be cancelled for everyone.', [
+      { text: 'Keep the booking', style: 'cancel' },
+      {
+        text: 'Cancel booking',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await cancel.mutateAsync();
+            } catch (error) {
+              Alert.alert(
+                'Could not cancel this booking',
+                error instanceof Error ? error.message : 'Please try again.',
+              );
+            }
+          })();
+        },
+      },
+    ]);
+  });
 
   if (isPending) {
     return (
@@ -53,6 +102,8 @@ export default function BookingDetail() {
 
   const isTerminal = ([JobStatus.CANCELLED, JobStatus.EXPIRED] as JobStatus[]).includes(job.status);
   const step = currentStepIndex(job);
+  const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
+  const paidLabel = job.status === JobStatus.PAID ? 'Amount paid' : 'Amount';
 
   return (
     <Screen scrollable edges={['top', 'bottom']} className="bg-background">
@@ -70,17 +121,21 @@ export default function BookingDetail() {
         <Text variant="label">Professional</Text>
         <View className="mt-1 flex-row items-center">
           <Ionicons
-            name={job.proId ? 'person' : 'search-outline'}
+            name={job.pro ? 'person' : 'search-outline'}
             size={18}
             color={color['text-secondary']}
           />
           <Text variant="bodyLg" className="ml-2">
-            {job.proId ? 'A professional is on this job' : 'Looking for a professional'}
+            {job.pro
+              ? (job.pro.displayName ?? 'Professional assigned')
+              : 'Looking for a professional'}
           </Text>
         </View>
         <Text variant="footnote" className="mt-1">
-          {job.proId
-            ? 'Professional details appear here once the job is underway.'
+          {job.pro
+            ? job.pro.rating !== null
+              ? `Rated ${job.pro.rating.toFixed(1)} · ${job.pro.displayName ?? 'your pro'} is on this job`
+              : 'A professional is on this job.'
             : 'We notify you the moment someone accepts your request.'}
         </Text>
         <Divider spaced />
@@ -91,13 +146,14 @@ export default function BookingDetail() {
         </Text>
         <Divider spaced />
 
-        <Text variant="label">Base pay</Text>
-        <Text variant="bodyLg" className="mt-1">
-          {formatRupees(job.basePayPaise)}
-        </Text>
+        <View className="flex-row items-center justify-between">
+          <Text variant="label">{paidLabel}</Text>
+          <Text variant="title">{formatRupees(amount)}</Text>
+        </View>
         <Text variant="footnote" className="mt-1">
-          The guaranteed amount offered. The final price is agreed with the professional before
-          payment.
+          {job.agreedPayPaise || job.finalPayPaise
+            ? 'The amount agreed with your professional.'
+            : 'The guaranteed amount offered. The final price is agreed with the professional before payment.'}
         </Text>
       </Card>
 
@@ -164,6 +220,34 @@ export default function BookingDetail() {
               ? 'This booking was cancelled.'
               : 'This request expired because no professional accepted it in time.'}
           </Text>
+        </View>
+      ) : null}
+
+      {job.status === JobStatus.PAYMENT_PENDING ? (
+        <View className="mt-8 gap-3 pb-4">
+          <Button
+            label="Pay now"
+            size="lg"
+            loading={paying}
+            onPress={() => void requestPayment()}
+          />
+          <Button
+            label="Cancel booking"
+            variant="ghost"
+            size="md"
+            loading={cancelling}
+            onPress={() => void requestCancel()}
+          />
+        </View>
+      ) : canCancel(job.status) ? (
+        <View className="mt-8 gap-3 pb-4">
+          <Button
+            label="Cancel booking"
+            variant="ghost"
+            size="md"
+            loading={cancelling}
+            onPress={() => void requestCancel()}
+          />
         </View>
       ) : null}
     </Screen>

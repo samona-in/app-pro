@@ -1,4 +1,4 @@
-import type { ServiceSummaryDto } from '@samona/types';
+import type { ServiceOption } from '@samona/types';
 import { api } from './api';
 
 /**
@@ -8,5 +8,5 @@ import { api } from './api';
  * a professional picks theirs during onboarding.
  */
 export const catalogueApi = {
-  listServices: () => api.get<ServiceSummaryDto[]>('/services'),
+  listServices: () => api.get<ServiceOption[]>('/services'),
 };

@@ -19,11 +19,7 @@ export function useRealtimeSync() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
     };
 
-    const unsubscribes = [
-      subscribe('request:status', invalidateBookings),
-      subscribe('request:shortlist-updated', invalidateBookings),
-      subscribe('request:payment-status', invalidateBookings),
-    ];
+    const unsubscribes = [subscribe('job:status', invalidateBookings)];
 
     return () => {
       for (const off of unsubscribes) off();
