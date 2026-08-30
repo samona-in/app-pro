@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { ORDER_LIFECYCLE } from '@samona/config';
+import {
+  SERVICE_REQUEST_STATUSES,
+  JOB_OFFER_STATUSES,
+} from '@samona/types';
 import { photoUrlSchema } from './files';
 
 /**
@@ -96,3 +100,32 @@ export const confirmPaymentSchema = z.strictObject({});
  * realistically see.
  */
 export const maxInterestedPros = ORDER_LIFECYCLE.maxInterestedPros;
+
+// ---------------------------------------------------------------------------
+// Query parameters. URL query strings arrive as text, so numbers are coerced.
+// ---------------------------------------------------------------------------
+
+const limitSchema = z.coerce.number().int().min(1).max(100).optional();
+const offsetSchema = z.coerce.number().int().min(0).max(5000).optional();
+
+export const customerRequestsQuerySchema = z.object({
+  status: z.enum(SERVICE_REQUEST_STATUSES).optional(),
+  limit: limitSchema,
+  offset: offsetSchema,
+});
+
+export const proJobsQuerySchema = z.object({
+  status: z.enum(SERVICE_REQUEST_STATUSES).optional(),
+  limit: limitSchema,
+});
+
+export const proOffersQuerySchema = z.object({
+  status: z.enum(JOB_OFFER_STATUSES).optional(),
+  limit: limitSchema,
+});
+
+export const availableJobsQuerySchema = z.object({
+  serviceId: z.uuid().optional(),
+  limit: limitSchema,
+  offset: offsetSchema,
+});
