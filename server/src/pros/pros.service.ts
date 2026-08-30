@@ -264,7 +264,10 @@ export function createProsService(deps: ProsServiceDeps) {
    * to toggle it at will once this becomes algorithmic. Coordinates refresh on
    * every online transition; going offline keeps the last known position.
    */
-  async function setAvailability(userId: string, patch: AvailabilityPatchInput): Promise<ProProfile> {
+  async function setAvailability(
+    userId: string,
+    patch: AvailabilityPatchInput,
+  ): Promise<ProProfile> {
     const existing = await ensureForUser(userId);
 
     const row = await deps.prisma.proProfile.update({

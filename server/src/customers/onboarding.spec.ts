@@ -17,17 +17,16 @@ describe('customer onboarding schemas', () => {
     });
 
     it('rejects a name that is too long', () => {
-      expect(
-        customerOnboardingNameSchema.safeParse({ displayName: 'x'.repeat(81) }).success,
-      ).toBe(false);
+      expect(customerOnboardingNameSchema.safeParse({ displayName: 'x'.repeat(81) }).success).toBe(
+        false,
+      );
     });
   });
 
   describe('customerOnboardingAddressSchema', () => {
     it('accepts a valid location label', () => {
       expect(
-        customerOnboardingAddressSchema.safeParse({ locationLabel: 'MG Road, Hyderabad' })
-          .success,
+        customerOnboardingAddressSchema.safeParse({ locationLabel: 'MG Road, Hyderabad' }).success,
       ).toBe(true);
     });
 

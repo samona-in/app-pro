@@ -43,7 +43,10 @@ interface ActionConfig {
  */
 function actionFor(
   status: Status,
-): { kind: 'transition'; config: ActionConfig } | { kind: 'notice'; label: string; variant: 'secondary' | 'success' } | null {
+):
+  | { kind: 'transition'; config: ActionConfig }
+  | { kind: 'notice'; label: string; variant: 'secondary' | 'success' }
+  | null {
   const config = NEXT_ACTIONS[status];
   if (config) return { kind: 'transition', config };
   if (status === JobStatus.PAYMENT_PENDING) {
@@ -57,7 +60,9 @@ function actionFor(
 
 /** A live job the pro is working can still be cancelled before the money moves. */
 function canCancel(status: Status): boolean {
-  return status === JobStatus.ACCEPTED || status === JobStatus.TRAVELLING || status === JobStatus.ARRIVED;
+  return (
+    status === JobStatus.ACCEPTED || status === JobStatus.TRAVELLING || status === JobStatus.ARRIVED
+  );
 }
 
 export default function JobDetail() {

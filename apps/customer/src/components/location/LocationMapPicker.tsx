@@ -69,12 +69,7 @@ function formatAreaLabel(place: Location.LocationGeocodedAddress): string | null
  * seeds the initial camera, and every settle (pan or locate) reports the new
  * selection through `onChange` so the owner can persist it.
  */
-export function LocationMapPicker({
-  value,
-  onChange,
-  className,
-  style,
-}: LocationMapPickerProps) {
+export function LocationMapPicker({ value, onChange, className, style }: LocationMapPickerProps) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraRef | null>(null);
   const lookupIdRef = useRef(0);
@@ -169,7 +164,13 @@ export function LocationMapPicker({
       <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
         <View
           className="h-5 w-5 rounded-full border-[3px] border-surface bg-brand"
-          style={{ elevation: 6, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } }}
+          style={{
+            elevation: 6,
+            shadowColor: '#000',
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 2 },
+          }}
         />
       </View>
 
@@ -179,7 +180,13 @@ export function LocationMapPicker({
         accessibilityLabel="Use my current location"
         onPress={() => void locateMe()}
         className="absolute bottom-4 right-4 h-12 w-12 items-center justify-center rounded-full bg-surface active:opacity-80"
-        style={{ elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }}
+        style={{
+          elevation: 4,
+          shadowColor: '#000',
+          shadowOpacity: 0.2,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 2 },
+        }}
       >
         {isLocating ? (
           <ActivityIndicator size="small" color={color.brand} />
@@ -189,10 +196,7 @@ export function LocationMapPicker({
       </Pressable>
 
       {locationError ? (
-        <View
-          className="mx-4 rounded-lg bg-surface px-3 py-2"
-          style={{ top: insets.top + 12 }}
-        >
+        <View className="mx-4 rounded-lg bg-surface px-3 py-2" style={{ top: insets.top + 12 }}>
           <Text variant="caption" className="text-warning">
             {locationError}
           </Text>

@@ -7,7 +7,13 @@ import { Wordmark } from '@/components/brand/Wordmark';
 import { EmptyState } from '@/components/feedback';
 import { AvailableJobCard } from '@/components/jobs';
 import { Badge, Card, IconButton, Screen, Text } from '@/components/ui';
-import { useAvailableJobs, useProJobs, useProProfile, useSubmitGuard, useToggleAvailability } from '@/hooks';
+import {
+  useAvailableJobs,
+  useProJobs,
+  useProProfile,
+  useSubmitGuard,
+  useToggleAvailability,
+} from '@/hooks';
 import { readCurrentLocation } from '@/services/location';
 import { useAppStore } from '@/stores/app';
 import { color } from '@/theme';
@@ -154,7 +160,13 @@ function AvailableFeed() {
         <Card className="mt-3 min-h-[220px] justify-center">
           <EmptyState
             icon={isOnline ? 'radio-outline' : 'moon-outline'}
-            title={isPending ? 'Listening for requests' : isOnline ? 'Waiting for requests' : 'You are offline'}
+            title={
+              isPending
+                ? 'Listening for requests'
+                : isOnline
+                  ? 'Waiting for requests'
+                  : 'You are offline'
+            }
             message={
               isOnline
                 ? 'New jobs near you will appear here the moment they come in.'

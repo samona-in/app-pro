@@ -16,9 +16,7 @@ export interface Coordinates {
 export async function readCurrentLocation(): Promise<Coordinates> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
-    throw new Error(
-      'Location permission is needed to go online and match with jobs near you.',
-    );
+    throw new Error('Location permission is needed to go online and match with jobs near you.');
   }
   const position = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,

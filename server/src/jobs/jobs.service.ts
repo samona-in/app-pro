@@ -1,4 +1,11 @@
-import { JobStatus, ACTIVE_JOB_STATUSES, canTransition, type Job, type JobDetail, type AvailableJob } from '@samona/types';
+import {
+  JobStatus,
+  ACTIVE_JOB_STATUSES,
+  canTransition,
+  type Job,
+  type JobDetail,
+  type AvailableJob,
+} from '@samona/types';
 import type { CreateJobInput, JobAction } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
@@ -30,7 +37,13 @@ const jobInclude = {
 const jobDetailInclude = {
   ...jobInclude,
   customer: {
-    select: { userId: true, displayName: true, locationLabel: true, latitude: true, longitude: true },
+    select: {
+      userId: true,
+      displayName: true,
+      locationLabel: true,
+      latitude: true,
+      longitude: true,
+    },
   },
   pro: { select: { id: true, userId: true, displayName: true, rating: true } },
 } as const;
@@ -152,7 +165,10 @@ export function createJobsService(deps: JobsServiceDeps) {
    * id-based from the client is trusted. Reference photos are verified to have
    * reached storage and to live under the caller's own scope.
    */
-  async function createForCustomer(customerUserId: string, input: CreateJobInput): Promise<JobDetail> {
+  async function createForCustomer(
+    customerUserId: string,
+    input: CreateJobInput,
+  ): Promise<JobDetail> {
     const customer = await prisma.customerProfile.findUnique({
       where: { userId: customerUserId },
       select: { id: true, latitude: true, longitude: true },
@@ -193,7 +209,9 @@ export function createJobsService(deps: JobsServiceDeps) {
     if (!scoped) {
       throw badRequest('One of the photos is not valid.');
     }
-    const uploaded = await Promise.all(input.imagePaths.map((path) => storage.jobImageExists(path)));
+    const uploaded = await Promise.all(
+      input.imagePaths.map((path) => storage.jobImageExists(path)),
+    );
     if (uploaded.some((exists) => !exists)) {
       throw badRequest('One of the photos did not finish uploading. Try again.');
     }
@@ -280,7 +298,10 @@ export function createJobsService(deps: JobsServiceDeps) {
     const updated = await prisma.$transaction(async (tx) => {
       const row = await tx.job.findFirst({
         where: { id: jobId, customerId: customerUserId },
-        include: { ...jobDetailInclude, pro: { select: { id: true, userId: true, displayName: true, rating: true } } },
+        include: {
+          ...jobDetailInclude,
+          pro: { select: { id: true, userId: true, displayName: true, rating: true } },
+        },
       });
       if (!row) throw notFound('That booking could not be found.');
       if (!canTransition(row.status, JobStatus.PAID)) {
@@ -315,7 +336,11 @@ export function createJobsService(deps: JobsServiceDeps) {
     const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
     realtime.emitToUser(customerUserId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     if (proUserId) {
-      realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, toJobDetail(updated as unknown as JobDetailRow, 'pro', storage));
+      realtime.emitToUser(
+        proUserId,
+        REALTIME_EVENTS.JOB_STATUS,
+        toJobDetail(updated as unknown as JobDetailRow, 'pro', storage),
+      );
     }
     return customerDetail;
   }
@@ -356,7 +381,8 @@ export function createJobsService(deps: JobsServiceDeps) {
           fromStatus: row.status,
           toStatus: JobStatus.CANCELLED,
           changedById: actorUserId,
-          note: note ?? `${actorIsCustomer ? 'The customer' : 'The professional'} cancelled the job.`,
+          note:
+            note ?? `${actorIsCustomer ? 'The customer' : 'The professional'} cancelled the job.`,
         },
       });
       return tx.job.update({
@@ -548,7 +574,13 @@ export function createJobsService(deps: JobsServiceDeps) {
       }
 
       await tx.jobStatusHistory.create({
-        data: { jobId: row.id, fromStatus: row.status, toStatus: target, changedById: proUserId, note },
+        data: {
+          jobId: row.id,
+          fromStatus: row.status,
+          toStatus: target,
+          changedById: proUserId,
+          note,
+        },
       });
 
       const isComplete = action === 'complete';

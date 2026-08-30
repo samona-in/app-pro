@@ -145,11 +145,7 @@ export function createJobsRouter(services: Services): Router {
   either.post('/:id/cancel', validate(cancelJobSchema), async (req, res, next) => {
     try {
       res.json(
-        await services.jobs.cancelJob(
-          req.user!.id,
-          routeParamId(req.params.id),
-          req.body.note,
-        ),
+        await services.jobs.cancelJob(req.user!.id, routeParamId(req.params.id), req.body.note),
       );
     } catch (error) {
       next(error);

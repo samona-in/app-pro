@@ -56,11 +56,7 @@ export function HomeHeader({
             <Text variant="caption" className="text-brand-muted">
               Your location
             </Text>
-            <Text
-              numberOfLines={1}
-              variant="bodyStrong"
-              className="mt-0.5 text-text-primary"
-            >
+            <Text numberOfLines={1} variant="bodyStrong" className="mt-0.5 text-text-primary">
               {locationLabel}
             </Text>
           </View>

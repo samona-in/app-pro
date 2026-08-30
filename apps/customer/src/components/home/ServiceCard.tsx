@@ -18,7 +18,13 @@ export interface ServiceCardProps extends Omit<PressableProps, 'style'> {
  * A light, rounded icon tile with the category name beneath, drawn from the
  * backend catalogue's Ionicons name when one is present.
  */
-export function ServiceCard({ service, active = false, onPress, className, ...rest }: ServiceCardProps) {
+export function ServiceCard({
+  service,
+  active = false,
+  onPress,
+  className,
+  ...rest
+}: ServiceCardProps) {
   const iconName = (service.icon ?? 'grid-outline') as React.ComponentProps<
     typeof Ionicons
   >['name'];

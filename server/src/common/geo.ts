@@ -21,9 +21,7 @@ export function distanceKm(
 
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRadians(from.latitude)) *
-      Math.cos(toRadians(to.latitude)) *
-      Math.sin(dLon / 2) ** 2;
+    Math.cos(toRadians(from.latitude)) * Math.cos(toRadians(to.latitude)) * Math.sin(dLon / 2) ** 2;
 
   return 2 * EARTH_RADIUS_KM * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
