@@ -2,6 +2,14 @@ import { z } from 'zod';
 
 export const idSchema = z.uuid({ message: 'Must be a valid id.' });
 
+/** Machine name like `electrical-socket-switch-installation`. */
+export const slugSchema = z
+  .string()
+  .trim()
+  .min(1, 'Slug is required.')
+  .max(100, 'Slug is too long.')
+  .regex(/^[a-z0-9-]+$/, 'Invalid slug format.');
+
 export const emailSchema = z
   .email({ message: 'Enter a valid email address.' })
   .trim()

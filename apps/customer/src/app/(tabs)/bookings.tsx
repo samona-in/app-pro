@@ -1,36 +1,52 @@
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import type { ServiceRequestStatus } from '@samona/types';
-import { EmptyState } from '@/components/feedback';
-import { Card, Divider, Screen, Text } from '@/components/ui';
-import { RequestStatusBadge } from '@/components/requests';
-import { useRequests } from '@/hooks';
-import { color } from '@/theme';
+import { JobStatus, type Job } from '@samona/types';
+import { BookingCard } from '@/components/booking';
+import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
+import { Screen, Text } from '@/components/ui';
+import { useBookings } from '@/hooks';
 import { cn } from '@/utils/cn';
-import { formatInr, formatRelativeTime } from '@/utils/format';
 
-const FILTERS = ['Active', 'Completed', 'All'] as const;
+const FILTERS = ['Active', 'Upcoming', 'Completed'] as const;
 type Filter = (typeof FILTERS)[number];
 
-function isTerminal(status: ServiceRequestStatus): boolean {
-  return (
-    status === 'COMPLETED' || status === 'PAID' || status === 'CANCELLED' || status === 'EXPIRED'
-  );
+const ACTIVE: readonly JobStatus[] = [
+  JobStatus.REQUESTED,
+  JobStatus.OFFERED,
+  JobStatus.ACCEPTED,
+  JobStatus.TRAVELLING,
+  JobStatus.ARRIVED,
+  JobStatus.IN_PROGRESS,
+  JobStatus.PAYMENT_PENDING,
+];
+
+const UPCOMING: readonly JobStatus[] = [JobStatus.REQUESTED, JobStatus.OFFERED, JobStatus.ACCEPTED];
+
+const COMPLETED: readonly JobStatus[] = [
+  JobStatus.COMPLETED,
+  JobStatus.PAID,
+  JobStatus.CANCELLED,
+  JobStatus.EXPIRED,
+];
+
+const FILTER_STATUSES: Record<Filter, readonly JobStatus[]> = {
+  Active: ACTIVE,
+  Upcoming: UPCOMING,
+  Completed: COMPLETED,
+};
+
+function matchesFilter(job: Job, filter: Filter): boolean {
+  return FILTER_STATUSES[filter].includes(job.status);
 }
 
 export default function Bookings() {
   const [filter, setFilter] = useState<Filter>('Active');
-  const { data: requests, isPending } = useRequests();
+  const bookings = useBookings();
 
-  const visible = useMemo(() => {
-    const all = requests ?? [];
-    if (filter === 'Active') return all.filter((request) => !isTerminal(request.status));
-    if (filter === 'Completed')
-      return all.filter((request) => request.status === 'COMPLETED' || request.status === 'PAID');
-    return all;
-  }, [filter, requests]);
+  const visible = useMemo(
+    () => (bookings.data ?? []).filter((job) => matchesFilter(job, filter)),
+    [bookings.data, filter],
+  );
 
   return (
     <Screen>
@@ -63,57 +79,33 @@ export default function Bookings() {
         })}
       </View>
 
-      {visible.length > 0 ? (
-        <Card padded={false} className="mt-4 overflow-hidden">
-          {visible.map((request, index) => (
-            <View key={request.id}>
-              {index > 0 ? <Divider /> : null}
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push(`/booking/${request.id}`)}
-                className="active:bg-surface-muted"
-              >
-                <View className="flex-row items-center gap-3 px-4 py-4">
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-2">
-                      <Text variant="bodyStrong" className="flex-shrink">
-                        {request.service.name}
-                      </Text>
-                      <RequestStatusBadge status={request.status} />
-                    </View>
-                    <View className="mt-1 flex-row items-center gap-2">
-                      <Text variant="footnote" className="text-text-secondary" numberOfLines={1}>
-                        {request.address ?? request.description ?? 'Service request'}
-                      </Text>
-                      <Text variant="caption" className="text-text-muted">
-                        {formatRelativeTime(request.updatedAt)}
-                      </Text>
-                    </View>
-                  </View>
-                  <View className="items-end gap-1">
-                    <Text variant="bodyStrong">
-                      {formatInr(request.finalPrice ?? request.estimatedPrice)}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={color['text-muted']} />
-                  </View>
-                </View>
-              </Pressable>
-            </View>
-          ))}
-        </Card>
-      ) : (
-        <View className="mt-2 flex-1">
+      <View className="mt-5 flex-1">
+        {bookings.isPending ? (
+          <View className="flex-1 justify-center">
+            <LoadingState message="Loading bookings" size="inline" />
+          </View>
+        ) : bookings.isError ? (
+          <View className="flex-1 justify-center">
+            <ErrorState
+              title="Couldn't load bookings"
+              message="Check your connection and try again."
+              onRetry={() => void bookings.refetch()}
+            />
+          </View>
+        ) : visible.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
-            title={isPending ? 'Loading your bookings' : `No ${filter.toLowerCase()} bookings`}
-            message={
-              filter === 'Active'
-                ? 'Start a new request and your active bookings will appear here, ready to track.'
-                : 'Bookings you complete will show up here.'
-            }
+            title={`No ${filter.toLowerCase()} bookings`}
+            message="Bookings you make will show up here, with everything you need to track your service."
           />
-        </View>
-      )}
+        ) : (
+          <View className="gap-3">
+            {visible.map((job) => (
+              <BookingCard key={job.id} job={job} />
+            ))}
+          </View>
+        )}
+      </View>
     </Screen>
   );
 }

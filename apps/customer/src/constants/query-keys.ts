@@ -7,6 +7,8 @@ export const queryKeys = {
   customerProfile: ['customer-profile'] as const,
   /** The service catalogue, mounted at `/services`. */
   catalogue: ['catalogue'] as const,
+  services: ['services'] as const,
+  serviceSkills: (serviceSlug: string) => ['services', 'skills', serviceSlug] as const,
   bookings: {
     all: ['bookings'] as const,
     list: (filter?: string) => ['bookings', 'list', filter ?? 'all'] as const,

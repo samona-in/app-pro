@@ -1,25 +1,15 @@
 import { Router } from 'express';
-import {
-  createServiceRequestSchema,
-  selectProSchema,
-  cancelRequestSchema,
-  customerRequestsQuerySchema,
-} from '@samona/validation';
-import type { ServiceRequestStatus } from '@samona/types';
+import { createJobSchema, paginationSchema } from '@samona/validation';
 import type { Services } from '../context';
-import { createRequireAuth, requireRole, validate, routeParamId } from '../common';
+import { createRequireAuth, requireRole, validate } from '../common';
 
 /**
- * HTTP surface for the customer-facing order lifecycle, mounted at
- * `/service-requests`.
+ * HTTP surface for the jobs domain, mounted at `/jobs`.
  *
- * The customer's side of the jobs domain: file a request, watch it find
- * professionals, pick one, cancel when things change. The pro side lives on
- * the pros router (`/pros/jobs`, `/pros/job-offers`, `/pros/available-jobs`).
- *
- * The user id always comes from the verified token, never from the body or
- * path, so there is no way to act on someone else's request (CLAUDE.md
- * "Security").
+ * Every route is scoped to the caller's own customer profile: the customer id
+ * comes from the verified token, never from the path or body, and the state
+ * machine is enforced in the service (CLAUDE.md "Job State Machine"). The
+ * customer asks for a job to be created or read; it never asserts a status.
  */
 export function createJobsRouter(services: Services): Router {
   const router = Router();
@@ -30,63 +20,36 @@ export function createJobsRouter(services: Services): Router {
 
   router.use(requireAuth, requireRole('CUSTOMER', 'ADMIN'));
 
-  /** The caller's request history, newest first. */
-  router.get('/', validate(customerRequestsQuerySchema, 'query'), async (req, res, next) => {
+  /** The caller's own requests, newest first. */
+  router.get('/', validate(paginationSchema, 'query'), async (req, res, next) => {
     try {
-      const query = req.query as { status?: string; limit?: number; offset?: number };
-      res.json(
-        await services.jobs.listForCustomer(req.user!.id, {
-          status: query.status as ServiceRequestStatus | undefined,
-          limit: query.limit,
-          offset: query.offset,
-        }),
-      );
+      const limit = typeof req.query.limit === 'number' ? req.query.limit : 20;
+      res.json(await services.jobs.listForCustomer(req.user!.id, limit));
     } catch (error) {
       next(error);
     }
   });
 
-  /** Files a new request; the backend decides dispatch vs open. */
-  router.post('/', validate(createServiceRequestSchema), async (req, res, next) => {
+  /**
+   * Places a job request.
+   *
+   * The body names the service and skill by slug; the server resolves them and
+   * confirms the skill belongs to the service. Photos are verified to exist in
+   * storage and to live under this customer's own scope before they are
+   * recorded.
+   */
+  router.post('/', validate(createJobSchema), async (req, res, next) => {
     try {
-      res.status(201).json(await services.jobs.createServiceRequest(req.user!.id, req.body));
+      res.status(201).json(await services.jobs.createForCustomer(req.user!.id, req.body));
     } catch (error) {
       next(error);
     }
   });
 
-  /** One request, including the live shortlist of responding pros. */
+  /** One of the caller's own requests. */
   router.get('/:id', async (req, res, next) => {
     try {
-      res.json(await services.jobs.getForCustomer(req.user!.id, routeParamId(req.params.id)));
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  /** The shortlist alone — top of the choosing screen. */
-  router.get('/:id/pros', async (req, res, next) => {
-    try {
-      const request = await services.jobs.getForCustomer(req.user!.id, routeParamId(req.params.id));
-      res.json(request.respondingPros);
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  /** Atomically assigns the request to one professional. */
-  router.post('/:id/select-pro', validate(selectProSchema), async (req, res, next) => {
-    try {
-      res.json(await services.jobs.selectPro(req.user!.id, routeParamId(req.params.id), req.body));
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  /** Cancels while the request is still cancellable. */
-  router.post('/:id/cancel', validate(cancelRequestSchema), async (req, res, next) => {
-    try {
-      res.json(await services.jobs.cancelServiceRequest(req.user!.id, routeParamId(req.params.id)));
+      res.json(await services.jobs.getForCustomer(req.user!.id, req.params.id));
     } catch (error) {
       next(error);
     }

@@ -1,5 +1,5 @@
-import type { ServiceSummaryDto } from '@samona/types';
 import type { PrismaClient } from '../database/prisma';
+import type { ServiceOption, SkillOption } from '@samona/types';
 
 export interface ServicesServiceDeps {
   prisma: PrismaClient;
@@ -8,27 +8,44 @@ export interface ServicesServiceDeps {
 /**
  * Services domain service.
  *
- * The service and skill catalogue professionals select from (plumbing,
- * electrical, cleaning). A customer files a request against a service, so the
- * listing is shared across both surfaces.
+ * The service and skill catalogue customers browse and professionals select
+ * from (plumbing, electrical, cleaning).
  */
 export function createServicesService(deps: ServicesServiceDeps) {
-  /** Active services in display order, as the customer's "choose a service". */
-  async function list(): Promise<ServiceSummaryDto[]> {
-    const rows = await deps.prisma.service.findMany({
+  /**
+   * The active service catalogue shown on the customer home screen.
+   *
+   * Ordered by `sortOrder` so the marketplace's intended hierarchy is stable
+   * across clients. `ServiceOption` is shared with the Pro onboarding
+   * catalogue so the two apps cannot drift apart.
+   */
+  async function listActive(): Promise<ServiceOption[]> {
+    const services = await deps.prisma.service.findMany({
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
       select: { id: true, slug: true, name: true, icon: true },
     });
-    return rows.map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      name: row.name,
-      icon: row.icon,
-    }));
+
+    return services;
   }
 
-  return { list };
+  /**
+   * The active job categories for one service, in display order.
+   *
+   * This is what the booking flow's "exact need" step renders after the
+   * customer picks a service on the home grid.
+   */
+  async function listSkillsForService(slug: string): Promise<SkillOption[]> {
+    const skills = await deps.prisma.skill.findMany({
+      where: { isActive: true, service: { slug } },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, serviceId: true, slug: true, name: true },
+    });
+
+    return skills;
+  }
+
+  return { listActive, listSkillsForService };
 }
 
 export type ServicesService = ReturnType<typeof createServicesService>;

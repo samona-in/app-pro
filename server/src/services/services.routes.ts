@@ -5,9 +5,10 @@ import { createRequireAuth } from '../common';
 /**
  * HTTP surface for the services domain, mounted at `/services`.
  *
- * Any authenticated user may read the catalogue: customers pick a service to
- * request, and professionals pick theirs during onboarding. Role-specific
- * detail (skills for the pro) can be layered here later.
+ * The service catalogue is the one piece of marketplace data both sides need,
+ * so these routes are open to any authenticated caller — customer or pro.
+ * Reads only; the catalogue itself is seeded, not written by clients
+ * (CLAUDE.md "Security", "Validation").
  */
 export function createServicesRouter(services: Services): Router {
   const router = Router();
@@ -16,11 +17,28 @@ export function createServicesRouter(services: Services): Router {
     authService: services.auth,
   });
 
-  router.use(requireAuth);
-
-  router.get('/', async (_req, res, next) => {
+  /** The active service categories for browsing, in display order. */
+  router.get('/', requireAuth, async (_req, res, next) => {
     try {
-      res.json(await services.services.list());
+      res.json(await services.services.listActive());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * The exact-need categories for one service (the booking flow's "what
+   * exactly" step). An unknown slug simply returns an empty list rather than
+   * leaking catalogue ids.
+   */
+  router.get('/:slug/skills', requireAuth, async (req, res, next) => {
+    try {
+      const slug = req.params.slug;
+      if (typeof slug !== 'string') {
+        res.json([]);
+        return;
+      }
+      res.json(await services.services.listSkillsForService(slug));
     } catch (error) {
       next(error);
     }
