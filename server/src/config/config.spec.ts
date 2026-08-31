@@ -16,7 +16,8 @@ describe('loadConfig', () => {
     const config = loadConfig(base);
 
     expect(config.supabaseUrl).toBe('https://project.supabase.co');
-    expect(config.signupDefaultRole).toBe('PRO');
+    // No per-role default: the surface is chosen per request, not at boot.
+    expect(config.corsOrigins).toEqual([]);
   });
 
   it('treats empty optional values as unset', () => {

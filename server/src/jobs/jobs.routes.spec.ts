@@ -7,7 +7,8 @@ import { createJobsRouter } from './jobs.routes';
 
 const activeUser = {
   id: 'user-1',
-  role: 'CUSTOMER' as const,
+  appType: 'customer' as const,
+  isAdmin: false,
   phone: '+919876543210',
   email: null,
   fullName: null,
@@ -144,7 +145,7 @@ describe('jobs routes', () => {
   });
 
   it('rejects PRO users from customer job routes', async () => {
-    const proUser = { ...activeUser, role: 'PRO' as const };
+    const proUser = { ...activeUser, appType: 'pro' as const };
     const services = buildServices({
       auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
     });
@@ -158,7 +159,7 @@ describe('jobs routes', () => {
   });
 
   it('PRO can list available jobs (not shadowed by customer /:id)', async () => {
-    const proUser = { ...activeUser, role: 'PRO' as const };
+    const proUser = { ...activeUser, appType: 'pro' as const };
     const services = buildServices({
       auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
       jobs: jobsService(),
@@ -174,7 +175,7 @@ describe('jobs routes', () => {
   });
 
   it('PRO can list their own jobs via /jobs/mine', async () => {
-    const proUser = { ...activeUser, role: 'PRO' as const };
+    const proUser = { ...activeUser, appType: 'pro' as const };
     const services = buildServices({
       auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
       jobs: jobsService(),

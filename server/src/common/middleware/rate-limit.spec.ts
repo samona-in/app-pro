@@ -67,7 +67,7 @@ describe('rate limiting', () => {
     const app = express()
       .use(requestId)
       .use((req, _res, next) => {
-        req.user = { id: req.get('x-test-user') ?? 'anon', role: 'PRO' };
+        req.user = { id: req.get('x-test-user') ?? 'anon', isAdmin: false, appType: null };
         next();
       })
       .use(limiters.auth)

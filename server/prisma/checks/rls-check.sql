@@ -64,8 +64,8 @@ BEGIN
 
   -- A Pro must not promote themselves.
   BEGIN
-    UPDATE profiles SET role = 'ADMIN' WHERE id = 'dddddddd-0000-0000-0000-00000000000a';
-    RAISE EXCEPTION 'RLS: a Pro promoted themselves to ADMIN';
+    UPDATE profiles SET is_admin = true WHERE id = 'dddddddd-0000-0000-0000-00000000000a';
+    RAISE EXCEPTION 'RLS: a Pro promoted themselves to admin';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 

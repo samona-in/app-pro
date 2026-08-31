@@ -11,8 +11,9 @@ import { bearerToken, type TokenVerifier } from '../auth/token';
  * Two rules govern everything here (CLAUDE.md "Realtime"):
  *  - REST stays the source of truth for persistent state. A socket event
  *    *notifies* a client that something changed; it never *is* the change.
- *  - Handshakes are authenticated before any room is joined. The role is read
- *    from our database via `authService.syncUser`, never from the token.
+ *  - Handshakes are authenticated before any room is joined. Privilege is read
+ *    from our database via `authService.syncUser`, never from the token; the
+ *    handshake also carries the surface (`X-App-Type`-equivalent `appType`).
  */
 
 /**
@@ -40,7 +41,7 @@ export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENT
  *
  * The token is verified the same way as any REST request and the local user is
  * looked up from the database, so a cancelled account cannot keep a socket
- * open and a role is never taken from the token.
+ * open and privilege (`isAdmin`) is never taken from the token.
  */
 export interface RealtimeSession {
   verifier: TokenVerifier;
@@ -109,7 +110,7 @@ export function createRealtimeService(config: AppConfig): RealtimeService {
           if (!verified) return next(UNAUTHORIZED);
           const user = await session.authService.syncUser(verified, appType);
           if (!user.isActive) return next(new Error('forbidden'));
-          socket.data.user = { id: user.id, role: user.role };
+          socket.data.user = { id: user.id, isAdmin: user.isAdmin, appType: user.appType };
           next();
         })
         .catch(next);

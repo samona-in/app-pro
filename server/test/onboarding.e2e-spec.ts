@@ -22,7 +22,6 @@ const config: AppConfig = {
   supabaseJwksUrl: null,
   supabaseJwtSecret: null,
   supabaseSecretKey: null,
-  signupDefaultRole: 'PRO',
   corsOrigins: [],
   googleMapsApiKey: null,
 };
@@ -62,7 +61,8 @@ describe('Onboarding routes (e2e)', () => {
     });
     (services.auth.syncUser as jest.Mock).mockResolvedValue({
       id: 'user-1',
-      role: 'PRO',
+      isAdmin: false,
+      appType: 'pro',
       isActive: true,
     });
 
@@ -70,6 +70,7 @@ describe('Onboarding routes (e2e)', () => {
     await request(app)
       .patch('/api/v1/pros/me/onboarding')
       .set('authorization', 'Bearer good.token')
+      .set('x-app-type', 'pro')
       .send({ bio: 'Hi', isVerified: true, rating: 5, onboardingStatus: 'COMPLETED' })
       .expect(200);
 
@@ -84,13 +85,15 @@ describe('Onboarding routes (e2e)', () => {
     });
     (services.auth.syncUser as jest.Mock).mockResolvedValue({
       id: 'user-1',
-      role: 'PRO',
+      isAdmin: false,
+      appType: 'pro',
       isActive: true,
     });
 
     const response = await request(app)
       .patch('/api/v1/pros/me/onboarding')
       .set('authorization', 'Bearer good.token')
+      .set('x-app-type', 'pro')
       .send({})
       .expect(422);
 
@@ -98,7 +101,7 @@ describe('Onboarding routes (e2e)', () => {
     expect(services.pros.applyOnboardingPatch).not.toHaveBeenCalled();
   });
 
-  it('refuses a customer-role account', async () => {
+  it('refuses the pro surface when the caller is on the customer surface', async () => {
     (services.tokenVerifier.verify as jest.Mock).mockResolvedValue({
       userId: 'user-2',
       phone: null,
@@ -106,10 +109,35 @@ describe('Onboarding routes (e2e)', () => {
     });
     (services.auth.syncUser as jest.Mock).mockResolvedValue({
       id: 'user-2',
-      role: 'CUSTOMER',
+      isAdmin: false,
+      appType: 'customer',
       isActive: true,
     });
 
-    await request(app).get('/api/v1/pros/me').set('authorization', 'Bearer good.token').expect(403);
+    await request(app)
+      .get('/api/v1/pros/me')
+      .set('authorization', 'Bearer good.token')
+      .set('x-app-type', 'customer')
+      .expect(403);
+  });
+
+  it('allows the pro surface for the same account', async () => {
+    (services.tokenVerifier.verify as jest.Mock).mockResolvedValue({
+      userId: 'user-2',
+      phone: null,
+      email: null,
+    });
+    (services.auth.syncUser as jest.Mock).mockResolvedValue({
+      id: 'user-2',
+      isAdmin: false,
+      appType: 'pro',
+      isActive: true,
+    });
+
+    await request(app)
+      .get('/api/v1/pros/me')
+      .set('authorization', 'Bearer good.token')
+      .set('x-app-type', 'pro')
+      .expect(200);
   });
 });

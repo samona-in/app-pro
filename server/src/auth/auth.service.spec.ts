@@ -19,7 +19,19 @@ const token: VerifiedToken = {
   email: null,
 };
 
-const service = (prisma: PrismaClient) => createAuthService({ prisma, signupDefaultRole: 'PRO' });
+/** A bare Profile row without the `role` column the old schema carried. */
+const profileRow = {
+  id: token.userId,
+  isAdmin: false,
+  phone: token.phone,
+  email: null,
+  fullName: null,
+  avatarUrl: null,
+  isActive: true,
+  createdAt: new Date(),
+};
+
+const service = (prisma: PrismaClient) => createAuthService({ prisma });
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -30,12 +42,7 @@ afterEach(() => jest.restoreAllMocks());
 describe('syncUser', () => {
   it('returns an existing user untouched when nothing changed', async () => {
     const prisma = fakePrisma();
-    prisma.calls.findUnique.mockResolvedValue({
-      id: token.userId,
-      role: 'PRO',
-      phone: token.phone,
-      email: null,
-    });
+    prisma.calls.findUnique.mockResolvedValue(profileRow);
 
     const user = await service(prisma.client).syncUser(token);
 
@@ -45,66 +52,46 @@ describe('syncUser', () => {
     expect(prisma.calls.upsert).not.toHaveBeenCalled();
   });
 
-  it('provisions a new user with the configured default role', async () => {
+  it('provisions a new plain user (isAdmin false, no stored role)', async () => {
     const prisma = fakePrisma();
     prisma.calls.findUnique.mockResolvedValue(null);
-    prisma.calls.upsert.mockResolvedValue({ id: token.userId, role: 'PRO' });
+    prisma.calls.upsert.mockResolvedValue(profileRow);
 
     await service(prisma.client).syncUser(token);
 
     const args = prisma.calls.upsert.mock.calls[0][0];
     expect(args.create).toMatchObject({
       id: token.userId,
-      role: 'PRO',
       phone: '+919876543210',
     });
+    // No single stored role: the surface is chosen per request.
+    expect(args.create).not.toHaveProperty('role');
   });
 
-  it('provisions a customer when appType is "customer"', async () => {
+  it('resolves the surface from the X-App-Type header', async () => {
     const prisma = fakePrisma();
-    prisma.calls.findUnique.mockResolvedValue(null);
-    prisma.calls.upsert.mockResolvedValue({ id: token.userId, role: 'CUSTOMER' });
+    prisma.calls.findUnique.mockResolvedValue(profileRow);
 
-    await service(prisma.client).syncUser(token, 'customer');
+    const customer = await service(prisma.client).syncUser(token, 'customer');
+    const pro = await service(prisma.client).syncUser(token, 'pro');
 
-    const args = prisma.calls.upsert.mock.calls[0][0];
-    expect(args.create).toMatchObject({
-      id: token.userId,
-      role: 'CUSTOMER',
-    });
+    expect(customer.appType).toBe('customer');
+    expect(pro.appType).toBe('pro');
   });
 
-  it('ignores an invalid appType and falls back to the default role', async () => {
+  it('leaves appType null for an invalid or missing header', async () => {
     const prisma = fakePrisma();
-    prisma.calls.findUnique.mockResolvedValue(null);
-    prisma.calls.upsert.mockResolvedValue({ id: token.userId, role: 'PRO' });
+    prisma.calls.findUnique.mockResolvedValue(profileRow);
 
-    await service(prisma.client).syncUser(token, 'hacker');
+    const user = await service(prisma.client).syncUser(token, 'hacker');
 
-    const args = prisma.calls.upsert.mock.calls[0][0];
-    expect(args.create.role).toBe('PRO');
-  });
-
-  it('never changes the role of an existing user even if appType is sent', async () => {
-    const prisma = fakePrisma();
-    prisma.calls.findUnique.mockResolvedValue({
-      id: token.userId,
-      role: 'CUSTOMER',
-      phone: token.phone,
-      email: null,
-    });
-
-    const user = await service(prisma.client).syncUser(token, 'pro');
-
-    // Existing user keeps their role; appType is only for provisioning.
-    expect(user.role).toBe('CUSTOMER');
-    expect(prisma.calls.upsert).not.toHaveBeenCalled();
+    expect(user.appType).toBeNull();
   });
 
   it('uses the auth user id as the primary key', async () => {
     const prisma = fakePrisma();
     prisma.calls.findUnique.mockResolvedValue(null);
-    prisma.calls.upsert.mockResolvedValue({ id: token.userId, role: 'PRO' });
+    prisma.calls.upsert.mockResolvedValue(profileRow);
 
     await service(prisma.client).syncUser(token);
 
@@ -113,34 +100,41 @@ describe('syncUser', () => {
     expect(prisma.calls.upsert.mock.calls[0][0].where).toEqual({ id: token.userId });
   });
 
-  it('never rewrites the role of an existing user', async () => {
+  it('never rewrites the admin flag of a provisioned identity', async () => {
     const prisma = fakePrisma();
     prisma.calls.findUnique.mockResolvedValue(null);
-    prisma.calls.upsert.mockResolvedValue({ id: token.userId, role: 'ADMIN' });
+    prisma.calls.upsert.mockResolvedValue({ ...profileRow, isAdmin: true });
 
     await service(prisma.client).syncUser(token);
 
-    // Privilege escalation guard: re-syncing must not touch role.
-    expect(prisma.calls.upsert.mock.calls[0][0].update).not.toHaveProperty('role');
+    // Privilege escalation guard: re-syncing must not touch isAdmin.
+    expect(prisma.calls.upsert.mock.calls[0][0].update).not.toHaveProperty('isAdmin');
+  });
+
+  it('keeps isAdmin from the database for an existing admin', async () => {
+    const prisma = fakePrisma();
+    prisma.calls.findUnique.mockResolvedValue({ ...profileRow, isAdmin: true });
+
+    const user = await service(prisma.client).syncUser(token);
+
+    expect(user.isAdmin).toBe(true);
   });
 
   it('refreshes mirrored contact details when the token disagrees', async () => {
     const prisma = fakePrisma();
-    prisma.calls.findUnique.mockResolvedValue({
-      id: token.userId,
-      role: 'PRO',
-      phone: '+910000000000',
-      email: null,
-    });
-    prisma.calls.update.mockResolvedValue({ id: token.userId, role: 'PRO', phone: token.phone });
+    prisma.calls.findUnique.mockResolvedValue({ ...profileRow, phone: '+910000000000' });
+    prisma.calls.update.mockResolvedValue(profileRow);
 
-    await service(prisma.client).syncUser(token);
+    const user = await service(prisma.client).syncUser(token, 'pro');
 
     expect(prisma.calls.update).toHaveBeenCalledWith({
       where: { id: token.userId },
       data: { phone: token.phone, email: null },
     });
-    // Still no role in the update path.
+    // Still no role or admin in the update path.
     expect(prisma.calls.update.mock.calls[0][0].data).not.toHaveProperty('role');
+    expect(prisma.calls.update.mock.calls[0][0].data).not.toHaveProperty('isAdmin');
+    // The server-side surface is preserved even when contact details refresh.
+    expect(user.appType).toBe('pro');
   });
 });

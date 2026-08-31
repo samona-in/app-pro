@@ -1,14 +1,18 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { UserRole } from '@samona/types';
+import type { AppType } from '@samona/config';
 import type { AuthService } from '../../auth/auth.service';
 import { bearerToken, type TokenVerifier } from '../../auth/token';
 import { forbidden, unauthenticated } from '../errors';
 
 /** The authenticated principal, derived server-side from a verified token. */
 export interface AuthenticatedUser {
-  /** Matches both our `User.id` and Supabase's `auth.users.id`. */
+  /** Matches both our `Profile.id` and Supabase's `auth.users.id`. */
   id: string;
-  role: UserRole;
+  /** Stored privilege, never read from a token. Grants admin-only routes. */
+  isAdmin: boolean;
+  /** Which surface this request is on, from the `X-App-Type` header. */
+  appType: AppType | null;
 }
 
 declare global {
@@ -28,10 +32,12 @@ export interface RequireAuthDeps {
 /**
  * Rejects unauthenticated requests and attaches the local principal.
  *
- * The Supabase token is trusted for *identity* only. The role comes from our
- * own database, never from a token claim — Supabase lets a project write custom
- * claims, and anything we do not issue ourselves is not a basis for
- * authorisation (CLAUDE.md "Authentication").
+ * The Supabase token is trusted for *identity* only. Privilege (`isAdmin`)
+ * comes from our own database, never from a token claim — Supabase lets a
+ * project write custom claims, and anything we do not issue ourselves is not a
+ * basis for authorisation (CLAUDE.md "Authentication"). The `X-App-Type` header
+ * selects which surface the request is on; it grants nothing an authenticated
+ * user does not already have (every account can be both customer and pro).
  */
 export function createRequireAuth({ verifier, authService }: RequireAuthDeps): RequestHandler {
   return async (req: Request, _res: Response, next: NextFunction) => {
@@ -51,7 +57,6 @@ export function createRequireAuth({ verifier, authService }: RequireAuthDeps): R
       }
 
       // Creates the local row on first sign-in; a cheap lookup afterwards.
-      // The X-App-Type header tells us which role to assign on provisioning.
       const appType = req.get('x-app-type');
       const user = await authService.syncUser(verified, appType);
 
@@ -60,7 +65,7 @@ export function createRequireAuth({ verifier, authService }: RequireAuthDeps): R
         return;
       }
 
-      req.user = { id: user.id, role: user.role };
+      req.user = { id: user.id, isAdmin: user.isAdmin, appType: user.appType };
       next();
     } catch (error) {
       next(error);
@@ -68,24 +73,42 @@ export function createRequireAuth({ verifier, authService }: RequireAuthDeps): R
   };
 }
 
+/** The surfaces a route can be restricted to, plus the stored admin privilege. */
+type RoleRequirement = UserRole | 'ADMIN';
+
 /**
  * Restricts a route to the given roles.
  *
- * The role is read from the authenticated principal, never from the request
- * body, a header or a query parameter (CLAUDE.md "Authentication").
+ * A user is a CUSTOMER when they are on the customer surface (the Customer app
+ * sent `X-App-Type: customer`) and a PRO when on the pro surface. `ADMIN` is a
+ * stored privilege, not a surface: it is never read from a token or a client
+ * payload, and it bypasses the surface check.
  */
-export function requireRole(...roles: UserRole[]): RequestHandler {
+export function requireRole(...roles: RoleRequirement[]): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
-    const role = req.user?.role;
+    const { isAdmin, appType } = req.user ?? {};
 
-    if (!role) {
+    if (!req.user) {
       next(unauthenticated());
       return;
     }
-    if (!roles.includes(role)) {
+
+    // A stored admin bypasses the surface check entirely.
+    if (isAdmin) {
+      next();
+      return;
+    }
+
+    const surface = appType === 'customer' ? 'CUSTOMER' : appType === 'pro' ? 'PRO' : null;
+
+    const allowed =
+      surface !== null && roles.some((role) => role !== 'ADMIN' && role === surface);
+
+    if (!allowed) {
       next(forbidden());
       return;
     }
+
     next();
   };
 }

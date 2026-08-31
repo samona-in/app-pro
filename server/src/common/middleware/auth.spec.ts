@@ -9,7 +9,8 @@ import { errorHandler } from './error-handler';
 
 const activeUser = {
   id: '11111111-2222-3333-4444-555555555555',
-  role: 'PRO' as const,
+  isAdmin: false,
+  appType: 'pro' as const,
   phone: '+919876543210',
   email: null,
   fullName: null,
@@ -26,7 +27,13 @@ function appWith(verifier: Partial<TokenVerifier>, authService: Partial<AuthServ
 
   return express()
     .get('/me', requireAuth, (req, res) => {
-      res.json({ id: req.user?.id, role: req.user?.role });
+      res.json({ id: req.user?.id, appType: req.user?.appType, isAdmin: req.user?.isAdmin });
+    })
+    .get('/pro', requireAuth, requireRole('PRO'), (_req, res) => {
+      res.json({ ok: true });
+    })
+    .get('/customer', requireAuth, requireRole('CUSTOMER'), (_req, res) => {
+      res.json({ ok: true });
     })
     .get('/admin', requireAuth, requireRole('ADMIN'), (_req, res) => {
       res.json({ ok: true });
@@ -77,19 +84,20 @@ describe('createRequireAuth', () => {
       .set('authorization', 'Bearer good.token.value')
       .expect(200);
 
-    expect(response.body).toEqual({ id: activeUser.id, role: 'PRO' });
+    expect(response.body).toEqual({ id: activeUser.id, appType: 'pro', isAdmin: false });
   });
 
-  it('takes the role from the database, not from the token', async () => {
+  it('takes privilege from the database, not from the token', async () => {
     // Supabase lets a project attach custom claims. A claim we do not issue is
-    // not a basis for authorisation.
+    // not a basis for authorisation — a forged ADMIN claim must not pass.
     const verify = jest.fn().mockResolvedValue({
       userId: activeUser.id,
       phone: activeUser.phone,
       email: null,
       role: 'ADMIN',
+      app_metadata: { isAdmin: true },
     });
-    const syncUser = jest.fn().mockResolvedValue({ ...activeUser, role: 'PRO' });
+    const syncUser = jest.fn().mockResolvedValue({ ...activeUser, isAdmin: false });
 
     await request(appWith({ verify }, { syncUser }))
       .get('/admin')
@@ -97,9 +105,56 @@ describe('createRequireAuth', () => {
       .expect(403);
   });
 
+  it('grants admin routes only to a stored admin', async () => {
+    const verify = jest.fn().mockResolvedValue({ userId: activeUser.id, phone: null, email: null });
+    const syncUser = jest.fn().mockResolvedValue({ ...activeUser, isAdmin: true });
+
+    await request(appWith({ verify }, { syncUser }))
+      .get('/admin')
+      .set('authorization', 'Bearer good.token.value')
+      .expect(200);
+  });
+
+  it('allows the PRO surface on PRO-only routes', async () => {
+    const verify = jest.fn().mockResolvedValue({ userId: activeUser.id, phone: null, email: null });
+    const syncUser = jest.fn().mockResolvedValue({ ...activeUser, appType: 'pro' });
+
+    await request(appWith({ verify }, { syncUser }))
+      .get('/pro')
+      .set('authorization', 'Bearer good.token.value')
+      .expect(200);
+  });
+
+  it('rejects the PRO surface on CUSTOMER-only routes', async () => {
+    const verify = jest.fn().mockResolvedValue({ userId: activeUser.id, phone: null, email: null });
+    const syncUser = jest.fn().mockResolvedValue({ ...activeUser, appType: 'pro' });
+
+    await request(appWith({ verify }, { syncUser }))
+      .get('/customer')
+      .set('authorization', 'Bearer good.token.value')
+      .expect(403);
+  });
+
+  it('same account can act as either surface', async () => {
+    // One phone, both surfaces: signing in on each app yields each role.
+    const verify = jest.fn().mockResolvedValue({ userId: activeUser.id, phone: null, email: null });
+    const syncUser = jest.fn().mockResolvedValue(activeUser);
+
+    await request(appWith({ verify }, { syncUser }))
+      .get('/pro')
+      .set('authorization', 'Bearer good.token.value')
+      .expect(200);
+
+    const syncUserCustomer = jest.fn().mockResolvedValue({ ...activeUser, appType: 'customer' });
+    await request(appWith({ verify }, { syncUser: syncUserCustomer }))
+      .get('/customer')
+      .set('authorization', 'Bearer good.token.value')
+      .expect(200);
+  });
+
   it('passes the X-App-Type header to syncUser for provisioning', async () => {
     const verify = jest.fn().mockResolvedValue({ userId: activeUser.id, phone: null, email: null });
-    const syncUser = jest.fn().mockResolvedValue({ ...activeUser, role: 'CUSTOMER' });
+    const syncUser = jest.fn().mockResolvedValue({ ...activeUser, appType: 'customer' });
 
     await request(appWith({ verify }, { syncUser }))
       .get('/me')

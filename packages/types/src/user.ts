@@ -1,18 +1,15 @@
 /**
- * Roles recognised across every SAMONA surface.
+ * The surfaces an account can operate on.
  *
- * One authentication system serves Customer, Pro and Admin (CLAUDE.md
- * "Authentication"). This mirrors the `UserRole` enum in the Prisma schema —
- * keep the two in sync.
- *
- * Declared as a const object rather than a TS `enum` so the values survive
- * `isolatedModules` transpilation in Metro and are usable as both a value and
- * a type.
+ * One account per person can be both a customer and a professional (Rapido
+ * style): which surface a request is on is chosen by the `X-App-Type` header —
+ * the Pro app or the Customer app. Each surface has its own profile row; there
+ * is no single stored role. Declared as a const object so the values survive
+ * `isolatedModules` transpilation in Metro.
  */
 export const UserRole = {
   CUSTOMER: 'CUSTOMER',
   PRO: 'PRO',
-  ADMIN: 'ADMIN',
 } as const;
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
@@ -43,7 +40,13 @@ export const GENDER_OPTIONS: { value: Gender; label: string }[] = [
 /** A user as exposed to clients. Never includes credentials or internal fields. */
 export interface PublicUser {
   id: string;
+  /**
+   * Which surface this session resolved to (PRO or CUSTOMER). Determined by the
+   * `X-App-Type` header the client sent, not by a stored role.
+   */
   role: UserRole;
+  /** Stored privilege; never derived. */
+  isAdmin: boolean;
   email: string | null;
   phone: string | null;
   fullName: string | null;
