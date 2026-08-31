@@ -23,7 +23,9 @@ ALTER TABLE "profiles"
   DROP COLUMN "role";
 
 -- 3. Index the remaining privilege/active flag that queries actually filter on.
-CREATE INDEX "profiles_is_active_idx" ON "profiles"("is_active");
+--    The column is stored camelCase (`isActive`) to match Prisma's field name;
+--    quote it so Postgres does not fold it to `isactive`.
+CREATE INDEX "profiles_is_active_idx" ON "profiles"("isActive");
 
 -- 4. The `UserRole` enum is no longer used by any column. Drop it once no
 --    remaining value references it.
