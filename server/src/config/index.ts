@@ -58,15 +58,6 @@ const envSchema = z.object({
    */
   SUPABASE_SECRET_KEY: optional(z.string()),
 
-  /**
-   * Role assigned to a user provisioned on first sign-in.
-   *
-   * This API currently serves the Pro app only. When the customer app lands,
-   * role assignment must come from an explicit verified signup step rather
-   * than a single global default.
-   */
-  SIGNUP_DEFAULT_ROLE: z.enum(['CUSTOMER', 'PRO', 'ADMIN']).default('PRO'),
-
   /** Comma-separated list of allowed browser origins. */
   CORS_ORIGINS: z.string().default(''),
 
@@ -86,7 +77,6 @@ export interface AppConfig {
   supabaseJwtSecret: string | null;
   supabaseJwksUrl: string | null;
   supabaseSecretKey: string | null;
-  signupDefaultRole: 'CUSTOMER' | 'PRO' | 'ADMIN';
   corsOrigins: string[];
   googleMapsApiKey: string | null;
 }
@@ -134,7 +124,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET ?? null,
     supabaseJwksUrl: env.SUPABASE_JWKS_URL ?? null,
     supabaseSecretKey: env.SUPABASE_SECRET_KEY ?? null,
-    signupDefaultRole: env.SIGNUP_DEFAULT_ROLE,
     corsOrigins: env.CORS_ORIGINS.split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),

@@ -21,7 +21,6 @@ const config: AppConfig = {
   supabaseJwtSecret: null,
   supabaseJwksUrl: null,
   supabaseSecretKey: null,
-  signupDefaultRole: 'PRO',
   corsOrigins: [],
   googleMapsApiKey: null,
 };

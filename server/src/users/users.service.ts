@@ -16,17 +16,17 @@ export function createUsersService(deps: UsersServiceDeps) {
   }
 
   /**
-   * Changes a user's role.
+   * Grants or revokes the stored admin privilege.
    *
-   * Intentionally not reachable from any route yet: role changes are an
-   * administrative action and must sit behind `requireRole('ADMIN')` once the
-   * admin surface exists.
+   * Intentionally not reachable from any route yet: admin changes are an
+   * administrative action and must sit behind `requireRole(...)`/`isAdmin`
+   * once the admin surface exists. `isAdmin` is never read from a token.
    */
-  async function setRole(id: string, role: 'CUSTOMER' | 'PRO' | 'ADMIN') {
-    return deps.prisma.profile.update({ where: { id }, data: { role } });
+  async function setIsAdmin(id: string, isAdmin: boolean) {
+    return deps.prisma.profile.update({ where: { id }, data: { isAdmin } });
   }
 
-  return { findById, setRole };
+  return { findById, setIsAdmin };
 }
 
 export type UsersService = ReturnType<typeof createUsersService>;

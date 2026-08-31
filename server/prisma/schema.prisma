@@ -23,14 +23,16 @@ datasource db {
 
 /// One account per person, whichever app they use — the identity layer.
 ///
-/// Customer, Pro and Admin share this table so a single authentication system
-/// serves all three (CLAUDE.md "Authentication"). Role-specific data belongs in
-/// a profile table joined to this one.
+/// Customer and Pro share this single table, and a person is both by default:
+/// which surface they operate on is chosen per-request by the `X-App-Type`
+/// header (the Pro app or the Customer app), and each has its own profile row
+/// (CLAUDE.md "Authentication"). There is no single stored "role"; the surface
+/// profile (`ProProfile` / `CustomerProfile`) is what carries surface data.
+/// `isAdmin` is the only stored privilege, and it is never read from a token.
 ///
 /// Supabase Auth owns credentials and phone verification in the `auth.users`
-/// table of this same database. This row owns domain data and is the authority
-/// on `role`. There is no password column by design — the application never
-/// sees or stores a credential.
+/// table of this same database. This row owns domain data. There is no password
+/// column by design — the application never sees or stores a credential.
 model Profile {
   /// Matches `auth.users.id`. Sharing the primary key keeps the join implicit
   /// and makes any future RLS policy a plain `auth.uid() = id` comparison.
@@ -40,8 +42,10 @@ model Profile {
   /// migration instead.
   id        String   @id @db.Uuid
 
-  /// Authoritative. Never read from a token claim or a client payload.
-  role      UserRole @default(CUSTOMER)
+  /// The only stored privilege. Authoritative; never read from a token claim or
+  /// a client payload. A non-admin may operate on both the Pro and Customer
+  /// surfaces; this flag grants additional, admin-only routes.
+  isAdmin   Boolean  @default(false) @map("is_admin")
 
   /// Mirrored from the verified token on sign-in. Supabase verifies the phone
   /// number; we cache it for queries and display.
@@ -59,7 +63,7 @@ model Profile {
   proProfile ProProfile?
   customerProfile CustomerProfile?
 
-  @@index([role])
+  @@index([isActive])
   @@map("profiles")
 }
 
@@ -331,9 +335,3 @@ enum Gender {
   OTHER
 }
 
-/// Mirrored by `UserRole` in `@samona/types` — keep the two in sync.
-enum UserRole {
-  CUSTOMER
-  PRO
-  ADMIN
-}

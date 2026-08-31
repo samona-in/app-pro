@@ -72,7 +72,7 @@ export function createServices(
   const jobs = createJobsService({ prisma, storage, matching, realtime });
 
   return {
-    auth: createAuthService({ prisma, signupDefaultRole: config.signupDefaultRole }),
+    auth: createAuthService({ prisma }),
     tokenVerifier: createTokenVerifier({
       supabaseUrl: config.supabaseUrl,
       jwksUrl: config.supabaseJwksUrl,

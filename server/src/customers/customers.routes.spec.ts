@@ -8,7 +8,8 @@ import { createCustomersRouter } from './customers.routes';
 
 const activeUser = {
   id: 'user-1',
-  role: 'CUSTOMER' as const,
+  appType: 'customer' as const,
+  isAdmin: false,
   phone: '+919876543210',
   email: null,
   fullName: null,
@@ -95,8 +96,8 @@ describe('customers routes', () => {
     await request(appWith(services)).get('/customers/me').expect(401);
   });
 
-  it('rejects PRO users from customer routes', async () => {
-    const proUser = { ...activeUser, role: 'PRO' as const };
+  it('rejects a user on the pro surface from customer routes', async () => {
+    const proUser = { ...activeUser, appType: 'pro' as const };
     const services = buildServices({
       auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
     });

@@ -11,13 +11,15 @@ import {
 } from '@samona/types';
 import type { Services } from '../context';
 import { createRequireAuth } from '../common';
-import type { LocalUser } from './auth.service';
+import { roleForAppType, type LocalUser } from './auth.service';
 
 /**
  * Everything the app needs after sign-in, in one response.
  *
  * `nextStep` is computed from the profile's own data, so resuming onboarding
- * and entering the app are the same decision made in one place.
+ * and entering the app are the same decision made in one place. Which profile
+ * is returned (pro vs customer) is driven by the surface the caller is on —
+ * the `X-App-Type` the client sent.
  */
 export interface ProSessionResponse {
   user: PublicUser;
@@ -37,12 +39,40 @@ export interface CustomerSessionResponse {
 function toPublicUser(user: LocalUser): PublicUser {
   return {
     id: user.id,
-    role: user.role,
+    role: roleForAppType(user.appType),
+    isAdmin: user.isAdmin,
     email: user.email,
     phone: user.phone,
     fullName: user.fullName,
     avatarUrl: user.avatarUrl,
     createdAt: user.createdAt.toISOString(),
+  };
+}
+
+/** The identity fields `/auth/me` needs, mapped from a Profile row. */
+function profileToLocal(
+  row: {
+    id: string;
+    isAdmin: boolean;
+    phone: string | null;
+    email: string | null;
+    fullName: string | null;
+    avatarUrl: string | null;
+    isActive: boolean;
+    createdAt: Date;
+  },
+  appType: LocalUser['appType'],
+): LocalUser {
+  return {
+    id: row.id,
+    isAdmin: row.isAdmin,
+    phone: row.phone,
+    email: row.email,
+    fullName: row.fullName,
+    avatarUrl: row.avatarUrl,
+    isActive: row.isActive,
+    createdAt: row.createdAt,
+    appType,
   };
 }
 
@@ -52,6 +82,11 @@ function toPublicUser(user: LocalUser): PublicUser {
  * There is no sign-in, sign-up or OTP route: Supabase Auth performs phone
  * verification directly from the app, so no credential ever reaches this
  * server. What remains is resolving the verified identity to our user record.
+ *
+ * A single phone is one account that can be both a customer and a professional
+ * (Rapido style). This `GET /auth/me` returns the profile for the surface the
+ * caller is on: the Pro app gets the pro profile, the Customer app the customer
+ * profile, each created lazily on first access.
  */
 export function createAuthRouter(services: Services): Router {
   const router = Router();
@@ -79,9 +114,11 @@ export function createAuthRouter(services: Services): Router {
         return;
       }
 
-      const publicUser = toPublicUser(user as LocalUser);
+      // The surface the caller is on decides which profile / routing to return.
+      const appType = req.user!.appType;
+      const publicUser = toPublicUser(profileToLocal(user, appType));
 
-      if (publicUser.role === 'CUSTOMER') {
+      if (req.user!.isAdmin || appType === 'customer') {
         const customerProfile = await services.customers.ensureForUser(req.user!.id);
 
         const body: CustomerSessionResponse = {
