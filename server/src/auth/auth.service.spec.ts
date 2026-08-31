@@ -137,4 +137,36 @@ describe('syncUser', () => {
     // The server-side surface is preserved even when contact details refresh.
     expect(user.appType).toBe('pro');
   });
+
+  it('adopts the account that already owns the phone when the auth id is new', async () => {
+    const prisma = fakePrisma();
+    // Id lookup misses (fresh Supabase id), but the same verified phone is
+    // already claimed by an account under an old id.
+    prisma.calls.findUnique.mockResolvedValueOnce(null);
+    prisma.calls.findUnique.mockResolvedValueOnce({ ...profileRow, id: 'aaaaaaaa-9999-8888-7777-666666666666' });
+    prisma.calls.update.mockResolvedValue(profileRow);
+
+    await service(prisma.client).syncUser(token);
+
+    // Re-keying moves the existing account to the current identity so its
+    // domain data (profile, jobs, earnings) follows the phone.
+    expect(prisma.calls.update).toHaveBeenCalledWith({
+      where: { id: 'aaaaaaaa-9999-8888-7777-666666666666' },
+      data: { id: token.userId, phone: token.phone, email: null },
+    });
+    // No insert happens: the account is re-keyed, not duplicated.
+    expect(prisma.calls.upsert).not.toHaveBeenCalled();
+  });
+
+  it('does not adopt when the id lookup succeeds', async () => {
+    const prisma = fakePrisma();
+    prisma.calls.findUnique.mockResolvedValue(profileRow);
+
+    await service(prisma.client).syncUser(token);
+
+    // The existing-user path must never re-key; the phone lookup is not even
+    // reached because the identity already owns a local row.
+    expect(prisma.calls.update).not.toHaveBeenCalled();
+    expect(prisma.calls.upsert).not.toHaveBeenCalled();
+  });
 });

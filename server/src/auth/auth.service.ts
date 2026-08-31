@@ -88,6 +88,29 @@ export function createAuthService(deps: AuthServiceDeps) {
       return { ...toLocalUser(updated), appType };
     }
 
+    // No local row for this Supabase id, but another row may own this phone.
+    // That happens when the app re-installs or a fresh OTP yields a new Supabase
+    // auth user id for the same phone. The phone is verified by Supabase, so it —
+    // not the token id — is the authoritative identity: adopt the existing
+    // account, re-keying it to the current id so its domain data (profile, jobs,
+    // earnings) follows the phone instead of being orphaned or colliding on the
+    // unique `phone` constraint.
+    const owner = token.phone
+      ? await deps.prisma.profile.findUnique({ where: { phone: token.phone } })
+      : null;
+
+    if (owner && owner.id !== token.userId) {
+      // Re-keying cascades: pro_profiles/customer_profiles (and through them
+      // jobs, earnings, ...) reference profiles.id with ON UPDATE CASCADE. A row
+      // at token.userId cannot exist here or the earlier lookup would have hit it.
+      const rekeyed = await deps.prisma.profile.update({
+        where: { id: owner.id },
+        data: { id: token.userId, phone: token.phone, email: token.email },
+      });
+      logger.info(`Adopted account ${owner.id} (phone) onto identity ${token.userId}.`);
+      return { ...toLocalUser(rekeyed), appType };
+    }
+
     // A new identity defaults to a plain user (isAdmin false) who can operate
     // on both surfaces. No role is stored; the surface is chosen per-request.
     const user = await deps.prisma.profile.upsert({
