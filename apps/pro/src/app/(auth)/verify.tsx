@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { OTP_LENGTH } from '@samona/config';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
+import { env } from '@/env';
 
 /** Placeholder mirrors the expected length, e.g. "1234". */
 const CODE_PLACEHOLDER = Array.from({ length: OTP_LENGTH }, (_, i) => (i + 1) % 10).join('');
@@ -82,6 +83,23 @@ export default function VerifyScreen() {
           className="text-title tracking-[8px]"
         />
       </View>
+
+      {env.authTestOtp ? (
+        <View className="mb-2 gap-2">
+          <Text variant="caption" className="text-center text-text-secondary">
+            Testing: no SMS is sent (no Twilio credits)
+          </Text>
+          <Button
+            label={`Use test code ${env.authTestOtp}`}
+            variant="ghost"
+            disabled={isBusy}
+            onPress={() => {
+              clearError();
+              setCode(env.authTestOtp ?? '');
+            }}
+          />
+        </View>
+      ) : null}
 
       <View className="gap-3 pb-4">
         <Button

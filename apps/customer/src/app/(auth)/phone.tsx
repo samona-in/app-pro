@@ -6,6 +6,7 @@ import { phoneSchema } from '@samona/validation';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { usePhoneAuth, usePhoneHint } from '@/hooks';
+import { env } from '@/env';
 
 export default function PhoneScreen() {
   const { sendCode, isBusy, error, clearError } = usePhoneAuth();
@@ -55,6 +56,16 @@ export default function PhoneScreen() {
           hint="Include your country code."
           containerClassName="mt-8"
         />
+
+        {env.authTestPhone ? (
+          <Text
+            variant="caption"
+            className="mt-3 text-center text-brand"
+            onPress={() => setPhone(env.authTestPhone ?? '')}
+          >
+            Testing: use number {env.authTestPhone}
+          </Text>
+        ) : null}
       </View>
 
       <View className="gap-3 pb-4">
