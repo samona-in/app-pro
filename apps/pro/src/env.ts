@@ -35,5 +35,12 @@ export const env = {
   ),
   /** Optional until maps are wired up; features must handle its absence. */
   googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? null,
+  /**
+   * Test-only phone sign-in bypass. When set, the verify screen offers to fill
+   * this fixed code and the phone screen offers this number, matching a Supabase
+   * "Test phone number" so no SMS is sent. Leave unset in production.
+   */
+  authTestPhone: process.env.EXPO_PUBLIC_AUTH_TEST_PHONE ?? null,
+  authTestOtp: process.env.EXPO_PUBLIC_AUTH_TEST_OTP ?? null,
   isDev: __DEV__,
 } as const;
