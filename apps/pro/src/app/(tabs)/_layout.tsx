@@ -2,8 +2,10 @@ import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ColorValue } from 'react-native';
 import { LoadingState } from '@/components/feedback';
+import { IncomingJobOverlay } from '@/components/jobs';
 import { Screen } from '@/components/ui';
-import { useRealtimeSync, useSession } from '@/hooks';
+import { useJobAlert, useRealtimeSync, useSession } from '@/hooks';
+import { useIncomingJobStore } from '@/stores/incoming-job';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -27,6 +29,14 @@ export default function TabsLayout() {
   // The signed-in surface of the app: keep every jobs query in step with the
   // realtime channel (offers, status changes, payments).
   useRealtimeSync();
+  // Drives the incoming-job alert overlay and its looping alarm.
+  useJobAlert();
+
+  // The overlay reads directly from the store so it survives tab switches.
+  const activeJob = useIncomingJobStore((state) => state.job);
+  const resolution = useIncomingJobStore((state) => state.resolution);
+  const resolve = useIncomingJobStore((state) => state.resolve);
+  const clear = useIncomingJobStore((state) => state.clear);
 
   if (isLoading) {
     return (
@@ -50,37 +60,48 @@ export default function TabsLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: color.brand,
-        tabBarInactiveTintColor: color['text-muted'],
-        tabBarStyle: {
-          backgroundColor: color.surface,
-          borderTopColor: color.border,
-          height: 88,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        sceneStyle: { backgroundColor: color.background },
-      }}
-    >
-      <Tabs.Screen
-        name="home"
-        options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
-      />
-      <Tabs.Screen
-        name="jobs"
-        options={{ title: 'Jobs', tabBarIcon: tabIcon('briefcase-outline', 'briefcase') }}
-      />
-      <Tabs.Screen
-        name="earnings"
-        options={{ title: 'Earnings', tabBarIcon: tabIcon('wallet-outline', 'wallet') }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
-      />
-    </Tabs>
+    <>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: color.brand,
+          tabBarInactiveTintColor: color['text-muted'],
+          tabBarStyle: {
+            backgroundColor: color.surface,
+            borderTopColor: color.border,
+            height: 88,
+            paddingTop: 8,
+          },
+          tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+          sceneStyle: { backgroundColor: color.background },
+        }}
+      >
+        <Tabs.Screen
+          name="home"
+          options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
+        />
+        <Tabs.Screen
+          name="jobs"
+          options={{ title: 'Jobs', tabBarIcon: tabIcon('briefcase-outline', 'briefcase') }}
+        />
+        <Tabs.Screen
+          name="earnings"
+          options={{ title: 'Earnings', tabBarIcon: tabIcon('wallet-outline', 'wallet') }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
+        />
+      </Tabs>
+
+      {activeJob ? (
+        <IncomingJobOverlay
+          job={activeJob}
+          resolution={resolution}
+          onResolve={resolve}
+          onDismiss={clear}
+        />
+      ) : null}
+    </>
   );
 }

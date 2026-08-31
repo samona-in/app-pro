@@ -20,9 +20,6 @@ export interface RealtimeEventMap {
   'job:status': JobDetail;
 }
 type RealtimeEvent = keyof RealtimeEventMap;
-/** Union over every event's payload; the socket itself is untyped. */
-type RealtimePayload = RealtimeEventMap[RealtimeEvent];
-type RealtimeHandler = (payload: RealtimePayload) => void;
 
 let socket: Socket | null = null;
 
@@ -62,12 +59,15 @@ export function disconnectRealtime(): void {
  * May be called before the socket is connected; listeners are registered the
  * moment `connectRealtime` fires.
  */
-export function subscribe(event: RealtimeEvent, handler: RealtimeHandler): () => void {
+export function subscribe<E extends RealtimeEvent>(
+  event: E,
+  handler: (payload: RealtimeEventMap[E]) => void,
+): () => void {
   const connected = ensureSocket();
-  const listener = (...args: unknown[]) => handler(args[0] as RealtimePayload);
-  connected.on(event, listener);
+  const listener = (...args: unknown[]) => handler(args[0] as RealtimeEventMap[E]);
+  connected.on(event, listener as Parameters<typeof connected.on<E>>[1]);
   return () => {
-    connected.off(event, listener);
+    connected.off(event, listener as Parameters<typeof connected.on<E>>[1]);
   };
 }
 
