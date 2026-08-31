@@ -9,7 +9,7 @@ import {
   PLACE_TYPES,
   type JobStatus,
 } from '@samona/types';
-import { slugSchema } from './primitives';
+import { coordinatesSchema, latitudeSchema, longitudeSchema, slugSchema } from './primitives';
 
 /** Every valid lifecycle status, for filtering a caller's own job lists. */
 const jobStatusOptions = JOB_STATUSES as [JobStatus, ...JobStatus[]];
@@ -40,6 +40,13 @@ export const basePayPaiseSchema = z
   .int('Amount must be a whole number.')
   .min(100, 'Base pay must be at least ₹1.')
   .max(100_000_000, 'That amount is too large.');
+
+/** Optional display label for the place the work happens. */
+export const jobLocationLabelSchema = z
+  .string()
+  .trim()
+  .min(2, 'Tell us where the work happens.')
+  .max(160, 'Keep the location under 160 characters.');
 
 /** A submitted storage path for one attached photo (0–5). */
 export const jobImagePathSchema = z
@@ -74,6 +81,12 @@ export const createJobSchema = z
     customSkill: customSkillSchema.optional(),
     placeType: z.enum(placeTypeOptions),
     placeDescription: placeDescriptionSchema.optional(),
+    // The work location, snapshotted onto the job at creation (CLAUDE "jobs"
+    // location snapshot). Coordinates come as a pair; the server falls back to
+    // the customer profile's saved location when none is submitted.
+    locationLabel: jobLocationLabelSchema.optional(),
+    latitude: latitudeSchema.optional(),
+    longitude: longitudeSchema.optional(),
     description: jobDescriptionSchema,
     imagePaths: z.array(jobImagePathSchema).max(JOB_IMAGE_LIMIT).default([]),
     basePayPaise: basePayPaiseSchema,
@@ -100,6 +113,16 @@ export const createJobSchema = z
         code: z.ZodIssueCode.custom,
         message: 'Only the "Other" category takes a custom skill.',
         path: ['customSkill'],
+      });
+    }
+
+    const hasLat = value.latitude !== undefined;
+    const hasLon = value.longitude !== undefined;
+    if (hasLat !== hasLon) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Latitude and longitude must be provided together.',
+        path: hasLat ? ['longitude'] : ['latitude'],
       });
     }
   });

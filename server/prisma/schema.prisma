@@ -252,6 +252,17 @@ model Job {
   placeType         PlaceType @map("place_type")
   placeDescription  String?   @map("place_description")
 
+  /// The work location, snapshotted onto the job when it is created so the job
+  /// stays correct even when the customer's saved profile location changes or
+  /// when they book from somewhere else entirely (e.g. an office after booking
+  /// from home). The customer may submit a per-job location; when they do not,
+  /// the customer profile's saved location is copied here at creation time.
+  /// `locationLabel` is display-only; `latitude`/`longitude` drive distance,
+  /// ETA and nearby-pro matching. Coordinates are null until one is known.
+  locationLabel String? @map("location_label")
+  latitude     Float?
+  longitude    Float?  
+
   /// Free-text description of the requested job.
   description String
 
