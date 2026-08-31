@@ -26,7 +26,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify": "npm run lint && npm run typecheck && npm run test",
-    "clean": "rimraf \"packages/*/dist\" \"packages/*/*.tsbuildinfo\" server/dist server/*.tsbuildinfo apps/pro/.expo apps/pro/dist apps/customer/.expo apps/customer/dist"
+    "clean": "rimraf \"packages/*/dist\" \"packages/*/*.tsbuildinfo\" server/dist server/*.tsbuildinfo apps/pro/.expo apps/pro/dist apps/customer/.expo apps/customer/dist",
+    "dev:tunnel": "npm run dev:server & ngrok http 4000",
+    "build:apk:pro": "npm run build:packages && eas build --local --platform android --profile preview --cwd apps/pro",
+    "build:apk:customer": "npm run build:packages && eas build --local --platform android --profile preview --cwd apps/customer"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
