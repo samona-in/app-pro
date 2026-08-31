@@ -62,6 +62,25 @@ const envSchema = z.object({
   CORS_ORIGINS: z.string().default(''),
 
   GOOGLE_MAPS_API_KEY: optional(z.string()),
+
+  /**
+   * Expo push service access token. Optional: when unset the server still
+   * records notification rows but does not reach Expo's servers (useful in
+   * local dev). Get one at https://expo.dev/settings/access-tokens.
+   */
+  EXPO_ACCESS_TOKEN: optional(z.string()),
+
+  /**
+   * How often a repeating job alert is re-sent to an online, eligible pro who
+   * has not yet acted, while the job is still open. Defaults to 60s.
+   */
+  JOB_ALERT_REPEAT_MS: z.coerce.number().int().min(5_000).max(600_000).default(60_000),
+
+  /**
+   * Hard ceiling on repeats for one job alert before the server stops paging.
+   * Guards against a job that is never accepted/expired paging a pro forever.
+   */
+  JOB_ALERT_MAX_REPEATS: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -79,6 +98,12 @@ export interface AppConfig {
   supabaseSecretKey: string | null;
   corsOrigins: string[];
   googleMapsApiKey: string | null;
+  /** Expo push service access token; null disables outbound pushes. */
+  expoAccessToken: string | null;
+  /** Repeating job-alert cadence, in ms. */
+  jobAlertRepeatMs: number;
+  /** Ceiling on repeats for a single job alert. */
+  jobAlertMaxRepeats: number;
 }
 
 /**
@@ -128,5 +153,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       .map((origin) => origin.trim())
       .filter(Boolean),
     googleMapsApiKey: env.GOOGLE_MAPS_API_KEY ?? null,
+    expoAccessToken: env.EXPO_ACCESS_TOKEN ?? null,
+    jobAlertRepeatMs: env.JOB_ALERT_REPEAT_MS,
+    jobAlertMaxRepeats: env.JOB_ALERT_MAX_REPEATS,
   };
 }

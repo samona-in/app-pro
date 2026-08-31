@@ -28,7 +28,8 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -58,7 +59,15 @@
           "cameraPermission": "SAMONA Pro needs camera access so you can take photos for your profile and job documents."
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#0F172A",
+          "defaultChannel": "job-alerts",
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {

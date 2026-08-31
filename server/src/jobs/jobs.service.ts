@@ -14,12 +14,14 @@ import { REALTIME_EVENTS } from '../realtime/gateway';
 import type { MatchingService } from '../matching/matching.service';
 import { badRequest, notFound, conflict, forbidden } from '../common/errors';
 import { distanceKm, etaMinutes } from '../common/geo';
+import type { NotificationsService } from '../notifications/notifications.service';
 
 export interface JobsServiceDeps {
   prisma: PrismaClient;
   storage: StorageService;
   matching: MatchingService;
   realtime: RealtimeService;
+  notifications: NotificationsService;
 }
 
 /** The customer scoped folder every job image is minted under. */
@@ -143,7 +145,7 @@ function toJobDetail(
  * JobStatusHistory. REST is the source of truth; realtime only notifies.
  */
 export function createJobsService(deps: JobsServiceDeps) {
-  const { prisma, storage, matching, realtime } = deps;
+  const { prisma, storage, matching, realtime, notifications } = deps;
 
   const findProByUserId = async (userId: string) => {
     const pro = await prisma.proProfile.findUnique({
@@ -179,7 +181,7 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     const service = await prisma.service.findFirst({
       where: { slug: input.serviceSlug, isActive: true },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!service) {
       throw badRequest('That service is no longer bookable.');
@@ -255,6 +257,21 @@ export function createJobsService(deps: JobsServiceDeps) {
           eligible.map((pro) => pro.userId),
           REALTIME_EVENTS.JOB_NEW,
           payload,
+        );
+
+        // Push alert every eligible pro, then keep repeating on a cadence
+        // until one accepts or the job leaves the open pool. This is what
+        // reaches a pro whose phone is locked, in a pocket, or asleep — the
+        // socket cannot.
+        void notifications.alertEligiblePros(
+          eligible.map((pro) => ({ proId: pro.proId })),
+          {
+            jobId: created.id,
+            serviceName: service.name,
+            customSkill,
+            description: input.description,
+            basePayPaise: input.basePayPaise,
+          },
         );
       }
     }
@@ -398,6 +415,9 @@ export function createJobsService(deps: JobsServiceDeps) {
     realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     if (row.pro) realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, proDetail);
 
+    // A cancelled job is no longer open; stop repeating its alert.
+    void notifications.resolveJobAlerts(jobId);
+
     return {
       detail: actorIsCustomer ? customerDetail : proDetail,
       customerUserId: row.customer.userId,
@@ -538,6 +558,10 @@ export function createJobsService(deps: JobsServiceDeps) {
     const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+
+    // A job that is now assigned is no longer open: stop the repeating alert
+    // still paging every other eligible pro.
+    void notifications.resolveJobAlerts(jobId);
     return proDetail;
   }
 
