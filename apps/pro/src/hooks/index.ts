@@ -15,3 +15,4 @@ export {
   useTransitionJob,
 } from './use-jobs';
 export { useRealtimeSync } from './use-realtime';
+export { useNotifications, usePushSettings } from './use-notifications';

@@ -115,6 +115,11 @@ export interface Job {
   status: JobStatus;
   placeType: PlaceType;
   placeDescription: string | null;
+  /** Display label for the work location, snapshotted at creation. */
+  locationLabel: string | null;
+  /** Work-location coordinates, snapshotted at creation. Null until known. */
+  latitude: number | null;
+  longitude: number | null;
   description: string;
   imageUrls: string[];
   /** Guaranteed amount, in paise. */

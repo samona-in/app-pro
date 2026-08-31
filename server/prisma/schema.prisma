@@ -109,10 +109,21 @@ model ProProfile {
   rating        Float?
   completedJobs Int     @default(0) @map("completed_jobs")
 
-  services ProService[]
-  skills   ProSkill[]
+  /// Push delivery: the Expo device token registered by this Pro's own app.
+  /// Written through the notifications domain, never trusted as a client-issued
+  /// identity. Null until the app has asked for, and been granted, permission.
+  pushToken String? @unique @map("push_token")
+
+  /// Whether this Pro wants job alerts at all. Server-side, so the API stays
+  /// the single writer of preference; the app only toggles it through the
+  /// notifications domain.
+  jobAlertsEnabled Boolean @default(true) @map("job_alerts_enabled")
+
+  services         ProService[]
+  skills           ProSkill[]
   /// Jobs this professional accepted. Authorised against ProProfile.userId.
-  jobs Job[]
+  jobs             Job[]
+  notifications    Notification[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -241,6 +252,17 @@ model Job {
   placeType         PlaceType @map("place_type")
   placeDescription  String?   @map("place_description")
 
+  /// The work location, snapshotted onto the job when it is created so the job
+  /// stays correct even when the customer's saved profile location changes or
+  /// when they book from somewhere else entirely (e.g. an office after booking
+  /// from home). The customer may submit a per-job location; when they do not,
+  /// the customer profile's saved location is copied here at creation time.
+  /// `locationLabel` is display-only; `latitude`/`longitude` drive distance,
+  /// ETA and nearby-pro matching. Coordinates are null until one is known.
+  locationLabel String? @map("location_label")
+  latitude     Float?
+  longitude    Float?  
+
   /// Free-text description of the requested job.
   description String
 
@@ -263,6 +285,7 @@ model Job {
   expiresAt   DateTime? @map("expires_at")
 
   statusHistory JobStatusHistory[]
+  notifications Notification[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -290,6 +313,45 @@ model JobStatusHistory {
 
   @@index([jobId])
   @@map("job_status_history")
+}
+
+/// A push notification the API delivered to a professional.
+///
+/// REST remains the source of truth for the job; this row records the *push*
+/// itself so the Notifications screen can list history and so a repeating job
+/// alert knows who has already been paged. Repeats do not create new rows —
+/// the `repeats` counter scans what was already sent for that event.
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  /// The ProProfile this push was delivered to.
+  proId     String   @map("pro_id") @db.Uuid
+  pro       ProProfile @relation(fields: [proId], references: [id], onDelete: Cascade)
+  /// The job the alert was about, when it was a job alert.
+  jobId     String?  @map("job_id") @db.Uuid
+  job       Job?     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  /// Short machine label, e.g. `job_alert`. Mirrors `NotificationKind`.
+  kind      NotificationKind @map("kind")
+  /// The title shown in the push.
+  title     String
+  /// The body shown in the push.
+  body      String
+  /// The deep-link / route to open when the alert is tapped.
+  route     String?
+  /// Whether the latest attempt to deliver this alert succeeded.
+  delivered Boolean  @default(false)
+  /// Errors from the push provider, logged server-side; never sent to clients.
+  providerRef String?
+  /// How many times this same alert has been re-sent (repeat mode).
+  repeats   Int      @default(0)
+  /// Set once the alert stops recurring (job accepted, expired, cancelled).
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([proId, createdAt])
+  @@index([jobId])
+  @@unique([proId, jobId, kind])
+  @@map("notifications")
 }
 
 /// Mirrored by `PlaceType` in `@samona/types` — keep the two in sync.
@@ -333,5 +395,14 @@ enum Gender {
   MALE
   FEMALE
   OTHER
+}
+
+/// The kind of push a professional may receive. Mirrors `NotificationKind` in
+/// `@samona/types` — keep the two in sync.
+enum NotificationKind {
+  JOB_ALERT
+  JOB_STATUS
+  PAYMENT
+  SYSTEM
 }
 

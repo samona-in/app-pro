@@ -24,6 +24,9 @@ const config: AppConfig = {
   supabaseSecretKey: null,
   corsOrigins: [],
   googleMapsApiKey: null,
+  expoAccessToken: null,
+  jobAlertRepeatMs: 60_000,
+  jobAlertMaxRepeats: 20,
 };
 
 const services = {

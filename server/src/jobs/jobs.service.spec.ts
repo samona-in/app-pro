@@ -8,6 +8,9 @@ const jobRow = {
   status: JobStatus.REQUESTED,
   placeType: 'RESIDENCE' as const,
   placeDescription: null,
+  locationLabel: null,
+  latitude: null,
+  longitude: null,
   description: 'Fix the switch near the door.',
   imagePaths: ['jobs/user-1/abc.jpg'],
   basePayPaise: 15_000,
@@ -44,7 +47,9 @@ function buildJobs() {
 
   const prisma = {
     customerProfile: {
-      findUnique: jest.fn().mockResolvedValue({ id: 'cust-1', userId: 'user-1' }),
+      findUnique: jest
+        .fn()
+        .mockResolvedValue({ id: 'cust-1', userId: 'user-1', locationLabel: null, latitude: null, longitude: null }),
     },
     service: { findFirst: jest.fn().mockResolvedValue({ id: 'svc-1' }) },
     skill: { findFirst: jest.fn().mockResolvedValue({ id: 'skill-1' }) },
@@ -90,6 +95,78 @@ describe('createJobsService.createForCustomer', () => {
       service: { slug: 'electrical' },
     });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('snapshots a submitted per-job location onto the job', async () => {
+    const ctx = buildJobs();
+
+    await ctx.jobs.createForCustomer('user-1', {
+      ...baseInput,
+      locationLabel: '10 MG Road, office',
+      latitude: 12.97,
+      longitude: 77.6,
+    });
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          locationLabel: '10 MG Road, office',
+          latitude: 12.97,
+          longitude: 77.6,
+        }),
+      }),
+    );
+    // Matching is run against the job's own coordinates, not the profile.
+    expect(ctx.matching.findEligiblePros).toHaveBeenCalledWith(
+      expect.objectContaining({ latitude: 12.97, longitude: 77.6 }),
+    );
+  });
+
+  it('falls back to the saved profile location when none is submitted', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.customerProfile.findUnique.mockResolvedValue({
+      id: 'cust-1',
+      userId: 'user-1',
+      locationLabel: 'Home, Koramangala',
+      latitude: 12.93,
+      longitude: 77.62,
+    });
+
+    await ctx.jobs.createForCustomer('user-1', baseInput);
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          locationLabel: 'Home, Koramangala',
+          latitude: 12.93,
+          longitude: 77.62,
+        }),
+      }),
+    );
+    expect(ctx.matching.findEligiblePros).toHaveBeenCalledWith(
+      expect.objectContaining({ latitude: 12.93, longitude: 77.62 }),
+    );
+  });
+
+  it('writes a null location when neither the booking nor the profile has one', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.customerProfile.findUnique.mockResolvedValue({
+      id: 'cust-1',
+      userId: 'user-1',
+      locationLabel: null,
+      latitude: null,
+      longitude: null,
+    });
+
+    await ctx.jobs.createForCustomer('user-1', baseInput);
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ locationLabel: null, latitude: null, longitude: null }),
+      }),
+    );
+    // No location to match against, so no pros are nudged.
+    expect(ctx.matching.findEligiblePros).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown service', async () => {

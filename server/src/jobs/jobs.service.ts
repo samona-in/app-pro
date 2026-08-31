@@ -14,12 +14,14 @@ import { REALTIME_EVENTS } from '../realtime/gateway';
 import type { MatchingService } from '../matching/matching.service';
 import { badRequest, notFound, conflict, forbidden } from '../common/errors';
 import { distanceKm, etaMinutes } from '../common/geo';
+import type { NotificationsService } from '../notifications/notifications.service';
 
 export interface JobsServiceDeps {
   prisma: PrismaClient;
   storage: StorageService;
   matching: MatchingService;
   realtime: RealtimeService;
+  notifications: NotificationsService;
 }
 
 /** The customer scoped folder every job image is minted under. */
@@ -65,6 +67,9 @@ type JobRow = {
   customSkill: string | null;
   placeType: Job['placeType'];
   placeDescription: string | null;
+  locationLabel: string | null;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type JobDetailRow = JobRow & {
@@ -91,6 +96,9 @@ function toJobDto(row: JobRow, storage: StorageService): Job {
     status: row.status,
     placeType: row.placeType,
     placeDescription: row.placeDescription,
+    locationLabel: row.locationLabel,
+    latitude: row.latitude,
+    longitude: row.longitude,
     description: row.description,
     imageUrls: row.imagePaths.map((path) => storage.jobImagePublicUrl(path)),
     basePayPaise: row.basePayPaise,
@@ -123,7 +131,9 @@ function toJobDetail(
         ? {
             userId: row.customer.userId,
             displayName: row.customer.displayName,
-            locationLabel: row.customer.locationLabel,
+            // The job's own snapshotted label, not the customer's saved one —
+            // they may be booking from a different place than their profile.
+            locationLabel: row.locationLabel,
           }
         : null,
     pro:
@@ -143,7 +153,7 @@ function toJobDetail(
  * JobStatusHistory. REST is the source of truth; realtime only notifies.
  */
 export function createJobsService(deps: JobsServiceDeps) {
-  const { prisma, storage, matching, realtime } = deps;
+  const { prisma, storage, matching, realtime, notifications } = deps;
 
   const findProByUserId = async (userId: string) => {
     const pro = await prisma.proProfile.findUnique({
@@ -171,7 +181,7 @@ export function createJobsService(deps: JobsServiceDeps) {
   ): Promise<JobDetail> {
     const customer = await prisma.customerProfile.findUnique({
       where: { userId: customerUserId },
-      select: { id: true, latitude: true, longitude: true },
+      select: { id: true, locationLabel: true, latitude: true, longitude: true },
     });
     if (!customer) {
       throw notFound('Your profile is not ready yet. Try again in a moment.');
@@ -179,7 +189,7 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     const service = await prisma.service.findFirst({
       where: { slug: input.serviceSlug, isActive: true },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!service) {
       throw badRequest('That service is no longer bookable.');
@@ -216,6 +226,21 @@ export function createJobsService(deps: JobsServiceDeps) {
       throw badRequest('One of the photos did not finish uploading. Try again.');
     }
 
+    // Work location for this job, snapshotted at creation. Coordinates come
+    // from the booking if provided (a pair), otherwise we fall back to the
+    // customer's saved profile location. Either way what matters is what is
+    // stored on the job — later profile edits must not move a placed booking.
+    const submittedCoords =
+      input.latitude !== undefined && input.longitude !== undefined
+        ? { latitude: input.latitude, longitude: input.longitude }
+        : null;
+    const coords =
+      submittedCoords ??
+      (customer.latitude !== null && customer.longitude !== null
+        ? { latitude: customer.latitude, longitude: customer.longitude }
+        : null);
+    const locationLabel = input.locationLabel ?? customer.locationLabel;
+
     const created = await prisma.$transaction(async (tx) => {
       const job = await tx.job.create({
         data: {
@@ -226,6 +251,9 @@ export function createJobsService(deps: JobsServiceDeps) {
           status: JobStatus.REQUESTED,
           placeType: input.placeType,
           placeDescription: input.placeType === 'OTHER' ? (input.placeDescription ?? null) : null,
+          locationLabel,
+          latitude: coords?.latitude ?? null,
+          longitude: coords?.longitude ?? null,
           description: input.description,
           imagePaths: input.imagePaths,
           basePayPaise: input.basePayPaise,
@@ -243,11 +271,11 @@ export function createJobsService(deps: JobsServiceDeps) {
     // Nudge eligible pros that a job is open, but only when there is a
     // location to match against — the pull-style available-jobs feed is the
     // source of truth either way.
-    if (customer.latitude !== null && customer.longitude !== null) {
+    if (coords) {
       const eligible = await matching.findEligiblePros({
         serviceId: service.id,
-        latitude: customer.latitude,
-        longitude: customer.longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       });
       if (eligible.length > 0) {
         const payload = toJobDto(created as unknown as JobRow, storage);
@@ -255,6 +283,21 @@ export function createJobsService(deps: JobsServiceDeps) {
           eligible.map((pro) => pro.userId),
           REALTIME_EVENTS.JOB_NEW,
           payload,
+        );
+
+        // Push alert every eligible pro, then keep repeating on a cadence
+        // until one accepts or the job leaves the open pool. This is what
+        // reaches a pro whose phone is locked, in a pocket, or asleep — the
+        // socket cannot.
+        void notifications.alertEligiblePros(
+          eligible.map((pro) => ({ proId: pro.proId })),
+          {
+            jobId: created.id,
+            serviceName: service.name,
+            customSkill,
+            description: input.description,
+            basePayPaise: input.basePayPaise,
+          },
         );
       }
     }
@@ -398,6 +441,9 @@ export function createJobsService(deps: JobsServiceDeps) {
     realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     if (row.pro) realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, proDetail);
 
+    // A cancelled job is no longer open; stop repeating its alert.
+    void notifications.resolveJobAlerts(jobId);
+
     return {
       detail: actorIsCustomer ? customerDetail : proDetail,
       customerUserId: row.customer.userId,
@@ -453,7 +499,7 @@ export function createJobsService(deps: JobsServiceDeps) {
         proId: null,
         serviceId: { in: serviceIds },
       },
-      include: { ...jobDetailInclude, customer: { select: { latitude: true, longitude: true } } },
+      include: jobDetailInclude,
       orderBy: { createdAt: 'desc' },
       take: Math.max(1, Math.min(options.limit ?? 30, 50)),
     });
@@ -464,11 +510,11 @@ export function createJobsService(deps: JobsServiceDeps) {
         : null;
 
     return rows.map((row) => {
-      const customerPoint =
-        row.customer.latitude !== null && row.customer.longitude !== null
-          ? { latitude: row.customer.latitude, longitude: row.customer.longitude }
+      const jobPoint =
+        row.latitude !== null && row.longitude !== null
+          ? { latitude: row.latitude, longitude: row.longitude }
           : null;
-      const km = proPoint && customerPoint ? distanceKm(proPoint, customerPoint) : null;
+      const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
       return {
         ...toJobDto(row as unknown as JobRow, storage),
         distanceKm: km,
@@ -486,7 +532,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     const updated = await prisma.$transaction(async (tx) => {
       const row = await tx.job.findFirst({
         where: { id: jobId, status: JobStatus.REQUESTED, proId: null },
-        include: { ...jobDetailInclude, customer: { select: { latitude: true, longitude: true } } },
+        include: jobDetailInclude,
       });
       if (!row) throw notFound('This job is no longer open.');
 
@@ -495,17 +541,17 @@ export function createJobsService(deps: JobsServiceDeps) {
       });
       if (busy > 0) throw conflict('You already have a job in progress.');
 
-      const customerPoint =
-        row.customer.latitude !== null && row.customer.longitude !== null
-          ? { latitude: row.customer.latitude, longitude: row.customer.longitude }
+      const jobPoint =
+        row.latitude !== null && row.longitude !== null
+          ? { latitude: row.latitude, longitude: row.longitude }
           : null;
-      if (!customerPoint) {
+      if (!jobPoint) {
         throw conflict('This job has no location to match against.');
       }
       const eligible = await matching.isProEligible(pro.id, {
         serviceId: row.serviceId,
-        latitude: customerPoint.latitude,
-        longitude: customerPoint.longitude,
+        latitude: jobPoint.latitude,
+        longitude: jobPoint.longitude,
       });
       if (!eligible) throw conflict('This job is outside your service area.');
 
@@ -538,6 +584,10 @@ export function createJobsService(deps: JobsServiceDeps) {
     const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+
+    // A job that is now assigned is no longer open: stop the repeating alert
+    // still paging every other eligible pro.
+    void notifications.resolveJobAlerts(jobId);
     return proDetail;
   }
 

@@ -62,11 +62,15 @@ async function main(): Promise<void> {
     logger.info(`SAMONA API listening on http://localhost:${config.port}${API_PREFIX}`);
   });
 
+  // Repeating job alerts: start paging once the process is ready to serve.
+  services.notifications.start();
+
   /** Close connections in reverse order of opening, then exit. */
   async function shutdown(signal: string): Promise<void> {
     logger.info(`Received ${signal}, shutting down.`);
 
     // Stop accepting work before tearing down the resources in-flight requests use.
+    services.notifications.stop();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     await realtime.close();
     if (redis) await redis.quit().catch(() => undefined);

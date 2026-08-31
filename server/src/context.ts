@@ -66,10 +66,11 @@ export function createServices(
   const deps = { prisma, storage };
 
   // Order matters: jobs' dispatch drives matching, and jobs notifies through
-  // realtime. Each service reads only what it received, so nothing is reachable
-  // behind the composition boundary.
+  // realtime and push. Each service reads only what it received, so nothing is
+  // reachable behind the composition boundary.
   const matching = createMatchingService({ prisma });
-  const jobs = createJobsService({ prisma, storage, matching, realtime });
+  const notifications = createNotificationsService({ prisma, config });
+  const jobs = createJobsService({ prisma, storage, matching, realtime, notifications });
 
   return {
     auth: createAuthService({ prisma }),
@@ -86,7 +87,7 @@ export function createServices(
     matching,
     locations: createLocationsService(deps),
     earnings: createEarningsService(deps),
-    notifications: createNotificationsService(deps),
+    notifications,
     reviews: createReviewsService(deps),
     storage,
   };
