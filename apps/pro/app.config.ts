@@ -11,6 +11,7 @@ const config = {
     ...(appJson.expo.plugins ?? []),
     // Registers MapLibre Native; no API keys or billing involved.
     '@maplibre/maplibre-react-native',
+    'expo-audio',
   ],
 };
 

@@ -340,7 +340,7 @@ model Notification {
   /// Whether the latest attempt to deliver this alert succeeded.
   delivered Boolean  @default(false)
   /// Errors from the push provider, logged server-side; never sent to clients.
-  providerRef String?
+  providerRef String? @map("provider_ref")
   /// How many times this same alert has been re-sent (repeat mode).
   repeats   Int      @default(0)
   /// Set once the alert stops recurring (job accepted, expired, cancelled).
