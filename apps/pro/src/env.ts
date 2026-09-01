@@ -33,6 +33,12 @@ export const env = {
     'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
     process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
   ),
+  /**
+   * The EAS project id, used to mint Expo push tokens. Baked in explicitly
+   * (rather than relying on `Constants.easConfig`, which is only populated by
+   * EAS cloud builds) so locally-built APKs can register push tokens too.
+   */
+  easProjectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? null,
   /** Optional until maps are wired up; features must handle its absence. */
   googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? null,
   /**
