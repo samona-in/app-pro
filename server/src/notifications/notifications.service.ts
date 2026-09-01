@@ -6,6 +6,7 @@ import {
 import type { PrismaClient } from '../database/prisma';
 import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
+import { badRequest } from '../common/errors';
 
 /**
  * Notifications domain service.
@@ -106,8 +107,11 @@ function toDto(row: NotificationRow): AppNotification {
 export function createNotificationsService(deps: NotificationsServiceDeps) {
   const { prisma, config } = deps;
 
-  let expoClientPromise: Promise<{ sendPushNotificationsAsync(msgs: unknown[]): Promise<unknown[]> } | null> | null =
-    null;
+  let expoClientPromise: Promise<{
+    sendPushNotificationsAsync(msgs: unknown[]): Promise<unknown[]>;
+    getPushNotificationReceiptsAsync(receiptIds: string[]): Promise<Record<string, { status: string; message?: string; details?: Record<string, unknown> }>>;
+    isExpoPushToken?(token: string): boolean;
+  } | null> | null = null;
 
   async function getExpoClient() {
     if (!config.expoAccessToken) return null;
@@ -117,9 +121,12 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           const Expo = (mod as { default?: { new (o: unknown): unknown }; Expo?: { new (o: unknown): unknown } }).Expo
             ?? (mod as { default?: { new (o: unknown): unknown }; Expo?: { new (o: unknown): unknown } }).default;
           if (!Expo) throw new Error('expo-server-sdk did not expose an Expo client.');
-          return new Expo({ accessToken: config.expoAccessToken }) as unknown as {
+          const client = new Expo({ accessToken: config.expoAccessToken }) as unknown as {
             sendPushNotificationsAsync(msgs: unknown[]): Promise<unknown[]>;
+            getPushNotificationReceiptsAsync(receiptIds: string[]): Promise<Record<string, { status: string; message?: string; details?: Record<string, unknown> }>>;
+            isExpoPushToken?(token: string): boolean;
           };
+          return client;
         })
         .catch((error: unknown) => {
           // Keep the process alive if the SDK fails to load; push simply won't send.
@@ -144,6 +151,9 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     const client = await getExpoClient();
     if (!client) {
       // Local dev without a token: record but do not fail the request.
+      logger.warn(
+        '[Push] No Expo access token configured — push delivery disabled. Set EXPO_ACCESS_TOKEN.',
+      );
       return { ok: false };
     }
 
@@ -166,11 +176,64 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         | { status: string; id?: string; message?: string }
         | undefined;
       if (ticket?.status === 'ok') {
+        logger.info(
+          `[Push] Sent to ${pushToken} for job ${String(message.data.jobId ?? 'unknown')}: ticket ${ticket.id ?? 'no-id'}`,
+        );
         return { ok: true, providerRef: ticket.id };
       }
+      logger.warn(
+        `[Push] Expo rejected push to ${pushToken}: ${ticket?.message ?? 'no message'}`,
+      );
       return { ok: false, error: ticket?.message ?? 'Push rejected by Expo.' };
     } catch (error) {
+      logger.error('[Push] Push send failed.', error);
       return { ok: false, error: error instanceof Error ? error.message : 'Push failed.' };
+    }
+  }
+
+  /**
+   * Checks push receipt IDs for delivery status and cleans up tokens that Expo
+   * reports as no longer registered.
+   *
+   * Expo only accepts a ticket as "queued"; the receipt confirms real delivery.
+   * We poll the receipts for tickets we just sent so a failed/invalid token is
+   * discovered promptly and never retried.
+   */
+  async function checkPushReceipts(receiptIds: string[], proId: string): Promise<void> {
+    if (receiptIds.length === 0) return;
+    const client = await getExpoClient();
+    if (!client?.getPushNotificationReceiptsAsync) return;
+
+    try {
+      const receipts = await client.getPushNotificationReceiptsAsync(receiptIds);
+      for (const [id, receipt] of Object.entries(receipts)) {
+        if (receipt.status !== 'ok') {
+          logger.warn(
+            `[Push] Receipt ${id} for pro ${proId}: ${receipt.message ?? receipt.status}`,
+          );
+          // Expo stopped accepting this token (device uninstalled / app removed).
+          // Stop both delivering to it and paging it further until it re-registers.
+          if (
+            receipt.status === 'DeviceNotRegistered' ||
+            receipt.status === 'InvalidToken' ||
+            receipt.status === 'MessageTooBig' ||
+            receipt.status === 'MessageRateExceeded' ||
+            receipt.status === 'InvalidCredentials'
+          ) {
+            const removed = await prisma.proProfile.updateMany({
+              where: { id: proId, pushToken: { not: null } },
+              data: { pushToken: null },
+            });
+            if (removed.count > 0) {
+              logger.warn(`[Push] Removed invalid push token for pro ${proId}.`);
+            }
+          }
+        } else {
+          logger.debug(`[Push] Receipt ${id} for pro ${proId}: delivered.`);
+        }
+      }
+    } catch (error) {
+      logger.error('[Push] Receipt check failed.', error);
     }
   }
 
@@ -184,9 +247,14 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     const result = await sendPush(token, {
       title: jobAlertTitle(info),
       body: jobAlertBody(info),
-      data: { jobId: info.jobId, kind: NotificationKind.JOB_ALERT },
+      data: { type: 'NEW_JOB', jobId: info.jobId, kind: NotificationKind.JOB_ALERT },
       channelId: 'job-alerts',
     });
+
+    // If Expo accepted the ticket, verify actual delivery shortly after.
+    if (result.ok && result.providerRef) {
+      void checkPushReceipts([result.providerRef], proId);
+    }
 
     await prisma.notification.upsert({
       where: {
@@ -232,10 +300,19 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       select: { id: true, pushToken: true, jobAlertsEnabled: true },
     });
 
+    logger.info(
+      `[Push] Job ${info.jobId} opened for ${recipients.length} pros; ${pros.length} have profiles.`,
+    );
+
     await Promise.all(
       pros.map(async (pro) => {
         // Skip anyone who turned alerts off or has no token yet.
-        if (!pro.jobAlertsEnabled || !pro.pushToken) return;
+        if (!pro.jobAlertsEnabled || !pro.pushToken) {
+          logger.warn(
+            `[Push] Skipping pro ${pro.id} for job ${info.jobId}: ${!pro.jobAlertsEnabled ? 'alerts disabled' : 'no push token stored'}`,
+          );
+          return;
+        }
         await alertOne(pro.id, info, pro.pushToken, false);
       }),
     );
@@ -276,6 +353,20 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
   /** Registers (or replaces) this Pro's device push token. */
   async function registerPushToken(userId: string, pushToken: string): Promise<void> {
+    logger.info(`[Push] Token registration request received for user ${userId}`);
+
+    // Validate the token shape: it must look like an Expo push token, not an
+    // arbitrary string a client could submit. The client SDK's published rule
+    // matches ExponentPushToken[x] / ExpoPushToken[x] or a token UUID.
+    const client = await getExpoClient();
+    const isValid =
+      client?.isExpoPushToken?.(pushToken) ??
+      /^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9._-]+\]$/.test(pushToken);
+    if (!isValid) {
+      logger.warn(`[Push] Rejected invalid push token shape from user ${userId}.`);
+      throw badRequest('That is not a valid device push token.');
+    }
+
     // A device token identifies one device; a re-sign-in or re-install must not
     // leave a stale copy on an old profile behind (violating the unique index).
     await prisma.proProfile.updateMany({
@@ -283,12 +374,16 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       data: { pushToken: null },
     });
 
-    await prisma.proProfile.upsert({
+    const updated = await prisma.proProfile.upsert({
       where: { userId },
       create: { userId, pushToken },
       update: { pushToken },
-      select: { id: true },
+      select: { id: true, jobAlertsEnabled: true },
     });
+
+    logger.info(
+      `[Push] Token stored successfully for pro ${updated.id} (alerts ${updated.jobAlertsEnabled ? 'on' : 'off'}).`,
+    );
   }
 
   /** Turns the Pro's job alerts on or off. */

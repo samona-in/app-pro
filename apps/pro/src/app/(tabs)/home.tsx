@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import type { AvailabilityPatchInput } from '@samona/validation';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { EmptyState } from '@/components/feedback';
 import { AvailableJobCard } from '@/components/jobs';
@@ -14,41 +13,111 @@ import {
   useSubmitGuard,
   useToggleAvailability,
 } from '@/hooks';
-import { readCurrentLocation } from '@/services/location';
-import { useAppStore } from '@/stores/app';
+import { subscribeToOnlineStatus, isOnline as checkIsOnline, goOnline, goOffline } from '@/services/online-status';
+import { useAuth } from '@/providers';
 import { color } from '@/theme';
 import { formatInr } from '@/utils/format';
 
 function AvailabilityCard() {
   const { data: profile } = useProProfile();
-  // Optimistic value for an instant switch; the server value is authoritative.
-  const optimisticOnline = useAppStore((state) => state.isOnline);
-  const setOnline = useAppStore((state) => state.setOnline);
+  const { session } = useAuth();
   const toggleAvailability = useToggleAvailability();
+  const sessionRef = session;
+
+  const [onlineStatus, setOnlineStatus] = useState<'offline' | 'checking-location' | 'requesting-permission' | 'getting-location' | 'connecting' | 'online' | 'offlining' | 'error'>(() => (checkIsOnline() ? 'online' : 'offline'));
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const serverOnline = profile?.isOnline ?? false;
-  const isOnline = profile !== undefined ? serverOnline : optimisticOnline;
-  const isBusy = toggleAvailability.isPending;
+  const isOnline = serverOnline;
+  const isBusy = toggleAvailability.isPending || isTransitioning;
+
+  useEffect(() => {
+    const unsubscribe = subscribeToOnlineStatus((state) => {
+      setOnlineStatus(state.status);
+      setStatusError(state.error);
+      setIsTransitioning(state.isTransitioning);
+    });
+    return unsubscribe;
+  }, []);
+
+  const getStatusLabel = (status: typeof onlineStatus): string => {
+    switch (status) {
+      case 'checking-location':
+        return 'Checking location...';
+      case 'requesting-permission':
+        return 'Requesting location permission...';
+      case 'getting-location':
+        return 'Getting current location...';
+      case 'connecting':
+        return 'Connecting...';
+      case 'online':
+        return "You're online";
+      case 'offlining':
+        return 'Going offline...';
+      case 'error':
+        return statusError ?? 'Error';
+      default:
+        return "You're offline";
+    }
+  };
+
+  const getStatusMessage = (status: typeof onlineStatus): string => {
+    switch (status) {
+      case 'checking-location':
+      case 'requesting-permission':
+      case 'getting-location':
+      case 'connecting':
+        return 'Please wait while we set up your availability.';
+      case 'online':
+        return 'Receiving job requests near you.';
+      case 'offlining':
+        return 'Stopping job requests...';
+      case 'error':
+        return statusError ?? 'Something went wrong. Tap to try again.';
+      default:
+        return 'Go online to start receiving job requests.';
+    }
+  };
+
+  const getStatusColor = (status: typeof onlineStatus): string => {
+    switch (status) {
+      case 'online':
+        return color.success;
+      case 'error':
+        return color.danger;
+      case 'checking-location':
+      case 'requesting-permission':
+      case 'getting-location':
+      case 'connecting':
+      case 'offlining':
+        return color.warning;
+      default:
+        return color['text-secondary'];
+    }
+  };
 
   const { run } = useSubmitGuard(async () => {
+    if (isTransitioning) return;
+
     const next = !isOnline;
-    setOnline(next);
+    setIsTransitioning(true);
+    setStatusError(null);
+
     try {
-      // Going online in earnest needs live coordinates — matching is the whole
-      // point. The permission is requested here with the system prompt
-      // explaining why (CLAUDE.md "Location").
-      let patch: AvailabilityPatchInput = { isOnline: next };
+      let result: { success: boolean; error?: string };
       if (next) {
-        patch = { isOnline: next, coordinates: await readCurrentLocation() };
+        result = await goOnline(sessionRef?.access_token ?? '');
+      } else {
+        result = await goOffline(sessionRef?.access_token ?? '');
       }
-      await toggleAvailability.mutateAsync(patch);
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (!result.success) {
+        Alert.alert(next ? "Can't go online" : "Can't go offline", result.error ?? 'Something went wrong. Please try again.');
+      }
     } catch (error) {
-      setOnline(!next);
-      Alert.alert(
-        next ? "Can't go online" : "Can't go offline",
-        error instanceof Error ? error.message : 'Something went wrong. Please try again.',
-      );
+      Alert.alert(next ? "Can't go online" : "Can't go offline", error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+    } finally {
+      setIsTransitioning(false);
     }
   });
 
@@ -63,18 +132,21 @@ function AvailabilityCard() {
             variant="titleLg"
             className={isOnline ? 'mt-1 text-text-inverse' : 'mt-1 text-text-primary'}
           >
-            {isOnline ? "You're online" : "You're offline"}
+            {getStatusLabel(onlineStatus)}
           </Text>
-          <Text variant="footnote" className="mt-1">
-            {isOnline
-              ? 'Receiving job requests near you.'
-              : 'Go online to start receiving job requests.'}
+          <Text variant="footnote" className="mt-1" style={{ color: getStatusColor(onlineStatus) }}>
+            {getStatusMessage(onlineStatus)}
           </Text>
+          {statusError && onlineStatus !== 'error' && (
+            <Text variant="caption" className="mt-1" style={{ color: color.danger }}>
+              {statusError}
+            </Text>
+          )}
         </View>
 
         {isBusy ? (
           <View className="h-14 w-14 items-center justify-center">
-            <ActivityIndicator color={isOnline ? color['text-inverse'] : color.brand} />
+            <ActivityIndicator color={isOnline ? color['text-inverse'] : color.brand} size="large" />
           </View>
         ) : (
           <IconButton
@@ -135,7 +207,7 @@ function AvailableFeed() {
     previousCount.current = count;
   }, [count]);
 
-  const isOnline = useAppStore((state) => state.isOnline);
+  const isOnline = checkIsOnline();
 
   return (
     <View className="mt-8">

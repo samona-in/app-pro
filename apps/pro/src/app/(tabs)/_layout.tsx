@@ -1,11 +1,13 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ColorValue } from 'react-native';
+import { useEffect } from 'react';
 import { LoadingState } from '@/components/feedback';
 import { IncomingJobOverlay } from '@/components/jobs';
 import { Screen } from '@/components/ui';
 import { useJobAlert, useRealtimeSync, useSession } from '@/hooks';
 import { useIncomingJobStore } from '@/stores/incoming-job';
+import { jobNotificationService } from '@/services/job-notifications';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -37,6 +39,14 @@ export default function TabsLayout() {
   const resolution = useIncomingJobStore((state) => state.resolution);
   const resolve = useIncomingJobStore((state) => state.resolve);
   const clear = useIncomingJobStore((state) => state.clear);
+
+  // Handle initial notification that launched the app from a killed state.
+  // This runs once after authentication and onboarding are complete.
+  useEffect(() => {
+    if (isAuthenticated && isOnboardingComplete) {
+      jobNotificationService.handleInitialNotificationIfNeeded();
+    }
+  }, [isAuthenticated, isOnboardingComplete]);
 
   if (isLoading) {
     return (
