@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "in.samona.pro",
+      "newArchEnabled": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "SAMONA Pro uses your location to show you nearby job requests and to share your progress with the customer while you are on a job.",
         "NSPhotoLibraryUsageDescription": "SAMONA Pro needs access to your photos so you can upload your profile picture and job documents.",
@@ -18,6 +19,7 @@
     },
     "android": {
       "package": "in.samona.pro",
+      "newArchEnabled": true,
        "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
