@@ -103,7 +103,7 @@ export function OnboardingStepLayout({
           <Button
             label={primaryLabel}
             size="lg"
-            shape="pill"
+            shape="sm"
             loading={isSaving}
             disabled={primaryDisabled}
             onPress={onPrimary}

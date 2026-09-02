@@ -142,7 +142,7 @@ export default function OnboardingLocation() {
       isSaving={save.isPending}
       error={save.isError ? 'Could not save your location. Please try again.' : null}
     >
-      <View className="overflow-hidden rounded-2xl border border-onboarding-border">
+      <View className="overflow-hidden rounded-[5px] border border-onboarding-border">
         <View className="relative">
           <MapLibreMap
             mapStyle={MAP_STYLE_URL}

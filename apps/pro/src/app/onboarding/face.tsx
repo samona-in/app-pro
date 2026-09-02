@@ -54,7 +54,7 @@ export default function OnboardingFace() {
         primaryLabel="Start face check"
         onPrimary={() => setStage('scan')}
       >
-        <View className="gap-3 rounded-xl border border-onboarding-border bg-onboarding-surface p-4">
+        <View className="gap-3 rounded-[5px] border border-onboarding-border bg-onboarding-surface p-4">
           <Text variant="bodyStrong" className="text-white">
             Before we start
           </Text>

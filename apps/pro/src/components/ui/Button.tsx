@@ -6,7 +6,8 @@ import { cn } from '@/utils/cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'success' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
-export type ButtonShape = 'default' | 'pill';
+/** `sm` = subtle 5px corner (onboarding); `pill` = fully rounded CTA. */
+export type ButtonShape = 'default' | 'pill' | 'sm';
 
 /**
  * Label and spinner colours come straight from tokens rather than Tailwind
@@ -86,7 +87,7 @@ export function Button({
       onPress={handlePress}
       className={cn(
         'flex-row items-center justify-center active:opacity-80',
-        shape === 'pill' ? 'rounded-full' : 'rounded-lg',
+        shape === 'pill' ? 'rounded-full' : shape === 'sm' ? 'rounded-[5px]' : 'rounded-lg',
         styles.container,
         sizing.container,
         fullWidth ? 'w-full' : 'self-start',

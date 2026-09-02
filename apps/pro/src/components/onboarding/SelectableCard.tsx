@@ -32,7 +32,7 @@ export function SelectableCard({
       accessibilityLabel={label}
       onPress={onToggle}
       className={cn(
-        'min-h-[56px] flex-row items-center rounded-xl border px-4 py-3 active:opacity-70',
+        'min-h-[56px] flex-row items-center rounded-[5px] border px-4 py-3 active:opacity-70',
         selected
           ? 'border-brand bg-brand'
           : 'border-onboarding-border bg-onboarding-surface',

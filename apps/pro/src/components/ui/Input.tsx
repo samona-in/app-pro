@@ -42,7 +42,7 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
         placeholderTextColor={dark ? 'rgba(255,255,255,0.35)' : color['text-muted']}
         accessibilityLabel={label}
         className={cn(
-          'min-h-[52px] w-full rounded-xl border px-4 text-body',
+          'min-h-[52px] w-full rounded-[5px] border px-4 text-body',
           dark ? 'border-onboarding-border bg-onboarding-surface text-white' : 'border-border bg-surface text-text-primary',
           hasError && dark ? 'border-danger' : hasError ? 'border-danger' : dark ? 'border-onboarding-border' : 'border-border',
           !editable && (dark ? 'opacity-60' : 'bg-surface-muted text-text-secondary'),
