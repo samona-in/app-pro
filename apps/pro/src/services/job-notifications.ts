@@ -19,7 +19,7 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail
   JobStatus.EXPIRED,
 ]);
 
-const JOB_ALERT_TIMEOUT_MS = 45_000;
+const JOB_ALERT_TIMEOUT_MS = 60_000;
 
 interface PendingJobEvent {
   jobId: string;
