@@ -75,12 +75,6 @@ const colors = {
   'brand-contrast': palette.white,
   'brand-soft': palette.blue[50],
 
-  // Onboarding — dark, minimal black/blue/white treatment inspired by
-  // Bumble and Rapido onboarding flows.
-  'onboarding-bg': palette.ink[950],
-  'onboarding-surface': palette.ink[900],
-  'onboarding-border': palette.ink[800],
-
   // Status — used by availability, job states and feedback components.
   success: palette.green[600],
   'success-surface': palette.green[50],

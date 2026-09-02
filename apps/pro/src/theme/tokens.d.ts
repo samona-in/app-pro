@@ -54,10 +54,6 @@ export interface ColorTokens {
   'brand-contrast': string;
   'brand-soft': string;
 
-  'onboarding-bg': string;
-  'onboarding-surface': string;
-  'onboarding-border': string;
-
   success: string;
   'success-surface': string;
   warning: string;

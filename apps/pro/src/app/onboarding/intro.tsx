@@ -23,17 +23,17 @@ export default function OnboardingIntro() {
       <View className="gap-6 pt-2">
         {PROMISES.map((item) => (
           <View key={item.text} className="flex-row items-center">
-            <View className="h-11 w-11 items-center justify-center rounded-full bg-onboarding-surface">
+            <View className="h-11 w-11 items-center justify-center rounded-full bg-brand-soft">
               <Ionicons name={item.icon} size={20} color={color.brand} />
             </View>
-            <Text variant="body" className="ml-4 flex-1 text-white/80">
+            <Text variant="body" className="ml-4 flex-1 text-text-primary">
               {item.text}
             </Text>
           </View>
         ))}
       </View>
 
-      <Text variant="caption" className="mt-10 text-white/40">
+      <Text variant="caption" className="mt-10 text-text-muted">
         Takes about two minutes. You can stop and pick up where you left off.
       </Text>
     </OnboardingStepLayout>

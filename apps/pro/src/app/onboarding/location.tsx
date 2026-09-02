@@ -142,7 +142,7 @@ export default function OnboardingLocation() {
       isSaving={save.isPending}
       error={save.isError ? 'Could not save your location. Please try again.' : null}
     >
-      <View className="overflow-hidden rounded-[5px] border border-onboarding-border">
+      <View className="overflow-hidden rounded-[5px] border border-border">
         <View className="relative">
           <MapLibreMap
             mapStyle={MAP_STYLE_URL}
@@ -160,7 +160,7 @@ export default function OnboardingLocation() {
           </MapLibreMap>
           <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
             <View
-              className="h-5 w-5 rounded-full border-[3px] border-white bg-brand"
+              className="h-5 w-5 rounded-full border-[3px] border-surface bg-brand"
               style={{
                 shadowColor: '#000',
                 shadowOpacity: 0.3,
@@ -172,11 +172,11 @@ export default function OnboardingLocation() {
           </View>
         </View>
 
-        <View className="border-t border-onboarding-border bg-onboarding-surface px-4 py-3">
-          <Text variant="footnote" className="text-white/60">
+        <View className="border-t border-border bg-background px-4 py-3">
+          <Text variant="footnote" className="text-text-secondary">
             Service area
           </Text>
-          <Text variant="body" className="mt-0.5 text-white/90" numberOfLines={2}>
+          <Text variant="body" className="mt-0.5 text-text-primary" numberOfLines={2}>
             {phase === 'moving'
               ? 'Release to set this spot'
               : phase === 'resolving'

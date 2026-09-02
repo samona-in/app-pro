@@ -14,9 +14,8 @@ export interface SelectableCardProps {
 }
 
 /**
- * One selectable option on the dark onboarding surface. Defaults to a muted
- * pill; selecting it fills with SAMONA blue and lifts the text to white — the
- * minimal black/blue/white treatment across the onboarding flow.
+ * One selectable option on the light onboarding surface. Defaults to a muted
+ * border card; selecting fills it with SAMONA blue with white text.
  */
 export function SelectableCard({
   label,
@@ -33,9 +32,7 @@ export function SelectableCard({
       onPress={onToggle}
       className={cn(
         'min-h-[56px] flex-row items-center rounded-[5px] border px-4 py-3 active:opacity-70',
-        selected
-          ? 'border-brand bg-brand'
-          : 'border-onboarding-border bg-onboarding-surface',
+        selected ? 'border-brand bg-brand' : 'border-border bg-surface',
       )}
     >
       {icon ? (
@@ -48,11 +45,7 @@ export function SelectableCard({
 
       <Text
         variant={selected ? 'bodyStrong' : 'body'}
-        className={cn(
-          'flex-1',
-          icon && 'ml-3',
-          selected ? 'text-white' : 'text-white/80',
-        )}
+        className={cn('flex-1', icon && 'ml-3', selected && 'text-white')}
       >
         {label}
       </Text>
@@ -61,9 +54,7 @@ export function SelectableCard({
         className={cn(
           'ml-3 h-5 w-5 items-center justify-center border',
           single ? 'rounded-full' : 'rounded',
-          selected
-            ? 'border-brand-contrast'
-            : 'border-onboarding-border',
+          selected ? 'border-brand-contrast' : 'border-border-strong',
         )}
       >
         {selected ? <Ionicons name="checkmark" size={14} color={color['brand-contrast']} /> : null}

@@ -33,7 +33,7 @@ export default function OnboardingLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: color['onboarding-bg'] },
+        contentStyle: { backgroundColor: color.surface },
       }}
     />
   );

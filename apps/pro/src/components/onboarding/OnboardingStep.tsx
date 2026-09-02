@@ -8,9 +8,7 @@ import { cn } from '@/utils/cn';
 
 /**
  * Progress bar. Steps are equal width, so position reads at a glance.
- *
- * Bumble-style: a thin rail with a blue fill for the progress so far, on the
- * dark onboarding surface.
+ * Blue fill on a light rail, pinned to the top of every step.
  */
 function StepProgress({ step }: { step: StepName }) {
   const index = ONBOARDING_STEPS.indexOf(step);
@@ -24,10 +22,7 @@ function StepProgress({ step }: { step: StepName }) {
       {ONBOARDING_STEPS.map((name, i) => (
         <View
           key={name}
-          className={cn(
-            'h-[3px] flex-1 rounded-full',
-            i <= index ? 'bg-brand' : 'bg-onboarding-border',
-          )}
+          className={cn('h-[3px] flex-1 rounded-full', i <= index ? 'bg-brand' : 'bg-border')}
         />
       ))}
     </View>
@@ -49,12 +44,12 @@ export interface OnboardingStepProps {
 }
 
 /**
- * Shared layout for every onboarding step.
+ * Shared layout for every onboarding step — light mode.
  *
- * Dark, minimal black/blue/white treatment inspired by Bumble and Rapido: a
- * bold white headline with lots of breathing room, an optional subtitle in
- * muted white, a single full-width pill CTA in SAMONA blue, and the thin
- * progress rail pinned to the top. Each screen only declares its own question.
+ * Clean white surface, a bold near-black headline with lots of breathing
+ * room, an optional muted subtitle, and a single full-width CTA in SAMONA
+ * blue with a subtle 5px corner. The thin blue progress rail sits on top.
+ * Each screen only declares its own question.
  */
 export function OnboardingStepLayout({
   step,
@@ -71,7 +66,7 @@ export function OnboardingStepLayout({
   return (
     <SafeAreaView
       edges={['top', 'bottom']}
-      style={{ backgroundColor: color['onboarding-bg'] }}
+      style={{ backgroundColor: color.surface }}
       className="flex-1"
     >
       <ScrollView
@@ -82,11 +77,11 @@ export function OnboardingStepLayout({
         <StepProgress step={step} />
 
         <View className="flex-1 pt-10">
-          <Text variant="titleLg" className="font-bold text-white">
+          <Text variant="titleLg" className="font-bold text-text-primary">
             {title}
           </Text>
           {subtitle ? (
-            <Text variant="body" className="mt-2 text-white/60">
+            <Text variant="body" className="mt-2 text-text-secondary">
               {subtitle}
             </Text>
           ) : null}
@@ -96,7 +91,7 @@ export function OnboardingStepLayout({
 
         <View className="gap-3 pb-4 pt-8">
           {error ? (
-            <Text variant="footnote" className="text-center text-red-400">
+            <Text variant="footnote" className="text-center text-danger">
               {error}
             </Text>
           ) : null}

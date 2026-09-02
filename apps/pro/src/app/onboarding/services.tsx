@@ -41,7 +41,7 @@ export default function OnboardingServices() {
       primaryDisabled={selected.length === 0}
       error={save.isError ? 'Could not save your services. Please try again.' : null}
       footer={
-        <Text variant="caption" className="text-center text-white/50">
+        <Text variant="caption" className="text-center text-text-muted">
           {selected.length} selected
         </Text>
       }
