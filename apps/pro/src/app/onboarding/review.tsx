@@ -18,7 +18,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       <Text variant="body" className="mr-4 text-text-secondary">
         {label}
       </Text>
-      <Text variant="bodyStrong" className="flex-1 text-right">
+      <Text variant="bodyStrong" className="flex-1 text-right text-text-primary">
         {value}
       </Text>
     </View>
@@ -81,7 +81,7 @@ export default function OnboardingReview() {
         <Avatar name={profile.displayName ?? 'SAMONA Pro'} size="lg" uri={profile.selfiePhotoUrl} />
         <View className="ml-4 flex-1">
           <Text variant="title">{profile.displayName ?? 'Your name'}</Text>
-          <Text variant="footnote" className="mt-0.5">
+          <Text variant="footnote" className="mt-0.5 text-text-secondary">
             {summary.experience}
           </Text>
           <Badge
@@ -113,7 +113,7 @@ export default function OnboardingReview() {
         </Card>
       ) : null}
 
-      <Text variant="caption" className="mt-4">
+      <Text variant="caption" className="mt-4 text-text-muted">
         Documents, payout details and certifications can be added later from your profile.
       </Text>
     </OnboardingStepLayout>

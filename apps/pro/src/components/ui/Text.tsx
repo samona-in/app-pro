@@ -22,7 +22,12 @@ const COLOR_UTILITIES = new Set(
 );
 
 function hasColorOverride(className: string | undefined): boolean {
-  return className !== undefined && className.split(/\s+/).some((cls) => COLOR_UTILITIES.has(cls));
+  if (className === undefined) return false;
+  return className.split(/\s+/).some((cls) => {
+    // Support opacity modifier forms like `text-white/60`.
+    const base = cls.replace(/\/[0-9]+$/, '');
+    return COLOR_UTILITIES.has(cls) || COLOR_UTILITIES.has(base);
+  });
 }
 
 /**

@@ -13,7 +13,10 @@ export interface SelectableCardProps {
   single?: boolean;
 }
 
-/** One selectable option. Used for services, specialties and experience. */
+/**
+ * One selectable option on the light onboarding surface. Defaults to a muted
+ * border card; selecting fills it with SAMONA blue with white text.
+ */
 export function SelectableCard({
   label,
   selected,
@@ -28,15 +31,22 @@ export function SelectableCard({
       accessibilityLabel={label}
       onPress={onToggle}
       className={cn(
-        'min-h-[56px] flex-row items-center rounded-lg border px-4 py-3 active:opacity-70',
-        selected ? 'border-brand bg-surface-muted' : 'border-border bg-surface',
+        'min-h-[56px] flex-row items-center rounded-[5px] border px-4 py-3 active:opacity-70',
+        selected ? 'border-brand bg-brand' : 'border-border bg-surface',
       )}
     >
       {icon ? (
-        <Ionicons name={icon} size={20} color={selected ? color.brand : color['text-secondary']} />
+        <Ionicons
+          name={icon}
+          size={20}
+          color={selected ? color['brand-contrast'] : color['text-secondary']}
+        />
       ) : null}
 
-      <Text variant={selected ? 'bodyStrong' : 'body'} className={cn('flex-1', icon && 'ml-3')}>
+      <Text
+        variant={selected ? 'bodyStrong' : 'body'}
+        className={cn('flex-1', icon && 'ml-3', selected && 'text-white')}
+      >
         {label}
       </Text>
 
@@ -44,7 +54,7 @@ export function SelectableCard({
         className={cn(
           'ml-3 h-5 w-5 items-center justify-center border',
           single ? 'rounded-full' : 'rounded',
-          selected ? 'border-brand bg-brand' : 'border-border-strong',
+          selected ? 'border-brand-contrast' : 'border-border-strong',
         )}
       >
         {selected ? <Ionicons name="checkmark" size={14} color={color['brand-contrast']} /> : null}

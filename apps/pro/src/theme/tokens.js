@@ -29,7 +29,18 @@ const palette = {
   green: { 50: '#ECFDF5', 100: '#D1FAE5', 500: '#10B981', 600: '#059669', 700: '#047857' },
   amber: { 50: '#FFFBEB', 100: '#FEF3C7', 500: '#F59E0B', 600: '#D97706', 700: '#B45309' },
   red: { 50: '#FEF2F2', 100: '#FEE2E2', 500: '#EF4444', 600: '#DC2626', 700: '#B91C1C' },
-  blue: { 50: '#EFF6FF', 100: '#DBEAFE', 500: '#3B82F6', 600: '#2563EB', 700: '#1D4ED8' },
+  blue: {
+    50: '#EAF0FC',
+    100: '#D6E1F8',
+    200: '#ADC4F1',
+    300: '#7EA3E8',
+    400: '#4D7DDD',
+    500: '#1D57D0',
+    600: '#054DFF',
+    700: '#053FCC',
+    800: '#043399',
+    900: '#032766',
+  },
   white: '#FFFFFF',
   black: '#000000',
   transparent: 'transparent',
@@ -58,10 +69,11 @@ const colors = {
   border: palette.ink[200],
   'border-strong': palette.ink[300],
 
-  // Brand (temporary neutral treatment)
-  brand: palette.ink[900],
-  'brand-muted': palette.ink[700],
+  // Brand (SAMONA blue — the primary action colour).
+  brand: palette.blue[600],
+  'brand-muted': palette.blue[700],
   'brand-contrast': palette.white,
+  'brand-soft': palette.blue[50],
 
   // Status — used by availability, job states and feedback components.
   success: palette.green[600],

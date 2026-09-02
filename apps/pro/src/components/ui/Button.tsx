@@ -6,6 +6,8 @@ import { cn } from '@/utils/cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'success' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
+/** `sm` = subtle 5px corner (onboarding); `pill` = fully rounded CTA. */
+export type ButtonShape = 'default' | 'pill' | 'sm';
 
 /**
  * Label and spinner colours come straight from tokens rather than Tailwind
@@ -36,6 +38,8 @@ export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> 
   label: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
+  /** `pill` renders the fully-rounded CTA used across onboarding. */
+  shape?: ButtonShape;
   loading?: boolean;
   fullWidth?: boolean;
   /** Rendered before the label — typically an icon. */
@@ -52,6 +56,7 @@ export function Button({
   label,
   variant = 'primary',
   size = 'md',
+  shape = 'default',
   loading = false,
   fullWidth = true,
   leading,
@@ -81,7 +86,8 @@ export function Button({
       disabled={isDisabled}
       onPress={handlePress}
       className={cn(
-        'flex-row items-center justify-center rounded-lg active:opacity-80',
+        'flex-row items-center justify-center active:opacity-80',
+        shape === 'pill' ? 'rounded-full' : shape === 'sm' ? 'rounded-[5px]' : 'rounded-lg',
         styles.container,
         sizing.container,
         fullWidth ? 'w-full' : 'self-start',

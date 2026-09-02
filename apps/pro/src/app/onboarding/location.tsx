@@ -142,7 +142,7 @@ export default function OnboardingLocation() {
       isSaving={save.isPending}
       error={save.isError ? 'Could not save your location. Please try again.' : null}
     >
-      <View className="overflow-hidden rounded-2xl border border-border">
+      <View className="overflow-hidden rounded-[5px] border border-border">
         <View className="relative">
           <MapLibreMap
             mapStyle={MAP_STYLE_URL}
@@ -176,7 +176,7 @@ export default function OnboardingLocation() {
           <Text variant="footnote" className="text-text-secondary">
             Service area
           </Text>
-          <Text variant="body" className="mt-0.5" numberOfLines={2}>
+          <Text variant="body" className="mt-0.5 text-text-primary" numberOfLines={2}>
             {phase === 'moving'
               ? 'Release to set this spot'
               : phase === 'resolving'

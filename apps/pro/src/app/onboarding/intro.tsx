@@ -1,14 +1,15 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { Wordmark } from '@/components/brand/Wordmark';
+import { Ionicons } from '@expo/vector-icons';
 import { OnboardingStepLayout } from '@/components/onboarding';
 import { Text } from '@/components/ui';
+import { color } from '@/theme';
 
 const PROMISES = [
-  'Choose the work you want',
-  'Set where and how far you travel',
-  'Get paid for every completed job',
-];
+  { icon: 'briefcase-outline', text: 'Choose the work you want' },
+  { icon: 'map-outline', text: 'Set where and how far you travel' },
+  { icon: 'wallet-outline', text: 'Get paid for every completed job' },
+] as const;
 
 export default function OnboardingIntro() {
   return (
@@ -19,20 +20,20 @@ export default function OnboardingIntro() {
       primaryLabel="Get started"
       onPrimary={() => router.push('/onboarding/name')}
     >
-      <Wordmark size="sm" />
-
-      <View className="mt-8 gap-4">
+      <View className="gap-6 pt-2">
         {PROMISES.map((item) => (
-          <View key={item} className="flex-row items-start">
-            <View className="mr-3 mt-2 h-1.5 w-1.5 rounded-full bg-brand" />
-            <Text variant="body" className="flex-1 text-text-secondary">
-              {item}
+          <View key={item.text} className="flex-row items-center">
+            <View className="h-11 w-11 items-center justify-center rounded-full bg-brand-soft">
+              <Ionicons name={item.icon} size={20} color={color.brand} />
+            </View>
+            <Text variant="body" className="ml-4 flex-1 text-text-primary">
+              {item.text}
             </Text>
           </View>
         ))}
       </View>
 
-      <Text variant="caption" className="mt-8">
+      <Text variant="caption" className="mt-10 text-text-muted">
         Takes about two minutes. You can stop and pick up where you left off.
       </Text>
     </OnboardingStepLayout>
