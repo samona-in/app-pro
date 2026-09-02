@@ -6,22 +6,18 @@ import type { JobDetail } from '@samona/types';
 import { env } from '@/env';
 import { jobNotificationService } from './job-notifications';
 import { api } from './api';
+import {
+  type OnlineStatus,
+  type OnlineStatusState,
+  setStatus as setStatusState,
+  getIsTransitioning,
+  setIsTransitioning,
+  getOnlineStatus as getStatusState,
+} from './online-status-state';
 
-export type OnlineStatus = 'offline' | 'checking-location' | 'requesting-permission' | 'getting-location' | 'connecting' | 'online' | 'offlining' | 'error';
+export type { OnlineStatus, OnlineStatusState };
+export { subscribeToOnlineStatus } from './online-status-state';
 
-export interface OnlineStatusState {
-  status: OnlineStatus;
-  error: string | null;
-  isTransitioning: boolean;
-}
-
-type OnlineStatusListener = (state: OnlineStatusState) => void;
-
-const listeners = new Set<OnlineStatusListener>();
-
-let currentStatus: OnlineStatus = 'offline';
-let currentError: string | null = null;
-let isTransitioning = false;
 let abortController: AbortController | null = null;
 
 let socket: Socket | null = null;
@@ -29,31 +25,8 @@ let _socketReconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY_MS = 2000;
 
-function notifyListeners(): void {
-  listeners.forEach((listener) => {
-    listener({
-      status: currentStatus,
-      error: currentError,
-      isTransitioning,
-    });
-  });
-}
-
 function setStatus(status: OnlineStatus, error: string | null = null): void {
-  currentStatus = status;
-  currentError = error;
-  isTransitioning = status !== 'offline' && status !== 'online' && status !== 'error';
-  notifyListeners();
-}
-
-export function subscribeToOnlineStatus(listener: OnlineStatusListener): () => void {
-  listeners.add(listener);
-  listener({ status: currentStatus, error: currentError, isTransitioning });
-  return () => listeners.delete(listener);
-}
-
-export function getOnlineStatus(): OnlineStatusState {
-  return { status: currentStatus, error: currentError, isTransitioning };
+  setStatusState(status, error);
 }
 
 async function checkLocationServicesEnabled(): Promise<boolean> {
@@ -162,11 +135,8 @@ async function syncPendingJobs(): Promise<void> {
 }
 
 export async function goOnline(token: string): Promise<{ success: boolean; error?: string }> {
-  if (isTransitioning) {
+  if (getIsTransitioning()) {
     return { success: false, error: 'Already transitioning' };
-  }
-  if (currentStatus === 'online') {
-    return { success: true };
   }
 
   abortController = new AbortController();
@@ -178,7 +148,7 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
     const hasServices = await checkLocationServicesEnabled();
     if (!hasServices) {
       setStatus('error', 'Location services are turned off. Please enable location services to go online and receive jobs.');
-      return { success: false, error: currentError ?? undefined };
+      return { success: false, error: undefined };
     }
 
     if (abortController.signal.aborted) throw new Error('Aborted');
@@ -187,7 +157,7 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
       setStatus('error', 'Location permission is needed to go online and match with jobs near you.');
-      return { success: false, error: currentError ?? undefined };
+      return { success: false, error: undefined };
     }
 
     if (abortController.signal.aborted) throw new Error('Aborted');
@@ -220,11 +190,8 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
 }
 
 export async function goOffline(_token: string): Promise<{ success: boolean; error?: string }> {
-  if (isTransitioning && currentStatus !== 'online') {
+  if (getIsTransitioning()) {
     return { success: false, error: 'Already transitioning' };
-  }
-  if (currentStatus === 'offline') {
-    return { success: true };
   }
 
   abortController = new AbortController();
@@ -253,21 +220,16 @@ export function cancelTransition(): void {
     abortController.abort();
     abortController = null;
   }
-  isTransitioning = false;
-  if (currentStatus === 'offlining') {
+  const status = getStatusState().status;
+  if (status === 'offlining') {
     setStatus('online');
-  } else if (currentStatus !== 'online' && currentStatus !== 'offline') {
+  } else if (status !== 'online' && status !== 'offline') {
     setStatus('offline');
   }
+  setIsTransitioning(false);
 }
 
-export function isOnline(): boolean {
-  return currentStatus === 'online';
-}
-
-export function isOffline(): boolean {
-  return currentStatus === 'offline';
-}
+export { isOnline, isOffline, getOnlineStatus } from './online-status-state';
 
 export function getSocket(): Socket | null {
   return socket;

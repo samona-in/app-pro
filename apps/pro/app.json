@@ -18,6 +18,7 @@
     },
     "android": {
       "package": "in.samona.pro",
+       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -65,7 +66,8 @@
           "icon": "./assets/images/android-icon-monochrome.png",
           "color": "#0F172A",
           "defaultChannel": "job-alerts",
-          "enableBackgroundRemoteNotifications": true
+          "enableBackgroundRemoteNotifications": true,
+          "sounds": ["./assets/audio/job_alert.wav"]
         }
       ],
       "expo-secure-store"
