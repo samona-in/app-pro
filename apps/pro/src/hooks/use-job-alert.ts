@@ -13,7 +13,7 @@ import {
  * owns the "you missed it" timer as a safety net; accepting or a `job:status`
  * event resolves earlier when the server reports it.
  */
-export const JOB_ALERT_TIMEOUT_MS = 45_000;
+export const JOB_ALERT_TIMEOUT_MS = 60_000;
 
 /**
  * Bridges incoming-job events (socket + push) to the alarm audio and overlay.
