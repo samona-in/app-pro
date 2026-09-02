@@ -17,7 +17,7 @@ import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-aud
 // A statically-bundled alarm asset. `require()` is Metro's asset import
 // mechanism — the standard Expo way to ship a non-JS resource with the bundle.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const ALERT_AUDIO = require('@/assets/audio/job-alert.wav');
+const ALERT_AUDIO = require('../../assets/audio/job_alert.wav');
 
 let player: AudioPlayer | null = null;
 let playing = false;

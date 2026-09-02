@@ -52,7 +52,7 @@ async function ensureChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(JOB_ALERT_CHANNEL, {
     name: 'Job alerts',
     importance: Notifications.AndroidImportance.MAX,
-    sound: 'default',
+    sound: 'job_alert',
     vibrationPattern: [0, 250, 250, 250],
     enableVibrate: true,
     // Bypass "do not disturb" so a sleeping pro still hears the alert.

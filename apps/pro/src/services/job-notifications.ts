@@ -5,7 +5,7 @@ import { subscribe } from '@/services/realtime';
 import { startJobAlert, stopJobAlert } from '@/services/job-alert';
 import { api } from './api';
 import { useIncomingJobStore, type IncomingJobResolution } from '@/stores/incoming-job';
-import { isOnline, subscribeToOnlineStatus } from './online-status';
+import { isOnline, subscribeToOnlineStatus } from './online-status-state';
 
 const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail['status']>([
   JobStatus.ACCEPTED,
