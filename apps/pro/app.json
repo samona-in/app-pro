@@ -4,12 +4,13 @@
     "slug": "samona-pro",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/Samona.png",
     "scheme": "samonapro",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "in.samona.pro",
+      "newArchEnabled": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "SAMONA Pro uses your location to show you nearby job requests and to share your progress with the customer while you are on a job.",
         "NSPhotoLibraryUsageDescription": "SAMONA Pro needs access to your photos so you can upload your profile picture and job documents.",
@@ -18,12 +19,13 @@
     },
     "android": {
       "package": "in.samona.pro",
+      "newArchEnabled": true,
        "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "foregroundImage": "./assets/images/Samona.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "monochromeImage": "./assets/images/Samona.png"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -35,7 +37,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/Samona.png"
     },
     "plugins": [
       "expo-router",
@@ -43,7 +45,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#0F172A",
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/Samona.png",
           "imageWidth": 76
         }
       ],
@@ -63,7 +65,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/android-icon-monochrome.png",
+          "icon": "./assets/images/Samona.png",
           "color": "#0F172A",
           "defaultChannel": "job-alerts",
           "enableBackgroundRemoteNotifications": true,
