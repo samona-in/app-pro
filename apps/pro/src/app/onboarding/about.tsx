@@ -39,6 +39,7 @@ export default function OnboardingAbout() {
     >
       <Input
         label="About you"
+        dark
         value={bio}
         onChangeText={setBio}
         placeholder="e.g. 8 years repairing split and window ACs across Hyderabad."
@@ -50,7 +51,7 @@ export default function OnboardingAbout() {
         hint={`${bio.length}/600`}
       />
 
-      <Text variant="label" className="mt-8">
+      <Text variant="label" className="mt-8 text-white/70">
         Languages you speak
       </Text>
       <View className="mt-3 gap-3">

@@ -1,10 +1,17 @@
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ONBOARDING_STEPS, type OnboardingStep as StepName } from '@samona/types';
-import { Button, Screen, Text } from '@/components/ui';
+import { Button, Text } from '@/components/ui';
+import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 
-/** Progress bar. Steps are equal width, so position reads at a glance. */
+/**
+ * Progress bar. Steps are equal width, so position reads at a glance.
+ *
+ * Bumble-style: a thin rail with a blue fill for the progress so far, on the
+ * dark onboarding surface.
+ */
 function StepProgress({ step }: { step: StepName }) {
   const index = ONBOARDING_STEPS.indexOf(step);
 
@@ -12,12 +19,15 @@ function StepProgress({ step }: { step: StepName }) {
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 1, max: ONBOARDING_STEPS.length, now: index + 1 }}
-      className="mt-2 flex-row gap-1"
+      className="mt-1 flex-row gap-1"
     >
       {ONBOARDING_STEPS.map((name, i) => (
         <View
           key={name}
-          className={cn('h-1 flex-1 rounded-full', i <= index ? 'bg-brand' : 'bg-border')}
+          className={cn(
+            'h-[3px] flex-1 rounded-full',
+            i <= index ? 'bg-brand' : 'bg-onboarding-border',
+          )}
         />
       ))}
     </View>
@@ -41,8 +51,10 @@ export interface OnboardingStepProps {
 /**
  * Shared layout for every onboarding step.
  *
- * Keeps the progress bar, spacing, scroll behaviour and the primary action
- * identical across steps, so each screen only declares its own question.
+ * Dark, minimal black/blue/white treatment inspired by Bumble and Rapido: a
+ * bold white headline with lots of breathing room, an optional subtitle in
+ * muted white, a single full-width pill CTA in SAMONA blue, and the thin
+ * progress rail pinned to the top. Each screen only declares its own question.
  */
 export function OnboardingStepLayout({
   step,
@@ -57,35 +69,48 @@ export function OnboardingStepLayout({
   footer,
 }: OnboardingStepProps) {
   return (
-    <Screen edges={['top', 'bottom']} scrollable className="bg-surface">
-      <StepProgress step={step} />
+    <SafeAreaView
+      edges={['top', 'bottom']}
+      style={{ backgroundColor: color['onboarding-bg'] }}
+      className="flex-1"
+    >
+      <ScrollView
+        contentContainerClassName="grow px-5 pb-8 pt-1"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <StepProgress step={step} />
 
-      <View className="flex-1 pt-8">
-        <Text variant="titleLg">{title}</Text>
-        {subtitle ? (
-          <Text variant="body" className="mt-2 text-text-secondary">
-            {subtitle}
+        <View className="flex-1 pt-10">
+          <Text variant="titleLg" className="font-bold text-white">
+            {title}
           </Text>
-        ) : null}
+          {subtitle ? (
+            <Text variant="body" className="mt-2 text-white/60">
+              {subtitle}
+            </Text>
+          ) : null}
 
-        <View className="mt-8">{children}</View>
-      </View>
+          <View className="mt-10">{children}</View>
+        </View>
 
-      <View className="gap-3 pb-4 pt-6">
-        {error ? (
-          <Text variant="footnote" className="text-center text-danger">
-            {error}
-          </Text>
-        ) : null}
-        <Button
-          label={primaryLabel}
-          size="lg"
-          loading={isSaving}
-          disabled={primaryDisabled}
-          onPress={onPrimary}
-        />
-        {footer}
-      </View>
-    </Screen>
+        <View className="gap-3 pb-4 pt-8">
+          {error ? (
+            <Text variant="footnote" className="text-center text-red-400">
+              {error}
+            </Text>
+          ) : null}
+          <Button
+            label={primaryLabel}
+            size="lg"
+            shape="pill"
+            loading={isSaving}
+            disabled={primaryDisabled}
+            onPress={onPrimary}
+          />
+          {footer}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

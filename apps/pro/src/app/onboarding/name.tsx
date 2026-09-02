@@ -36,6 +36,7 @@ export default function OnboardingName() {
     >
       <Input
         label="Full name"
+        dark
         value={name}
         onChangeText={setName}
         placeholder="e.g. Asha Kumar"

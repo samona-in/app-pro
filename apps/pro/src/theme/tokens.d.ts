@@ -8,6 +8,15 @@ export interface ColorScale {
   700: string;
 }
 
+/** The brand blue scale is richer (adds 200/300/400/800/900). */
+export interface BlueScale extends ColorScale {
+  200: string;
+  300: string;
+  400: string;
+  800: string;
+  900: string;
+}
+
 export interface InkScale extends ColorScale {
   200: string;
   300: string;
@@ -22,7 +31,7 @@ export interface ColorTokens {
   green: ColorScale;
   amber: ColorScale;
   red: ColorScale;
-  blue: ColorScale;
+  blue: BlueScale;
   white: string;
   black: string;
   transparent: string;
@@ -43,6 +52,11 @@ export interface ColorTokens {
   brand: string;
   'brand-muted': string;
   'brand-contrast': string;
+  'brand-soft': string;
+
+  'onboarding-bg': string;
+  'onboarding-surface': string;
+  'onboarding-border': string;
 
   success: string;
   'success-surface': string;

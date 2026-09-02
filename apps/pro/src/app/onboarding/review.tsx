@@ -15,10 +15,10 @@ import { useCatalogue, useProProfile, useSession } from '@/hooks';
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row items-start justify-between px-4 py-3">
-      <Text variant="body" className="mr-4 text-text-secondary">
+      <Text variant="body" className="mr-4 text-white/60">
         {label}
       </Text>
-      <Text variant="bodyStrong" className="flex-1 text-right">
+      <Text variant="bodyStrong" className="flex-1 text-right text-white">
         {value}
       </Text>
     </View>
@@ -77,11 +77,13 @@ export default function OnboardingReview() {
       primaryLabel={complete ? 'Go to dashboard' : 'Finish remaining steps'}
       onPrimary={() => void onFinish()}
     >
-      <Card className="flex-row items-center">
+      <Card dark className="flex-row items-center">
         <Avatar name={profile.displayName ?? 'SAMONA Pro'} size="lg" uri={profile.selfiePhotoUrl} />
         <View className="ml-4 flex-1">
-          <Text variant="title">{profile.displayName ?? 'Your name'}</Text>
-          <Text variant="footnote" className="mt-0.5">
+          <Text variant="title" className="text-white">
+            {profile.displayName ?? 'Your name'}
+          </Text>
+          <Text variant="footnote" className="mt-0.5 text-white/60">
             {summary.experience}
           </Text>
           <Badge
@@ -92,28 +94,30 @@ export default function OnboardingReview() {
         </View>
       </Card>
 
-      <Card className="mt-4" padded={false}>
+      <Card dark className="mt-4" padded={false}>
         <SummaryRow label="Gender" value={summary.gender} />
-        <Divider />
+        <Divider dark />
         <SummaryRow label="Services" value={summary.services.join(', ') || '—'} />
-        <Divider />
+        <Divider dark />
         <SummaryRow label="Specialties" value={summary.skills.join(', ') || '—'} />
-        <Divider />
+        <Divider dark />
         <SummaryRow label="Travels up to" value={`${profile.serviceRadiusKm} km`} />
-        <Divider />
+        <Divider dark />
         <SummaryRow label="Languages" value={profile.languages.join(', ') || '—'} />
       </Card>
 
       {profile.bio ? (
-        <Card className="mt-4">
-          <Text variant="label">About you</Text>
-          <Text variant="body" className="mt-2 text-text-secondary">
+        <Card dark className="mt-4">
+          <Text variant="label" className="text-white/70">
+            About you
+          </Text>
+          <Text variant="body" className="mt-2 text-white/70">
             {profile.bio}
           </Text>
         </Card>
       ) : null}
 
-      <Text variant="caption" className="mt-4">
+      <Text variant="caption" className="mt-4 text-white/40">
         Documents, payout details and certifications can be added later from your profile.
       </Text>
     </OnboardingStepLayout>

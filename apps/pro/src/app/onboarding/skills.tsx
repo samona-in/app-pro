@@ -48,13 +48,14 @@ export default function OnboardingSkills() {
       primaryDisabled={selected.length === 0}
       error={save.isError ? 'Could not save your specialties. Please try again.' : null}
       footer={
-        <Text variant="caption" className="text-center">
+        <Text variant="caption" className="text-center text-white/50">
           {selected.length} selected
         </Text>
       }
     >
       {grouped.length === 0 ? (
         <EmptyState
+          dark
           title="Choose a service first"
           message="Go back a step and pick the services you provide."
           actionLabel="Back to services"
@@ -64,7 +65,9 @@ export default function OnboardingSkills() {
         <View className="gap-6">
           {grouped.map(({ service, skills }) => (
             <View key={service.id} className="gap-3">
-              <Text variant="label">{service.name}</Text>
+              <Text variant="label" className="text-white/70">
+                {service.name}
+              </Text>
               {skills.map((skill) => (
                 <SelectableCard
                   key={skill.id}
