@@ -42,16 +42,25 @@ async function requestLocationPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
+/** Location error codes where the fix can't be obtained right now. */
+const LOCATION_UNAVAILABLE_CODES = new Set([
+  'ERR_LOCATION_SERVICES_DISABLED',
+  'ERR_LOCATION_UNAVAILABLE',
+]);
+
 async function getValidLocation(): Promise<{ latitude: number; longitude: number }> {
   try {
     const position = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
+      // On Android this surfaces the system "enable location" prompt when the
+      // master toggle is off, instead of just failing.
+      mayShowUserSettingsDialog: true,
     });
     return { latitude: position.coords.latitude, longitude: position.coords.longitude };
   } catch (error) {
     // Surface one clear, actionable reason instead of a raw fatal error.
     const code = (error as { code?: string } | null)?.code;
-    if (code === 'ERR_LOCATION_SERVICES_DISABLED') {
+    if (code && LOCATION_UNAVAILABLE_CODES.has(code)) {
       throw new Error(LOCATION_SERVICES_DISABLED_MESSAGE);
     }
     throw error;
