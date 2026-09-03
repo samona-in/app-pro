@@ -145,19 +145,23 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
   try {
     if (abortController.signal.aborted) throw new Error('Aborted');
 
-    const hasServices = await checkLocationServicesEnabled();
-    if (!hasServices) {
-      const message =
-        'Location services are turned off. Please enable location services to go online and receive jobs.';
+    // Ask for the app's location permission up front — this surfaces the OS
+    // permission dialog directly, which is all we can do from code and the
+    // most common first-time friction. The system-wide Location Services
+    // toggle cannot be flipped by an app, so that's only a terminal fallback.
+    const hasPermission = await requestLocationPermission();
+    if (!hasPermission) {
+      const message = 'Location permission is needed to go online and match with jobs near you.';
       setStatus('offline', message);
       return { success: false, error: message };
     }
 
     if (abortController.signal.aborted) throw new Error('Aborted');
 
-    const hasPermission = await requestLocationPermission();
-    if (!hasPermission) {
-      const message = 'Location permission is needed to go online and match with jobs near you.';
+    const hasServices = await checkLocationServicesEnabled();
+    if (!hasServices) {
+      const message =
+        'Location services are turned off. Please enable location services to go online and receive jobs.';
       setStatus('offline', message);
       return { success: false, error: message };
     }
