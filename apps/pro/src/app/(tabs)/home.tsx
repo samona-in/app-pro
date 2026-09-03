@@ -71,7 +71,7 @@ function AvailabilityCard() {
   const message = isLoading
     ? 'Toggling your availability…'
     : isOnline
-      ? 'Receiving job requests near you. Be ready to accept.'
+      ? ''
       : status.error ?? 'Go online to start receiving job requests.';
 
   const { run } = useSubmitGuard(async () => {
@@ -120,13 +120,15 @@ function AvailabilityCard() {
           >
             {label}
           </Text>
-          <Text
-            variant="footnote"
-            className="mt-1"
-            style={{ color: isLoading ? color.warning : isOnline ? color.success : hasError ? color.danger : color['text-secondary'] }}
-          >
-            {message}
-          </Text>
+          {message ? (
+            <Text
+              variant="footnote"
+              className="mt-1"
+              style={{ color: isLoading ? color.warning : isOnline ? color.success : hasError ? color.danger : color['text-secondary'] }}
+            >
+              {message}
+            </Text>
+          ) : null}
         </View>
 
         {isLoading ? (
