@@ -1,5 +1,6 @@
 import {
   JobStatus,
+  NotificationKind,
   ACTIVE_JOB_STATUSES,
   canTransition,
   type Job,
@@ -12,6 +13,7 @@ import type { StorageService } from '../files/storage.service';
 import type { RealtimeService } from '../realtime/gateway';
 import { REALTIME_EVENTS } from '../realtime/gateway';
 import type { MatchingService } from '../matching/matching.service';
+import type { AppConfig } from '../config';
 import { badRequest, notFound, conflict, forbidden } from '../common/errors';
 import { distanceKm, etaMinutes } from '../common/geo';
 import type { NotificationsService } from '../notifications/notifications.service';
@@ -22,6 +24,7 @@ export interface JobsServiceDeps {
   matching: MatchingService;
   realtime: RealtimeService;
   notifications: NotificationsService;
+  config: AppConfig;
 }
 
 /** The customer scoped folder every job image is minted under. */
@@ -153,7 +156,7 @@ function toJobDetail(
  * JobStatusHistory. REST is the source of truth; realtime only notifies.
  */
 export function createJobsService(deps: JobsServiceDeps) {
-  const { prisma, storage, matching, realtime, notifications } = deps;
+  const { prisma, storage, matching, realtime, notifications, config } = deps;
 
   const findProByUserId = async (userId: string) => {
     const pro = await prisma.proProfile.findUnique({
@@ -725,6 +728,95 @@ export function createJobsService(deps: JobsServiceDeps) {
     return proDetail;
   }
 
+  /**
+   * Catch-up: when a pro comes online, page them for still-open requests they
+   * are eligible for but that were raised while they were offline (Rapido-style
+   * "you missed this" nudge).
+   *
+   * Open requests are REQUESTED jobs with no assigned pro, raised within the
+   * configured recency window. The pro must still be eligible (service, radius,
+   * no conflicting job) and must not already have been alerted for the job (so
+   * we never double-nudge). Dispatches at most `config.jobCatchupLimit` jobs,
+   * nearest first. Fire-and-forget callers should not await this.
+   */
+  async function notifyReadyJobRequests(
+    proUserId: string,
+    coordinates: { latitude: number; longitude: number },
+  ): Promise<void> {
+    const pro = await prisma.proProfile.findUnique({
+      where: { userId: proUserId },
+      select: {
+        id: true,
+        serviceRadiusKm: true,
+      },
+    });
+    if (!pro) return;
+    const proPoint = coordinates;
+
+    const since = new Date(Date.now() - config.jobCatchupWindowMs);
+    const openJobs = await prisma.job.findMany({
+      where: {
+        status: JobStatus.REQUESTED,
+        proId: null,
+        latitude: { not: null },
+        longitude: { not: null },
+        createdAt: { gte: since },
+      },
+      include: jobDetailInclude,
+    });
+
+    if (openJobs.length === 0) return;
+
+    // Drop jobs the pro has already been alerted for, dedupe against the
+    // unique proId_jobId_kind constraint.
+    const alerted = await prisma.notification.findMany({
+      where: {
+        proId: pro.id,
+        kind: NotificationKind.JOB_ALERT,
+        jobId: { in: openJobs.map((j) => j.id) },
+      },
+      select: { jobId: true },
+    });
+    const alertedIds = new Set(alerted.map((n) => n.jobId));
+
+    const candidates = openJobs
+      .filter((job) => !alertedIds.has(job.id))
+      .map((job) => {
+        const jobPoint = { latitude: job.latitude as number, longitude: job.longitude as number };
+        return { job, km: distanceKm(proPoint, jobPoint) };
+      })
+      .filter(({ job, km }) => job.latitude !== null && job.longitude !== null && km <= pro.serviceRadiusKm)
+      .sort((a, b) => a.km - b.km)
+      .slice(0, config.jobCatchupLimit);
+
+    for (const { job, km } of candidates) {
+      const eligible = await matching.isProEligible(pro.id, {
+        serviceId: job.serviceId,
+        latitude: job.latitude as number,
+        longitude: job.longitude as number,
+      });
+      if (!eligible) continue;
+
+      const payload: AvailableJob = {
+        ...toJobDto(job as unknown as JobRow, storage),
+        distanceKm: km,
+        estimatedEtaMinutes: etaMinutes(km),
+      };
+
+      realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_NEW, payload);
+      void notifications.alertEligiblePros(
+        [{ proId: pro.id }],
+        {
+          jobId: job.id,
+          serviceName: job.service.name,
+          customSkill: job.customSkill,
+          description: job.description,
+          basePayPaise: job.basePayPaise,
+        },
+      );
+    }
+  }
+
   return {
     createForCustomer,
     listForCustomer,
@@ -734,6 +826,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     listProJobs,
     listAvailableJobs,
     listJobHistory,
+    notifyReadyJobRequests,
     acceptJob,
     transitionJob,
   };

@@ -26,6 +26,8 @@ const config: AppConfig = {
   expoAccessToken: null,
   jobAlertRepeatMs: 60_000,
   jobAlertMaxRepeats: 20,
+  jobCatchupWindowMs: 2 * 60 * 60_000,
+  jobCatchupLimit: 3,
 };
 
 const services = {} as Services;

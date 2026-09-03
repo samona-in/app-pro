@@ -70,7 +70,7 @@ export function createServices(
   // reachable behind the composition boundary.
   const matching = createMatchingService({ prisma });
   const notifications = createNotificationsService({ prisma, config });
-  const jobs = createJobsService({ prisma, storage, matching, realtime, notifications });
+  const jobs = createJobsService({ prisma, storage, matching, realtime, notifications, config });
 
   return {
     auth: createAuthService({ prisma }),
@@ -80,7 +80,7 @@ export function createServices(
       jwtSecret: config.supabaseJwtSecret,
     }),
     users: createUsersService(deps),
-    pros: createProsService(deps),
+    pros: createProsService({ prisma, storage, jobs }),
     customers: createCustomersService(deps),
     services: createServicesService(deps),
     jobs,

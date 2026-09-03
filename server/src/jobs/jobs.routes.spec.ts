@@ -65,6 +65,7 @@ function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> 
     listJobHistory: jest.fn().mockResolvedValue([job]),
     acceptJob: jest.fn().mockResolvedValue(job),
     transitionJob: jest.fn().mockResolvedValue(job),
+    notifyReadyJobRequests: jest.fn().mockResolvedValue(undefined),
     ...partial,
   };
 }
