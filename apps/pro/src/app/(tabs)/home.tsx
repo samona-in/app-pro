@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { router } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Card, IconButton, Screen, Text } from '@/components/ui';
 import { useProProfile, useSubmitGuard } from '@/hooks';
@@ -10,7 +11,9 @@ import {
   goOnline,
   goOffline,
   isLocationServicesDisabledError,
+  reconcileOnlineStatus,
 } from '@/services/online-status';
+import { queryKeys } from '@/constants';
 import { useAuth } from '@/providers';
 import { color } from '@/theme';
 
@@ -28,6 +31,7 @@ import { color } from '@/theme';
 
 function AvailabilityCard() {
   const { data: profile } = useProProfile();
+  const queryClient = useQueryClient();
   const { session } = useAuth();
   const sessionRef = session;
 
@@ -44,8 +48,17 @@ function AvailabilityCard() {
     return unsubscribe;
   }, []);
 
-  const serverOnline = profile?.isOnline ?? false;
-  const isOnline = serverOnline;
+  // Align the in-memory status with the server's authoritative value once the
+  // profile loads (fixes a stale "offline" right after a cold start), without
+  // overriding an in-flight toggle.
+  const serverOnline = profile?.isOnline;
+  useEffect(() => {
+    if (serverOnline !== undefined) {
+      reconcileOnlineStatus(serverOnline);
+    }
+  }, [serverOnline]);
+
+  const isOnline = status.state === 'online';
   const isLoading = status.state === 'loading' || status.isTransitioning;
   const hasError = status.state === 'offline' && !!status.error;
 
@@ -84,6 +97,10 @@ function AvailabilityCard() {
         } else {
           Alert.alert(next ? "Can't go online" : "Can't go offline", message);
         }
+      } else {
+        // The toggle succeeded; the server is now the source of truth for other
+        // screens (e.g. the Jobs tab gate) that read profile.isOnline.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.proProfile });
       }
     } catch (error) {
       Alert.alert(next ? "Can't go online" : "Can't go offline", error instanceof Error ? error.message : 'Something went wrong. Please try again.');

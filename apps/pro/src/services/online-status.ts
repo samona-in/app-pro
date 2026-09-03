@@ -308,6 +308,24 @@ export function cancelTransition(): void {
 
 export { isOnline, isOffline, getOnlineStatus } from './online-status-state';
 
+/**
+ * Reconciles the in-memory online status with the server's authoritative value.
+ *
+ * The module's status starts as `offline` on every launch and only changes via
+ * goOnline/goOffline, so on a fresh open it can disagree with the server
+ * (e.g. a pro left online). This lets the UI align with the server once the
+ * profile loads — but it never clobbers an in-flight toggle, so mid-transition
+ * the optimistic value wins until the API call settles.
+ */
+export function reconcileOnlineStatus(serverOnline: boolean): void {
+  const status = getStatusState().status;
+  if (status === 'loading' || getIsTransitioning()) return;
+  const target: OnlineStatus = serverOnline ? 'online' : 'offline';
+  if (status !== target) {
+    setStatusState(target);
+  }
+}
+
 export function getSocket(): Socket | null {
   return socket;
 }
