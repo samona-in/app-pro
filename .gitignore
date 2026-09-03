@@ -28,6 +28,7 @@ apps/*/android/
 .env
 .env.*
 !.env.example
+apps/*/google-services.json
 
 # Prisma — the client is generated on install, never committed
 server/src/generated/
