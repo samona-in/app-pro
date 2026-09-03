@@ -108,15 +108,19 @@ function AvailabilityCard() {
   });
 
   return (
-    <Card variant="raised" className={isOnline ? 'bg-surface-inverse' : 'bg-surface'}>
+    <Card variant="raised" className={isOnline ? 'bg-brand' : 'bg-surface'}>
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
-          <Text variant="label" className={isOnline ? 'text-text-muted' : 'text-text-secondary'}>
+          <Text
+            variant="label"
+            className={isOnline ? 'text-brand-contrast' : 'text-text-secondary'}
+            style={isOnline ? { opacity: 0.7 } : undefined}
+          >
             Availability
           </Text>
           <Text
             variant="titleLg"
-            className={isOnline ? 'mt-1 text-text-inverse' : 'mt-1 text-text-primary'}
+            className={isOnline ? 'mt-1 text-brand-contrast' : 'mt-1 text-text-primary'}
           >
             {label}
           </Text>
@@ -133,7 +137,7 @@ function AvailabilityCard() {
 
         {isLoading ? (
           <View className="h-14 w-14 items-center justify-center">
-            <ActivityIndicator color={isOnline ? color['text-inverse'] : color.brand} size="large" />
+            <ActivityIndicator color={isOnline ? color['brand-contrast'] : color.brand} size="large" />
           </View>
         ) : (
           <IconButton
@@ -142,8 +146,8 @@ function AvailabilityCard() {
             onPress={() => void run()}
             haptic={false}
             disabled={isLoading}
-            tint={isOnline ? color['text-inverse'] : color['text-primary']}
-            className={isOnline ? 'h-14 w-14 bg-online' : 'h-14 w-14 bg-surface-muted'}
+            tint={isOnline ? color.brand : color['text-primary']}
+            className={isOnline ? 'h-14 w-14 bg-brand-contrast' : 'h-14 w-14 bg-surface-muted'}
             size={26}
           />
         )}
