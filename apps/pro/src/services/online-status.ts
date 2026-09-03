@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { Alert, Linking } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
 import type { JobDetail } from '@samona/types';
@@ -64,6 +65,71 @@ async function getValidLocation(): Promise<{ latitude: number; longitude: number
       throw new Error(LOCATION_SERVICES_DISABLED_MESSAGE);
     }
     throw error;
+  }
+}
+
+/**
+ * Monitors the OS-wide Location Services toggle while the pro is online. The
+ * moment it flips off mid-session we prompt immediately (Rapido-captain style)
+ * with a one-tap "Open Settings" action. The prompt is global, so it appears
+ * no matter which screen the pro is on. Stops when the pro goes offline.
+ */
+let locationWatchTimer: ReturnType<typeof setInterval> | null = null;
+let locationWasEnabled = true;
+let locationPromptShowing = false;
+
+const LOCATION_POLL_MS = 3000;
+
+async function checkLocationEnabled(): Promise<boolean> {
+  try {
+    return await Location.hasServicesEnabledAsync();
+  } catch {
+    return false;
+  }
+}
+
+function showLocationServicesPrompt(): void {
+  const alreadyShowing = locationPromptShowing;
+  if (alreadyShowing) return;
+  locationPromptShowing = true;
+  Alert.alert(
+    'Location services off',
+    'Turn on location services to keep receiving job requests near you.',
+    [
+      {
+        text: 'Open Settings',
+        onPress: () => {
+          locationPromptShowing = false;
+          void Linking.openSettings();
+        },
+      },
+      {
+        text: 'OK',
+        style: 'cancel',
+        onPress: () => {
+          locationPromptShowing = false;
+        },
+      },
+    ],
+  );
+}
+
+export function startLocationServicesMonitor(): void {
+  if (locationWatchTimer) return;
+  locationWasEnabled = true;
+  locationWatchTimer = setInterval(async () => {
+    const enabled = await checkLocationEnabled();
+    if (!enabled && locationWasEnabled) {
+      showLocationServicesPrompt();
+    }
+    locationWasEnabled = enabled;
+  }, LOCATION_POLL_MS);
+}
+
+export function stopLocationServicesMonitor(): void {
+  if (locationWatchTimer) {
+    clearInterval(locationWatchTimer);
+    locationWatchTimer = null;
   }
 }
 
@@ -189,6 +255,8 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
 
     await api.post('/pros/availability', patch);
 
+    startLocationServicesMonitor();
+
     setStatus('online');
     return { success: true };
   } catch (error) {
@@ -214,6 +282,7 @@ export async function goOffline(_token: string): Promise<{ success: boolean; err
     const patch = { isOnline: false };
     await api.post('/pros/availability', patch);
 
+    stopLocationServicesMonitor();
     disconnectSocket();
 
     setStatus('offline');
