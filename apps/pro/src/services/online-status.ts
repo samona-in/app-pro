@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
@@ -18,6 +17,15 @@ import {
 export type { OnlineStatus, OnlineStatusState };
 export { subscribeToOnlineStatus } from './online-status-state';
 
+/** Message shown when the OS-wide Location Services toggle is off. */
+export const LOCATION_SERVICES_DISABLED_MESSAGE =
+  'Location services are turned off. Turn them on to go online and receive jobs.';
+
+/** true when a failure is the OS Location Services toggle being off. */
+export function isLocationServicesDisabledError(message: string | undefined): boolean {
+  return message === LOCATION_SERVICES_DISABLED_MESSAGE;
+}
+
 let abortController: AbortController | null = null;
 
 let socket: Socket | null = null;
@@ -29,26 +37,25 @@ function setStatus(status: OnlineStatus, error: string | null = null): void {
   setStatusState(status, error);
 }
 
-async function checkLocationServicesEnabled(): Promise<boolean> {
-  if (Platform.OS === 'web') return true;
-  try {
-    const enabled = await Location.hasServicesEnabledAsync();
-    return enabled;
-  } catch {
-    return false;
-  }
-}
-
 async function requestLocationPermission(): Promise<boolean> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   return status === 'granted';
 }
 
 async function getValidLocation(): Promise<{ latitude: number; longitude: number }> {
-  const position = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
-  return { latitude: position.coords.latitude, longitude: position.coords.longitude };
+  try {
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return { latitude: position.coords.latitude, longitude: position.coords.longitude };
+  } catch (error) {
+    // Surface one clear, actionable reason instead of a raw fatal error.
+    const code = (error as { code?: string } | null)?.code;
+    if (code === 'ERR_LOCATION_SERVICES_DISABLED') {
+      throw new Error(LOCATION_SERVICES_DISABLED_MESSAGE);
+    }
+    throw error;
+  }
 }
 
 function createSocket(): Socket {
@@ -152,16 +159,6 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
       const message = 'Location permission is needed to go online and match with jobs near you.';
-      setStatus('offline', message);
-      return { success: false, error: message };
-    }
-
-    if (abortController.signal.aborted) throw new Error('Aborted');
-
-    const hasServices = await checkLocationServicesEnabled();
-    if (!hasServices) {
-      const message =
-        'Location services are turned off. Please enable location services to go online and receive jobs.';
       setStatus('offline', message);
       return { success: false, error: message };
     }

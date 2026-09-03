@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { router } from 'expo-router';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Card, IconButton, Screen, Text } from '@/components/ui';
 import { useProProfile, useSubmitGuard } from '@/hooks';
-import { subscribeToOnlineStatus, isOnline as checkIsOnline, goOnline, goOffline } from '@/services/online-status';
+import {
+  subscribeToOnlineStatus,
+  isOnline as checkIsOnline,
+  goOnline,
+  goOffline,
+  isLocationServicesDisabledError,
+} from '@/services/online-status';
 import { useAuth } from '@/providers';
 import { color } from '@/theme';
 
@@ -69,7 +75,15 @@ function AvailabilityCard() {
         result = await goOffline(sessionRef?.access_token ?? '');
       }
       if (!result.success) {
-        Alert.alert(next ? "Can't go online" : "Can't go offline", result.error ?? 'Something went wrong. Please try again.');
+        const message = result.error ?? 'Something went wrong. Please try again.';
+        if (isLocationServicesDisabledError(result.error)) {
+          Alert.alert("Can't go online", message, [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+          ]);
+        } else {
+          Alert.alert(next ? "Can't go online" : "Can't go offline", message);
+        }
       }
     } catch (error) {
       Alert.alert(next ? "Can't go online" : "Can't go offline", error instanceof Error ? error.message : 'Something went wrong. Please try again.');
