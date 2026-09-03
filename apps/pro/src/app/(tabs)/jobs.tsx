@@ -1,77 +1,75 @@
-import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { isActiveJobStatus, type JobStatus } from '@samona/types';
+import type { JobStatus } from '@samona/types';
 import { EmptyState } from '@/components/feedback';
 import { Card, Divider, Screen, Text } from '@/components/ui';
 import { JobStatusBadge } from '@/components/jobs';
-import { useProJobs } from '@/hooks';
+import { useJobHistory } from '@/hooks';
+import { isOnline as checkIsOnline } from '@/services/online-status';
 import { color } from '@/theme';
-import { cn } from '@/utils/cn';
 import { formatInr } from '@/utils/format';
 
-const FILTERS = ['Active', 'Completed', 'All'] as const;
-type Filter = (typeof FILTERS)[number];
+/**
+ * Past jobs — every request the pro was offered, including ones nobody
+ * accepted. No Active/Completed/All filters: this is simply the history of
+ * requests and where they ended up.
+ *
+ * Viewing past jobs requires being online; when offline the pro is pointed
+ * back to the home toggle.
+ */
 
-function isActive(status: JobStatus): boolean {
-  return isActiveJobStatus(status);
-}
-
-function isCompleted(status: JobStatus): boolean {
-  return status === 'PAYMENT_PENDING' || status === 'PAID';
+function statusLabel(status: JobStatus): string {
+  switch (status) {
+    case 'ACCEPTED':
+    case 'TRAVELLING':
+    case 'ARRIVED':
+    case 'IN_PROGRESS':
+      return 'Active';
+    case 'PAYMENT_PENDING':
+    case 'PAID':
+      return 'Completed';
+    case 'CANCELLED':
+      return 'Cancelled';
+    case 'EXPIRED':
+      return 'Expired';
+    default:
+      return 'Requested';
+  }
 }
 
 export default function Jobs() {
-  const [filter, setFilter] = useState<Filter>('Active');
-  const { data: jobs, isPending } = useProJobs();
-
-  const visible = useMemo(() => {
-    const all = jobs ?? [];
-    if (filter === 'Active') return all.filter((job) => isActive(job.status));
-    if (filter === 'Completed') return all.filter((job) => isCompleted(job.status));
-    return all;
-  }, [filter, jobs]);
+  const { data: jobs, isPending } = useJobHistory();
+  const isOnline = checkIsOnline();
 
   return (
     <Screen>
       <View className="pt-2">
-        <Text variant="titleLg">Jobs</Text>
+        <Text variant="titleLg">Past jobs</Text>
+        <Text variant="footnote" className="mt-1 text-text-secondary">
+          Every job request you were offered, including ones nobody accepted.
+        </Text>
       </View>
 
-      <View className="mt-4 flex-row rounded-lg bg-surface-muted p-1">
-        {FILTERS.map((item) => {
-          const isSelected = item === filter;
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isSelected }}
-              onPress={() => setFilter(item)}
-              className={cn(
-                'min-h-[40px] flex-1 items-center justify-center rounded-md',
-                isSelected && 'bg-surface',
-              )}
-            >
-              <Text
-                variant="footnote"
-                className={cn('font-semibold', isSelected && 'text-text-primary')}
-              >
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {visible.length > 0 ? (
+      {!isOnline ? (
+        <View className="mt-2 flex-1">
+          <EmptyState
+            icon="power-outline"
+            title="Go online to see jobs"
+            message="Your job history is available when you're online. Toggle availability on the home screen."
+          />
+        </View>
+      ) : isPending ? (
+        <View className="mt-2 flex-1">
+          <EmptyState icon="briefcase-outline" title="Loading your jobs" message="Fetching your job history…" />
+        </View>
+      ) : (jobs?.length ?? 0) > 0 ? (
         <Card padded={false} className="mt-4 overflow-hidden">
-          {visible.map((job, index) => (
+          {(jobs ?? []).map((job, index) => (
             <View key={job.id}>
               {index > 0 ? <Divider /> : null}
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push(`/job/${job.id}`)}
+                onPress={() => {}}
                 className="active:bg-surface-muted"
               >
                 <View className="flex-row items-center gap-3 px-4 py-4">
@@ -82,9 +80,13 @@ export default function Jobs() {
                       </Text>
                       <JobStatusBadge status={job.status} />
                     </View>
-                    <Text variant="footnote" className="mt-1 text-text-secondary" numberOfLines={1}>
-                      {job.customer?.displayName ?? 'Customer'}
-                      {job.customer?.locationLabel ? ` · ${job.customer.locationLabel}` : ''}
+                    {job.customSkill ? (
+                      <Text variant="footnote" className="mt-0.5 text-text-secondary">
+                        {job.customSkill}
+                      </Text>
+                    ) : null}
+                    <Text variant="footnote" className="mt-0.5 text-text-muted" numberOfLines={1}>
+                      {statusLabel(job.status)}
                     </Text>
                   </View>
                   <View className="items-end gap-1">
@@ -101,13 +103,9 @@ export default function Jobs() {
       ) : (
         <View className="mt-2 flex-1">
           <EmptyState
-            icon="briefcase-outline"
-            title={isPending ? 'Loading your jobs' : `No ${filter.toLowerCase()} jobs`}
-            message={
-              filter === 'Active'
-                ? 'When you accept a job, it appears here with everything you need to get to the customer.'
-                : 'Completed jobs with their payouts will show up here.'
-            }
+            icon="time-outline"
+            title="No past jobs yet"
+            message="When you're offered a job request, it will show up here with its outcome."
           />
         </View>
       )}

@@ -8,12 +8,11 @@ import {
 } from '@/stores/incoming-job';
 
 /**
- * How long the incoming-job alarm keeps ringing for a request before it is
- * treated as expired. The server does not stream a per-pro expiry, so the client
- * owns the "you missed it" timer as a safety net; accepting or a `job:status`
- * event resolves earlier when the server reports it.
+ * How long the incoming-job request stays actionable before it is treated as
+ * expired. The Rapido-style countdown ring owns this timing; the server does
+ * not stream a per-pro expiry, so the client treats zero as "missed".
  */
-export const JOB_ALERT_TIMEOUT_MS = 60_000;
+export const JOB_ALERT_TIMEOUT_MS = 16_000;
 
 /**
  * Bridges incoming-job events (socket + push) to the alarm audio and overlay.

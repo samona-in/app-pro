@@ -62,6 +62,7 @@ function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> 
     cancelJob: jest.fn().mockResolvedValue(job),
     listAvailableJobs: jest.fn().mockResolvedValue([job]),
     listProJobs: jest.fn().mockResolvedValue([job]),
+    listJobHistory: jest.fn().mockResolvedValue([job]),
     acceptJob: jest.fn().mockResolvedValue(job),
     transitionJob: jest.fn().mockResolvedValue(job),
     ...partial,
@@ -191,6 +192,22 @@ describe('jobs routes', () => {
       status: undefined,
       limit: undefined,
     });
+  });
+
+  it('PRO can list their job-request history via /jobs/history', async () => {
+    const proUser = { ...activeUser, appType: 'pro' as const };
+    const services = buildServices({
+      auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
+      jobs: jobsService(),
+    });
+
+    const response = await request(appWith(services))
+      .get('/jobs/history')
+      .set('authorization', 'Bearer good.token')
+      .expect(200);
+
+    expect(response.body).toHaveLength(1);
+    expect(services.jobs.listJobHistory).toHaveBeenCalledWith('user-1', { limit: 20 });
   });
 
   it('CUSTOMER cannot read available or mine feeds', async () => {

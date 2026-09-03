@@ -140,33 +140,33 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
   }
 
   abortController = new AbortController();
-  setStatus('checking-location');
+  setStatus('loading');
 
   try {
     if (abortController.signal.aborted) throw new Error('Aborted');
 
     const hasServices = await checkLocationServicesEnabled();
     if (!hasServices) {
-      setStatus('error', 'Location services are turned off. Please enable location services to go online and receive jobs.');
-      return { success: false, error: undefined };
+      const message =
+        'Location services are turned off. Please enable location services to go online and receive jobs.';
+      setStatus('offline', message);
+      return { success: false, error: message };
     }
 
     if (abortController.signal.aborted) throw new Error('Aborted');
-    setStatus('requesting-permission');
 
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
-      setStatus('error', 'Location permission is needed to go online and match with jobs near you.');
-      return { success: false, error: undefined };
+      const message = 'Location permission is needed to go online and match with jobs near you.';
+      setStatus('offline', message);
+      return { success: false, error: message };
     }
 
     if (abortController.signal.aborted) throw new Error('Aborted');
-    setStatus('getting-location');
 
     const coordinates = await getValidLocation();
 
     if (abortController.signal.aborted) throw new Error('Aborted');
-    setStatus('connecting');
 
     connectSocket(token);
 
@@ -183,7 +183,7 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to go online';
-    setStatus('error', message);
+    setStatus('offline', message);
     disconnectSocket();
     return { success: false, error: message };
   }
@@ -195,7 +195,7 @@ export async function goOffline(_token: string): Promise<{ success: boolean; err
   }
 
   abortController = new AbortController();
-  setStatus('offlining');
+  setStatus('loading');
 
   try {
     jobNotificationService.cleanup();
@@ -210,7 +210,7 @@ export async function goOffline(_token: string): Promise<{ success: boolean; err
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to go offline';
-    setStatus('error', message);
+    setStatus('offline', message);
     return { success: false, error: message };
   }
 }
@@ -221,9 +221,7 @@ export function cancelTransition(): void {
     abortController = null;
   }
   const status = getStatusState().status;
-  if (status === 'offlining') {
-    setStatus('online');
-  } else if (status !== 'online' && status !== 'offline') {
+  if (status === 'loading') {
     setStatus('offline');
   }
   setIsTransitioning(false);

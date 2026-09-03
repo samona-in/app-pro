@@ -112,6 +112,19 @@ export function createJobsRouter(services: Services): Router {
     }
   });
 
+  /**
+   * Every request this pro was offered, newest first — the "past jobs" history.
+   * Includes requests nobody accepted; the job's final status shows the outcome.
+   */
+  pro.get('/history', proOnly, validate(paginationSchema, 'query'), async (req, res, next) => {
+    try {
+      const limit = typeof req.query.limit === 'number' ? req.query.limit : 20;
+      res.json(await services.jobs.listJobHistory(req.user!.id, { limit }));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   /** Accepts an open job atomically. The first eligible pro to claim it wins. */
   pro.post('/:id/accept', proOnly, async (req, res, next) => {
     try {

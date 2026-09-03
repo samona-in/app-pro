@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle } from 'react-native-svg';
 import { StatusBar } from 'expo-status-bar';
 import { JobStatus } from '@samona/types';
 import type { AvailableJob, JobDetail } from '@samona/types';
-import { Badge, Button, Card, Text } from '@/components/ui';
+import { Badge, Card, Text } from '@/components/ui';
 import { useAcceptJob, useSubmitGuard } from '@/hooks';
 import type { IncomingJobResolution } from '@/stores/incoming-job';
 import { api } from '@/services/api';
@@ -50,11 +51,18 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobStatus> = new Set<JobStatus>([
   JobStatus.EXPIRED,
 ]);
 
+/** How long the pro has to decide before the request is treated as expired. */
+export const JOB_ALERT_COUNTDOWN_MS = 16_000;
+
 /** How long the resolution confirmation stays on screen before the overlay closes. */
-const RESOLUTION_HOLD_MS = 3_000;
+const RESOLUTION_HOLD_MS = 2_500;
 
 /** How often to re-validate the job status while the overlay is open (ms). */
-const JOB_VALIDATION_INTERVAL_MS = 10_000;
+const JOB_VALIDATION_INTERVAL_MS = 8_000;
+
+/** Radius of the circular reject ring, in SVG units. */
+const RING_RADIUS = 28;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 export interface IncomingJobOverlayProps {
   job: AvailableJob;
@@ -64,17 +72,13 @@ export interface IncomingJobOverlayProps {
 }
 
 /**
- * The Rapido-Captain-style full-screen request alert shown the moment a new job
- * lands. Owns no audio itself — `useJobAlert` keeps the looping beep in step
- * with this overlay's lifetime (accept / reject / expire / cancel all stop it).
- *
- * Validates job status on mount and periodically while open to handle cases
- * where the job becomes unavailable (accepted by another pro, cancelled, expired)
- * between the push/socket event and user action.
+ * The Rapido-style request alert shown the moment a new job lands. A 16-second
+ * countdown ticks around the circular reject button; when it reaches zero the
+ * request is treated as expired. Accept, reject, or timeout all close it.
  *
  * The modal cannot be dismissed by tapping outside — the backdrop consumes
- * touches. The alert only closes via explicit actions: Accept, Reject, or
- * automatic resolution (expiry, cancellation, job unavailable).
+ * touches. It only closes via explicit actions (Accept / Reject) or automatic
+ * resolution (expiry, cancellation, job unavailable).
  */
 export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: IncomingJobOverlayProps) {
   const accept = useAcceptJob();
@@ -82,6 +86,8 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
   useEffect(() => {
     jobRef.current = job;
   }, [job]);
+
+  const [secondsLeft, setSecondsLeft] = useState(Math.ceil(JOB_ALERT_COUNTDOWN_MS / 1000));
 
   const { run: runAccept, isSubmitting } = useSubmitGuard(async () => {
     try {
@@ -93,9 +99,23 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
   });
   const { run: runReject } = useSubmitGuard(() => onResolve('reject'));
 
-  // Validate job status on mount and periodically while overlay is open.
-  // This catches cases where the job was taken by another pro, cancelled, or
-  // expired after the initial push/socket event but before the user acted.
+  // 16-second countdown around the reject ring. Reaching zero auto-expires.
+  useEffect(() => {
+    if (resolution) return;
+    const interval = setInterval(() => {
+      setSecondsLeft((secs) => {
+        const next = secs - 1;
+        if (next <= 0) {
+          onResolve('expired');
+          return 0;
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resolution, onResolve]);
+
+  // Validate job status on mount and periodically while open.
   useEffect(() => {
     if (resolution) return;
 
@@ -110,14 +130,11 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
           onResolve(latest.status === JobStatus.CANCELLED ? 'cancelled' : 'unavailable');
         }
       } catch {
-        // Network error: keep the overlay open, retry on next interval
+        // Network error: keep the overlay open, retry on the next interval.
       }
     }
 
-    // Initial validation
     validateJob();
-
-    // Periodic validation
     const interval = setInterval(validateJob, JOB_VALIDATION_INTERVAL_MS);
     return () => {
       mounted = false;
@@ -125,23 +142,23 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
     };
   }, [resolution, onResolve]);
 
-  // Once resolved, hold the confirmation briefly, then dismiss the overlay. No
-  // local state is needed — the store's `resolution` is the display source.
+  // Once resolved, hold the confirmation briefly, then dismiss.
   useEffect(() => {
     if (!resolution) return;
     const timer = setTimeout(onDismiss, RESOLUTION_HOLD_MS);
     return () => clearTimeout(timer);
   }, [resolution, onDismiss]);
 
+  // Progress around the ring: 1 (full) -> 0 as the countdown elapses.
+  const progress = useMemo(
+    () => secondsLeft / (JOB_ALERT_COUNTDOWN_MS / 1000),
+    [secondsLeft],
+  );
+
   const feedback = resolution ? RESOLUTION_FEEDBACK[resolution] : null;
 
   return (
-    <Modal
-      visible
-      transparent
-      animationType="fade"
-      onRequestClose={() => void runReject()}
-    >
+    <Modal visible transparent animationType="fade" onRequestClose={() => void runReject()}>
       <StatusBar style="light" />
       {feedback ? (
         <View className="flex-1 items-center justify-center bg-surface-inverse/95 px-6">
@@ -164,81 +181,126 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
           </Text>
         </View>
       ) : (
-        // Backdrop that consumes touches — tapping outside does nothing.
-        // The inner Pressable on the card handles the Reject action.
         <View className="flex-1">
-          <Pressable className="flex-1" onPress={() => {}} />
-          <Pressable
-            className="flex-1 justify-end"
-            onPress={() => void runReject()}
-          >
-            <View className="rounded-t-3xl bg-surface p-6 pb-10">
-              <View className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border-strong" />
+          <Pressable className="flex-1 bg-surface-inverse/70" onPress={() => {}} />
+          <View className="rounded-t-3xl bg-surface p-6 pb-10">
+            <View className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border-strong" />
 
-              <View className="flex-row items-center justify-between">
-                <Badge label="New job request" tone="danger" withDot />
-                <Text variant="caption" className="text-text-muted">
-                  {formatRelativeTime(job.createdAt)}
+            <View className="flex-row items-center justify-between">
+              <Badge label="New job request" tone="danger" withDot />
+              <Text variant="caption" className="text-text-muted">
+                {formatRelativeTime(job.createdAt)}
+              </Text>
+            </View>
+
+            <Text variant="titleLg" className="mt-4">
+              {job.service.name}
+            </Text>
+            {job.customSkill ? (
+              <Text variant="footnote" className="mt-0.5 text-text-secondary">
+                {job.customSkill}
+              </Text>
+            ) : (
+              <Text variant="footnote" className="mt-0.5 text-text-secondary">
+                {job.service.name} · {job.skill.name}
+              </Text>
+            )}
+
+            <Text variant="display" className="mt-4">
+              {formatInr(job.basePayPaise)}
+            </Text>
+
+            <View className="mt-4 flex-row items-center gap-4">
+              <View className="flex-row items-center gap-1">
+                <Ionicons name="navigate-outline" size={14} color={color['text-muted']} />
+                <Text variant="caption" className="text-text-secondary">
+                  {formatDistance(job.distanceKm)} · {formatEta(job.estimatedEtaMinutes)}
                 </Text>
               </View>
-
-              <Text variant="titleLg" className="mt-4">
-                {job.service.name}
-              </Text>
-              {job.customSkill ? (
-                <Text variant="footnote" className="mt-0.5 text-text-secondary">
-                  {job.customSkill}
-                </Text>
-              ) : null}
-
-              <Text variant="display" className="mt-4">
-                {formatInr(job.basePayPaise)}
-              </Text>
-
-              <View className="mt-4 flex-row items-center gap-4">
+              {job.placeType === 'OTHER' && job.placeDescription ? (
                 <View className="flex-row items-center gap-1">
-                  <Ionicons name="navigate-outline" size={14} color={color['text-muted']} />
-                  <Text variant="caption" className="text-text-secondary">
-                    {formatDistance(job.distanceKm)} · {formatEta(job.estimatedEtaMinutes)}
+                  <Ionicons name="location-outline" size={14} color={color['text-muted']} />
+                  <Text variant="caption" className="text-text-secondary" numberOfLines={1}>
+                    {job.placeDescription}
                   </Text>
                 </View>
-                {job.placeType === 'OTHER' && job.placeDescription ? (
-                  <View className="flex-row items-center gap-1">
-                    <Ionicons name="location-outline" size={14} color={color['text-muted']} />
-                    <Text variant="caption" className="text-text-secondary" numberOfLines={1}>
-                      {job.placeDescription}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {job.description ? (
-                <Card className="mt-4 bg-surface-muted" padded={false}>
-                  <Text variant="body" className="px-4 py-3 text-text-secondary" numberOfLines={3}>
-                    {job.description}
-                  </Text>
-                </Card>
               ) : null}
-
-              <View className="mt-6 flex-row gap-3">
-                <Button
-                  label="Reject"
-                  variant="secondary"
-                  size="lg"
-                  className="flex-1"
-                  onPress={() => void runReject()}
-                />
-                <Button
-                  label="Accept"
-                  variant="success"
-                  size="lg"
-                  loading={isSubmitting}
-                  className="flex-1"
-                  onPress={() => void runAccept()}
-                />
-              </View>
             </View>
-          </Pressable>
+
+            {job.description ? (
+              <Card className="mt-4 bg-surface-muted" padded={false}>
+                <Text variant="body" className="px-4 py-3 text-text-secondary" numberOfLines={3}>
+                  {job.description}
+                </Text>
+              </Card>
+            ) : null}
+
+            <View className="mt-6 flex-row items-center justify-between">
+              {/* Reject: circular button with a red countdown ring around it. */}
+              <View className="flex-row items-center gap-3">
+                <View className="relative">
+                  <Svg width={72} height={72} viewBox="0 0 72 72">
+                    <Circle
+                      cx={36}
+                      cy={36}
+                      r={RING_RADIUS}
+                      stroke={color.danger}
+                      strokeWidth={5}
+                      fill="none"
+                      strokeOpacity={0.25}
+                    />
+                    <Circle
+                      cx={36}
+                      cy={36}
+                      r={RING_RADIUS}
+                      stroke={color.danger}
+                      strokeWidth={5}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeDasharray={RING_CIRCUMFERENCE}
+                      strokeDashoffset={RING_CIRCUMFERENCE * (1 - progress)}
+                      transform="rotate(-90 36 36)"
+                    />
+                  </Svg>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Reject request"
+                    onPress={() => void runReject()}
+                    className="absolute inset-0 items-center justify-center"
+                  >
+                    <View className="h-14 w-14 items-center justify-center rounded-full border-2 border-danger bg-surface">
+                      <Text variant="title" className="font-bold text-danger" style={{ marginTop: -3 }}>
+                        −
+                      </Text>
+                    </View>
+                  </Pressable>
+                </View>
+                <Text variant="caption" className="text-text-secondary">
+                  {secondsLeft}s
+                </Text>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Accept request"
+                onPress={() => void runAccept()}
+                className="h-16 px-10 items-center justify-center rounded-full bg-success"
+              >
+                {isSubmitting ? (
+                  <Text variant="bodyStrong" className="text-text-inverse">
+                    Accepting…
+                  </Text>
+                ) : (
+                  <View className="flex-row items-center gap-2">
+                    <Text variant="bodyStrong" className="text-text-inverse">
+                      Accept
+                    </Text>
+                    <Ionicons name="checkmark" size={20} color={color['text-inverse']} />
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          </View>
         </View>
       )}
     </Modal>

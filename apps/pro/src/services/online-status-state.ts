@@ -1,9 +1,14 @@
 /**
  * Online status state — extracted so both online-status.ts and
  * job-notifications.ts can read the status without creating a cycle.
+ *
+ * A pro is in exactly one of three states:
+ *  - `online`   — receiving job requests, can view/accept/deny jobs.
+ *  - `offline`  — receiving nothing; must go online before seeing jobs.
+ *  - `loading`  — the in-between transition while toggling, or an error.
  */
 
-export type OnlineStatus = 'offline' | 'checking-location' | 'requesting-permission' | 'getting-location' | 'connecting' | 'online' | 'offlining' | 'error';
+export type OnlineStatus = 'online' | 'offline' | 'loading';
 
 export interface OnlineStatusState {
   status: OnlineStatus;
@@ -32,7 +37,7 @@ export function notifyListeners(): void {
 export function setStatus(status: OnlineStatus, error: string | null = null): void {
   currentStatus = status;
   currentError = error;
-  isTransitioning = status !== 'offline' && status !== 'online' && status !== 'error';
+  isTransitioning = status === 'loading';
   notifyListeners();
 }
 

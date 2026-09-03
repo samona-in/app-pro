@@ -14,15 +14,14 @@ export function useProJobs(status?: JobStatus) {
 }
 
 /**
- * Open jobs the caller can take. A short refetch keeps the pool honest even if
- * a `job:new` nudge is missed while the app was backgrounded.
+ * The pro's job-request history — every request offered, newest first,
+ * including requests nobody accepted. Powers the "past jobs" Jobs tab.
  */
-export function useAvailableJobs() {
+export function useJobHistory() {
   return useQuery({
-    queryKey: queryKeys.jobs.available,
-    queryFn: () => jobsApi.available(),
-    staleTime: 20_000,
-    refetchInterval: 20_000,
+    queryKey: queryKeys.jobs.history,
+    queryFn: () => jobsApi.history(),
+    staleTime: 60_000,
   });
 }
 

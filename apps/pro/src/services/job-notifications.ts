@@ -19,7 +19,7 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail
   JobStatus.EXPIRED,
 ]);
 
-const JOB_ALERT_TIMEOUT_MS = 60_000;
+const JOB_ALERT_TIMEOUT_MS = 16_000;
 
 interface PendingJobEvent {
   jobId: string;
@@ -67,7 +67,7 @@ function createJobNotificationService() {
     await handleInitialNotification();
 
     onlineStatusUnsubscribe = subscribeToOnlineStatus((state) => {
-      if (state.status === 'offline' || state.status === 'offlining') {
+      if (state.status === 'offline') {
         const store = getStore();
         if (store.job && !store.resolution) {
           stopJobAlert();
