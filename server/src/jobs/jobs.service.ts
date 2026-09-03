@@ -527,6 +527,58 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
+   * One open request by id, for the pro the alert just landed on.
+   *
+   * The client's incoming-job alert re-fetches a `job:new` nudge by id before
+   * it shows anything, so a pro must be able to read a single open, unassigned
+   * request they serve. Enforced the same way the available feed is: the pro
+   * must exist and the job must be open, unassigned and one of their services —
+   * nothing id-based from the client is trusted. 404s once the request is no
+   * longer open (claimed, cancelled) so the alert resolves as unavailable.
+   */
+  async function getAvailableJobForPro(proUserId: string, jobId: string): Promise<AvailableJob> {
+    const pro = await findProByUserId(proUserId);
+
+    const myServices = await prisma.proService.findMany({
+      where: { proProfileId: pro.id },
+      select: { serviceId: true },
+    });
+    const serviceIds = myServices.map((entry) => entry.serviceId);
+    if (serviceIds.length === 0) {
+      throw notFound('That request is no longer available.');
+    }
+
+    const row = await prisma.job.findFirst({
+      where: {
+        id: jobId,
+        status: JobStatus.REQUESTED,
+        proId: null,
+        serviceId: { in: serviceIds },
+      },
+      include: jobDetailInclude,
+    });
+    if (!row) {
+      throw notFound('That request is no longer available.');
+    }
+
+    const proPoint =
+      pro.latitude !== null && pro.longitude !== null
+        ? { latitude: pro.latitude, longitude: pro.longitude }
+        : null;
+    const jobPoint =
+      row.latitude !== null && row.longitude !== null
+        ? { latitude: row.latitude, longitude: row.longitude }
+        : null;
+    const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
+
+    return {
+      ...toJobDto(row as unknown as JobRow, storage),
+      distanceKm: km,
+      estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
+    };
+  }
+
+  /**
    * The pro's job-request history: every request they were offered, newest
    * first.
    *
@@ -825,6 +877,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     cancelJob,
     listProJobs,
     listAvailableJobs,
+    getAvailableJobForPro,
     listJobHistory,
     notifyReadyJobRequests,
     acceptJob,

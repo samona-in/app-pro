@@ -429,3 +429,71 @@ describe('createJobsService.notifyReadyJobRequests', () => {
     expect(ctx.realtime.emitToUser).not.toHaveBeenCalled();
   });
 });
+
+describe('createJobsService.getAvailableJobForPro', () => {
+  const pro = { id: 'pro-1', latitude: 12.9716, longitude: 77.5946 };
+
+  function buildSingle() {
+    const storage = { jobImagePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`) };
+
+    const proProfileFindUnique = jest.fn().mockResolvedValue(pro);
+    const proServiceFindMany = jest.fn().mockResolvedValue([{ serviceId: 'svc-1' }]);
+    const jobFindFirst = jest
+      .fn()
+      .mockResolvedValue({ ...jobRow, latitude: 12.972, longitude: 77.595 });
+
+    const prisma = {
+      proProfile: { findUnique: proProfileFindUnique },
+      proService: { findMany: proServiceFindMany },
+      job: { findFirst: jobFindFirst },
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: storage as never,
+      config: {} as never,
+    } as never);
+
+    return { jobs, prisma, storage };
+  }
+
+  it('returns the open request with distance for the pro', async () => {
+    const ctx = buildSingle();
+
+    const result = await ctx.jobs.getAvailableJobForPro('user-1', 'job-1');
+
+    expect(result.id).toBe('job-1');
+    expect(result.distanceKm).toEqual(expect.any(Number));
+    expect(ctx.prisma.job.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'job-1',
+          status: JobStatus.REQUESTED,
+          proId: null,
+          serviceId: { in: ['svc-1'] },
+        },
+      }),
+    );
+  });
+
+  it('404s when the request is no longer open', async () => {
+    const ctx = buildSingle();
+    ctx.prisma.job.findFirst.mockResolvedValue(null);
+
+    await expect(ctx.jobs.getAvailableJobForPro('user-1', 'job-1')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 404,
+    });
+  });
+
+  it('scopes the read to the pro’s services', async () => {
+    const ctx = buildSingle();
+    ctx.prisma.proService.findMany.mockResolvedValue([]);
+
+    await expect(ctx.jobs.getAvailableJobForPro('user-1', 'job-1')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 404,
+    });
+    expect(ctx.prisma.job.findFirst).not.toHaveBeenCalled();
+  });
+});
