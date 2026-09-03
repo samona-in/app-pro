@@ -103,17 +103,17 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
   useEffect(() => {
     if (resolution) return;
     const interval = setInterval(() => {
-      setSecondsLeft((secs) => {
-        const next = secs - 1;
-        if (next <= 0) {
-          onResolve('expired');
-          return 0;
-        }
-        return next;
-      });
+      setSecondsLeft((secs) => Math.max(secs - 1, 0));
     }, 1000);
     return () => clearInterval(interval);
-  }, [resolution, onResolve]);
+  }, [resolution]);
+
+  // Fired once the ring hits zero: resolve as expired. Kept out of the
+  // `setSecondsLeft` updater so the store update never happens mid-render.
+  useEffect(() => {
+    if (resolution || secondsLeft > 0) return;
+    onResolve('expired');
+  }, [secondsLeft, resolution, onResolve]);
 
   // Validate job status on mount and periodically while open.
   useEffect(() => {
