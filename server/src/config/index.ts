@@ -80,7 +80,7 @@ const envSchema = z.object({
    * Hard ceiling on repeats for one job alert before the server stops paging.
    * Guards against a job that is never accepted/expired paging a pro forever.
    */
-  JOB_ALERT_MAX_REPEATS: z.coerce.number().int().min(1).max(100).default(20),
+  JOB_ALERT_MAX_REPEATS: z.coerce.number().int().min(0).max(100).default(0),
 });
 
 export type Env = z.infer<typeof envSchema>;
