@@ -1,0 +1,8 @@
+{
+  "name": "@samona/job-alert",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SAMONA Pro Android job alerts: full-screen delivery over other apps and the Android 14+ runtime permission request.",
+  "license": "UNLICENSED",
+  "dependencies": {}
+}

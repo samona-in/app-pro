@@ -1,0 +1,23 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'in.samona.pro'
+version = '0.1.0'
+
+android {
+  namespace "in.samona.pro.jobalert"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // The full-screen service extends Expo's FCM service so everything that is not
+  // a NEW_JOB message (and the FCM token flow) keeps working unchanged.
+  implementation project(':expo-notifications')
+  implementation 'com.google.firebase:firebase-messaging:25.0.1'
+  implementation 'androidx.core:core:1.17.0'
+}

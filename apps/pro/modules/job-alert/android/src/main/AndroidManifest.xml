@@ -1,0 +1,27 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Installs the full-screen capability. On Android 13 and below this is an
+    install-time grant; on Android 14+ the pro must additionally allow "full
+    screen content" per-app, which the app requests once at runtime (see
+    FullScreenPermissionModule).
+  -->
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+  <application>
+    <!--
+      Our FCM service wins the `com.google.firebase.MESSAGING_EVENT` resolution
+      because its intent-filter priority (1) is higher than expo-notifications'
+      (-1). FirebaseMessaging delivers a message to exactly one resolved
+      service, so the two never double-post. Every non-NEW_JOB message is handed
+      back to Expo's handler through the base class.
+    -->
+    <service
+      android:name="in.samona.pro.jobalert.FullScreenJobAlertMessagingService"
+      android:exported="false">
+      <intent-filter android:priority="1">
+        <action android:name="com.google.firebase.MESSAGING_EVENT" />
+      </intent-filter>
+    </service>
+  </application>
+</manifest>

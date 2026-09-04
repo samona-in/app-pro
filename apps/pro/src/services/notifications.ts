@@ -5,6 +5,7 @@ import type { AppNotification } from '@samona/types';
 import type { RegisterPushTokenInput, PushSettingsInput } from '@samona/validation';
 import { api } from './api';
 import { env } from '@/env';
+import { promptForFullScreenIntentOnce } from './full-screen-alert';
 
 /**
  * Push notifications for the Pro app.
@@ -104,6 +105,12 @@ export async function registerPushToken(): Promise<string | null> {
     console.log('[Notifications] Sending token to backend...');
     await api.post<undefined>('/notifications/register-token', { pushToken } satisfies RegisterPushTokenInput);
     console.log('[Notifications] Token successfully stored on backend');
+
+    // Rapido-style: once the device is registered for alerts, offer the
+    // Android 14+ full-screen role so a request can cover other apps. One-time,
+    // best-effort; never blocks or re-loops.
+    await promptForFullScreenIntentOnce();
+
     return pushToken;
   } catch (error) {
     // A push-token fetch or registration failure is non-fatal to sign-in.
