@@ -4,6 +4,13 @@
   "private": true,
   "description": "SAMONA Pro — the professional-side mobile application.",
   "main": "expo-router/entry",
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": ["expo-notifications"]
+      }
+    }
+  },
   "scripts": {
     "dev": "expo start",
     "start": "expo start",
