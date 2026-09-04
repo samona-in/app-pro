@@ -19,7 +19,7 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail
   JobStatus.EXPIRED,
 ]);
 
-const JOB_ALERT_TIMEOUT_MS = 60_000;
+const JOB_ALERT_TIMEOUT_MS = 16_000;
 
 interface PendingJobEvent {
   jobId: string;
@@ -27,10 +27,14 @@ interface PendingJobEvent {
   timestamp: number;
 }
 
-function createJobNotificationService() {
-  const handledJobIds = new Set<string>();
-  const pendingEvents = new Map<string, PendingJobEvent>();
-  const socketUnsubscribes: (() => void)[] = [];
+  function createJobNotificationService() {
+    const handledJobIds = new Set<string>();
+    const pendingEvents = new Map<string, PendingJobEvent>();
+    // The job this pro is currently accepting. While set, a `job:status` echo
+    // for that job is this pro's own acceptance confirmation — it must not be
+    // misread as "someone else claimed it".
+    let acceptingJobId: string | null = null;
+    const socketUnsubscribes: (() => void)[] = [];
   let pushReceivedUnsubscribe: Notifications.EventSubscription | null = null;
   let pushResponseUnsubscribe: Notifications.EventSubscription | null = null;
   let initialNotification: Notifications.Notification | null = null;
@@ -67,7 +71,7 @@ function createJobNotificationService() {
     await handleInitialNotification();
 
     onlineStatusUnsubscribe = subscribeToOnlineStatus((state) => {
-      if (state.status === 'offline' || state.status === 'offlining') {
+      if (state.status === 'offline') {
         const store = getStore();
         if (store.job && !store.resolution) {
           stopJobAlert();
@@ -98,6 +102,7 @@ function createJobNotificationService() {
     if (getStore().job?.id === jobId) return;
 
     pendingEvents.set(jobId, { jobId, source: 'push', timestamp: Date.now() });
+    processPendingEvent(jobId);
   }
 
   async function onNotificationResponse(response: Notifications.NotificationResponse): Promise<void> {
@@ -144,6 +149,9 @@ function createJobNotificationService() {
       const current = store.job;
       if (!current) return;
       if (detail.id === current.id && UNAVAILABLE_STATUSES.has(detail.status)) {
+        // If this pro is the one accepting detail.id, the status echo is their
+        // own acceptance confirmation and the accept callback resolves it.
+        if (acceptingJobId === detail.id) return;
         store.resolve(detail.status === JobStatus.CANCELLED ? 'cancelled' : 'unavailable');
       }
     };
@@ -269,8 +277,17 @@ function createJobNotificationService() {
     }
     handledJobIds.clear();
     pendingEvents.clear();
+    acceptingJobId = null;
     stopJobAlert();
     isInitialized = false;
+  }
+
+  /**
+   * Marks the job this pro is currently accepting (or clears it). While set,
+   * a `job:status` echo for that job is treated as their own confirmation.
+   */
+  function setAccepting(jobId: string | null): void {
+    acceptingJobId = jobId;
   }
 
   return {
@@ -280,6 +297,7 @@ function createJobNotificationService() {
     handleJobNotification,
     resolveJob,
     dismissJob,
+    setAccepting,
     cleanup,
   };
 }

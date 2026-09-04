@@ -6,6 +6,7 @@ import {
 } from '@samona/types';
 import type { ProProfile } from '@samona/types';
 import { createProsService } from './pros.service';
+import type { JobsService } from '../jobs/jobs.service';
 import type { StorageService } from '../files/storage.service';
 
 const baseRow = {
@@ -167,32 +168,41 @@ describe('nextIncompleteStep', () => {
   });
 });
 
+function buildService(row: typeof baseRow) {
+  const updates: Record<string, unknown>[] = [];
+  let current = row;
+
+  const prisma = {
+    proProfile: {
+      upsert: jest.fn().mockResolvedValue(current),
+      update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+        updates.push(data);
+        current = { ...current, ...data };
+        return current;
+      }),
+    },
+  };
+
+  const storage = {
+    selfiePath: (userId: string) => `pros/${userId}/selfie.jpg`,
+    selfieExists: jest.fn().mockResolvedValue(true),
+    selfiePublicUrl: (path: string) => `https://cdn.test/${path}`,
+    createSelfieUpload: jest.fn(),
+  } as unknown as StorageService;
+
+  const jobs = {
+    notifyReadyJobRequests: jest.fn().mockResolvedValue(undefined),
+  } as unknown as JobsService;
+
+  return {
+    service: createProsService({ prisma: prisma as never, storage, jobs }),
+    updates,
+    storage,
+    jobs,
+  };
+}
+
 describe('setSelfieUploaded', () => {
-  function buildService(row: typeof baseRow) {
-    const updates: Record<string, unknown>[] = [];
-    let current = row;
-
-    const prisma = {
-      proProfile: {
-        upsert: jest.fn().mockResolvedValue(current),
-        update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
-          updates.push(data);
-          current = { ...current, ...data };
-          return current;
-        }),
-      },
-    };
-
-    const storage = {
-      selfiePath: (userId: string) => `pros/${userId}/selfie.jpg`,
-      selfieExists: jest.fn().mockResolvedValue(true),
-      selfiePublicUrl: (path: string) => `https://cdn.test/${path}`,
-      createSelfieUpload: jest.fn(),
-    } as unknown as StorageService;
-
-    return { service: createProsService({ prisma: prisma as never, storage }), updates, storage };
-  }
-
   it('records the selfie at the storage-owned path and completes onboarding', async () => {
     const { service, updates } = buildService(baseRow);
 
@@ -208,5 +218,46 @@ describe('setSelfieUploaded', () => {
 
     // ...which flips an otherwise-finished profile to COMPLETED.
     expect(profile.onboardingStatus).toBe(OnboardingStatus.COMPLETED);
+  });
+});
+
+describe('setAvailability', () => {
+  it('fires catch-up when the pro comes online with fresh coordinates', async () => {
+    const { service, jobs } = buildService(baseRow);
+    const coords = { latitude: 12.9716, longitude: 77.5946 };
+
+    await service.setAvailability('user-1', { isOnline: true, coordinates: coords });
+
+    expect(jobs.notifyReadyJobRequests).toHaveBeenCalledWith('user-1', coords);
+  });
+
+  it('does not fire catch-up when going offline', async () => {
+    const { service, jobs } = buildService(baseRow);
+
+    await service.setAvailability('user-1', {
+      isOnline: false,
+      coordinates: { latitude: 12.9716, longitude: 77.5946 },
+    });
+
+    expect(jobs.notifyReadyJobRequests).not.toHaveBeenCalled();
+  });
+
+  it('does not fire catch-up when online but without coordinates', async () => {
+    const { service, jobs } = buildService(baseRow);
+
+    await service.setAvailability('user-1', { isOnline: true });
+
+    expect(jobs.notifyReadyJobRequests).not.toHaveBeenCalled();
+  });
+
+  it('does not fire catch-up when the pro has no service radius', async () => {
+    const { service, jobs } = buildService({ ...baseRow, serviceRadiusKm: 0 });
+
+    await service.setAvailability('user-1', {
+      isOnline: true,
+      coordinates: { latitude: 12.9716, longitude: 77.5946 },
+    });
+
+    expect(jobs.notifyReadyJobRequests).not.toHaveBeenCalled();
   });
 });

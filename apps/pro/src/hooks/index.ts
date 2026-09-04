@@ -8,8 +8,8 @@ export { useSubmitGuard } from './use-submit-guard';
 export { useUploadSelfie } from './use-selfie';
 export {
   useAcceptJob,
-  useAvailableJobs,
   useCancelJob,
+  useJobHistory,
   useProJobs,
   useToggleAvailability,
   useTransitionJob,

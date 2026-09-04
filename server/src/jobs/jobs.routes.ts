@@ -60,15 +60,6 @@ export function createJobsRouter(services: Services): Router {
     }
   });
 
-  /** One of the caller's own requests. */
-  customer.get('/:id', customerOnly, async (req, res, next) => {
-    try {
-      res.json(await services.jobs.getForCustomer(req.user!.id, routeParamId(req.params.id)));
-    } catch (error) {
-      next(error);
-    }
-  });
-
   /**
    * Settles a completed job: PAYMENT_PENDING → PAID. Exactly once, in the
    * service; the price was anchored server-side when the job was completed.
@@ -112,6 +103,19 @@ export function createJobsRouter(services: Services): Router {
     }
   });
 
+  /**
+   * Every request this pro was offered, newest first — the "past jobs" history.
+   * Includes requests nobody accepted; the job's final status shows the outcome.
+   */
+  pro.get('/history', proOnly, validate(paginationSchema, 'query'), async (req, res, next) => {
+    try {
+      const limit = typeof req.query.limit === 'number' ? req.query.limit : 20;
+      res.json(await services.jobs.listJobHistory(req.user!.id, { limit }));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   /** Accepts an open job atomically. The first eligible pro to claim it wins. */
   pro.post('/:id/accept', proOnly, async (req, res, next) => {
     try {
@@ -144,6 +148,26 @@ export function createJobsRouter(services: Services): Router {
   // rejected by the pro route's own guard.
   router.use(pro);
   router.use(customer);
+
+  /**
+   * One request by id. Customers read their own placed request; a pro reads an
+   * open, unassigned request their service serves — the fetch behind the
+   * incoming-job alert (`fetchJob` in the app). Both actors share `GET /jobs/:id`,
+   * so a single role-dispatching route here avoids the two routers' `/:id`
+   * routes shadowing one another. 404s (pro) or 403s (customer) when the job
+   * is not theirs / no longer open.
+   */
+  router.get('/:id', requireAuth, async (req, res, next) => {
+    try {
+      if (req.user!.appType === 'pro') {
+        res.json(await services.jobs.getAvailableJobForPro(req.user!.id, routeParamId(req.params.id)));
+      } else {
+        res.json(await services.jobs.getForCustomer(req.user!.id, routeParamId(req.params.id)));
+      }
+    } catch (error) {
+      next(error);
+    }
+  });
 
   // A party to the job may cancel it until it leaves cancellation territory.
   // Registered last so `/mine`, `/available` and `/:id` always win the match.

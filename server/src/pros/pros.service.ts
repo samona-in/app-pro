@@ -9,11 +9,14 @@ import type { OnboardingPatchInput, AvailabilityPatchInput } from '@samona/valid
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
 import { badRequest } from '../common/errors';
+import type { JobsService } from '../jobs/jobs.service';
 
 export interface ProsServiceDeps {
   prisma: PrismaClient;
   /** Builds the read URL for a stored selfie; also probes upload completion. */
   storage: StorageService;
+  /** Pages a returning pro the still-open requests they missed while offline. */
+  jobs: JobsService;
 }
 
 /** Prisma row plus its join rows, as every read here selects them. */
@@ -281,6 +284,18 @@ export function createProsService(deps: ProsServiceDeps) {
       },
       select: proProfileSelect,
     });
+
+    // Going online with a fresh position is the moment to catch a pro up on
+    // requests raised while they were away. Fire-and-forget: catch-up must
+    // never block the toggle response.
+    if (
+      patch.isOnline &&
+      patch.coordinates &&
+      typeof row.serviceRadiusKm === 'number' &&
+      row.serviceRadiusKm > 0
+    ) {
+      void deps.jobs.notifyReadyJobRequests(userId, patch.coordinates);
+    }
 
     return toProProfile(row as ProProfileRow, deps.storage);
   }

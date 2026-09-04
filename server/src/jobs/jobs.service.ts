@@ -1,5 +1,6 @@
 import {
   JobStatus,
+  NotificationKind,
   ACTIVE_JOB_STATUSES,
   canTransition,
   type Job,
@@ -12,6 +13,7 @@ import type { StorageService } from '../files/storage.service';
 import type { RealtimeService } from '../realtime/gateway';
 import { REALTIME_EVENTS } from '../realtime/gateway';
 import type { MatchingService } from '../matching/matching.service';
+import type { AppConfig } from '../config';
 import { badRequest, notFound, conflict, forbidden } from '../common/errors';
 import { distanceKm, etaMinutes } from '../common/geo';
 import type { NotificationsService } from '../notifications/notifications.service';
@@ -22,6 +24,7 @@ export interface JobsServiceDeps {
   matching: MatchingService;
   realtime: RealtimeService;
   notifications: NotificationsService;
+  config: AppConfig;
 }
 
 /** The customer scoped folder every job image is minted under. */
@@ -153,7 +156,7 @@ function toJobDetail(
  * JobStatusHistory. REST is the source of truth; realtime only notifies.
  */
 export function createJobsService(deps: JobsServiceDeps) {
-  const { prisma, storage, matching, realtime, notifications } = deps;
+  const { prisma, storage, matching, realtime, notifications, config } = deps;
 
   const findProByUserId = async (userId: string) => {
     const pro = await prisma.proProfile.findUnique({
@@ -524,6 +527,105 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
+   * One open request by id, for the pro the alert just landed on.
+   *
+   * The client's incoming-job alert re-fetches a `job:new` nudge by id before
+   * it shows anything, so a pro must be able to read a single open, unassigned
+   * request they serve. Enforced the same way the available feed is: the pro
+   * must exist and the job must be open, unassigned and one of their services —
+   * nothing id-based from the client is trusted. 404s once the request is no
+   * longer open (claimed, cancelled) so the alert resolves as unavailable.
+   */
+  async function getAvailableJobForPro(proUserId: string, jobId: string): Promise<AvailableJob> {
+    const pro = await findProByUserId(proUserId);
+
+    const myServices = await prisma.proService.findMany({
+      where: { proProfileId: pro.id },
+      select: { serviceId: true },
+    });
+    const serviceIds = myServices.map((entry) => entry.serviceId);
+    if (serviceIds.length === 0) {
+      throw notFound('That request is no longer available.');
+    }
+
+    const row = await prisma.job.findFirst({
+      where: {
+        id: jobId,
+        status: JobStatus.REQUESTED,
+        proId: null,
+        serviceId: { in: serviceIds },
+      },
+      include: jobDetailInclude,
+    });
+    if (!row) {
+      throw notFound('That request is no longer available.');
+    }
+
+    const proPoint =
+      pro.latitude !== null && pro.longitude !== null
+        ? { latitude: pro.latitude, longitude: pro.longitude }
+        : null;
+    const jobPoint =
+      row.latitude !== null && row.longitude !== null
+        ? { latitude: row.latitude, longitude: row.longitude }
+        : null;
+    const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
+
+    return {
+      ...toJobDto(row as unknown as JobRow, storage),
+      distanceKm: km,
+      estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
+    };
+  }
+
+  /**
+   * The pro's job-request history: every request they were offered, newest
+   * first.
+   *
+   * Each `JOB_ALERT` notification records one offer the pro was paged for, so
+   * this is the source of the "past jobs" list — including requests nobody
+   * accepted (the job simply left the open pool). One row per job per pro;
+   * the job DTO carries its final status so the pro sees where each request
+   * landed.
+   */
+  async function listJobHistory(
+    proUserId: string,
+    options: { limit?: number } = {},
+  ): Promise<JobDetail[]> {
+    const pro = await findProByUserId(proUserId);
+
+    const rows = await prisma.notification.findMany({
+      where: { proId: pro.id, kind: 'JOB_ALERT', job: { isNot: null } },
+      orderBy: { createdAt: 'desc' },
+      take: Math.max(1, Math.min(options.limit ?? 50, 50)),
+      include: { job: { include: { ...jobDetailInclude } } },
+    });
+
+    const proPoint =
+      pro.latitude !== null && pro.longitude !== null
+        ? { latitude: pro.latitude, longitude: pro.longitude }
+        : null;
+
+    const results: JobDetail[] = [];
+    for (const row of rows) {
+      if (!row.job) continue;
+      const jobPoint =
+        row.job.latitude !== null && row.job.longitude !== null
+          ? { latitude: row.job.latitude, longitude: row.job.longitude }
+          : null;
+      const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
+      results.push({
+        ...toJobDto(row.job as unknown as JobRow, storage),
+        distanceKm: km,
+        estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
+        customer: null,
+        pro: null,
+      });
+    }
+    return results;
+  }
+
+  /**
    * Accepts an open job atomically. The first eligible pro to claim it wins.
    */
   async function acceptJob(proUserId: string, jobId: string): Promise<JobDetail> {
@@ -548,6 +650,15 @@ export function createJobsService(deps: JobsServiceDeps) {
       if (!jobPoint) {
         throw conflict('This job has no location to match against.');
       }
+
+      // Accepting requires the pro to be online — an offline pro cannot act on
+      // a request. Surfaced as its own, clear error before radius checks.
+      const online = await tx.proProfile.findFirst({
+        where: { id: pro.id, isOnline: true },
+        select: { id: true },
+      });
+      if (!online) throw conflict('Go online to accept jobs.');
+
       const eligible = await matching.isProEligible(pro.id, {
         serviceId: row.serviceId,
         latitude: jobPoint.latitude,
@@ -588,6 +699,26 @@ export function createJobsService(deps: JobsServiceDeps) {
     // A job that is now assigned is no longer open: stop the repeating alert
     // still paging every other eligible pro.
     void notifications.resolveJobAlerts(jobId);
+
+    // Every other pro who was alerted for this request should drop it the
+    // instant it is claimed. Publishing the accepted status over their socket
+    // closes their overlay and silences their alarm immediately, instead of
+    // leaving them showing a dead request until the next validation poll.
+    const others = await prisma.notification.findMany({
+      where: {
+        jobId,
+        kind: NotificationKind.JOB_ALERT,
+        resolvedAt: null,
+        proId: { not: pro.id },
+      },
+      select: { pro: { select: { userId: true } } },
+    });
+    realtime.emitToUsers(
+      others.map((n) => n.pro.userId),
+      REALTIME_EVENTS.JOB_STATUS,
+      proDetail,
+    );
+
     return proDetail;
   }
 
@@ -669,6 +800,95 @@ export function createJobsService(deps: JobsServiceDeps) {
     return proDetail;
   }
 
+  /**
+   * Catch-up: when a pro comes online, page them for still-open requests they
+   * are eligible for but that were raised while they were offline (Rapido-style
+   * "you missed this" nudge).
+   *
+   * Open requests are REQUESTED jobs with no assigned pro, raised within the
+   * configured recency window. The pro must still be eligible (service, radius,
+   * no conflicting job) and must not already have been alerted for the job (so
+   * we never double-nudge). Dispatches at most `config.jobCatchupLimit` jobs,
+   * nearest first. Fire-and-forget callers should not await this.
+   */
+  async function notifyReadyJobRequests(
+    proUserId: string,
+    coordinates: { latitude: number; longitude: number },
+  ): Promise<void> {
+    const pro = await prisma.proProfile.findUnique({
+      where: { userId: proUserId },
+      select: {
+        id: true,
+        serviceRadiusKm: true,
+      },
+    });
+    if (!pro) return;
+    const proPoint = coordinates;
+
+    const since = new Date(Date.now() - config.jobCatchupWindowMs);
+    const openJobs = await prisma.job.findMany({
+      where: {
+        status: JobStatus.REQUESTED,
+        proId: null,
+        latitude: { not: null },
+        longitude: { not: null },
+        createdAt: { gte: since },
+      },
+      include: jobDetailInclude,
+    });
+
+    if (openJobs.length === 0) return;
+
+    // Drop jobs the pro has already been alerted for, dedupe against the
+    // unique proId_jobId_kind constraint.
+    const alerted = await prisma.notification.findMany({
+      where: {
+        proId: pro.id,
+        kind: NotificationKind.JOB_ALERT,
+        jobId: { in: openJobs.map((j) => j.id) },
+      },
+      select: { jobId: true },
+    });
+    const alertedIds = new Set(alerted.map((n) => n.jobId));
+
+    const candidates = openJobs
+      .filter((job) => !alertedIds.has(job.id))
+      .map((job) => {
+        const jobPoint = { latitude: job.latitude as number, longitude: job.longitude as number };
+        return { job, km: distanceKm(proPoint, jobPoint) };
+      })
+      .filter(({ job, km }) => job.latitude !== null && job.longitude !== null && km <= pro.serviceRadiusKm)
+      .sort((a, b) => a.km - b.km)
+      .slice(0, config.jobCatchupLimit);
+
+    for (const { job, km } of candidates) {
+      const eligible = await matching.isProEligible(pro.id, {
+        serviceId: job.serviceId,
+        latitude: job.latitude as number,
+        longitude: job.longitude as number,
+      });
+      if (!eligible) continue;
+
+      const payload: AvailableJob = {
+        ...toJobDto(job as unknown as JobRow, storage),
+        distanceKm: km,
+        estimatedEtaMinutes: etaMinutes(km),
+      };
+
+      realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_NEW, payload);
+      void notifications.alertEligiblePros(
+        [{ proId: pro.id }],
+        {
+          jobId: job.id,
+          serviceName: job.service.name,
+          customSkill: job.customSkill,
+          description: job.description,
+          basePayPaise: job.basePayPaise,
+        },
+      );
+    }
+  }
+
   return {
     createForCustomer,
     listForCustomer,
@@ -677,6 +897,9 @@ export function createJobsService(deps: JobsServiceDeps) {
     cancelJob,
     listProJobs,
     listAvailableJobs,
+    getAvailableJobForPro,
+    listJobHistory,
+    notifyReadyJobRequests,
     acceptJob,
     transitionJob,
   };

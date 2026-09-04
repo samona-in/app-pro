@@ -81,6 +81,24 @@ const envSchema = z.object({
    * Guards against a job that is never accepted/expired paging a pro forever.
    */
   JOB_ALERT_MAX_REPEATS: z.coerce.number().int().min(0).max(100).default(0),
+
+  /**
+   * How far back a still-open job request is still offered to a pro who comes
+   * online after the request was raised (Rapido-style catch-up). Defaults to
+   * 2 hours.
+   */
+  JOB_CATCHUP_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(86_400_000)
+    .default(2 * 60 * 60_000),
+
+  /**
+   * How many still-open requests, nearest first, a pro is paged for at once on
+   * return to online. Guards against overwhelming a pro with a backlog.
+   */
+  JOB_CATCHUP_LIMIT: z.coerce.number().int().min(1).max(20).default(3),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -104,6 +122,10 @@ export interface AppConfig {
   jobAlertRepeatMs: number;
   /** Ceiling on repeats for a single job alert. */
   jobAlertMaxRepeats: number;
+  /** Catch-up recency window for a pro returning online, in ms. */
+  jobCatchupWindowMs: number;
+  /** Nearest-first cap of open requests paged to a returning pro. */
+  jobCatchupLimit: number;
 }
 
 /**
@@ -156,5 +178,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     expoAccessToken: env.EXPO_ACCESS_TOKEN ?? null,
     jobAlertRepeatMs: env.JOB_ALERT_REPEAT_MS,
     jobAlertMaxRepeats: env.JOB_ALERT_MAX_REPEATS,
+    jobCatchupWindowMs: env.JOB_CATCHUP_WINDOW_MS,
+    jobCatchupLimit: env.JOB_CATCHUP_LIMIT,
   };
 }

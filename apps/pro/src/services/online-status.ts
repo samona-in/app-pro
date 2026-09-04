@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
 import * as Location from 'expo-location';
+import { Alert, Linking } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
 import type { JobDetail } from '@samona/types';
@@ -18,6 +18,15 @@ import {
 export type { OnlineStatus, OnlineStatusState };
 export { subscribeToOnlineStatus } from './online-status-state';
 
+/** Message shown when the OS-wide Location Services toggle is off. */
+export const LOCATION_SERVICES_DISABLED_MESSAGE =
+  'Location services are turned off. Turn them on to go online and receive jobs.';
+
+/** true when a failure is the OS Location Services toggle being off. */
+export function isLocationServicesDisabledError(message: string | undefined): boolean {
+  return message === LOCATION_SERVICES_DISABLED_MESSAGE;
+}
+
 let abortController: AbortController | null = null;
 
 let socket: Socket | null = null;
@@ -29,26 +38,99 @@ function setStatus(status: OnlineStatus, error: string | null = null): void {
   setStatusState(status, error);
 }
 
-async function checkLocationServicesEnabled(): Promise<boolean> {
-  if (Platform.OS === 'web') return true;
-  try {
-    const enabled = await Location.hasServicesEnabledAsync();
-    return enabled;
-  } catch {
-    return false;
-  }
-}
-
 async function requestLocationPermission(): Promise<boolean> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   return status === 'granted';
 }
 
+/** Location error codes where the fix can't be obtained right now. */
+const LOCATION_UNAVAILABLE_CODES = new Set([
+  'ERR_LOCATION_SERVICES_DISABLED',
+  'ERR_LOCATION_UNAVAILABLE',
+]);
+
 async function getValidLocation(): Promise<{ latitude: number; longitude: number }> {
-  const position = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
-  return { latitude: position.coords.latitude, longitude: position.coords.longitude };
+  try {
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+      // On Android this surfaces the system "enable location" prompt when the
+      // master toggle is off, instead of just failing.
+      mayShowUserSettingsDialog: true,
+    });
+    return { latitude: position.coords.latitude, longitude: position.coords.longitude };
+  } catch (error) {
+    // Surface one clear, actionable reason instead of a raw fatal error.
+    const code = (error as { code?: string } | null)?.code;
+    if (code && LOCATION_UNAVAILABLE_CODES.has(code)) {
+      throw new Error(LOCATION_SERVICES_DISABLED_MESSAGE);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Monitors the OS-wide Location Services toggle while the pro is online. The
+ * moment it flips off mid-session we prompt immediately (Rapido-captain style)
+ * with a one-tap "Open Settings" action. The prompt is global, so it appears
+ * no matter which screen the pro is on. Stops when the pro goes offline.
+ */
+let locationWatchTimer: ReturnType<typeof setInterval> | null = null;
+let locationWasEnabled = true;
+let locationPromptShowing = false;
+
+const LOCATION_POLL_MS = 3000;
+
+async function checkLocationEnabled(): Promise<boolean> {
+  try {
+    return await Location.hasServicesEnabledAsync();
+  } catch {
+    return false;
+  }
+}
+
+function showLocationServicesPrompt(): void {
+  const alreadyShowing = locationPromptShowing;
+  if (alreadyShowing) return;
+  locationPromptShowing = true;
+  Alert.alert(
+    'Location services off',
+    'Turn on location services to keep receiving job requests near you.',
+    [
+      {
+        text: 'Open Settings',
+        onPress: () => {
+          locationPromptShowing = false;
+          void Linking.openSettings();
+        },
+      },
+      {
+        text: 'OK',
+        style: 'cancel',
+        onPress: () => {
+          locationPromptShowing = false;
+        },
+      },
+    ],
+  );
+}
+
+export function startLocationServicesMonitor(): void {
+  if (locationWatchTimer) return;
+  locationWasEnabled = true;
+  locationWatchTimer = setInterval(async () => {
+    const enabled = await checkLocationEnabled();
+    if (!enabled && locationWasEnabled) {
+      showLocationServicesPrompt();
+    }
+    locationWasEnabled = enabled;
+  }, LOCATION_POLL_MS);
+}
+
+export function stopLocationServicesMonitor(): void {
+  if (locationWatchTimer) {
+    clearInterval(locationWatchTimer);
+    locationWatchTimer = null;
+  }
 }
 
 function createSocket(): Socket {
@@ -140,33 +222,27 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
   }
 
   abortController = new AbortController();
-  setStatus('checking-location');
+  setStatus('loading');
 
   try {
     if (abortController.signal.aborted) throw new Error('Aborted');
 
-    const hasServices = await checkLocationServicesEnabled();
-    if (!hasServices) {
-      setStatus('error', 'Location services are turned off. Please enable location services to go online and receive jobs.');
-      return { success: false, error: undefined };
-    }
-
-    if (abortController.signal.aborted) throw new Error('Aborted');
-    setStatus('requesting-permission');
-
+    // Ask for the app's location permission up front — this surfaces the OS
+    // permission dialog directly, which is all we can do from code and the
+    // most common first-time friction. The system-wide Location Services
+    // toggle cannot be flipped by an app, so that's only a terminal fallback.
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
-      setStatus('error', 'Location permission is needed to go online and match with jobs near you.');
-      return { success: false, error: undefined };
+      const message = 'Location permission is needed to go online and match with jobs near you.';
+      setStatus('offline', message);
+      return { success: false, error: message };
     }
 
     if (abortController.signal.aborted) throw new Error('Aborted');
-    setStatus('getting-location');
 
     const coordinates = await getValidLocation();
 
     if (abortController.signal.aborted) throw new Error('Aborted');
-    setStatus('connecting');
 
     connectSocket(token);
 
@@ -179,11 +255,13 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
 
     await api.post('/pros/availability', patch);
 
+    startLocationServicesMonitor();
+
     setStatus('online');
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to go online';
-    setStatus('error', message);
+    setStatus('offline', message);
     disconnectSocket();
     return { success: false, error: message };
   }
@@ -195,7 +273,7 @@ export async function goOffline(_token: string): Promise<{ success: boolean; err
   }
 
   abortController = new AbortController();
-  setStatus('offlining');
+  setStatus('loading');
 
   try {
     jobNotificationService.cleanup();
@@ -204,13 +282,14 @@ export async function goOffline(_token: string): Promise<{ success: boolean; err
     const patch = { isOnline: false };
     await api.post('/pros/availability', patch);
 
+    stopLocationServicesMonitor();
     disconnectSocket();
 
     setStatus('offline');
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to go offline';
-    setStatus('error', message);
+    setStatus('offline', message);
     return { success: false, error: message };
   }
 }
@@ -221,15 +300,31 @@ export function cancelTransition(): void {
     abortController = null;
   }
   const status = getStatusState().status;
-  if (status === 'offlining') {
-    setStatus('online');
-  } else if (status !== 'online' && status !== 'offline') {
+  if (status === 'loading') {
     setStatus('offline');
   }
   setIsTransitioning(false);
 }
 
 export { isOnline, isOffline, getOnlineStatus } from './online-status-state';
+
+/**
+ * Reconciles the in-memory online status with the server's authoritative value.
+ *
+ * The module's status starts as `offline` on every launch and only changes via
+ * goOnline/goOffline, so on a fresh open it can disagree with the server
+ * (e.g. a pro left online). This lets the UI align with the server once the
+ * profile loads — but it never clobbers an in-flight toggle, so mid-transition
+ * the optimistic value wins until the API call settles.
+ */
+export function reconcileOnlineStatus(serverOnline: boolean): void {
+  const status = getStatusState().status;
+  if (status === 'loading' || getIsTransitioning()) return;
+  const target: OnlineStatus = serverOnline ? 'online' : 'offline';
+  if (status !== target) {
+    setStatusState(target);
+  }
+}
 
 export function getSocket(): Socket | null {
   return socket;
