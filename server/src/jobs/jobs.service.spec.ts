@@ -1,5 +1,6 @@
-import { JobStatus } from '@samona/types';
+import { JobStatus, NotificationKind } from '@samona/types';
 import { createJobsService } from './jobs.service';
+import { REALTIME_EVENTS } from '../realtime/gateway';
 
 const jobRow = {
   id: 'job-1',
@@ -495,5 +496,102 @@ describe('createJobsService.getAvailableJobForPro', () => {
       status: 404,
     });
     expect(ctx.prisma.job.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe('createJobsService.acceptJob', () => {
+  const pro = { id: 'pro-1', latitude: 12.9716, longitude: 77.5946 };
+
+  function buildAccept() {
+    const updatedRow = {
+      ...jobRow,
+      status: JobStatus.ACCEPTED,
+      proId: 'pro-1',
+      customer: { userId: 'cust-user-1', displayName: 'Cust' },
+      pro: { userId: 'pro-user-1' },
+    };
+
+    const openRow = {
+      ...jobRow,
+      latitude: 12.972,
+      longitude: 77.594,
+      customer: { userId: 'cust-user-1', displayName: 'Cust' },
+      pro: null,
+    };
+
+    const notificationFindMany = jest.fn().mockResolvedValue([
+      { pro: { userId: 'other-1' } },
+      { pro: { userId: 'other-2' } },
+    ]);
+    const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
+
+    const realtime = {
+      emitToUser: jest.fn(),
+      emitToUsers: jest.fn(),
+    };
+
+    const storage = {
+      jobImagePublicUrl: jest.fn().mockImplementation((path: string) => `https://cdn/${path}`),
+    };
+
+    const prisma = {
+      proProfile: { findUnique: jest.fn().mockResolvedValue(pro) },
+      notification: { findMany: notificationFindMany },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          job: {
+            findFirst: jest.fn().mockResolvedValue(openRow),
+            count: jest.fn().mockResolvedValue(0),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findFirstOrThrow: jest.fn().mockResolvedValue(updatedRow),
+          },
+          proProfile: { findFirst: jest.fn().mockResolvedValue({ id: 'pro-1' }) },
+          jobStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+        }),
+      ),
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: storage as never,
+      matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
+      realtime: realtime as never,
+      notifications: { resolveJobAlerts } as never,
+    } as never);
+
+    return { jobs, prisma, realtime, storage, resolveJobAlerts, updatedRow };
+  }
+
+  it('publishes the accepted status to every other alerted pro, excluding the accepting pro', async () => {
+    const ctx = buildAccept();
+
+    const returned = await ctx.jobs.acceptJob('user-1', 'job-1');
+
+    expect(returned.status).toBe(JobStatus.ACCEPTED);
+    expect(ctx.prisma.notification.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          jobId: 'job-1',
+          kind: NotificationKind.JOB_ALERT,
+          resolvedAt: null,
+          proId: { not: 'pro-1' },
+        },
+      }),
+    );
+    expect(ctx.realtime.emitToUsers).toHaveBeenCalledWith(
+      ['other-1', 'other-2'],
+      REALTIME_EVENTS.JOB_STATUS,
+      expect.objectContaining({ status: JobStatus.ACCEPTED }),
+    );
+    // The accepting pro gets the single-recipient status event, not the batch.
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops the repeating alerts for the now-claimed job', async () => {
+    const ctx = buildAccept();
+
+    await ctx.jobs.acceptJob('user-1', 'job-1');
+
+    expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1');
   });
 });

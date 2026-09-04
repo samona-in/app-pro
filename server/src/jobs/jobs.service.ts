@@ -699,6 +699,26 @@ export function createJobsService(deps: JobsServiceDeps) {
     // A job that is now assigned is no longer open: stop the repeating alert
     // still paging every other eligible pro.
     void notifications.resolveJobAlerts(jobId);
+
+    // Every other pro who was alerted for this request should drop it the
+    // instant it is claimed. Publishing the accepted status over their socket
+    // closes their overlay and silences their alarm immediately, instead of
+    // leaving them showing a dead request until the next validation poll.
+    const others = await prisma.notification.findMany({
+      where: {
+        jobId,
+        kind: NotificationKind.JOB_ALERT,
+        resolvedAt: null,
+        proId: { not: pro.id },
+      },
+      select: { pro: { select: { userId: true } } },
+    });
+    realtime.emitToUsers(
+      others.map((n) => n.pro.userId),
+      REALTIME_EVENTS.JOB_STATUS,
+      proDetail,
+    );
+
     return proDetail;
   }
 

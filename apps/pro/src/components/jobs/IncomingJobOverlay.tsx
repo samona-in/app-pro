@@ -9,6 +9,7 @@ import { Badge, Card, Text } from '@/components/ui';
 import { useAcceptJob, useSubmitGuard } from '@/hooks';
 import type { IncomingJobResolution } from '@/stores/incoming-job';
 import { api } from '@/services/api';
+import { jobNotificationService } from '@/services/job-notifications';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr, formatRelativeTime } from '@/utils/format';
 
@@ -90,11 +91,14 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
   const [secondsLeft, setSecondsLeft] = useState(Math.ceil(JOB_ALERT_COUNTDOWN_MS / 1000));
 
   const { run: runAccept, isSubmitting } = useSubmitGuard(async () => {
+    jobNotificationService.setAccepting(jobRef.current.id);
     try {
       await accept.mutateAsync(jobRef.current.id);
       onResolve('accept');
     } catch {
       onResolve('unavailable');
+    } finally {
+      jobNotificationService.setAccepting(null);
     }
   });
   const { run: runReject } = useSubmitGuard(() => onResolve('reject'));
