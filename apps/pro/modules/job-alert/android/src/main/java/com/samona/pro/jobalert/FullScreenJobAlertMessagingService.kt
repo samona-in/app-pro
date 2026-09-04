@@ -45,7 +45,7 @@ class FullScreenJobAlertMessagingService : ExpoFirebaseMessagingService() {
     val jobId = data["jobId"]
 
     if (type == NEW_JOB_TYPE && !jobId.isNullOrBlank()) {
-      showFullScreenJobAlert(remoteMessage, jobId)
+      showFullScreenJobAlert(remoteMessage, jobId, data)
       // Deliberately do not call super: posting the notification twice (ours +
       // Expo's) would raise two alerts for the same job.
       return
@@ -54,11 +54,19 @@ class FullScreenJobAlertMessagingService : ExpoFirebaseMessagingService() {
     super.onMessageReceived(remoteMessage)
   }
 
-  private fun showFullScreenJobAlert(remoteMessage: RemoteMessage, jobId: String) {
+  private fun showFullScreenJobAlert(remoteMessage: RemoteMessage, jobId: String, data: Map<String, String>) {
     ensureJobAlertChannel()
 
-    val title = remoteMessage.notification?.title?.takeIf { it.isNotBlank() } ?: DEFAULT_TITLE
-    val body = remoteMessage.notification?.body?.takeIf { it.isNotBlank() } ?: DEFAULT_BODY
+    // Job-alert pushes are DATA-ONLY (the server moves title/body into the data
+    // bundle) so FCM always wakes this service even when the app is closed.
+    // `remoteMessage.notification` is therefore null — read from data first,
+    // and never hard-fail on either source.
+    val title = data["title"]?.takeIf { it.isNotBlank() }
+      ?: remoteMessage.notification?.title?.takeIf { it.isNotBlank() }
+      ?: DEFAULT_TITLE
+    val body = data["body"]?.takeIf { it.isNotBlank() }
+      ?: remoteMessage.notification?.body?.takeIf { it.isNotBlank() }
+      ?: DEFAULT_BODY
 
     // MainActivity is singleTask, so a fired intent either launches it or is
     // delivered as onNewIntent; expo-router then resolves `job-alert/[id]`.

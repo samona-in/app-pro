@@ -16,8 +16,18 @@ export const expoPushTokenSchema = z
   .max(512, 'Push token is too long.');
 
 /** Registers (or replaces) this Pro's device push token. */
+export const pushPlatformSchema = z.enum(['ios', 'android']);
+
+export type PushPlatformInput = z.infer<typeof pushPlatformSchema>;
+
 export const registerPushTokenSchema = z.object({
   pushToken: expoPushTokenSchema,
+  /**
+   * The OS the token was minted on. Not trusted as identity — it only shapes the
+   * push payload on our side (Android needs data-only messages so the native
+   * full-screen service runs when the app is closed; iOS needs a display alert).
+   */
+  platform: pushPlatformSchema,
 });
 
 export type RegisterPushTokenInput = z.infer<typeof registerPushTokenSchema>;

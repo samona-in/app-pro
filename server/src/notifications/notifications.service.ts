@@ -3,6 +3,7 @@ import {
   NotificationKind,
   type AppNotification,
 } from '@samona/types';
+import type { PushPlatformInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
 import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
@@ -51,6 +52,9 @@ export interface JobAlertInfo {
 
 const ROUTE_PREFIX = 'samonapro://job/';
 
+/** Server-side view of a push target's OS (mirrors the Prisma enum values). */
+type PushTargetPlatform = 'ANDROID' | 'IOS' | null;
+
 function notificationRoute(jobId: string): string {
   return `${ROUTE_PREFIX}${jobId}`;
 }
@@ -67,6 +71,48 @@ function jobAlertTitle(info: JobAlertInfo): string {
 
 function jobAlertBody(info: JobAlertInfo): string {
   return `${info.description} — ${formatPay(info.basePayPaise)}. Tap to see and accept.`;
+}
+
+/**
+ * Builds the Expo push payload for a job alert.
+ *
+ * Android is DATA-ONLY: a display message (top-level title/body) is rendered
+ * straight into the tray by FCM when the app is closed, so our native
+ * FullScreenJobAlertMessagingService never runs and the full-screen intent
+ * cannot fire. Moving title/body into the data bundle makes FCM always
+ * deliver to `onMessageReceived`, where the Kotlin service posts its own
+ * full-screen alert. iOS keeps a display payload so a closed app still shows
+ * a visible alert.
+ */
+export function buildPushMessage(
+  pushToken: string,
+  message: {
+    title: string;
+    body: string;
+    data: Record<string, unknown>;
+    channelId?: string;
+  },
+  platform: PushTargetPlatform,
+): Record<string, unknown> {
+  if (platform === 'ANDROID') {
+    return {
+      to: pushToken,
+      priority: 'high',
+      data: { ...message.data, title: message.title, body: message.body },
+    };
+  }
+  return {
+    to: pushToken,
+    title: message.title,
+    body: message.body,
+    data: message.data,
+    sound: 'default',
+    priority: 'high',
+    // The channel the alert raises on (honoured for display messages).
+    channelId: message.channelId ?? 'job-alerts',
+    // iOS: allow this to break through "do not disturb"-tier noise.
+    interruptionLevel: 'time-sensitive',
+  };
 }
 
 /** A persisted notification row, mapped to the client DTO. */
@@ -147,6 +193,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       data: Record<string, unknown>;
       channelId?: string;
     },
+    platform: PushTargetPlatform,
   ): Promise<{ ok: boolean; providerRef?: string; error?: string }> {
     const client = await getExpoClient();
     if (!client) {
@@ -159,18 +206,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
     try {
       const tickets = await client.sendPushNotificationsAsync([
-        {
-          to: pushToken,
-          title: message.title,
-          body: message.body,
-          data: message.data,
-          sound: 'default',
-          priority: 'high',
-          // Android needs an existing channel to raise this as a full alert.
-          channelId: message.channelId ?? 'job-alerts',
-          // iOS: allow this to break through "do not disturb"-tier noise.
-          interruptionLevel: 'time-sensitive',
-        },
+        buildPushMessage(pushToken, message, platform),
       ]);
       const ticket = tickets?.[0] as
         | { status: string; id?: string; message?: string }
@@ -279,13 +315,18 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     info: JobAlertInfo,
     token: string,
     isRepeat: boolean,
+    platform: PushTargetPlatform,
   ): Promise<void> {
-    const result = await sendPush(token, {
-      title: jobAlertTitle(info),
-      body: jobAlertBody(info),
-      data: { type: 'NEW_JOB', jobId: info.jobId, kind: NotificationKind.JOB_ALERT },
-      channelId: 'job-alerts',
-    });
+    const result = await sendPush(
+      token,
+      {
+        title: jobAlertTitle(info),
+        body: jobAlertBody(info),
+        data: { type: 'NEW_JOB', jobId: info.jobId, kind: NotificationKind.JOB_ALERT },
+        channelId: 'job-alerts',
+      },
+      platform,
+    );
 
     // If Expo accepted the ticket, verify actual delivery shortly after.
     if (result.ok && result.providerRef) {
@@ -311,7 +352,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
     const pros = await prisma.proProfile.findMany({
       where: { id: { in: recipients.map((r) => r.proId) } },
-      select: { id: true, pushToken: true, jobAlertsEnabled: true },
+      select: { id: true, pushToken: true, pushPlatform: true, jobAlertsEnabled: true },
     });
 
     logger.info(
@@ -330,7 +371,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           await upsertAlert(pro.id, info, { ok: false, providerRef: null }, false);
           return;
         }
-        await alertOne(pro.id, info, pro.pushToken, false);
+        await alertOne(pro.id, info, pro.pushToken, false, pro.pushPlatform);
       }),
     );
   }
@@ -369,7 +410,11 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   }
 
   /** Registers (or replaces) this Pro's device push token. */
-  async function registerPushToken(userId: string, pushToken: string): Promise<void> {
+  async function registerPushToken(
+    userId: string,
+    pushToken: string,
+    platform: PushPlatformInput,
+  ): Promise<void> {
     logger.info(`[Push] Token registration request received for user ${userId}`);
 
     // Validate the token shape: it must look like an Expo push token, not an
@@ -388,13 +433,16 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     // leave a stale copy on an old profile behind (violating the unique index).
     await prisma.proProfile.updateMany({
       where: { pushToken, userId: { not: userId } },
-      data: { pushToken: null },
+      data: { pushToken: null, pushPlatform: null },
     });
 
+    // The stored platform only shapes the push payload on our side; the token
+    // itself is the identity, and it remains server-validated.
+    const storedPlatform = platform === 'android' ? 'ANDROID' : 'IOS';
     const updated = await prisma.proProfile.upsert({
       where: { userId },
-      create: { userId, pushToken },
-      update: { pushToken },
+      create: { userId, pushToken, pushPlatform: storedPlatform },
+      update: { pushToken, pushPlatform: storedPlatform },
       select: { id: true, jobAlertsEnabled: true },
     });
 
@@ -440,7 +488,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           id: true,
           repeats: true,
           jobId: true,
-          pro: { select: { id: true, pushToken: true } },
+          pro: { select: { id: true, pushToken: true, pushPlatform: true } },
           job: {
             select: {
               id: true,
@@ -480,7 +528,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           customSkill: job.customSkill,
           description: job.description,
           basePayPaise: job.basePayPaise,
-        }, token, true);
+        }, token, true, row.pro.pushPlatform);
       }
     } catch (error) {
       // Never let a scheduler error kill the process; log and continue.

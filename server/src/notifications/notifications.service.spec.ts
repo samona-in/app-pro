@@ -1,5 +1,5 @@
 import { NotificationKind } from '@samona/types';
-import { createNotificationsService } from './notifications.service';
+import { buildPushMessage, createNotificationsService } from './notifications.service';
 
 const info = {
   jobId: 'job-1',
@@ -64,5 +64,45 @@ describe('createNotificationsService.alertEligiblePros', () => {
 
     expect(ctx.upsert).not.toHaveBeenCalled();
     expect(ctx.proProfileFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('buildPushMessage', () => {
+  const message = {
+    title: 'Electrical job nearby',
+    body: 'Fix the switch near the door — ₹150.00. Tap to see and accept.',
+    data: { type: 'NEW_JOB', jobId: 'job-1', kind: NotificationKind.JOB_ALERT },
+    channelId: 'job-alerts',
+  };
+
+  it('sends Android job alerts as data-only so the native full-screen service runs', () => {
+    const payload = buildPushMessage('ExponentPushToken[abc]', message, 'ANDROID');
+
+    expect(payload.title).toBeUndefined();
+    expect(payload.body).toBeUndefined();
+    expect(payload.priority).toBe('high');
+    expect(payload.data).toEqual({
+      type: 'NEW_JOB',
+      jobId: 'job-1',
+      kind: NotificationKind.JOB_ALERT,
+      title: message.title,
+      body: message.body,
+    });
+  });
+
+  it('keeps a display payload on iOS so a closed app still shows an alert', () => {
+    const payload = buildPushMessage('ExponentPushToken[abc]', message, 'IOS');
+
+    expect(payload.title).toBe(message.title);
+    expect(payload.body).toBe(message.body);
+    expect(payload.channelId).toBe('job-alerts');
+    expect(payload.interruptionLevel).toBe('time-sensitive');
+  });
+
+  it('falls back to a display payload when the platform is unknown', () => {
+    const payload = buildPushMessage('ExponentPushToken[abc]', message, null);
+
+    expect(payload.title).toBe(message.title);
+    expect(payload.channelId).toBe('job-alerts');
   });
 });

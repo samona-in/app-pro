@@ -114,6 +114,12 @@ model ProProfile {
   /// identity. Null until the app has asked for, and been granted, permission.
   pushToken String? @unique @map("push_token")
 
+  /// The device OS that holds `pushToken`. The job-alert push is sent as a
+  /// data-only message on Android (so the native full-screen service runs even
+  /// when the app is closed) and as a display alert on iOS. Always written
+  /// together with `pushToken`; null only for legacy registrations.
+  pushPlatform PushPlatform? @map("push_platform")
+
   /// Whether this Pro wants job alerts at all. Server-side, so the API stays
   /// the single writer of preference; the app only toggles it through the
   /// notifications domain.
@@ -395,6 +401,14 @@ enum Gender {
   MALE
   FEMALE
   OTHER
+}
+
+/// The OS a push token was registered from. Used only to shape the push
+/// payload: Android job alerts are data-only so the native full-screen service
+/// runs even when the app is closed; iOS gets a display alert.
+enum PushPlatform {
+  IOS
+  ANDROID
 }
 
 /// The kind of push a professional may receive. Mirrors `NotificationKind` in

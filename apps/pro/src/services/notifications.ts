@@ -103,7 +103,13 @@ export async function registerPushToken(): Promise<string | null> {
     console.log('[Notifications] Expo push token generated:', pushToken);
 
     console.log('[Notifications] Sending token to backend...');
-    await api.post<undefined>('/notifications/register-token', { pushToken } satisfies RegisterPushTokenInput);
+    await api.post<undefined>('/notifications/register-token', {
+      pushToken,
+      // The server shapes the payload per OS: Android job alerts are data-only
+      // so the native full-screen service is always invoked, even when the app
+      // is closed.
+      platform: Platform.OS === 'android' ? 'android' : 'ios',
+    } satisfies RegisterPushTokenInput);
     console.log('[Notifications] Token successfully stored on backend');
 
     // Rapido-style: once the device is registered for alerts, offer the
