@@ -447,6 +447,26 @@ export function createJobsService(deps: JobsServiceDeps) {
     // A cancelled job is no longer open; stop repeating its alert.
     void notifications.resolveJobAlerts(jobId);
 
+    // If the cancelled job had an assigned pro who is still online, catch
+    // them up on requests they missed while busy — like Rapido re-queuing
+    // a driver the moment their ride is cancelled.
+    if (row.pro) {
+      const proProfile = await prisma.proProfile.findUnique({
+        where: { userId: row.pro.userId },
+        select: { isOnline: true, latitude: true, longitude: true },
+      });
+      if (
+        proProfile?.isOnline &&
+        proProfile.latitude != null &&
+        proProfile.longitude != null
+      ) {
+        void notifyReadyJobRequests(row.pro.userId, {
+          latitude: proProfile.latitude,
+          longitude: proProfile.longitude,
+        });
+      }
+    }
+
     return {
       detail: actorIsCustomer ? customerDetail : proDetail,
       customerUserId: row.customer.userId,
