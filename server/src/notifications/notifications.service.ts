@@ -237,25 +237,17 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     }
   }
 
-  /** Writes (or re-arms) one pro's job-alert row and delivers the push. */
-  async function alertOne(
+  /**
+   * Persists (or re-arms) one pro's job-alert row. The row is the record of an
+   * offer — the "past jobs" list is built from it — so it is written whether or
+   * not a push could actually be delivered; `delivered` records the push outcome.
+   */
+  async function upsertAlert(
     proId: string,
     info: JobAlertInfo,
-    token: string,
+    result: { ok: boolean; providerRef?: string | null },
     isRepeat: boolean,
   ): Promise<void> {
-    const result = await sendPush(token, {
-      title: jobAlertTitle(info),
-      body: jobAlertBody(info),
-      data: { type: 'NEW_JOB', jobId: info.jobId, kind: NotificationKind.JOB_ALERT },
-      channelId: 'job-alerts',
-    });
-
-    // If Expo accepted the ticket, verify actual delivery shortly after.
-    if (result.ok && result.providerRef) {
-      void checkPushReceipts([result.providerRef], proId);
-    }
-
     await prisma.notification.upsert({
       where: {
         proId_jobId_kind: { proId, jobId: info.jobId, kind: NotificationKind.JOB_ALERT },
@@ -279,6 +271,28 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           }
         : {},
     });
+  }
+
+  /** Writes (or re-arms) one pro's job-alert row and delivers the push. */
+  async function alertOne(
+    proId: string,
+    info: JobAlertInfo,
+    token: string,
+    isRepeat: boolean,
+  ): Promise<void> {
+    const result = await sendPush(token, {
+      title: jobAlertTitle(info),
+      body: jobAlertBody(info),
+      data: { type: 'NEW_JOB', jobId: info.jobId, kind: NotificationKind.JOB_ALERT },
+      channelId: 'job-alerts',
+    });
+
+    // If Expo accepted the ticket, verify actual delivery shortly after.
+    if (result.ok && result.providerRef) {
+      void checkPushReceipts([result.providerRef], proId);
+    }
+
+    await upsertAlert(proId, info, result, isRepeat);
   }
 
   /**
@@ -311,6 +325,9 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           logger.warn(
             `[Push] Skipping pro ${pro.id} for job ${info.jobId}: ${!pro.jobAlertsEnabled ? 'alerts disabled' : 'no push token stored'}`,
           );
+          // No push can go out, but the offer is still recorded so the request
+          // shows up in the pro's job history (Past jobs) with its final status.
+          await upsertAlert(pro.id, info, { ok: false, providerRef: null }, false);
           return;
         }
         await alertOne(pro.id, info, pro.pushToken, false);
