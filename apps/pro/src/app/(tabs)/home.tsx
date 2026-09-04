@@ -108,19 +108,22 @@ function AvailabilityCard() {
   });
 
   return (
-    <Card variant="raised" className={isOnline ? 'bg-brand' : 'bg-surface'}>
+    <Card
+      variant="raised"
+      style={isOnline ? { backgroundColor: color.brand } : { backgroundColor: color.surface }}
+    >
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-4">
           <Text
             variant="label"
-            className={isOnline ? 'text-brand-contrast' : 'text-text-secondary'}
-            style={isOnline ? { opacity: 0.7 } : undefined}
+            style={{ color: isOnline ? color['brand-contrast'] : color['text-secondary'], opacity: isOnline ? 0.7 : undefined }}
           >
             Availability
           </Text>
           <Text
             variant="titleLg"
-            className={isOnline ? 'mt-1 text-brand-contrast' : 'mt-1 text-text-primary'}
+            className="mt-1"
+            style={{ color: isOnline ? color['brand-contrast'] : color['text-primary'] }}
           >
             {label}
           </Text>

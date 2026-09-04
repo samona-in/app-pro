@@ -233,16 +233,15 @@ interface PendingJobEvent {
     if (resolution === 'accept') {
       try {
         await api.post<JobDetail>(`/jobs/${jobId}/accept`);
+        store.resolve('accept');
       } catch {
         store.resolve('unavailable');
-        stopJobAlert();
-        clearJobHandled(jobId);
-        return;
       }
     } else {
       store.resolve(resolution);
     }
 
+    stopJobAlert();
     clearJobHandled(jobId);
   }
 
