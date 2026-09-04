@@ -99,6 +99,18 @@ const envSchema = z.object({
    * return to online. Guards against overwhelming a pro with a backlog.
    */
   JOB_CATCHUP_LIMIT: z.coerce.number().int().min(1).max(20).default(3),
+
+  /**
+   * How long an unaccepted (REQUESTED) job stays open before the sweep flips it
+   * to EXPIRED. A job nobody accepts should not wait forever. Defaults to 30m.
+   */
+  JOB_EXPIRE_TTL_MS: z.coerce.number().int().min(60_000).max(86_400_000).default(30 * 60_000),
+
+  /**
+   * How often the auto-expiry sweep scans for REQUESTED jobs older than the TTL.
+   * Defaults to 60s; bounded below so a busy loop is impossible.
+   */
+  JOB_EXPIRE_SWEEP_MS: z.coerce.number().int().min(5_000).max(86_400_000).default(60_000),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -126,6 +138,10 @@ export interface AppConfig {
   jobCatchupWindowMs: number;
   /** Nearest-first cap of open requests paged to a returning pro. */
   jobCatchupLimit: number;
+  /** How long an unaccepted job stays open before auto-expiring, in ms. */
+  jobExpireTtlMs: number;
+  /** How often the auto-expiry sweep runs, in ms. */
+  jobExpireSweepMs: number;
 }
 
 /**
@@ -180,5 +196,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     jobAlertMaxRepeats: env.JOB_ALERT_MAX_REPEATS,
     jobCatchupWindowMs: env.JOB_CATCHUP_WINDOW_MS,
     jobCatchupLimit: env.JOB_CATCHUP_LIMIT,
+    jobExpireTtlMs: env.JOB_EXPIRE_TTL_MS,
+    jobExpireSweepMs: env.JOB_EXPIRE_SWEEP_MS,
   };
 }

@@ -67,6 +67,9 @@ function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> 
     acceptJob: jest.fn().mockResolvedValue(job),
     transitionJob: jest.fn().mockResolvedValue(job),
     notifyReadyJobRequests: jest.fn().mockResolvedValue(undefined),
+    expireStaleJobs: jest.fn().mockResolvedValue(0),
+    startExpireSweep: jest.fn(),
+    stopExpireSweep: jest.fn(),
     ...partial,
   };
 }

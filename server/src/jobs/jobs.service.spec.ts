@@ -454,6 +454,124 @@ describe('createJobsService.notifyReadyJobRequests', () => {
   });
 });
 
+describe('createJobsService.expireStaleJobs', () => {
+  function buildExpiry() {
+    const storage = { jobImagePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`) };
+    const realtime = { emitToUsers: jest.fn(), emitToUser: jest.fn() };
+    const notifications = {
+      alertEligiblePros: jest.fn().mockResolvedValue(undefined),
+      resolveJobAlerts: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const jobFindMany = jest.fn().mockResolvedValue([]);
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const historyCreate = jest.fn().mockResolvedValue({});
+    const findFirstOrThrow = jest
+      .fn()
+      .mockResolvedValue({ ...jobRow, id: 'job-old', status: JobStatus.EXPIRED, expiresAt: new Date() });
+    const notificationFindMany = jest.fn().mockResolvedValue([]);
+
+    const prisma = {
+      job: {
+        findMany: jobFindMany,
+        findFirstOrThrow,
+        updateMany,
+      },
+      jobStatusHistory: { create: historyCreate },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) => {
+        const tx = {
+          job: { updateMany, findFirstOrThrow },
+          jobStatusHistory: { create: historyCreate },
+        };
+        return fn(tx);
+      }),
+      notification: { findMany: notificationFindMany },
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: storage as never,
+      matching: {} as never,
+      realtime: realtime as never,
+      notifications: notifications as never,
+      config: { jobExpireTtlMs: 30 * 60_000, jobExpireSweepMs: 60_000 } as never,
+    } as never);
+
+    return { jobs, prisma, realtime, notifications, storage };
+  }
+
+  it('scans only REQUESTED jobs older than the TTL', async () => {
+    const ctx = buildExpiry();
+    ctx.prisma.job.findMany.mockResolvedValue([
+      { id: 'job-old', customer: { userId: 'user-1' } },
+    ]);
+
+    await ctx.jobs.expireStaleJobs();
+
+    const where = ctx.prisma.job.findMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ status: JobStatus.REQUESTED, createdAt: { lt: expect.any(Date) } });
+  });
+
+  it('expires a stale job: status, history, alerts and realtime for the customer', async () => {
+    const ctx = buildExpiry();
+    ctx.prisma.job.findMany.mockResolvedValue([
+      { id: 'job-old', customer: { userId: 'user-1' } },
+    ]);
+
+    await ctx.jobs.expireStaleJobs();
+
+    expect(ctx.prisma.job.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'job-old', status: JobStatus.REQUESTED, proId: null },
+        data: expect.objectContaining({ status: JobStatus.EXPIRED, expiresAt: expect.any(Date) }),
+      }),
+    );
+    expect(ctx.prisma.jobStatusHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { jobId: 'job-old', fromStatus: JobStatus.REQUESTED, toStatus: JobStatus.EXPIRED },
+      }),
+    );
+    expect(ctx.notifications.resolveJobAlerts).toHaveBeenCalledWith('job-old');
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledWith(
+      'user-1',
+      'job:status',
+      expect.objectContaining({ id: 'job-old', status: JobStatus.EXPIRED }),
+    );
+  });
+
+  it('also closes the overlays of every alerted pro', async () => {
+    const ctx = buildExpiry();
+    ctx.prisma.job.findMany.mockResolvedValue([
+      { id: 'job-old', customer: { userId: 'user-1' } },
+    ]);
+    ctx.prisma.notification.findMany.mockResolvedValue([
+      { pro: { userId: 'pro-user-1' } },
+      { pro: { userId: 'pro-user-2' } },
+    ]);
+
+    await ctx.jobs.expireStaleJobs();
+
+    expect(ctx.realtime.emitToUsers).toHaveBeenCalledWith(
+      ['pro-user-1', 'pro-user-2'],
+      'job:status',
+      expect.objectContaining({ id: 'job-old', status: JobStatus.EXPIRED }),
+    );
+  });
+
+  it('never expires a job that was just accepted by a racing pro', async () => {
+    const ctx = buildExpiry();
+    ctx.prisma.job.findMany.mockResolvedValue([
+      { id: 'job-old', customer: { userId: 'user-1' } },
+    ]);
+    ctx.prisma.job.updateMany.mockResolvedValue({ count: 0 });
+
+    await ctx.jobs.expireStaleJobs();
+
+    expect(ctx.realtime.emitToUser).not.toHaveBeenCalled();
+    expect(ctx.notifications.resolveJobAlerts).not.toHaveBeenCalled();
+  });
+});
+
 describe('createJobsService.getAvailableJobForPro', () => {
   const pro = { id: 'pro-1', latitude: 12.9716, longitude: 77.5946 };
 

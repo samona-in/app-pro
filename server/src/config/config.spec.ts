@@ -18,6 +18,9 @@ describe('loadConfig', () => {
     expect(config.supabaseUrl).toBe('https://project.supabase.co');
     // No per-role default: the surface is chosen per request, not at boot.
     expect(config.corsOrigins).toEqual([]);
+    // Unaccepted jobs do not live forever; 30m open, sweep every 60s.
+    expect(config.jobExpireTtlMs).toBe(30 * 60_000);
+    expect(config.jobExpireSweepMs).toBe(60_000);
   });
 
   it('treats empty optional values as unset', () => {

@@ -16,6 +16,7 @@ import type { MatchingService } from '../matching/matching.service';
 import type { AppConfig } from '../config';
 import { badRequest, notFound, conflict, forbidden } from '../common/errors';
 import { distanceKm, etaMinutes } from '../common/geo';
+import { logger } from '../common/logger';
 import type { NotificationsService } from '../notifications/notifications.service';
 
 export interface JobsServiceDeps {
@@ -920,6 +921,93 @@ export function createJobsService(deps: JobsServiceDeps) {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Auto-expiry sweep
+  // -------------------------------------------------------------------------
+
+  let expireTimer: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * One auto-expiry sweep: flip every REQUESTED job older than
+   * `config.jobExpireTtlMs` to EXPIRED, record the transition, resolve its
+   * alerts and page the counterparties so open overlays close immediately.
+   *
+   * Each row is guarded by an `updateMany` on the exact `{ REQUESTED, proId:
+   * null }` state, so a racing acceptance/cancel wins and the job is never
+   * expired underneath someone who just claimed it. Returns how many jobs were
+   * scanned in this sweep (expired or not), for tests and observability.
+   */
+  async function expireStaleJobs(): Promise<number> {
+    const cutoff = new Date(Date.now() - config.jobExpireTtlMs);
+    const stale = await prisma.job.findMany({
+      where: { status: JobStatus.REQUESTED, createdAt: { lt: cutoff } },
+      select: { id: true, customer: { select: { userId: true } } },
+      take: 500,
+    });
+
+    for (const row of stale) {
+      const expired = await prisma.$transaction(async (tx) => {
+        const claimed = await tx.job.updateMany({
+          where: { id: row.id, status: JobStatus.REQUESTED, proId: null },
+          data: { status: JobStatus.EXPIRED, expiresAt: new Date() },
+        });
+        if (claimed.count !== 1) return null;
+
+        await tx.jobStatusHistory.create({
+          data: { jobId: row.id, fromStatus: JobStatus.REQUESTED, toStatus: JobStatus.EXPIRED },
+        });
+
+        return tx.job.findFirstOrThrow({ where: { id: row.id }, include: jobDetailInclude });
+      });
+
+      // A racing acceptance or cancellation claimed the job first; nothing to do.
+      if (!expired) continue;
+
+      // The job is no longer open; stop the repeating alert still paging pros.
+      void notifications.resolveJobAlerts(row.id);
+
+      // Customer and every alerted pro should drop the dead request the instant
+      // it expires, not wait for the next validation poll.
+      const customerDetail = toJobDetail(expired as unknown as JobDetailRow, 'customer', storage);
+      realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+
+      const alerted = await prisma.notification.findMany({
+        where: { jobId: row.id, kind: NotificationKind.JOB_ALERT },
+        select: { pro: { select: { userId: true } } },
+      });
+      if (alerted.length > 0) {
+        const proDetail = toJobDetail(expired as unknown as JobDetailRow, 'pro', storage);
+        realtime.emitToUsers(
+          alerted.map((n) => n.pro.userId),
+          REALTIME_EVENTS.JOB_STATUS,
+          proDetail,
+        );
+      }
+    }
+
+    return stale.length;
+  }
+
+  /** Starts the periodic auto-expiry sweep. Safe to call once. */
+  function startExpireSweep(): void {
+    if (expireTimer) return;
+    expireTimer = setInterval(() => {
+      void expireStaleJobs().catch((error: unknown) => {
+        logger.error('Job auto-expiry sweep failed.', error);
+      });
+    }, config.jobExpireSweepMs);
+    // Ensure the interval does not keep the process alive on shutdown.
+    expireTimer.unref?.();
+  }
+
+  /** Stops the periodic auto-expiry sweep. */
+  function stopExpireSweep(): void {
+    if (expireTimer) {
+      clearInterval(expireTimer);
+      expireTimer = null;
+    }
+  }
+
   return {
     createForCustomer,
     listForCustomer,
@@ -933,6 +1021,9 @@ export function createJobsService(deps: JobsServiceDeps) {
     notifyReadyJobRequests,
     acceptJob,
     transitionJob,
+    expireStaleJobs,
+    startExpireSweep,
+    stopExpireSweep,
   };
 }
 
