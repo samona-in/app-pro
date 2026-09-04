@@ -19,16 +19,6 @@ const RESOLUTION_FEEDBACK: Record<
   { title: string; message: string; tone: 'success' | 'danger' | 'neutral' }
 > = {
   accept: { title: 'Job accepted', message: 'Get ready — stay safe on the way.', tone: 'success' },
-  reject: {
-    title: 'Request declined',
-    message: 'Another request may arrive shortly.',
-    tone: 'neutral',
-  },
-  expired: {
-    title: 'Request expired',
-    message: 'This request was not claimed in time.',
-    tone: 'neutral',
-  },
   cancelled: {
     title: 'Request cancelled',
     message: 'The customer cancelled this request.',
@@ -78,14 +68,17 @@ export interface IncomingJobOverlayProps {
 /**
  * The Rapido-style request alert shown the moment a new job lands. A 16-second
  * countdown ticks around the circular reject button; when it reaches zero the
- * request is treated as expired. Accept, reject, or timeout all close it.
+ * request silently closes and the overlay advances to the next queued job (or
+ * dismisses). The ring is a client-side decision window only — the server
+ * auto-expires unaccepted jobs on its own longer TTL, so nothing here labels a
+ * request "expired".
  *
  * When multiple jobs are queued, a badge shows how many are waiting. After the
  * resolution hold, the overlay advances to the next job or dismisses.
  *
  * The modal cannot be dismissed by tapping outside — the backdrop consumes
  * touches. It only closes via explicit actions (Accept / Reject) or automatic
- * resolution (expiry, cancellation, job unavailable).
+ * resolution (timeout, cancellation, job unavailable).
  */
 export function IncomingJobOverlay({
   job,
@@ -117,10 +110,14 @@ export function IncomingJobOverlay({
   });
   const { run: runReject } = useSubmitGuard(() => {
     stopJobAlert();
-    onResolve('reject');
+    // The pro deliberately declined, so no "declined" confirmation screen — just
+    // close the alert and move to the next queued job, if any.
+    if (queueCount > 0) onAdvance();
+    else onDismiss();
   });
 
-  // 16-second countdown around the reject ring. Reaching zero auto-expires.
+  // 16-second countdown around the reject ring. Reaching zero silently closes
+  // the request.
   useEffect(() => {
     if (resolution) return;
     const interval = setInterval(() => {
@@ -129,12 +126,16 @@ export function IncomingJobOverlay({
     return () => clearInterval(interval);
   }, [resolution]);
 
-  // Fired once the ring hits zero: resolve as expired. Kept out of the
-  // `setSecondsLeft` updater so the store update never happens mid-render.
+  // Fired once the ring hits zero: close the request without an "expired"
+  // screen — the job is still open server-side (the server owns real expiry), so
+  // the ring just closes the alert and moves to the next queued job, if any.
+  // Kept out of the `setSecondsLeft` updater so the store update never happens
+  // mid-render.
   useEffect(() => {
     if (resolution || secondsLeft > 0) return;
-    onResolve('expired');
-  }, [secondsLeft, resolution, onResolve]);
+    if (queueCount > 0) onAdvance();
+    else onDismiss();
+  }, [secondsLeft, resolution, queueCount, onAdvance, onDismiss]);
 
   // Validate job status on mount and periodically while open.
   useEffect(() => {

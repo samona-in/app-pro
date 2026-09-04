@@ -8,9 +8,11 @@ import {
 } from '@/stores/incoming-job';
 
 /**
- * How long the incoming-job request stays actionable before it is treated as
- * expired. The Rapido-style countdown ring owns this timing; the server does
- * not stream a per-pro expiry, so the client treats zero as "missed".
+ * How long the incoming-job request stays actionable before the countdown ring
+ * closes it. The Rapido-style ring owns this timing; it is a client-side
+ * decision window only — the server auto-expires unaccepted jobs on its own,
+ * longer TTL. When the ring hits zero the alert just closes with no "expired"
+ * label.
  */
 export const JOB_ALERT_TIMEOUT_MS = 16_000;
 
