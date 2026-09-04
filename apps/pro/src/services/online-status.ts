@@ -203,11 +203,11 @@ function disconnectSocket(): void {
 
 async function syncPendingJobs(): Promise<void> {
   try {
-    const jobs = await api.get<JobDetail[]>('/jobs/mine', {
-      query: { status: 'REQUESTED', limit: 10 },
+    const jobs = await api.get<JobDetail[]>('/jobs/available', {
+      query: { limit: 20 },
     });
     for (const job of jobs) {
-      if (job.proId && job.status === 'REQUESTED') {
+      if (job.status === 'REQUESTED') {
         jobNotificationService.handleJobNotification(job.id, 'socket');
       }
     }
