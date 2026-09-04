@@ -447,23 +447,28 @@ export function createJobsService(deps: JobsServiceDeps) {
     // A cancelled job is no longer open; stop repeating its alert.
     void notifications.resolveJobAlerts(jobId);
 
-    // If a pro was freed up by this cancellation, re-nudge them with any other
-    // open requests they are eligible for (push-style catch-up so they see the
-    // next pending job without toggling offline/online).
+    // If a pro was freed up by this cancellation, re-nudge them only with jobs
+    // that arrived after they accepted the cancelled job (the ones they truly
+    // missed while committed to it) and only while they are still online.
     if (row.pro) {
       const proProfile = await prisma.proProfile.findUnique({
         where: { userId: row.pro.userId },
-        select: { latitude: true, longitude: true },
+        select: { latitude: true, longitude: true, isOnline: true },
       });
       if (
         proProfile &&
+        proProfile.isOnline &&
         proProfile.latitude !== null &&
         proProfile.longitude !== null
       ) {
-        void notifyReadyJobRequests(row.pro.userId, {
-          latitude: proProfile.latitude,
-          longitude: proProfile.longitude,
-        });
+        void notifyReadyJobRequests(
+          row.pro.userId,
+          {
+            latitude: proProfile.latitude,
+            longitude: proProfile.longitude,
+          },
+          { createdAfter: row.acceptedAt ?? undefined },
+        );
       }
     }
 
@@ -821,19 +826,24 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
-   * Catch-up: when a pro comes online, page them for still-open requests they
-   * are eligible for but that were raised while they were offline (Rapido-style
-   * "you missed this" nudge).
+   * Catch-up: page a pro for still-open requests they are eligible for but that
+   * were raised while they were busy (Rapido-style "you missed this" nudge).
+   * Used both when a pro comes online and, with `createdAfter`, when a cancelled
+   * job frees a pro who had been committed to it.
    *
-   * Open requests are REQUESTED jobs with no assigned pro, raised within the
-   * configured recency window. The pro must still be eligible (service, radius,
-   * no conflicting job) and must not already have been alerted for the job (so
-   * we never double-nudge). Dispatches at most `config.jobCatchupLimit` jobs,
-   * nearest first. Fire-and-forget callers should not await this.
+   * Open requests are REQUESTED jobs with no assigned pro. Without `createdAfter`
+   * the recency window is `config.jobCatchupWindowMs`; with it only jobs created
+   * after the anchor (e.g. the cancelled job's acceptedAt) qualify, so the pro is
+   * only re-shown jobs they truly missed while committed. The pro must still be
+   * eligible (online, service, radius, no conflicting job) and must not already
+   * have been alerted for the job (so we never double-nudge). Dispatches at most
+   * `config.jobCatchupLimit` jobs, nearest first. Fire-and-forget callers should
+   * not await this.
    */
   async function notifyReadyJobRequests(
     proUserId: string,
     coordinates: { latitude: number; longitude: number },
+    options?: { createdAfter?: Date },
   ): Promise<void> {
     const pro = await prisma.proProfile.findUnique({
       where: { userId: proUserId },
@@ -845,14 +855,15 @@ export function createJobsService(deps: JobsServiceDeps) {
     if (!pro) return;
     const proPoint = coordinates;
 
-    const since = new Date(Date.now() - config.jobCatchupWindowMs);
     const openJobs = await prisma.job.findMany({
       where: {
         status: JobStatus.REQUESTED,
         proId: null,
         latitude: { not: null },
         longitude: { not: null },
-        createdAt: { gte: since },
+        createdAt: options?.createdAfter
+          ? { gt: options.createdAfter }
+          : { gte: new Date(Date.now() - config.jobCatchupWindowMs) },
       },
       include: jobDetailInclude,
     });

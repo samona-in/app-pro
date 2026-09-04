@@ -429,6 +429,29 @@ describe('createJobsService.notifyReadyJobRequests', () => {
 
     expect(ctx.realtime.emitToUser).not.toHaveBeenCalled();
   });
+
+  it('narrows the window to jobs created after the anchor when createdAfter is given', async () => {
+    const ctx = buildCatchup();
+    const anchor = new Date('2026-08-28T12:00:00Z');
+    const job = openJob({ id: 'job-1', latitude: 12.972, longitude: 77.595 });
+    ctx.prisma.job.findMany.mockResolvedValue([job]);
+    ctx.isProEligible.mockResolvedValue(true);
+
+    await ctx.jobs.notifyReadyJobRequests('user-1', pro, { createdAfter: anchor });
+
+    const where = ctx.prisma.job.findMany.mock.calls[0][0].where;
+    expect(where.createdAt).toEqual({ gt: anchor });
+  });
+
+  it('filters with the recency window when createdAfter is omitted', async () => {
+    const ctx = buildCatchup();
+    ctx.prisma.job.findMany.mockResolvedValue([]);
+
+    await ctx.jobs.notifyReadyJobRequests('user-1', pro);
+
+    const where = ctx.prisma.job.findMany.mock.calls[0][0].where;
+    expect(where.createdAt).toEqual({ gte: expect.any(Date) });
+  });
 });
 
 describe('createJobsService.getAvailableJobForPro', () => {
