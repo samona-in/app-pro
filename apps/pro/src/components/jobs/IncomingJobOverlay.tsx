@@ -9,6 +9,7 @@ import { Badge, Card, Text } from '@/components/ui';
 import { useAcceptJob, useSubmitGuard } from '@/hooks';
 import type { IncomingJobResolution } from '@/stores/incoming-job';
 import { api } from '@/services/api';
+import { stopJobAlert } from '@/services/job-alert';
 import { jobNotificationService } from '@/services/job-notifications';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr, formatRelativeTime } from '@/utils/format';
@@ -91,6 +92,7 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
   const [secondsLeft, setSecondsLeft] = useState(Math.ceil(JOB_ALERT_COUNTDOWN_MS / 1000));
 
   const { run: runAccept, isSubmitting } = useSubmitGuard(async () => {
+    stopJobAlert();
     jobNotificationService.setAccepting(jobRef.current.id);
     try {
       await accept.mutateAsync(jobRef.current.id);
@@ -101,7 +103,10 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
       jobNotificationService.setAccepting(null);
     }
   });
-  const { run: runReject } = useSubmitGuard(() => onResolve('reject'));
+  const { run: runReject } = useSubmitGuard(() => {
+    stopJobAlert();
+    onResolve('reject');
+  });
 
   // 16-second countdown around the reject ring. Reaching zero auto-expires.
   useEffect(() => {
