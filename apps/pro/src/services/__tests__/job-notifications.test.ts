@@ -41,18 +41,18 @@ function statusHandler(): Handler {
 
 describe('jobNotificationService job:status handling', () => {
   beforeEach(() => {
-    useIncomingJobStore.setState({ job: null, resolution: null });
+    useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
     mockHandlers.clear();
     jobNotificationService.setAccepting(null);
   });
 
   afterEach(() => {
     jobNotificationService.cleanup();
-    useIncomingJobStore.setState({ job: null, resolution: null });
+    useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
   });
 
   it('resolves the overlay to unavailable when another event claims the job', async () => {
-    useIncomingJobStore.getState().show({ id: 'job-1' } as never);
+    useIncomingJobStore.getState().enqueue({ id: 'job-1' } as never);
     await jobNotificationService.initialize();
 
     statusHandler()({ id: 'job-1', status: JobStatus.ACCEPTED } as never);
@@ -61,7 +61,7 @@ describe('jobNotificationService job:status handling', () => {
   });
 
   it('does not resolve while this pro is the one accepting the job', async () => {
-    useIncomingJobStore.getState().show({ id: 'job-1' } as never);
+    useIncomingJobStore.getState().enqueue({ id: 'job-1' } as never);
     await jobNotificationService.initialize();
     jobNotificationService.setAccepting('job-1');
 

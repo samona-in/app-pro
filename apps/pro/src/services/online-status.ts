@@ -2,7 +2,6 @@ import * as Location from 'expo-location';
 import { Alert, Linking } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
-import type { JobDetail } from '@samona/types';
 import { env } from '@/env';
 import { jobNotificationService } from './job-notifications';
 import { api } from './api';
@@ -202,18 +201,7 @@ function disconnectSocket(): void {
 }
 
 async function syncPendingJobs(): Promise<void> {
-  try {
-    const jobs = await api.get<JobDetail[]>('/jobs/mine', {
-      query: { status: 'REQUESTED', limit: 10 },
-    });
-    for (const job of jobs) {
-      if (job.proId && job.status === 'REQUESTED') {
-        jobNotificationService.handleJobNotification(job.id, 'socket');
-      }
-    }
-  } catch (error) {
-    console.log('[OnlineStatus] Failed to sync pending jobs:', error);
-  }
+  await jobNotificationService.syncAvailableJobs();
 }
 
 export async function goOnline(token: string): Promise<{ success: boolean; error?: string }> {
@@ -254,6 +242,10 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
     } as const;
 
     await api.post('/pros/availability', patch);
+
+    // Pull any open requests now that we're online. A socket nudge can be lost
+    // to the connect race above, so this pull-backfills the queue reliably.
+    void syncPendingJobs();
 
     startLocationServicesMonitor();
 

@@ -37,7 +37,9 @@ export default function TabsLayout() {
   // The overlay reads directly from the store so it survives tab switches.
   const activeJob = useIncomingJobStore((state) => state.job);
   const resolution = useIncomingJobStore((state) => state.resolution);
+  const pendingJobs = useIncomingJobStore((state) => state.pendingJobs);
   const resolve = useIncomingJobStore((state) => state.resolve);
+  const advance = useIncomingJobStore((state) => state.advance);
   const clear = useIncomingJobStore((state) => state.clear);
 
   // Handle initial notification that launched the app from a killed state.
@@ -108,7 +110,9 @@ export default function TabsLayout() {
         <IncomingJobOverlay
           job={activeJob}
           resolution={resolution}
+          queueCount={pendingJobs.length}
           onResolve={resolve}
+          onAdvance={advance}
           onDismiss={clear}
         />
       ) : null}

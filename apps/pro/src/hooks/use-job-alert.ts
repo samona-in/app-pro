@@ -17,26 +17,29 @@ export const JOB_ALERT_TIMEOUT_MS = 16_000;
 /**
  * Bridges incoming-job events (socket + push) to the alarm audio and overlay.
  *
- * A single authoritative flow: a job event shows the overlay and starts the
- * looping beep; the beep stops the moment the job is accepted, rejected,
- * expired, cancelled, or reported unavailable. The centralized service handles
- * deduplication between socket and push events.
+ * The alarm plays continuously while any job is in the queue (active or
+ * pending). It stops only when the queue is fully empty or the pro goes
+ * offline. The centralized service handles deduplication between socket and
+ * push events.
  *
  * Mount once in the signed-in app.
  */
 export function useJobAlert() {
   const activeJob = useIncomingJobStore((state) => state.job);
   const resolution = useIncomingJobStore((state) => state.resolution);
+  const pendingJobs = useIncomingJobStore((state) => state.pendingJobs);
   const clear = useIncomingJobStore((state) => state.clear);
 
-  // Start/stop the alarm to match the overlay's presence and resolution.
+  // Start/stop the alarm to match the queue's state.
+  // Alarm plays while the active job is unresolved OR while there are pending
+  // jobs waiting behind it.
   useEffect(() => {
-    if (activeJob && !resolution) {
+    if ((activeJob && !resolution) || pendingJobs.length > 0) {
       void startJobAlert();
     } else {
       stopJobAlert();
     }
-  }, [activeJob, resolution]);
+  }, [activeJob, resolution, pendingJobs.length]);
 
   // The alarm is loud by design: if anything pushes the app to background
   // without a resolution, silence it rather than letting it ring over the lock

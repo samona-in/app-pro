@@ -24,11 +24,11 @@ const STATUS_PRESENTATION: Record<JobStatus, { label: string; tone: BadgeTone }>
 };
 
 export function bookingStatusLabel(status: JobStatus): string {
-  return STATUS_PRESENTATION[status].label;
+  return STATUS_PRESENTATION[status]?.label ?? 'Unknown';
 }
 
 function statusTone(status: JobStatus): BadgeTone {
-  return STATUS_PRESENTATION[status].tone;
+  return STATUS_PRESENTATION[status]?.tone ?? 'neutral';
 }
 
 export interface BookingCardProps extends Omit<PressableProps, 'style'> {

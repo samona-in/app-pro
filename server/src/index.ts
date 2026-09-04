@@ -64,6 +64,8 @@ async function main(): Promise<void> {
 
   // Repeating job alerts: start paging once the process is ready to serve.
   services.notifications.start();
+  // Auto-expiry: start expiring stale REQUESTED jobs once the process is ready.
+  services.jobs.startExpireSweep();
 
   /** Close connections in reverse order of opening, then exit. */
   async function shutdown(signal: string): Promise<void> {
@@ -71,6 +73,7 @@ async function main(): Promise<void> {
 
     // Stop accepting work before tearing down the resources in-flight requests use.
     services.notifications.stop();
+    services.jobs.stopExpireSweep();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     await realtime.close();
     if (redis) await redis.quit().catch(() => undefined);

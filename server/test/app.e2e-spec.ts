@@ -28,6 +28,8 @@ const config: AppConfig = {
   jobAlertMaxRepeats: 20,
   jobCatchupWindowMs: 2 * 60 * 60_000,
   jobCatchupLimit: 3,
+  jobExpireTtlMs: 30 * 60_000,
+  jobExpireSweepMs: 60_000,
 };
 
 const services = {} as Services;
