@@ -24,5 +24,10 @@ export const bookingApi = {
 
   /** Cancels a booking that is still cancellable. */
   cancel: (jobId: string, note?: string) =>
-    api.post<JobDetail>(`/jobs/${jobId}/cancel`, note ? { note } : {}),
+    api
+      .post<{ detail: JobDetail; customerUserId: string; proUserId: string | null }>(
+        `/jobs/${jobId}/cancel`,
+        note ? { note } : {},
+      )
+      .then((res) => res.detail),
 };

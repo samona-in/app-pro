@@ -288,6 +288,41 @@ interface PendingJobEvent {
     }
   }
 
+  /**
+   * Pulls open (REQUESTED) jobs the pro serves from `/jobs/available` and
+   * enqueues any not already showing or waiting. This is the reliable recovery
+   * path when a `job:new` socket nudge was missed, deduped against, or lost to
+   * a connect race — the pro still sees every pending request.
+   */
+  async function syncAvailableJobs(): Promise<void> {
+    if (!canShowAlert()) return;
+    let jobs: JobDetail[];
+    try {
+      jobs = await api.get<JobDetail[]>('/jobs/available', { query: { limit: 20 } });
+    } catch {
+      return;
+    }
+
+    const store = getStore();
+    for (const job of jobs) {
+      if (job.status !== 'REQUESTED') continue;
+      if (store.job?.id === job.id) continue;
+      if (store.pendingJobs.some((j) => j.id === job.id)) continue;
+      if (isJobBeingHandled(job.id)) continue;
+
+      const availableJob: AvailableJob = {
+        ...job,
+        distanceKm: job.distanceKm ?? null,
+        estimatedEtaMinutes: job.estimatedEtaMinutes ?? null,
+      };
+      store.enqueue(availableJob);
+    }
+
+    if (store.job || store.pendingJobs.length > 0) {
+      void startJobAlert();
+    }
+  }
+
   function cleanup(): void {
     socketUnsubscribes.forEach((off) => off());
     socketUnsubscribes.length = 0;
@@ -326,6 +361,7 @@ interface PendingJobEvent {
     resolveJob,
     dismissJob,
     setAccepting,
+    syncAvailableJobs,
     cleanup,
   };
 }

@@ -447,6 +447,26 @@ export function createJobsService(deps: JobsServiceDeps) {
     // A cancelled job is no longer open; stop repeating its alert.
     void notifications.resolveJobAlerts(jobId);
 
+    // If a pro was freed up by this cancellation, re-nudge them with any other
+    // open requests they are eligible for (push-style catch-up so they see the
+    // next pending job without toggling offline/online).
+    if (row.pro) {
+      const proProfile = await prisma.proProfile.findUnique({
+        where: { userId: row.pro.userId },
+        select: { latitude: true, longitude: true },
+      });
+      if (
+        proProfile &&
+        proProfile.latitude !== null &&
+        proProfile.longitude !== null
+      ) {
+        void notifyReadyJobRequests(row.pro.userId, {
+          latitude: proProfile.latitude,
+          longitude: proProfile.longitude,
+        });
+      }
+    }
+
     return {
       detail: actorIsCustomer ? customerDetail : proDetail,
       customerUserId: row.customer.userId,
