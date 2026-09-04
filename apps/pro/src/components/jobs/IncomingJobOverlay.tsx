@@ -56,7 +56,7 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobStatus> = new Set<JobStatus>([
 /** How long the pro has to decide before the request is treated as expired. */
 export const JOB_ALERT_COUNTDOWN_MS = 16_000;
 
-/** How long the resolution confirmation stays on screen before the overlay closes. */
+/** How long the resolution confirmation stays on screen before advancing/dismissing. */
 const RESOLUTION_HOLD_MS = 2_500;
 
 /** How often to re-validate the job status while the overlay is open (ms). */
@@ -69,7 +69,9 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 export interface IncomingJobOverlayProps {
   job: AvailableJob;
   resolution: IncomingJobResolution | null;
+  queueCount: number;
   onResolve: (resolution: IncomingJobResolution) => void;
+  onAdvance: () => void;
   onDismiss: () => void;
 }
 
@@ -78,11 +80,21 @@ export interface IncomingJobOverlayProps {
  * countdown ticks around the circular reject button; when it reaches zero the
  * request is treated as expired. Accept, reject, or timeout all close it.
  *
+ * When multiple jobs are queued, a badge shows how many are waiting. After the
+ * resolution hold, the overlay advances to the next job or dismisses.
+ *
  * The modal cannot be dismissed by tapping outside — the backdrop consumes
  * touches. It only closes via explicit actions (Accept / Reject) or automatic
  * resolution (expiry, cancellation, job unavailable).
  */
-export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: IncomingJobOverlayProps) {
+export function IncomingJobOverlay({
+  job,
+  resolution,
+  queueCount,
+  onResolve,
+  onAdvance,
+  onDismiss,
+}: IncomingJobOverlayProps) {
   const accept = useAcceptJob();
   const jobRef = useRef(job);
   useEffect(() => {
@@ -151,12 +163,13 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
     };
   }, [resolution, onResolve]);
 
-  // Once resolved, hold the confirmation briefly, then dismiss.
+  // Once resolved, hold the confirmation briefly, then advance to the next
+  // job or dismiss if the queue is empty.
   useEffect(() => {
     if (!resolution) return;
-    const timer = setTimeout(onDismiss, RESOLUTION_HOLD_MS);
+    const timer = setTimeout(queueCount > 0 ? onAdvance : onDismiss, RESOLUTION_HOLD_MS);
     return () => clearTimeout(timer);
-  }, [resolution, onDismiss]);
+  }, [resolution, queueCount, onAdvance, onDismiss]);
 
   // Progress around the ring: 1 (full) -> 0 as the countdown elapses.
   const progress = useMemo(
@@ -188,6 +201,13 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
           <Text variant="body" className="mt-2 text-center text-text-muted">
             {feedback.message}
           </Text>
+          {queueCount > 0 && (
+            <View className="mt-4 rounded-full bg-surface-muted px-4 py-2">
+              <Text variant="caption" className="text-text-muted">
+                {queueCount} more {queueCount === 1 ? 'request' : 'requests'}
+              </Text>
+            </View>
+          )}
         </View>
       ) : (
         <View className="flex-1">
@@ -243,6 +263,15 @@ export function IncomingJobOverlay({ job, resolution, onResolve, onDismiss }: In
                 </Text>
               </Card>
             ) : null}
+
+            {queueCount > 0 && (
+              <View className="mt-4 flex-row items-center justify-center rounded-full bg-surface-muted px-4 py-2">
+                <Ionicons name="layers-outline" size={14} color={color['text-secondary']} />
+                <Text variant="caption" className="ml-1 text-text-secondary">
+                  {queueCount} more {queueCount === 1 ? 'request' : 'requests'}
+                </Text>
+              </View>
+            )}
 
             <View className="mt-6 flex-row items-center justify-between">
               {/* Reject: circular button with a red countdown ring around it. */}

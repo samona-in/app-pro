@@ -73,7 +73,7 @@ interface PendingJobEvent {
     onlineStatusUnsubscribe = subscribeToOnlineStatus((state) => {
       if (state.status === 'offline') {
         const store = getStore();
-        if (store.job && !store.resolution) {
+        if ((store.job || store.pendingJobs.length > 0) && !store.resolution) {
           stopJobAlert();
           store.clear();
         }
@@ -99,7 +99,10 @@ interface PendingJobEvent {
     const jobId = String(data.jobId);
     if (isJobBeingHandled(jobId)) return;
 
-    if (getStore().job?.id === jobId) return;
+    // Skip if this job is already in the queue or is the active job.
+    const store = getStore();
+    if (store.job?.id === jobId) return;
+    if (store.pendingJobs.some((j) => j.id === jobId)) return;
 
     pendingEvents.set(jobId, { jobId, source: 'push', timestamp: Date.now() });
     processPendingEvent(jobId);
@@ -147,12 +150,17 @@ interface PendingJobEvent {
     const onStatus = (detail: JobDetail) => {
       const store = getStore();
       const current = store.job;
-      if (!current) return;
-      if (detail.id === current.id && UNAVAILABLE_STATUSES.has(detail.status)) {
+      if (current && detail.id === current.id && UNAVAILABLE_STATUSES.has(detail.status)) {
         // If this pro is the one accepting detail.id, the status echo is their
         // own acceptance confirmation and the accept callback resolves it.
         if (acceptingJobId === detail.id) return;
         store.resolve(detail.status === JobStatus.CANCELLED ? 'cancelled' : 'unavailable');
+        return;
+      }
+
+      // Check queued jobs — remove if no longer available.
+      if (UNAVAILABLE_STATUSES.has(detail.status)) {
+        store.remove(detail.id);
       }
     };
 
@@ -164,7 +172,12 @@ interface PendingJobEvent {
     if (!event) return;
 
     const store = getStore();
+    // Already active or already in the queue — skip.
     if (store.job?.id === jobId) {
+      pendingEvents.delete(jobId);
+      return;
+    }
+    if (store.pendingJobs.some((j) => j.id === jobId)) {
       pendingEvents.delete(jobId);
       return;
     }
@@ -186,7 +199,11 @@ interface PendingJobEvent {
       }
 
       if (UNAVAILABLE_STATUSES.has(job.status)) {
-        getStore().resolve('unavailable');
+        // If this job was queued, remove it rather than resolving the active job.
+        const store = getStore();
+        if (store.pendingJobs.some((j) => j.id === jobId)) {
+          store.remove(jobId);
+        }
         clearJobHandled(jobId);
         return;
       }
@@ -197,7 +214,9 @@ interface PendingJobEvent {
         estimatedEtaMinutes: job.estimatedEtaMinutes ?? null,
       };
 
-      getStore().show(availableJob);
+      // Enqueue the job. If nothing is active, the store shows it immediately;
+      // otherwise it appends to the pending queue.
+      getStore().enqueue(availableJob);
       await startJobAlert();
 
       if (source === 'push') {
@@ -211,8 +230,15 @@ interface PendingJobEvent {
   function autoExpire(jobId: string): void {
     setTimeout(() => {
       const store = getStore();
+      // If this job is the active job and unresolved, expire it.
       if (store.job?.id === jobId && !store.resolution) {
         store.resolve('expired');
+        clearJobHandled(jobId);
+        return;
+      }
+      // If it's still in the pending queue, remove it (expired while waiting).
+      if (store.pendingJobs.some((j) => j.id === jobId)) {
+        store.remove(jobId);
       }
       clearJobHandled(jobId);
     }, JOB_ALERT_TIMEOUT_MS);
@@ -254,8 +280,11 @@ interface PendingJobEvent {
   }
 
   async function onAppStateChange(state: string): Promise<void> {
-    if (state !== 'active' && getStore().job && !getStore().resolution) {
-      stopJobAlert();
+    if (state !== 'active') {
+      const store = getStore();
+      if ((store.job || store.pendingJobs.length > 0) && !store.resolution) {
+        stopJobAlert();
+      }
     }
   }
 
