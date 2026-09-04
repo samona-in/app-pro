@@ -3,6 +3,7 @@ package com.samona.pro.jobalert
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.util.Log
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -19,6 +20,7 @@ private const val NEW_JOB_TYPE = "NEW_JOB"
 private const val JOB_ALERT_DEEP_LINK_PREFIX = "samonapro://job-alert/"
 private const val DEFAULT_TITLE = "New job request"
 private const val DEFAULT_BODY = "A customer nearby needs your services."
+private const val TAG = "SamonaJobAlert"
 
 /**
  * The pro-side job-alert push handler.
@@ -43,9 +45,23 @@ class FullScreenJobAlertMessagingService : ExpoFirebaseMessagingService() {
     val data = remoteMessage.data
     val type = data["type"]
     val jobId = data["jobId"]
+    Log.i(
+      TAG,
+      "onMessageReceived id=${remoteMessage.messageId} from=${remoteMessage.from} " +
+        "notification=${remoteMessage.notification != null} " +
+        "keys=${data.keys.joinToString(",")} type=$type jobId=$jobId " +
+        "body=${data["body"]?.take(600)}",
+    );
 
     if (type == NEW_JOB_TYPE && !jobId.isNullOrBlank()) {
-      showFullScreenJobAlert(remoteMessage, jobId, data)
+      try {
+        showFullScreenJobAlert(remoteMessage, jobId, data)
+      } catch (t: Throwable) {
+        // Never let the alert die silently: log it, then post the plainest
+        // possible tray notification as a fallback so the pro still sees it.
+        Log.e(TAG, "Full-screen alert failed for job $jobId", t)
+        postFallbackAlert(remoteMessage, jobId)
+      }
       // Deliberately do not call super: posting the notification twice (ours +
       // Expo's) would raise two alerts for the same job.
       return
@@ -104,6 +120,29 @@ class FullScreenJobAlertMessagingService : ExpoFirebaseMessagingService() {
 
     // One tray entry per job: repeats from the server replace, never stack.
     NotificationManagerCompat.from(this).notify(jobId.hashCode(), notification)
+    Log.i(TAG, "Posted full-screen alert for job $jobId (title=$title)")
+  }
+
+  /**
+   * Minimal, dependency-free fallback used if the full-screen path ever throws:
+   * still posts a loud tray notification so the alert is never lost silently.
+   */
+  private fun postFallbackAlert(remoteMessage: RemoteMessage, jobId: String) {
+    ensureJobAlertChannel()
+    val title = remoteMessage.data["title"] ?: DEFAULT_TITLE
+    val body = remoteMessage.data["body"] ?: DEFAULT_BODY
+    val notification =
+      NotificationCompat.Builder(this, JOB_ALERT_CHANNEL)
+        .setSmallIcon(resolveSmallIcon())
+        .setContentTitle(title)
+        .setContentText(body)
+        .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setCategory(NotificationCompat.CATEGORY_ALARM)
+        .setAutoCancel(true)
+        .build()
+    NotificationManagerCompat.from(this).notify(jobId.hashCode(), notification)
+    Log.i(TAG, "Posted fallback alert for job $jobId")
   }
 
   private fun ensureJobAlertChannel() {
