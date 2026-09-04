@@ -23,7 +23,6 @@ const JOB_ALERT_TIMEOUT_MS = 16_000;
 
 interface PendingJobEvent {
   jobId: string;
-  source: 'socket' | 'push';
   timestamp: number;
 }
 
@@ -104,7 +103,7 @@ interface PendingJobEvent {
     if (store.job?.id === jobId) return;
     if (store.pendingJobs.some((j) => j.id === jobId)) return;
 
-    pendingEvents.set(jobId, { jobId, source: 'push', timestamp: Date.now() });
+    pendingEvents.set(jobId, { jobId, timestamp: Date.now() });
     processPendingEvent(jobId);
   }
 
@@ -114,7 +113,7 @@ interface PendingJobEvent {
     const data = response.notification.request.content.data as Record<string, unknown> | undefined;
     if (!data || data.type !== 'NEW_JOB' || !data.jobId) return;
 
-    await handleJobNotification(String(data.jobId), 'push');
+    await handleJobNotification(String(data.jobId));
   }
 
   async function handleInitialNotification(): Promise<void> {
@@ -133,7 +132,7 @@ interface PendingJobEvent {
     if (initialNotification && canShowAlert()) {
       const data = initialNotification.request.content.data as Record<string, unknown>;
       if (data.type === 'NEW_JOB' && data.jobId) {
-        await handleJobNotification(String(data.jobId), 'push');
+        await handleJobNotification(String(data.jobId));
       }
       initialNotification = null;
     }
@@ -143,7 +142,7 @@ interface PendingJobEvent {
     const onNew = (newJob: AvailableJob) => {
       if (!canShowAlert()) return;
       if (isJobBeingHandled(newJob.id)) return;
-      pendingEvents.set(newJob.id, { jobId: newJob.id, source: 'socket', timestamp: Date.now() });
+      pendingEvents.set(newJob.id, { jobId: newJob.id, timestamp: Date.now() });
       processPendingEvent(newJob.id);
     };
 
@@ -183,10 +182,10 @@ interface PendingJobEvent {
     }
 
     pendingEvents.delete(jobId);
-    handleJobNotification(jobId, event.source);
+    handleJobNotification(jobId);
   }
 
-  async function handleJobNotification(jobId: string, source: 'socket' | 'push'): Promise<void> {
+  async function handleJobNotification(jobId: string): Promise<void> {
     if (!canShowAlert()) return;
     if (isJobBeingHandled(jobId)) return;
     markJobHandled(jobId);
@@ -218,30 +217,9 @@ interface PendingJobEvent {
       // otherwise it appends to the pending queue.
       getStore().enqueue(availableJob);
       await startJobAlert();
-
-      if (source === 'push') {
-        autoExpire(jobId);
-      }
     } catch {
       clearJobHandled(jobId);
     }
-  }
-
-  function autoExpire(jobId: string): void {
-    setTimeout(() => {
-      const store = getStore();
-      // If this job is the active job and unresolved, expire it.
-      if (store.job?.id === jobId && !store.resolution) {
-        store.resolve('expired');
-        clearJobHandled(jobId);
-        return;
-      }
-      // If it's still in the pending queue, remove it (expired while waiting).
-      if (store.pendingJobs.some((j) => j.id === jobId)) {
-        store.remove(jobId);
-      }
-      clearJobHandled(jobId);
-    }, JOB_ALERT_TIMEOUT_MS);
   }
 
   async function fetchJob(jobId: string): Promise<JobDetail | null> {

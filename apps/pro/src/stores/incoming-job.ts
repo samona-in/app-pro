@@ -9,8 +9,6 @@ import type { AvailableJob } from '@samona/types';
 
 export type IncomingJobResolution =
   | 'accept'
-  | 'reject'
-  | 'expired'
   | 'cancelled'
   | 'unavailable';
 
