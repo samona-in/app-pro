@@ -1,4 +1,4 @@
-package in.samona.pro.jobalert
+package com.samona.pro.jobalert
 
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException

@@ -1,4 +1,4 @@
-package in.samona.pro.jobalert
+package com.samona.pro.jobalert
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

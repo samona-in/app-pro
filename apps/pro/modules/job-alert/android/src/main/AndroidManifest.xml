@@ -17,7 +17,7 @@
       back to Expo's handler through the base class.
     -->
     <service
-      android:name="in.samona.pro.jobalert.FullScreenJobAlertMessagingService"
+      android:name="com.samona.pro.jobalert.FullScreenJobAlertMessagingService"
       android:exported="false">
       <intent-filter android:priority="1">
         <action android:name="com.google.firebase.MESSAGING_EVENT" />
