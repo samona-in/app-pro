@@ -120,6 +120,10 @@ model ProProfile {
   /// together with `pushToken`; null only for legacy registrations.
   pushPlatform PushPlatform? @map("push_platform")
 
+  /// The push service that owns `pushToken`: `EXPO` via the Expo service,
+  /// `FCM` via Firebase direct delivery. Null only for legacy registrations.
+  pushProvider PushProvider? @map("push_provider")
+
   /// Whether this Pro wants job alerts at all. Server-side, so the API stays
   /// the single writer of preference; the app only toggles it through the
   /// notifications domain.
@@ -435,6 +439,15 @@ enum Gender {
 enum PushPlatform {
   IOS
   ANDROID
+}
+
+/// The push service a registered token belongs to. `EXPO` goes through the
+/// Expo push service; `FCM` goes through Firebase Cloud Messaging HTTP v1
+/// directly (native Android job alerts). Always written together with
+/// `pushToken`; null only for legacy registrations.
+enum PushProvider {
+  EXPO
+  FCM
 }
 
 /// The kind of push a professional may receive. Mirrors `NotificationKind` in
