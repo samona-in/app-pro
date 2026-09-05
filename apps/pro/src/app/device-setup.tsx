@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { Badge, Button, Card, Screen, Text } from '@/components/ui';
 import { useDeviceReadiness } from '@/hooks';
+import { cn } from '@/utils/cn';
 import type { DeviceReadiness } from '@/services/device-readiness-state';
+import { DEVICE_READINESS_KEYS, missingReadinessCount } from '@/services/device-readiness-state';
 import {
   getDeviceManufacturer,
   openBackgroundDataSettings,
@@ -110,6 +113,22 @@ function checklistRow(item: ReadinessItem, ok: boolean) {
 
 export default function DeviceSetup() {
   const { readiness, isReady, refreshDeviceReadiness } = useDeviceReadiness();
+  const [checking, setChecking] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
+
+  async function handleCheckAgain() {
+    setChecking(true);
+    try {
+      await refreshDeviceReadiness();
+      setHasChecked(true);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  const openCount =
+    readiness === null ? DEVICE_READINESS_KEYS.length : missingReadinessCount(readiness);
+  const total = DEVICE_READINESS_KEYS.length;
 
   return (
     <Screen scrollable edges={['bottom']}>
@@ -159,10 +178,33 @@ export default function DeviceSetup() {
       <View className="mt-8">
         <Button
           variant="secondary"
-          label="Check again"
+          label={checking ? 'Checking…' : 'Check again'}
+          loading={checking}
           haptic={false}
-          onPress={() => void refreshDeviceReadiness()}
+          onPress={() => void handleCheckAgain()}
         />
+        {hasChecked ? (
+          <Card
+            className={cn(
+              'mt-3',
+              isReady
+                ? 'border border-success bg-success-surface'
+                : 'border border-warning bg-warning-surface',
+            )}
+          >
+            <Text
+              variant="body"
+              className={cn('font-semibold', isReady ? 'text-success' : 'text-warning')}
+            >
+              {isReady ? 'All settings are on' : `${openCount} of ${total} settings need attention`}
+            </Text>
+            <Text variant="footnote" className="mt-1 text-text-secondary">
+              {isReady
+                ? 'Samona Pro can raise job alerts while the app is closed.'
+                : 'Tap Fix on a setting below to jump to the exact screen.'}
+            </Text>
+          </Card>
+        ) : null}
         {isReady ? <Button label="Done" className="mt-3" onPress={() => router.back()} /> : null}
       </View>
     </Screen>
