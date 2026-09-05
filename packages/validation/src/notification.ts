@@ -20,6 +20,11 @@ export const pushPlatformSchema = z.enum(['ios', 'android']);
 
 export type PushPlatformInput = z.infer<typeof pushPlatformSchema>;
 
+/** Which push provider a registered token belongs to. */
+export const pushProviderSchema = z.enum(['expo', 'fcm']);
+
+export type PushProviderInput = z.infer<typeof pushProviderSchema>;
+
 export const registerPushTokenSchema = z.object({
   pushToken: expoPushTokenSchema,
   /**
@@ -28,6 +33,12 @@ export const registerPushTokenSchema = z.object({
    * full-screen service runs when the app is closed; iOS needs a display alert).
    */
   platform: pushPlatformSchema,
+  /**
+   * Which push provider the token belongs to: `expo` (the Expo push service,
+   * iOS and the fallback path) or `fcm` (a raw Firebase registration token,
+   * Android). Controls which delivery channel the server uses.
+   */
+  provider: pushProviderSchema,
 });
 
 export type RegisterPushTokenInput = z.infer<typeof registerPushTokenSchema>;

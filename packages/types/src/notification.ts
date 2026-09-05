@@ -33,3 +33,45 @@ export interface AppNotification {
   resolvedAt: string | null;
   createdAt: string;
 }
+
+/**
+ * Which push provider a device token belongs to.
+ *
+ * Android registers a raw FCM registration token so the server can reach FCM
+ * directly (TTL, collapse key + per-job notification `tag`); iOS (and the Expo
+ * fallback) keeps the Expo push service. Mirrors `PushProvider` in Prisma.
+ */
+export const PushProvider = {
+  EXPO: 'EXPO',
+  FCM: 'FCM',
+} as const;
+
+export type PushProvider = (typeof PushProvider)[keyof typeof PushProvider];
+
+export const PUSH_PROVIDERS = Object.values(PushProvider);
+
+/**
+ * The payload of an incoming job alert, as raised natively and re-read by the
+ * app. The server composes it from the job (no customer identity before
+ * acceptance — see the jobs domain), and the native side keeps it until the job
+ * is resolved or heavy-keyed by `jobId` for dedup.
+ */
+export interface IncomingJobAlert {
+  jobId: string;
+  /** pro_profiles.id of the professional the alert was paged to. */
+  professionalId: string;
+  /** Short heading, e.g. "Electrical job nearby". */
+  title: string;
+  /** Display name of the requested service. */
+  serviceName: string;
+  /** Display label of the work location; null when unknown. */
+  address: string | null;
+  /** Straight-line distance from the recipient, metres; null when unknown. */
+  distanceMeters: number | null;
+  /** Guaranteed amount, in paise. */
+  amountPaise: number;
+  /** When the job stops being actionable (ISO); null when not set. */
+  expiresAt: string | null;
+  /** When the alert was first received (ISO). */
+  receivedAt: string;
+}
