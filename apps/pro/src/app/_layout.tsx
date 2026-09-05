@@ -47,6 +47,17 @@ export default function RootLayout() {
             headerStyle: { backgroundColor: color.surface },
           }}
         />
+        <Stack.Screen
+          name="device-setup"
+          options={{
+            headerShown: true,
+            presentation: 'modal',
+            title: 'Job alert setup',
+            headerBackTitle: 'Back',
+            headerTintColor: color['text-primary'],
+            headerStyle: { backgroundColor: color.surface },
+          }}
+        />
       </Stack>
     </AppProviders>
   );

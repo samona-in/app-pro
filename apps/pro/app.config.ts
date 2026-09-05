@@ -11,6 +11,8 @@ const config = {
     ...(appJson.expo.plugins ?? []),
     // Lets the full-screen job alert wake a locked screen (see modules/job-alert).
     './plugins/withFullScreenJobAlert',
+    // Injects the battery-optimization permission the readiness probe needs.
+    './plugins/withDeviceReadiness',
     // Registers MapLibre Native; no API keys or billing involved.
     '@maplibre/maplibre-react-native',
     'expo-audio',

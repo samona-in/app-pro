@@ -3,8 +3,8 @@ import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Wordmark } from '@/components/brand/Wordmark';
-import { Card, IconButton, Screen, Text } from '@/components/ui';
-import { useProProfile, useSubmitGuard } from '@/hooks';
+import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
+import { useProProfile, useDeviceReadiness, useSubmitGuard } from '@/hooks';
 import {
   subscribeToOnlineStatus,
   isOnline as checkIsOnline,
@@ -12,7 +12,10 @@ import {
   goOffline,
   isLocationServicesDisabledError,
   reconcileOnlineStatus,
+  DEVICE_NOT_READY_REASON,
+  type AvailabilityResult,
 } from '@/services/online-status';
+import { missingReadinessCount } from '@/services/device-readiness-state';
 import { queryKeys } from '@/constants';
 import { useAuth } from '@/providers';
 import { color } from '@/theme';
@@ -39,11 +42,19 @@ function AvailabilityCard() {
     state: 'online' | 'offline' | 'loading';
     error: string | null;
     isTransitioning: boolean;
-  }>(() => (checkIsOnline() ? { state: 'online', error: null, isTransitioning: false } : { state: 'offline', error: null, isTransitioning: false }));
+  }>(() =>
+    checkIsOnline()
+      ? { state: 'online', error: null, isTransitioning: false }
+      : { state: 'offline', error: null, isTransitioning: false },
+  );
 
   useEffect(() => {
     const unsubscribe = subscribeToOnlineStatus((state) => {
-      setStatus({ state: state.status, error: state.error, isTransitioning: state.isTransitioning });
+      setStatus({
+        state: state.status,
+        error: state.error,
+        isTransitioning: state.isTransitioning,
+      });
     });
     return unsubscribe;
   }, []);
@@ -62,17 +73,13 @@ function AvailabilityCard() {
   const isLoading = status.state === 'loading' || status.isTransitioning;
   const hasError = status.state === 'offline' && !!status.error;
 
-  const label = isLoading
-    ? 'Loading…'
-    : isOnline
-      ? "You're online"
-      : "You're offline";
+  const label = isLoading ? 'Loading…' : isOnline ? "You're online" : "You're offline";
 
   const message = isLoading
     ? 'Toggling your availability…'
     : isOnline
       ? ''
-      : status.error ?? 'Go online to start receiving job requests.';
+      : (status.error ?? 'Go online to start receiving job requests.');
 
   const { run } = useSubmitGuard(async () => {
     if (isLoading) return;
@@ -81,13 +88,19 @@ function AvailabilityCard() {
     setStatus({ state: 'loading', error: null, isTransitioning: true });
 
     try {
-      let result: { success: boolean; error?: string };
+      let result: AvailabilityResult;
       if (next) {
         result = await goOnline(sessionRef?.access_token ?? '');
       } else {
         result = await goOffline(sessionRef?.access_token ?? '');
       }
       if (!result.success) {
+        // A device that would swallow push-delivered job alerts blocks going
+        // online; route the pro to the fix-it screen instead of a bare alert.
+        if (result.reason === DEVICE_NOT_READY_REASON) {
+          router.push('/device-setup');
+          return;
+        }
         const message = result.error ?? 'Something went wrong. Please try again.';
         if (isLocationServicesDisabledError(result.error)) {
           Alert.alert("Can't go online", message, [
@@ -103,7 +116,10 @@ function AvailabilityCard() {
         void queryClient.invalidateQueries({ queryKey: queryKeys.proProfile });
       }
     } catch (error) {
-      Alert.alert(next ? "Can't go online" : "Can't go offline", error instanceof Error ? error.message : 'Something went wrong. Please try again.');
+      Alert.alert(
+        next ? "Can't go online" : "Can't go offline",
+        error instanceof Error ? error.message : 'Something went wrong. Please try again.',
+      );
     }
   });
 
@@ -116,7 +132,10 @@ function AvailabilityCard() {
         <View className="flex-1 pr-4">
           <Text
             variant="label"
-            style={{ color: isOnline ? color['brand-contrast'] : color['text-secondary'], opacity: isOnline ? 0.7 : undefined }}
+            style={{
+              color: isOnline ? color['brand-contrast'] : color['text-secondary'],
+              opacity: isOnline ? 0.7 : undefined,
+            }}
           >
             Availability
           </Text>
@@ -131,7 +150,15 @@ function AvailabilityCard() {
             <Text
               variant="footnote"
               className="mt-1"
-              style={{ color: isLoading ? color.warning : isOnline ? color.success : hasError ? color.danger : color['text-secondary'] }}
+              style={{
+                color: isLoading
+                  ? color.warning
+                  : isOnline
+                    ? color.success
+                    : hasError
+                      ? color.danger
+                      : color['text-secondary'],
+              }}
             >
               {message}
             </Text>
@@ -140,7 +167,10 @@ function AvailabilityCard() {
 
         {isLoading ? (
           <View className="h-14 w-14 items-center justify-center">
-            <ActivityIndicator color={isOnline ? color['brand-contrast'] : color.brand} size="large" />
+            <ActivityIndicator
+              color={isOnline ? color['brand-contrast'] : color.brand}
+              size="large"
+            />
           </View>
         ) : (
           <IconButton
@@ -159,6 +189,43 @@ function AvailabilityCard() {
   );
 }
 
+/**
+ * Shown while offline when a phone setting can swallow push-delivered job
+ * alerts. The block in goOnline already stops a deaf pro from going online;
+ * this banner is the always-visible route to fixing it.
+ */
+function ReadinessBanner() {
+  const { readiness, isReady } = useDeviceReadiness();
+  const isOnline = checkIsOnline();
+  if (isOnline || readiness === null || isReady) return null;
+
+  const missing = missingReadinessCount(readiness);
+  return (
+    <Card className="mt-6 border border-warning bg-warning-surface">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-3">
+          <Text variant="label" className="text-warning">
+            Job alerts may not reach you
+          </Text>
+          <Text variant="footnote" className="mt-1 text-text-secondary">
+            {missing === 1
+              ? 'One phone setting can block alerts while the app is closed.'
+              : `${missing} phone settings can block alerts while the app is closed.`}{' '}
+            Fix them to receive every job request.
+          </Text>
+        </View>
+        <Button
+          variant="secondary"
+          size="sm"
+          label="Fix"
+          haptic={false}
+          onPress={() => router.push('/device-setup')}
+        />
+      </View>
+    </Card>
+  );
+}
+
 /** Prompt shown when an offline pro tries to act on a job. */
 function OfflineGate() {
   return (
@@ -167,7 +234,8 @@ function OfflineGate() {
         Go online to see jobs
       </Text>
       <Text variant="body" className="mt-2 text-center text-text-secondary">
-        When you're online and your live location is on, job requests arrive here in real time for you to accept or decline.
+        When you're online and your live location is on, job requests arrive here in real time for
+        you to accept or decline.
       </Text>
       <Text variant="footnote" className="mt-4 text-center text-text-muted">
         Toggle availability above to go online.
@@ -194,11 +262,14 @@ export default function Home() {
         <AvailabilityCard />
       </View>
 
+      <ReadinessBanner />
+
       {isOnline ? (
         <View className="mt-8">
           <Text variant="title">Job requests</Text>
           <Text variant="footnote" className="mt-1 text-text-secondary">
-            A new request will appear here the moment it lands. You have a short window to accept it.
+            A new request will appear here the moment it lands. You have a short window to accept
+            it.
           </Text>
         </View>
       ) : (

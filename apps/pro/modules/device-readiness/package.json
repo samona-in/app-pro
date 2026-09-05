@@ -1,0 +1,8 @@
+{
+  "name": "@samona/device-readiness",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SAMONA Pro Android job-alert readiness: battery optimization, background data probes and settings deep links.",
+  "license": "UNLICENSED",
+  "dependencies": {}
+}

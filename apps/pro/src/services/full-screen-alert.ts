@@ -39,6 +39,11 @@ function getNativeModule(): FullScreenIntentNativeModule | null {
   }
 }
 
+/** Whether the native full-screen module is present (Android builds only). */
+export function isFullScreenIntentSupported(): boolean {
+  return getNativeModule() !== null;
+}
+
 /** Whether full-screen alerts are currently allowed on this device. */
 export async function isFullScreenIntentEnabled(): Promise<boolean> {
   const module = getNativeModule();
