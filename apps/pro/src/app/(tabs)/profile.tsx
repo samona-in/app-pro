@@ -13,7 +13,7 @@ const SETTINGS_ROWS: { icon: IoniconName; label: string; route?: string }[] = [
   { icon: 'time-outline', label: 'Availability' },
   { icon: 'location-outline', label: 'Service area' },
   { icon: 'document-text-outline', label: 'Documents' },
-  { icon: 'notifications-outline', label: 'Device setup', route: '/device-setup' },
+  { icon: 'notifications-outline', label: 'Job alert setup', route: '/device-setup' },
   { icon: 'card-outline', label: 'Payout details' },
   { icon: 'help-circle-outline', label: 'Help & support' },
 ];
