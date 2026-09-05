@@ -527,6 +527,8 @@ export function createJobsService(deps: JobsServiceDeps) {
         status: JobStatus.REQUESTED,
         proId: null,
         serviceId: { in: serviceIds },
+        // A request this pro explicitly declined must not resurface.
+        declines: { none: { proId: pro.id } },
       },
       include: jobDetailInclude,
       orderBy: { createdAt: 'desc' },
@@ -580,6 +582,8 @@ export function createJobsService(deps: JobsServiceDeps) {
         status: JobStatus.REQUESTED,
         proId: null,
         serviceId: { in: serviceIds },
+        // A request this pro explicitly declined must not resurface.
+        declines: { none: { proId: pro.id } },
       },
       include: jobDetailInclude,
     });
@@ -602,6 +606,53 @@ export function createJobsService(deps: JobsServiceDeps) {
       distanceKm: km,
       estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
     };
+  }
+
+  /**
+   * Records this pro's explicit decline of an open request and stops the
+   * request from resurfacing for them.
+   *
+   * A decline is per pro per job (idempotent) and only applies while the job
+   * is still open and unassigned. It resolves the pro's own job-alert rows so
+   * the repeating push scheduler stops paging them, `/jobs/available` no longer
+   * lists the job, and the alert refetch by id 404s — so reopening the app
+   * (or tapping an older push) cannot bring a rejected request back. The job's
+   * own status and the customer are untouched; a decline is invisible to the
+   * customer purely because the request leaves this pro's pool.
+   */
+  async function declineJob(proUserId: string, jobId: string): Promise<void> {
+    const pro = await findProByUserId(proUserId);
+
+    const myServices = await prisma.proService.findMany({
+      where: { proProfileId: pro.id },
+      select: { serviceId: true },
+    });
+    const serviceIds = myServices.map((entry) => entry.serviceId);
+    if (serviceIds.length === 0) throw notFound('That request is no longer available.');
+
+    const open = await prisma.job.findFirst({
+      where: {
+        id: jobId,
+        status: JobStatus.REQUESTED,
+        proId: null,
+        serviceId: { in: serviceIds },
+      },
+      select: { id: true },
+    });
+    if (!open) throw notFound('That request is no longer available.');
+
+    await prisma.$transaction(async (tx) => {
+      await tx.jobDecline.upsert({
+        where: { jobId_proId: { jobId, proId: pro.id } },
+        create: { jobId, proId: pro.id },
+        update: {},
+      });
+      // Stop the repeating push scheduler from paging this pro for this job.
+      await tx.notification.updateMany({
+        where: { jobId, proId: pro.id, kind: NotificationKind.JOB_ALERT, resolvedAt: null },
+        data: { resolvedAt: new Date() },
+      });
+    });
   }
 
   /**
@@ -889,7 +940,10 @@ export function createJobsService(deps: JobsServiceDeps) {
         const jobPoint = { latitude: job.latitude as number, longitude: job.longitude as number };
         return { job, km: distanceKm(proPoint, jobPoint) };
       })
-      .filter(({ job, km }) => job.latitude !== null && job.longitude !== null && km <= pro.serviceRadiusKm)
+      .filter(
+        ({ job, km }) =>
+          job.latitude !== null && job.longitude !== null && km <= pro.serviceRadiusKm,
+      )
       .sort((a, b) => a.km - b.km)
       .slice(0, config.jobCatchupLimit);
 
@@ -908,16 +962,13 @@ export function createJobsService(deps: JobsServiceDeps) {
       };
 
       realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_NEW, payload);
-      void notifications.alertEligiblePros(
-        [{ proId: pro.id }],
-        {
-          jobId: job.id,
-          serviceName: job.service.name,
-          customSkill: job.customSkill,
-          description: job.description,
-          basePayPaise: job.basePayPaise,
-        },
-      );
+      void notifications.alertEligiblePros([{ proId: pro.id }], {
+        jobId: job.id,
+        serviceName: job.service.name,
+        customSkill: job.customSkill,
+        description: job.description,
+        basePayPaise: job.basePayPaise,
+      });
     }
   }
 
@@ -1017,6 +1068,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     listProJobs,
     listAvailableJobs,
     getAvailableJobForPro,
+    declineJob,
     listJobHistory,
     notifyReadyJobRequests,
     acceptJob,

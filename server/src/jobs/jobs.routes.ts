@@ -125,6 +125,20 @@ export function createJobsRouter(services: Services): Router {
     }
   });
 
+  /**
+   * Records this pro's decline of an open request so it stops resurfacing for
+   * them (scheduler, available feed, alert refetch). Idempotent; the job's own
+   * status is never changed.
+   */
+  pro.post('/:id/decline', proOnly, async (req, res, next) => {
+    try {
+      await services.jobs.declineJob(req.user!.id, routeParamId(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
   /** One on-site stage of an accepted job, enforced by the state machine. */
   pro.post('/:id/transition', proOnly, validate(transitionJobSchema), async (req, res, next) => {
     try {
@@ -160,7 +174,9 @@ export function createJobsRouter(services: Services): Router {
   router.get('/:id', requireAuth, async (req, res, next) => {
     try {
       if (req.user!.appType === 'pro') {
-        res.json(await services.jobs.getAvailableJobForPro(req.user!.id, routeParamId(req.params.id)));
+        res.json(
+          await services.jobs.getAvailableJobForPro(req.user!.id, routeParamId(req.params.id)),
+        );
       } else {
         res.json(await services.jobs.getForCustomer(req.user!.id, routeParamId(req.params.id)));
       }

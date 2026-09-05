@@ -63,7 +63,10 @@ function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> 
     listAvailableJobs: jest.fn().mockResolvedValue([job]),
     listProJobs: jest.fn().mockResolvedValue([job]),
     listJobHistory: jest.fn().mockResolvedValue([job]),
-    getAvailableJobForPro: jest.fn().mockResolvedValue({ ...job, distanceKm: 1.2, estimatedEtaMinutes: 3 }),
+    getAvailableJobForPro: jest
+      .fn()
+      .mockResolvedValue({ ...job, distanceKm: 1.2, estimatedEtaMinutes: 3 }),
+    declineJob: jest.fn().mockResolvedValue(undefined),
     acceptJob: jest.fn().mockResolvedValue(job),
     transitionJob: jest.fn().mockResolvedValue(job),
     notifyReadyJobRequests: jest.fn().mockResolvedValue(undefined),
@@ -248,5 +251,20 @@ describe('jobs routes', () => {
       .expect(403);
 
     expect(services.jobs.getForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('PRO can decline an open request and gets a 204', async () => {
+    const proUser = { ...activeUser, appType: 'pro' as const };
+    const services = buildServices({
+      auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
+      jobs: jobsService(),
+    });
+
+    await request(appWith(services))
+      .post('/jobs/job-1/decline')
+      .set('authorization', 'Bearer good.token')
+      .expect(204);
+
+    expect(services.jobs.declineJob).toHaveBeenCalledWith('user-1', 'job-1');
   });
 });

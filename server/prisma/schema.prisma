@@ -130,6 +130,7 @@ model ProProfile {
   /// Jobs this professional accepted. Authorised against ProProfile.userId.
   jobs             Job[]
   notifications    Notification[]
+  declines         JobDecline[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -292,6 +293,7 @@ model Job {
 
   statusHistory JobStatusHistory[]
   notifications Notification[]
+  declines      JobDecline[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -358,6 +360,30 @@ model Notification {
   @@index([jobId])
   @@unique([proId, jobId, kind])
   @@map("notifications")
+}
+
+/// One professional who explicitly declined an open job request.
+///
+/// A decline is per pro per job: it stops that pro from being paged for the
+/// request again (the repeating push scheduler, the `/jobs/available` feed and
+/// the alert refetch by id) for as long as the job stays open. It records
+/// nothing about the job's own status — the customer is never told a decline
+/// happened, and the request simply leaves this pro's pool. Idempotent: only
+/// the first row matters, so a duplicate Reject tap or a racing network retry
+/// is harmless.
+model JobDecline {
+  id        String   @id @default(uuid()) @db.Uuid
+  jobId     String   @map("job_id") @db.Uuid
+  proId     String   @map("pro_id") @db.Uuid
+
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  pro       ProProfile @relation(fields: [proId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([jobId, proId])
+  @@index([proId])
+  @@map("job_declines")
 }
 
 /// Mirrored by `PlaceType` in `@samona/types` — keep the two in sync.
