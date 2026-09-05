@@ -1,11 +1,16 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { JobStatus, type AvailableJob, type JobDetail } from '@samona/types';
+import { JobStatus, type AvailableJob, type JobDetail, type ProProfile } from '@samona/types';
 import { subscribe } from '@/services/realtime';
 import { startJobAlert, stopJobAlert } from '@/services/job-alert';
 import { api } from './api';
 import { useIncomingJobStore, type IncomingJobResolution } from '@/stores/incoming-job';
-import { isOnline, subscribeToOnlineStatus } from './online-status-state';
+import {
+  isOnline,
+  isOnlineStatusKnown,
+  reconcileOnlineStatus,
+  subscribeToOnlineStatus,
+} from './online-status-state';
 
 const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail['status']>([
   JobStatus.ACCEPTED,
@@ -58,6 +63,28 @@ interface PendingJobEvent {
   }
 
   function canShowAlert(): boolean {
+    // A push only ever reaches a pro the server considers online and eligible,
+    // but right after a cold start the in-memory flag is still the launch-time
+    // default until the profile loads. Gate on a *known* offline, never on the
+    // unknown launch default — handleJobNotification resolves the server truth.
+    return isOnline() || !isOnlineStatusKnown();
+  }
+
+  /**
+   * Resolves the online-status gate against the server on a cold start, where
+   * the in-memory flag has not been reconciled yet. The server's matching gate
+   * already limited the alert to an online pro, so this is only protecting the
+   * rare stale push that lands after the pro toggled offline.
+   */
+  async function resolveServerOnlineStatus(): Promise<boolean> {
+    try {
+      const profile = await api.get<ProProfile>('/pros/me');
+      reconcileOnlineStatus(Boolean(profile.isOnline));
+    } catch {
+      // Could not confirm the server's truth (session still restoring, network
+      // hiccup): fail closed — the alert is not raised on an unverified state.
+      return false;
+    }
     return isOnline();
   }
 
@@ -186,8 +213,19 @@ interface PendingJobEvent {
   }
 
   async function handleJobNotification(jobId: string): Promise<void> {
-    if (!canShowAlert()) return;
     if (isJobBeingHandled(jobId)) return;
+
+    // Cold-start gate: a fresh launch begins 'offline' until the profile loads,
+    // so the in-memory flag cannot veto an alert by itself. When the status is
+    // not yet known, resolve the server's truth first (a push only ever reaches
+    // an online, eligible pro); a genuinely stale push for an offline pro is
+    // dropped here rather than ringing over a pro who left.
+    if (!isOnline() && !isOnlineStatusKnown()) {
+      const online = await resolveServerOnlineStatus();
+      if (!online) return;
+    }
+    if (!isOnline()) return;
+
     markJobHandled(jobId);
 
     try {
@@ -263,7 +301,13 @@ interface PendingJobEvent {
       if ((store.job || store.pendingJobs.length > 0) && !store.resolution) {
         stopJobAlert();
       }
+      return;
     }
+    // Coming back to the foreground is a chance to reconcile what was missed
+    // while suspended: pull any still-open requests the pro serves. REST is the
+    // source of truth, so this back-fills a `job:new` nudge or alert that was
+    // never surfaced. Best-effort; the socket and push paths remain primary.
+    void syncAvailableJobs();
   }
 
   /**
