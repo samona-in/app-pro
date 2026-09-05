@@ -1,5 +1,10 @@
 import { NotificationKind } from '@samona/types';
-import { buildPushMessage, createNotificationsService } from './notifications.service';
+import {
+  buildFcmPushMessage,
+  buildFcmTerminalMessage,
+  buildPushMessage,
+  createNotificationsService,
+} from './notifications.service';
 
 const info = {
   jobId: 'job-1',
@@ -7,6 +12,8 @@ const info = {
   customSkill: null,
   description: 'Fix the switch near the door.',
   basePayPaise: 15_000,
+  address: '12 Market Rd',
+  expiresAt: '2026-09-06T13:00:00.000Z',
 };
 
 function buildService() {
@@ -76,7 +83,7 @@ describe('buildPushMessage', () => {
     title: 'Electrical job nearby',
     body: 'Fix the switch near the door — ₹150.00. Tap to see and accept.',
     data: { type: 'NEW_JOB', jobId: 'job-1', kind: NotificationKind.JOB_ALERT },
-    channelId: 'job-alerts',
+    channelId: 'incoming_jobs',
   };
 
   it('sends Android job alerts with a display payload so a closed (process-dead) app still shows the alert', () => {
@@ -84,7 +91,7 @@ describe('buildPushMessage', () => {
 
     expect(payload.title).toBe(message.title);
     expect(payload.body).toBe(message.body);
-    expect(payload.channelId).toBe('job-alerts');
+    expect(payload.channelId).toBe('incoming_jobs');
     expect(payload.sound).toBe('default');
     expect(payload.priority).toBe('high');
     expect(payload.data).toEqual({
@@ -101,7 +108,7 @@ describe('buildPushMessage', () => {
 
     expect(payload.title).toBe(message.title);
     expect(payload.body).toBe(message.body);
-    expect(payload.channelId).toBe('job-alerts');
+    expect(payload.channelId).toBe('incoming_jobs');
     expect(payload.interruptionLevel).toBe('time-sensitive');
   });
 
@@ -109,6 +116,49 @@ describe('buildPushMessage', () => {
     const payload = buildPushMessage('ExponentPushToken[abc]', message, null);
 
     expect(payload.title).toBe(message.title);
-    expect(payload.channelId).toBe('job-alerts');
+    expect(payload.channelId).toBe('incoming_jobs');
+  });
+});
+
+describe('buildFcmPushMessage', () => {
+  const message = {
+    title: 'Electrical job nearby',
+    body: 'Fix the switch near the door — ₹150.00. Tap to see and accept.',
+    data: { type: 'NEW_JOB', jobId: 'job-1', amountPaise: 15_000 },
+    channelId: 'incoming_jobs',
+  };
+
+  it('carries string data, a display notification, high priority and a per-job ttl/collapse/tag', () => {
+    const payload = buildFcmPushMessage(message, { ttlMs: 60_000, collapseKey: 'job-1' });
+
+    expect(payload.data).toEqual({
+      type: 'NEW_JOB',
+      jobId: 'job-1',
+      amountPaise: '15000',
+    });
+    expect(payload.notification).toEqual({
+      title: 'Electrical job nearby',
+      body: 'Fix the switch near the door — ₹150.00. Tap to see and accept.',
+    });
+    expect(payload.android).toMatchObject({
+      priority: 'high',
+      ttl: '60000ms',
+      collapseKey: 'job-1',
+      notification: {
+        channelId: 'incoming_jobs',
+        sound: 'job_alert',
+        tag: 'job-1',
+      },
+    });
+  });
+});
+
+describe('buildFcmTerminalMessage', () => {
+  it('sends a data-only message that only names the terminal event and the job', () => {
+    const payload = buildFcmTerminalMessage('JOB_ACCEPTED', 'job-1');
+
+    expect(payload.data).toEqual({ type: 'JOB_ACCEPTED', jobId: 'job-1' });
+    expect(payload.notification).toBeUndefined();
+    expect(payload.android).toBeUndefined();
   });
 });

@@ -354,7 +354,7 @@ describe('createJobsService.notifyReadyJobRequests', () => {
       matching: { isProEligible } as never,
       realtime: realtime as never,
       notifications: notifications as never,
-      config: { jobCatchupWindowMs: 2 * 60 * 60_000, jobCatchupLimit: 3 } as never,
+      config: { jobCatchupWindowMs: 2 * 60 * 60_000, jobCatchupLimit: 3, jobExpireTtlMs: 10_000 } as never,
     } as never);
 
     return { jobs, prisma, realtime, notifications, isProEligible, storage };
@@ -380,7 +380,7 @@ describe('createJobsService.notifyReadyJobRequests', () => {
     );
     expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(1);
     expect(ctx.notifications.alertEligiblePros).toHaveBeenCalledWith(
-      [{ proId: 'pro-1' }],
+      [{ proId: 'pro-1', distanceKm: expect.any(Number) }],
       expect.objectContaining({ jobId: 'job-1' }),
     );
   });
@@ -552,7 +552,7 @@ describe('createJobsService.expireStaleJobs', () => {
         data: { jobId: 'job-old', fromStatus: JobStatus.REQUESTED, toStatus: JobStatus.EXPIRED },
       }),
     );
-    expect(ctx.notifications.resolveJobAlerts).toHaveBeenCalledWith('job-old');
+    expect(ctx.notifications.resolveJobAlerts).toHaveBeenCalledWith('job-old', 'EXPIRED');
     expect(ctx.realtime.emitToUser).toHaveBeenCalledWith(
       'user-1',
       'job:status',
@@ -769,7 +769,7 @@ describe('createJobsService.acceptJob', () => {
 
     await ctx.jobs.acceptJob('user-1', 'job-1');
 
-    expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1');
+    expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'ACCEPTED');
   });
 });
 

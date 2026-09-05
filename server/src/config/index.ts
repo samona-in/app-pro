@@ -111,6 +111,25 @@ const envSchema = z.object({
    * Defaults to 60s; bounded below so a busy loop is impossible.
    */
   JOB_EXPIRE_SWEEP_MS: z.coerce.number().int().min(5_000).max(86_400_000).default(60_000),
+
+  /**
+   * Firebase Cloud Messaging service-account credentials, for direct FCM HTTP
+   * v1 delivery of Android job alerts (TTL, per-job collapse key and
+   * notification `tag`). All three are optional and must be set together; when
+   * absent the server falls back to the Expo push service (and records rows
+   * without reaching anyone when neither is configured).
+   */
+  FCM_PROJECT_ID: optional(z.string()),
+  FCM_CLIENT_EMAIL: optional(z.string()),
+  FCM_PRIVATE_KEY: optional(z.string()),
+
+  /**
+   * How long an FCM job-alert message stays deliverable, in ms. Sized a little
+   * longer than the ring so a repeat push can still replace the tray entry, and
+   * far shorter than JOB_EXPIRE_TTL_MS so a stale offer cannot come back hours
+   * later. Defaults to 60s.
+   */
+  JOB_ALERT_TTL_MS: z.coerce.number().int().min(5_000).max(300_000).default(60_000),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -142,6 +161,14 @@ export interface AppConfig {
   jobExpireTtlMs: number;
   /** How often the auto-expiry sweep runs, in ms. */
   jobExpireSweepMs: number;
+  /** Firebase Cloud Messaging service-account email; null disables FCM. */
+  fcmClientEmail: string | null;
+  /** Firebase Cloud Messaging service-account private key; null disables FCM. */
+  fcmPrivateKey: string | null;
+  /** Firebase Cloud Messaging project id; null disables FCM. */
+  fcmProjectId: string | null;
+  /** How long an FCM job-alert message stays deliverable, in ms. */
+  jobAlertTtlMs: number;
 }
 
 /**
@@ -198,5 +225,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     jobCatchupLimit: env.JOB_CATCHUP_LIMIT,
     jobExpireTtlMs: env.JOB_EXPIRE_TTL_MS,
     jobExpireSweepMs: env.JOB_EXPIRE_SWEEP_MS,
+    fcmProjectId: env.FCM_PROJECT_ID ?? null,
+    fcmClientEmail: env.FCM_CLIENT_EMAIL ?? null,
+    fcmPrivateKey: env.FCM_PRIVATE_KEY ?? null,
+    jobAlertTtlMs: env.JOB_ALERT_TTL_MS,
   };
 }

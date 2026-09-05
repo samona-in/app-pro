@@ -30,6 +30,10 @@ const config: AppConfig = {
   jobCatchupLimit: 3,
   jobExpireTtlMs: 30 * 60_000,
   jobExpireSweepMs: 60_000,
+  fcmProjectId: null,
+  fcmClientEmail: null,
+  fcmPrivateKey: null,
+  jobAlertTtlMs: 60_000,
 };
 
 const services = {} as Services;

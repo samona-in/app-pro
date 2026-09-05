@@ -292,15 +292,18 @@ export function createJobsService(deps: JobsServiceDeps) {
         // Push alert every eligible pro, then keep repeating on a cadence
         // until one accepts or the job leaves the open pool. This is what
         // reaches a pro whose phone is locked, in a pocket, or asleep — the
-        // socket cannot.
+        // socket cannot. Distance is per pro (from the match) and the address
+        // is the job's own snapshotted label, never the customer's identity.
         void notifications.alertEligiblePros(
-          eligible.map((pro) => ({ proId: pro.proId })),
+          eligible.map((pro) => ({ proId: pro.proId, distanceKm: pro.distanceKm })),
           {
             jobId: created.id,
             serviceName: service.name,
             customSkill,
             description: input.description,
             basePayPaise: input.basePayPaise,
+            address: locationLabel,
+            expiresAt: new Date(created.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
           },
         );
       }
@@ -445,8 +448,9 @@ export function createJobsService(deps: JobsServiceDeps) {
     realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     if (row.pro) realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, proDetail);
 
-    // A cancelled job is no longer open; stop repeating its alert.
-    void notifications.resolveJobAlerts(jobId);
+    // A cancelled job is no longer open; stop repeating its alert and page its
+    // holders so their native overlay/sound/tray entry closes immediately.
+    void notifications.resolveJobAlerts(jobId, 'CANCELLED');
 
     // If a pro was freed up by this cancellation, re-nudge them only with jobs
     // that arrived after they accepted the cancelled job (the ones they truly
@@ -774,8 +778,9 @@ export function createJobsService(deps: JobsServiceDeps) {
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
     // A job that is now assigned is no longer open: stop the repeating alert
-    // still paging every other eligible pro.
-    void notifications.resolveJobAlerts(jobId);
+    // still paging every other eligible pro, and page them with an accepted
+    // terminal push so their native overlay/sound/tray entry drops at once.
+    void notifications.resolveJobAlerts(jobId, 'ACCEPTED');
 
     // Every other pro who was alerted for this request should drop it the
     // instant it is claimed. Publishing the accepted status over their socket
@@ -962,12 +967,14 @@ export function createJobsService(deps: JobsServiceDeps) {
       };
 
       realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_NEW, payload);
-      void notifications.alertEligiblePros([{ proId: pro.id }], {
+      void notifications.alertEligiblePros([{ proId: pro.id, distanceKm: km }], {
         jobId: job.id,
         serviceName: job.service.name,
         customSkill: job.customSkill,
         description: job.description,
         basePayPaise: job.basePayPaise,
+        address: job.locationLabel,
+        expiresAt: new Date(job.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
       });
     }
   }
@@ -1014,8 +1021,9 @@ export function createJobsService(deps: JobsServiceDeps) {
       // A racing acceptance or cancellation claimed the job first; nothing to do.
       if (!expired) continue;
 
-      // The job is no longer open; stop the repeating alert still paging pros.
-      void notifications.resolveJobAlerts(row.id);
+      // The job is no longer open; stop the repeating alert still paging pros and
+      // page them with an expired terminal push so open overlays close.
+      void notifications.resolveJobAlerts(row.id, 'EXPIRED');
 
       // Customer and every alerted pro should drop the dead request the instant
       // it expires, not wait for the next validation poll.
