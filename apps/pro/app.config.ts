@@ -13,6 +13,8 @@ const config = {
     './plugins/withFullScreenJobAlert',
     // Injects the battery-optimization permission the readiness probe needs.
     './plugins/withDeviceReadiness',
+    // Copies the looping alarm into res/raw so the overlay and channel sound ring.
+    './plugins/withJobAlertAudio',
     // Registers MapLibre Native; no API keys or billing involved.
     '@maplibre/maplibre-react-native',
     'expo-audio',

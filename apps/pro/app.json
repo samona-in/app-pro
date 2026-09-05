@@ -68,7 +68,7 @@
         {
           "icon": "./assets/images/Samona.png",
           "color": "#0F172A",
-          "defaultChannel": "job-alerts",
+          "defaultChannel": "incoming_jobs",
           "enableBackgroundRemoteNotifications": true,
           "sounds": ["./assets/audio/job_alert.wav"]
         }

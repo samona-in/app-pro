@@ -14,22 +14,59 @@
   -->
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+  <!--
+    Keeps the 10-second looping alarm audible (and the app awake) while the
+    overlay is on screen.
+  -->
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <!--
+    Draws the Rapido-style Accept/Decline banner over other apps. Runtime
+    per-app grant ("display over other apps"); the app first checks and requests
+    it via JobAlertBackgroundModule.
+  -->
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <!--
+    Restarts the online foreground service after a reboot when the pro was left
+    online (see BootReceiver).
+  -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
   <application>
     <!--
       Our FCM service wins the `com.google.firebase.MESSAGING_EVENT` resolution
       because its intent-filter priority (1) is higher than expo-notifications'
       (-1). FirebaseMessaging delivers a message to exactly one resolved
-      service, so the two never double-post. Every non-NEW_JOB message is handed
-      back to Expo's handler through the base class.
+      service, so the two never double-post. Every non-NEW_JOB/terminal message
+      is handed back to Expo's handler through the base class.
     -->
     <service
-      android:name="com.samona.pro.jobalert.FullScreenJobAlertMessagingService"
+      android:name="com.samona.pro.jobalert.JobAlertMessagingService"
       android:exported="false">
       <intent-filter android:priority="1">
         <action android:name="com.google.firebase.MESSAGING_EVENT" />
       </intent-filter>
     </service>
+
+    <!--
+      Records the Accept/Decline tap from the job-alert overlay and opens the
+      app so the in-app ring performs the secured API call. Explicit-broadcast
+      only (PendingIntent from JobAlertOverlay), so it is not exported.
+    -->
+    <receiver
+      android:name="com.samona.pro.jobalert.JobAlertActionReceiver"
+      android:exported="false" />
+
+    <!--
+      Restarts the online foreground service after a reboot when the pro was
+      left online (see the online flag written by JobAlertBackgroundModule).
+    -->
+    <receiver
+      android:name="com.samona.pro.jobalert.BootReceiver"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+      </intent-filter>
+    </receiver>
 
     <!--
       Keeps the process alive while the pro is online (see
