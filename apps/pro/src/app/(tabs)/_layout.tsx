@@ -8,6 +8,7 @@ import { Screen } from '@/components/ui';
 import { useJobAlert, useRealtimeSync, useSession } from '@/hooks';
 import { useIncomingJobStore } from '@/stores/incoming-job';
 import { jobNotificationService } from '@/services/job-notifications';
+import { initializeJobAlertService, stopJobAlertService } from '@/services/foreground-service';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -43,10 +44,16 @@ export default function TabsLayout() {
   const clear = useIncomingJobStore((state) => state.clear);
 
   // Handle initial notification that launched the app from a killed state.
-  // This runs once after authentication and onboarding are complete.
+  // This runs once after authentication and onboarding are complete. The
+  // signed-in surface also keeps the Android foreground service in line with
+  // the online status; signing out releases it even though the status store is
+  // never told to go offline on logout.
   useEffect(() => {
     if (isAuthenticated && isOnboardingComplete) {
       jobNotificationService.handleInitialNotificationIfNeeded();
+      initializeJobAlertService();
+    } else {
+      stopJobAlertService();
     }
   }, [isAuthenticated, isOnboardingComplete]);
 

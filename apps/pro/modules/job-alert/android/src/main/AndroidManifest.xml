@@ -7,6 +7,13 @@
     FullScreenPermissionModule).
   -->
   <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+  <!--
+    Lets the app run as a foreground service while online so a swiped-away app
+    still receives NEW_JOB pushes and can raise the full-screen alert.
+    FOREGROUND_SERVICE_SPECIAL_USE matches the service's `specialUse` type.
+  -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
   <application>
     <!--
@@ -22,6 +29,21 @@
       <intent-filter android:priority="1">
         <action android:name="com.google.firebase.MESSAGING_EVENT" />
       </intent-filter>
+    </service>
+
+    <!--
+      Keeps the process alive while the pro is online (see
+      JobAlertForegroundService). `specialUse` is the foreground-service type
+      for running in the background to match the pro with nearby jobs; the
+      property documents the rationale for Play review.
+    -->
+    <service
+      android:name="com.samona.pro.jobalert.JobAlertForegroundService"
+      android:exported="false"
+      android:foregroundServiceType="specialUse">
+      <property
+        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        android:value="stays running while the professional is online so it can alert them to nearby job requests" />
     </service>
   </application>
 </manifest>
