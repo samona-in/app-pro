@@ -35,6 +35,14 @@ private const val TAG = "SamonaJobAlertFg"
  * allowed type for locating and connecting the pro to nearby jobs.
  */
 class JobAlertForegroundService : Service() {
+  override fun onCreate() {
+    super.onCreate()
+    // Keep the process-wide foreground flag accurate while this service keeps
+    // the app alive, so a NEW_JOB push knows when to auto-bring the app forward.
+    AppForeground.register(application)
+    ensureOnlineChannel()
+  }
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (intent?.action == ACTION_STOP) {
       ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
