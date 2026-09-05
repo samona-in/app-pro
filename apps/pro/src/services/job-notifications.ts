@@ -3,6 +3,12 @@ import * as Notifications from 'expo-notifications';
 import { JobStatus, type AvailableJob, type JobDetail, type ProProfile } from '@samona/types';
 import { subscribe } from '@/services/realtime';
 import { startJobAlert, stopJobAlert } from '@/services/job-alert';
+import {
+  clearNativeJobAlert,
+  consumeNativePendingAction,
+  getPendingNativeJobs,
+} from './overlay-alert';
+import { jobsApi } from './jobs';
 import { api } from './api';
 import { useIncomingJobStore, type IncomingJobResolution } from '@/stores/incoming-job';
 import {
@@ -24,7 +30,10 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail
   JobStatus.EXPIRED,
 ]);
 
-const JOB_ALERT_TIMEOUT_MS = 16_000;
+// Matches the 10s native ring (JobAlertSound / JobAlertOverlay caps) so the
+// in-app decision window and the native alarm never disagree about how long an
+// alert is actionable.
+const JOB_ALERT_TIMEOUT_MS = 10_000;
 
 interface PendingJobEvent {
   jobId: string;
@@ -39,11 +48,11 @@ interface PendingJobEvent {
     // misread as "someone else claimed it".
     let acceptingJobId: string | null = null;
     const socketUnsubscribes: (() => void)[] = [];
-  let pushReceivedUnsubscribe: Notifications.EventSubscription | null = null;
-  let pushResponseUnsubscribe: Notifications.EventSubscription | null = null;
-  let initialNotification: Notifications.Notification | null = null;
-  let isInitialized = false;
-  let onlineStatusUnsubscribe: (() => void) | null = null;
+    let pushReceivedUnsubscribe: Notifications.EventSubscription | null = null;
+    let pushResponseUnsubscribe: Notifications.EventSubscription | null = null;
+    let initialNotification: Notifications.Notification | null = null;
+    let isInitialized = false;
+    let onlineStatusUnsubscribe: (() => void) | null = null;
 
   function getStore() {
     return useIncomingJobStore.getState();
@@ -95,6 +104,10 @@ interface PendingJobEvent {
     await setupPushListeners();
     setupSocketListeners();
     await handleInitialNotification();
+    // A backgrounded NEW_JOB may have been persisted natively (overlay/tray)
+    // while this JS runtime was dead or hidden; surface those jobs and perform
+    // any accept/decline the pro tapped on the native overlay.
+    await reconcileNativePending();
 
     onlineStatusUnsubscribe = subscribeToOnlineStatus((state) => {
       if (state.status === 'offline') {
@@ -187,6 +200,7 @@ interface PendingJobEvent {
       // Check queued jobs — remove if no longer available.
       if (UNAVAILABLE_STATUSES.has(detail.status)) {
         store.remove(detail.id);
+        void clearNativeJobAlert(detail.id);
       }
     };
 
@@ -232,6 +246,7 @@ interface PendingJobEvent {
       const job = await fetchJob(jobId);
       if (!job) {
         clearJobHandled(jobId);
+        void clearNativeJobAlert(jobId);
         return;
       }
 
@@ -242,6 +257,7 @@ interface PendingJobEvent {
           store.remove(jobId);
         }
         clearJobHandled(jobId);
+        void clearNativeJobAlert(jobId);
         return;
       }
 
@@ -285,12 +301,16 @@ interface PendingJobEvent {
 
     stopJobAlert();
     clearJobHandled(jobId);
+    void clearNativeJobAlert(jobId);
   }
 
   function dismissJob(): void {
     const store = getStore();
     const jobId = store.job?.id;
-    if (jobId) clearJobHandled(jobId);
+    if (jobId) {
+      clearJobHandled(jobId);
+      void clearNativeJobAlert(jobId);
+    }
     store.clear();
     stopJobAlert();
   }
@@ -308,6 +328,90 @@ interface PendingJobEvent {
     // source of truth, so this back-fills a `job:new` nudge or alert that was
     // never surfaced. Best-effort; the socket and push paths remain primary.
     void syncAvailableJobs();
+    // Re-read the native store (overlay alerts + the action the pro tapped on
+    // the native Accept/Decline banner) and reconcile both against the queues.
+    void reconcileNativePending();
+  }
+
+  /**
+   * Reconciles the native job-alert store with the in-app queues.
+   *
+   * The native overlay layer may have rung for a job while this JS runtime was
+   * dead, hidden or just starting up. On resume this enqueues every still-open
+   * native alert via the same fetch-and-verify path as a socket/push nudge.
+   *
+   * The accept/decline a pro taps on the native overlay banner is deliberately
+   * NOT consumed here: the overlay always opens the app through the
+   * `job-alert/:id` route, which performs the recorded action itself (the app
+   * alone holds the token) and then lands the pro on the right screen. This
+   * keeps a single, unambiguous actor — no double accepts, no lost landings.
+   */
+  async function reconcileNativePending(): Promise<void> {
+    if (!canShowAlert()) return;
+
+    const nativeJobs = await getPendingNativeJobs();
+    for (const pending of nativeJobs) {
+      if (!canShowAlert()) break;
+      if (isJobBeingHandled(pending.jobId)) continue;
+      const store = getStore();
+      if (store.job?.id === pending.jobId) continue;
+      if (store.pendingJobs.some((j) => j.id === pending.jobId)) continue;
+      // handleJobNotification re-verifies against the server, so a stale
+      // native entry quietly drops (and clears its native copy) if the job is
+      // no longer open for this pro.
+      void handleJobNotification(pending.jobId);
+    }
+  }
+
+  /**
+   * Executes the accept/decline a pro tapped on the native overlay banner.
+   *
+   * The native button only records the choice, stops the alarm and opens the
+   * app; this is where the authorized API call actually runs — single-tap Rapido
+   * UX with the token held only by the app. Called from the `job-alert/:id`
+   * route with the action it was deep-linked with; the recorded action (if any
+   * is still present) is consumed so nothing ever double-executes.
+   */
+  async function resolveNativePendingAction(
+    jobId: string,
+    action: 'accept' | 'decline',
+  ): Promise<void> {
+    // Clear whatever the native side recorded for this job first, so a later
+    // boot/resume can never re-run this decision.
+    await consumeNativePendingAction();
+
+    const store = getStore();
+    if (action === 'accept') {
+      if (isJobBeingHandled(jobId)) return;
+      markJobHandled(jobId);
+      // While the accept is in flight, treat this job's status echo as our own
+      // confirmation (mirrors the in-app ring path).
+      setAccepting(jobId);
+      try {
+        await jobsApi.accept(jobId);
+        if (store.job?.id === jobId) {
+          store.resolve('accept');
+        }
+      } catch {
+        if (store.job?.id === jobId && !store.resolution) {
+          store.resolve('unavailable');
+        }
+      } finally {
+        setAccepting(null);
+        clearJobHandled(jobId);
+      }
+    } else {
+      // Decline: record it (idempotent server-side) and drop the request.
+      try {
+        await jobsApi.decline(jobId);
+      } catch {
+        // A stale/unknown job declines nowhere; dropping it locally is correct.
+      }
+      store.remove(jobId);
+    }
+
+    stopJobAlert();
+    void clearNativeJobAlert(jobId);
   }
 
   /**
@@ -382,6 +486,7 @@ interface PendingJobEvent {
     handleJobNotification,
     resolveJob,
     dismissJob,
+    resolveNativePendingAction,
     setAccepting,
     syncAvailableJobs,
     cleanup,

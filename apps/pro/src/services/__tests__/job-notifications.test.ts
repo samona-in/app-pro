@@ -4,6 +4,7 @@ import { jobNotificationService } from '../job-notifications';
 import { api } from '@/services/api';
 
 const mockApiGet = api.get as jest.Mock;
+const mockApiPost = api.post as jest.Mock;
 
 /** Drives the mocked online-status-state for one test. */
 function setOnlineStatus(online: boolean, known: boolean): void {
@@ -154,5 +155,51 @@ describe('jobNotificationService cold-start alert gate', () => {
     // Server truth resolved to online, the job was fetched and enqueued.
     expect(mockApiGet).toHaveBeenCalledWith('/pros/me');
     expect(useIncomingJobStore.getState().job?.id).toBe('job-cold');
+  });
+});
+
+describe('jobNotificationService native overlay action', () => {
+  beforeEach(() => {
+    useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
+    mockApiGet.mockReset();
+    mockApiPost.mockReset();
+    setOnlineStatus(true, true);
+  });
+
+  afterEach(() => {
+    jobNotificationService.cleanup();
+    useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
+  });
+
+  it('accepts the job with the secured token and resolves the already-active alert', async () => {
+    useIncomingJobStore.getState().enqueue({ id: 'job-1' } as never);
+    await jobNotificationService.initialize();
+    mockApiPost.mockResolvedValue({ id: 'job-1', status: JobStatus.ACCEPTED });
+
+    await jobNotificationService.resolveNativePendingAction('job-1', 'accept');
+
+    expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-1/accept', {});
+    expect(useIncomingJobStore.getState().resolution).toBe('accept');
+  });
+
+  it('records a decline and drops the request', async () => {
+    useIncomingJobStore.getState().enqueue({ id: 'job-2' } as never);
+    await jobNotificationService.initialize();
+
+    await jobNotificationService.resolveNativePendingAction('job-2', 'decline');
+
+    expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-2/decline', {});
+    expect(useIncomingJobStore.getState().job).toBeNull();
+    expect(useIncomingJobStore.getState().pendingJobs).toHaveLength(0);
+  });
+
+  it('resolves the active alert as unavailable when the accept fails', async () => {
+    useIncomingJobStore.getState().enqueue({ id: 'job-3' } as never);
+    await jobNotificationService.initialize();
+    mockApiPost.mockRejectedValue(new Error('transition not allowed'));
+
+    await jobNotificationService.resolveNativePendingAction('job-3', 'accept');
+
+    expect(useIncomingJobStore.getState().resolution).toBe('unavailable');
   });
 });

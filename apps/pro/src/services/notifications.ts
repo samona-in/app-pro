@@ -6,14 +6,17 @@ import type { RegisterPushTokenInput, PushSettingsInput } from '@samona/validati
 import { api } from './api';
 import { env } from '@/env';
 import { promptForFullScreenIntentOnce } from './full-screen-alert';
+import { promptForOverlayPermissionOnce } from './overlay-alert';
 
 /**
  * Push notifications for the Pro app.
  *
  * The server is the single deliverer and writer of notification state; this
- * module only (a) asks the device for permission and its Expo push token and
- * (b) tells the server where to send. Foreground presentation is configured
- * here so an alert appears even while the app is open.
+ * module only (a) asks the device for permission and the device's push token
+ * (raw FCM on Android so the server can deliver with per-job TTL, collapse keys
+ * and display payloads; the Expo push service elsewhere) and (b) tells the
+ * server where to send. Foreground presentation is configured here so an alert
+ * appears even while the app is open.
  */
 
 /** How foreground pushes are presented: an alert with a sound, like a real job alert. */
@@ -26,8 +29,12 @@ Notifications.setNotificationHandler({
   }),
 });
 
-/** The notification channel job alerts are delivered on (Android). */
-export const JOB_ALERT_CHANNEL = 'job-alerts';
+/**
+ * The notification channel job alerts are delivered on (Android). Matches the
+ * native `AlertNotifications.CHANNEL_ID` for the tray/overlay and the server's
+ * `channelId` on every FCM push.
+ */
+export const JOB_ALERT_CHANNEL = 'incoming_jobs';
 
 /**
  * The EAS project id used to mint Expo push tokens.
@@ -60,8 +67,8 @@ async function ensureChannel(): Promise<void> {
 }
 
 /**
- * Requests permission and, if granted, registers the device's Expo push token
- * with the server. Returns the token that was stored, or null if denied/absent.
+ * Requests permission and, if granted, registers the device's push token with
+ * the server. Returns the token that was stored, or null if denied/absent.
  *
  * Called after sign-in. The server stores the token on the Pro's profile and
  * uses it to deliver job-alert pushes.
@@ -87,33 +94,45 @@ export async function registerPushToken(): Promise<string | null> {
     return null;
   }
 
-  // No project id means we cannot mint an Expo push token; skip registration.
-  if (!PROJECT_ID) {
-    console.log('[Notifications] No Expo project ID found — skipping push registration');
-    return null;
-  }
+  const isAndroid = Platform.OS === 'android';
 
-  console.log('[Notifications] Expo project ID:', PROJECT_ID);
+  // Android registers the raw FCM registration token so the server can reach
+  // Firebase directly with per-job ttl/collapseKey/tag and a display payload
+  // that survives the process being dead. No Expo project id is needed for it.
+  let pushToken: string;
+  if (isAndroid) {
+    console.log('[Notifications] Using raw FCM device token');
+    const tokenData = await Notifications.getDevicePushTokenAsync();
+    pushToken = tokenData.data;
+  } else {
+    // No project id means we cannot mint an Expo push token; skip registration.
+    if (!PROJECT_ID) {
+      console.log('[Notifications] No Expo project ID found — skipping push registration');
+      return null;
+    }
+    console.log('[Notifications] Expo project ID:', PROJECT_ID);
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+    pushToken = tokenData.data;
+  }
+  console.log('[Notifications] Push token generated:', pushToken);
 
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
-    const pushToken = tokenData.data;
-    console.log('[Notifications] Expo push token generated:', pushToken);
-
     console.log('[Notifications] Sending token to backend...');
     await api.post<undefined>('/notifications/register-token', {
       pushToken,
       // The server shapes the payload per OS: Android job alerts carry a
       // display payload so FCM shows the alert even when the app is killed,
       // plus the job data for the full-screen ring whenever the app is running.
-      platform: Platform.OS === 'android' ? 'android' : 'ios',
+      platform: isAndroid ? 'android' : 'ios',
+      provider: isAndroid ? 'fcm' : 'expo',
     } satisfies RegisterPushTokenInput);
     console.log('[Notifications] Token successfully stored on backend');
 
     // Rapido-style: once the device is registered for alerts, offer the
-    // Android 14+ full-screen role so a request can cover other apps. One-time,
-    // best-effort; never blocks or re-loops.
-    await promptForFullScreenIntentOnce();
+    // Android 14+ full-screen role and (where the role is unavailable) the
+    // "display over other apps" overlay permission. One-time, best-effort;
+    // never blocks or re-loops.
+    await Promise.all([promptForFullScreenIntentOnce(), promptForOverlayPermissionOnce()]);
 
     return pushToken;
   } catch (error) {

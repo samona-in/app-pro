@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { isFullScreenIntentEnabled, isFullScreenIntentSupported } from './full-screen-alert';
+import { isOverlayPermissionEnabled } from './overlay-alert';
 import { readPowerState } from './device-readiness';
 
 /**
@@ -9,11 +10,16 @@ import { readPowerState } from './device-readiness';
  * A job alert is a push that cold-starts the app and raises a full-screen
  * intent. Whether that actually happens is decided partly by OS settings the
  * app cannot touch: notifications on, "show over other apps" (the Android 14+
- * full-screen role), battery set to unrestricted, and background data on. A
- * missing one silently swallows alerts while the app is closed — the exact bug
- * a pro cannot diagnose. This module measures each, caches the result for the
- * UI (mirroring `online-status-state`), and lets `goOnline` hard-block a pro
- * who would otherwise go online deaf.
+ * full-screen role — and, on devices without it, the display-over-other-apps
+ * permission the native overlay banner needs), battery set to unrestricted,
+ * and background data on. A missing one silently swallows alerts while the app
+ * is closed — the exact bug a pro cannot diagnose. This module measures each,
+ * caches the result for the UI (mirroring `online-status-state`), and lets
+ * `goOnline` hard-block a pro who would otherwise go online deaf.
+ *
+ * The overlay permission is measured but not part of [DEVICE_READINESS_KEYS]:
+ * it is the fallback presentation tier that only matters when the full-screen
+ * role is unavailable, so it must not block a pro whose full-screen alerts work.
  *
  * OEM sleep lists (Xiaomi autostart, OnePlus/Oppo/Vivo "do not sleep" lists,
  * Samsung sleeping apps) have no public API to measure, so they are surfaced as
@@ -23,6 +29,8 @@ import { readPowerState } from './device-readiness';
 export interface DeviceReadiness {
   notificationsEnabled: boolean;
   fullScreenAlertsEnabled: boolean;
+  /** "Display over other apps", the native overlay banner's permission. Non-blocking. */
+  overlayPermissionEnabled: boolean;
   batteryOptimizationIgnored: boolean;
   backgroundDataAllowed: boolean;
 }
@@ -66,22 +74,26 @@ export async function checkDeviceReadiness(
     return {
       notificationsEnabled: true,
       fullScreenAlertsEnabled: true,
+      overlayPermissionEnabled: true,
       batteryOptimizationIgnored: true,
       backgroundDataAllowed: true,
     };
   }
 
-  const [notificationsEnabled, fullScreenAlertsEnabled, power] = await Promise.all([
-    checkNotificationPermission(),
-    // Only the full-screen module can measure the Android 14+ role; without it
-    // there is nothing to block on, so an absent measurement reads as "on".
-    isFullScreenIntentSupported() ? isFullScreenIntentEnabled() : Promise.resolve(true),
-    readPowerState(),
-  ]);
+  const [notificationsEnabled, fullScreenAlertsEnabled, overlayPermissionEnabled, power] =
+    await Promise.all([
+      checkNotificationPermission(),
+      // Only the full-screen module can measure the Android 14+ role; without it
+      // there is nothing to block on, so an absent measurement reads as "on".
+      isFullScreenIntentSupported() ? isFullScreenIntentEnabled() : Promise.resolve(true),
+      isOverlayPermissionEnabled(),
+      readPowerState(),
+    ]);
 
   return {
     notificationsEnabled,
     fullScreenAlertsEnabled,
+    overlayPermissionEnabled,
     batteryOptimizationIgnored: power.batteryOptimizationIgnored,
     backgroundDataAllowed: power.backgroundDataAllowed,
   };
@@ -116,6 +128,7 @@ export async function refreshDeviceReadiness(): Promise<DeviceReadiness> {
     lastReadiness ?? {
       notificationsEnabled: true,
       fullScreenAlertsEnabled: true,
+      overlayPermissionEnabled: true,
       batteryOptimizationIgnored: true,
       backgroundDataAllowed: true,
     }

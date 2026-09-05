@@ -13,6 +13,7 @@ import {
   requestIgnoreBatteryOptimization,
 } from '@/services/device-readiness';
 import { requestFullScreenIntent } from '@/services/full-screen-alert';
+import { requestOverlayPermission } from '@/services/overlay-alert';
 
 /**
  * Job-alert setup — the fix-it screen a pro lands on when the device cannot
@@ -46,6 +47,16 @@ const ITEMS: ReadinessItem[] = [
     description:
       'A new job request should appear on top of other apps even while the app is closed. Android 14+ requires the full-screen permission to be switched on.',
     fix: requestFullScreenIntent,
+  },
+  {
+    // The native overlay banner is the fallback when the full-screen role is
+    // unavailable. It only matters then, so it is shown (and counted) only
+    // while full-screen alerts are off — see `visibleItems` below.
+    key: 'overlayPermissionEnabled',
+    title: 'Show over other apps',
+    description:
+      "This device can't use the full-screen role, so your saved job-alert overlay needs the system's display-over-other-apps permission instead.",
+    fix: requestOverlayPermission,
   },
   {
     key: 'batteryOptimizationIgnored',
@@ -130,6 +141,13 @@ export default function DeviceSetup() {
     readiness === null ? DEVICE_READINESS_KEYS.length : missingReadinessCount(readiness);
   const total = DEVICE_READINESS_KEYS.length;
 
+  // The overlay-permission item is the fallback tier: it is only relevant when
+  // the full-screen role is unavailable, so hide it (and keep it uncounted)
+  // while full-screen alerts are on.
+  const visibleItems = ITEMS.filter(
+    (item) => item.key !== 'overlayPermissionEnabled' || readiness?.fullScreenAlertsEnabled === false,
+  );
+
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
@@ -156,7 +174,7 @@ export default function DeviceSetup() {
               Checking your phone settings…
             </Text>
           ) : (
-            ITEMS.map((item) => checklistRow(item, readiness[item.key]))
+            visibleItems.map((item) => checklistRow(item, readiness[item.key]))
           )}
         </View>
       )}

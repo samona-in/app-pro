@@ -7,6 +7,7 @@ import {
 } from '../device-readiness-state';
 import { readPowerState } from '../device-readiness';
 import { isFullScreenIntentEnabled, isFullScreenIntentSupported } from '../full-screen-alert';
+import { isOverlayPermissionEnabled } from '../overlay-alert';
 
 jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn(),
@@ -21,9 +22,14 @@ jest.mock('../full-screen-alert', () => ({
   isFullScreenIntentSupported: jest.fn(),
 }));
 
+jest.mock('../overlay-alert', () => ({
+  isOverlayPermissionEnabled: jest.fn(),
+}));
+
 const ALL_SET: DeviceReadiness = {
   notificationsEnabled: true,
   fullScreenAlertsEnabled: true,
+  overlayPermissionEnabled: true,
   batteryOptimizationIgnored: true,
   backgroundDataAllowed: true,
 };
@@ -61,6 +67,7 @@ describe('checkDeviceReadiness on Android', () => {
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
     (isFullScreenIntentSupported as jest.Mock).mockReturnValue(true);
     (isFullScreenIntentEnabled as jest.Mock).mockResolvedValue(true);
+    (isOverlayPermissionEnabled as jest.Mock).mockResolvedValue(true);
     (readPowerState as jest.Mock).mockResolvedValue({
       batteryOptimizationIgnored: true,
       backgroundDataAllowed: true,
@@ -73,6 +80,7 @@ describe('checkDeviceReadiness on Android', () => {
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ granted: false });
     (isFullScreenIntentSupported as jest.Mock).mockReturnValue(true);
     (isFullScreenIntentEnabled as jest.Mock).mockResolvedValue(false);
+    (isOverlayPermissionEnabled as jest.Mock).mockResolvedValue(true);
     (readPowerState as jest.Mock).mockResolvedValue({
       batteryOptimizationIgnored: false,
       backgroundDataAllowed: true,
@@ -82,6 +90,7 @@ describe('checkDeviceReadiness on Android', () => {
     expect(result).toEqual({
       notificationsEnabled: false,
       fullScreenAlertsEnabled: false,
+      overlayPermissionEnabled: true,
       batteryOptimizationIgnored: false,
       backgroundDataAllowed: true,
     });
@@ -89,9 +98,27 @@ describe('checkDeviceReadiness on Android', () => {
     expect(missingReadinessCount(result)).toBe(3);
   });
 
+  it('measures the overlay permission but never counts it as blocking', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
+    (isFullScreenIntentSupported as jest.Mock).mockReturnValue(true);
+    (isFullScreenIntentEnabled as jest.Mock).mockResolvedValue(true);
+    (isOverlayPermissionEnabled as jest.Mock).mockResolvedValue(false);
+    (readPowerState as jest.Mock).mockResolvedValue({
+      batteryOptimizationIgnored: true,
+      backgroundDataAllowed: true,
+    });
+
+    const result = await checkDeviceReadiness('android');
+    expect(result.overlayPermissionEnabled).toBe(false);
+    // Non-blocking: with every blocking metric on, the device is still ready.
+    expect(isDeviceReady(result)).toBe(true);
+    expect(missingReadinessCount(result)).toBe(0);
+  });
+
   it('treats an unmeasurable full-screen module as allowed', async () => {
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
     (isFullScreenIntentSupported as jest.Mock).mockReturnValue(false);
+    (isOverlayPermissionEnabled as jest.Mock).mockResolvedValue(false);
     (readPowerState as jest.Mock).mockResolvedValue({
       batteryOptimizationIgnored: true,
       backgroundDataAllowed: true,

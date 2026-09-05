@@ -44,8 +44,12 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobStatus> = new Set<JobStatus>([
   JobStatus.EXPIRED,
 ]);
 
-/** How long the pro has to decide before the request is treated as expired. */
-export const JOB_ALERT_COUNTDOWN_MS = 16_000;
+/**
+ * How long the pro has to decide before the request ring closes. Matches the
+ * native overlay/alarm cap (10s) so the in-app countdown and the native ring
+ * always agree.
+ */
+export const JOB_ALERT_COUNTDOWN_MS = 10_000;
 
 /** How long the resolution confirmation stays on screen before advancing/dismissing. */
 const RESOLUTION_HOLD_MS = 2_500;
@@ -123,7 +127,7 @@ export function IncomingJobOverlay({
     else onDismiss();
   });
 
-  // 16-second countdown around the reject ring. Reaching zero silently closes
+  // 10-second countdown around the reject ring. Reaching zero silently closes
   // the request.
   useEffect(() => {
     if (resolution) return;

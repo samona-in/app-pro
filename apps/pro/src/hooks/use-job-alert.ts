@@ -9,12 +9,13 @@ import {
 
 /**
  * How long the incoming-job request stays actionable before the countdown ring
- * closes it. The Rapido-style ring owns this timing; it is a client-side
- * decision window only — the server auto-expires unaccepted jobs on its own,
- * longer TTL. When the ring hits zero the alert just closes with no "expired"
- * label.
+ * closes it. Matches the native overlay/alarm cap (JobAlertSound /
+ * JobAlertOverlay) so the in-app decision window and the native ring always
+ * agree. The server auto-expires unaccepted jobs on its own, longer TTL — this
+ * is a client-side presentation window only. When the ring hits zero the alert
+ * just closes with no "expired" label.
  */
-export const JOB_ALERT_TIMEOUT_MS = 16_000;
+export const JOB_ALERT_TIMEOUT_MS = 10_000;
 
 /**
  * Bridges incoming-job events (socket + push) to the alarm audio and overlay.
