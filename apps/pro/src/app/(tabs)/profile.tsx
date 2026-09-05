@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { Pressable } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import { useSession } from '@/hooks';
@@ -7,21 +8,25 @@ import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const SETTINGS_ROWS: { icon: IoniconName; label: string }[] = [
+const SETTINGS_ROWS: { icon: IoniconName; label: string; route?: string }[] = [
   { icon: 'construct-outline', label: 'Services & skills' },
   { icon: 'time-outline', label: 'Availability' },
   { icon: 'location-outline', label: 'Service area' },
   { icon: 'document-text-outline', label: 'Documents' },
+  { icon: 'notifications-outline', label: 'Device setup', route: '/device-setup' },
   { icon: 'card-outline', label: 'Payout details' },
   { icon: 'help-circle-outline', label: 'Help & support' },
 ];
 
-function SettingsRow({ icon, label }: { icon: IoniconName; label: string }) {
+function SettingsRow({ icon, label, route }: { icon: IoniconName; label: string; route?: string }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       className="min-h-[56px] flex-row items-center px-4 active:opacity-60"
+      onPress={() => {
+        if (route) router.push(route);
+      }}
     >
       <Ionicons name={icon} size={20} color={color['text-secondary']} />
       <Text variant="body" className="ml-3 flex-1">
@@ -65,7 +70,7 @@ export default function Profile() {
         {SETTINGS_ROWS.map((row, index) => (
           <View key={row.label}>
             {index > 0 ? <Divider /> : null}
-            <SettingsRow icon={row.icon} label={row.label} />
+            <SettingsRow icon={row.icon} label={row.label} route={row.route} />
           </View>
         ))}
       </Card>
