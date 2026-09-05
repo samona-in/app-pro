@@ -28,7 +28,9 @@ function buildService() {
 describe('createNotificationsService.alertEligiblePros', () => {
   it('records the offer for a pro without a push token so it lands in job history', async () => {
     const ctx = buildService();
-    ctx.proProfileFindMany.mockResolvedValue([{ id: 'pro-1', pushToken: null, jobAlertsEnabled: true }]);
+    ctx.proProfileFindMany.mockResolvedValue([
+      { id: 'pro-1', pushToken: null, jobAlertsEnabled: true },
+    ]);
 
     await ctx.service.alertEligiblePros([{ proId: 'pro-1' }], info);
 
@@ -46,7 +48,9 @@ describe('createNotificationsService.alertEligiblePros', () => {
 
   it('records the offer even when alerts are disabled, but never pushes', async () => {
     const ctx = buildService();
-    ctx.proProfileFindMany.mockResolvedValue([{ id: 'pro-1', pushToken: 'ExponentPushToken[abc]', jobAlertsEnabled: false }]);
+    ctx.proProfileFindMany.mockResolvedValue([
+      { id: 'pro-1', pushToken: 'ExponentPushToken[abc]', jobAlertsEnabled: false },
+    ]);
 
     await ctx.service.alertEligiblePros([{ proId: 'pro-1' }], info);
 
@@ -75,11 +79,13 @@ describe('buildPushMessage', () => {
     channelId: 'job-alerts',
   };
 
-  it('sends Android job alerts as data-only so the native full-screen service runs', () => {
+  it('sends Android job alerts with a display payload so a closed (process-dead) app still shows the alert', () => {
     const payload = buildPushMessage('ExponentPushToken[abc]', message, 'ANDROID');
 
-    expect(payload.title).toBeUndefined();
-    expect(payload.body).toBeUndefined();
+    expect(payload.title).toBe(message.title);
+    expect(payload.body).toBe(message.body);
+    expect(payload.channelId).toBe('job-alerts');
+    expect(payload.sound).toBe('default');
     expect(payload.priority).toBe('high');
     expect(payload.data).toEqual({
       type: 'NEW_JOB',

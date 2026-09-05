@@ -39,9 +39,7 @@ export const JOB_ALERT_CHANNEL = 'job-alerts';
  * (the same fallback chain `getExpoPushTokenAsync` uses internally).
  */
 const PROJECT_ID =
-  env.easProjectId ??
-  Constants.easConfig?.projectId ??
-  Constants.expoConfig?.extra?.eas?.projectId;
+  env.easProjectId ?? Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
 
 /**
  * Ensures the Android channel exists once. The server sets `channelId` to this
@@ -105,9 +103,9 @@ export async function registerPushToken(): Promise<string | null> {
     console.log('[Notifications] Sending token to backend...');
     await api.post<undefined>('/notifications/register-token', {
       pushToken,
-      // The server shapes the payload per OS: Android job alerts are data-only
-      // so the native full-screen service is always invoked, even when the app
-      // is closed.
+      // The server shapes the payload per OS: Android job alerts carry a
+      // display payload so FCM shows the alert even when the app is killed,
+      // plus the job data for the full-screen ring whenever the app is running.
       platform: Platform.OS === 'android' ? 'android' : 'ios',
     } satisfies RegisterPushTokenInput);
     console.log('[Notifications] Token successfully stored on backend');
@@ -135,6 +133,8 @@ export async function setJobAlertsEnabled(jobAlertsEnabled: boolean): Promise<vo
 }
 
 /** The current Pro's notification history, newest first. */
-export async function listNotifications(options: { limit?: number } = {}): Promise<AppNotification[]> {
+export async function listNotifications(
+  options: { limit?: number } = {},
+): Promise<AppNotification[]> {
   return api.get<AppNotification[]>('/notifications', { query: { limit: options.limit } });
 }

@@ -1,8 +1,4 @@
-import {
-  JobStatus,
-  NotificationKind,
-  type AppNotification,
-} from '@samona/types';
+import { JobStatus, NotificationKind, type AppNotification } from '@samona/types';
 import type { PushPlatformInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
 import type { AppConfig } from '../config';
@@ -76,13 +72,14 @@ function jobAlertBody(info: JobAlertInfo): string {
 /**
  * Builds the Expo push payload for a job alert.
  *
- * Android is DATA-ONLY: a display message (top-level title/body) is rendered
- * straight into the tray by FCM when the app is closed, so our native
- * FullScreenJobAlertMessagingService never runs and the full-screen intent
- * cannot fire. Moving title/body into the data bundle makes FCM always
- * deliver to `onMessageReceived`, where the Kotlin service posts its own
- * full-screen alert. iOS keeps a display payload so a closed app still shows
- * a visible alert.
+ * Android uses a DISPLAY message (top-level title/body/channelId): FCM renders
+ * it in the system tray even when the app process is dead (killed / swiped
+ * away), which a data-only message never reaches — FCM drops data messages
+ * once the process is gone. When the app IS running, FCM still hands the
+ * display message to `onMessageReceived`, so the native full-screen service
+ * raises its full-screen alert; tapping the tray notification relaunches the
+ * app into the `job-alert/[id]` route. The full job payload stays in `data` on
+ * both platforms so the client can route straight to the ring.
  */
 export function buildPushMessage(
   pushToken: string,
@@ -98,6 +95,10 @@ export function buildPushMessage(
     return {
       to: pushToken,
       priority: 'high',
+      title: message.title,
+      body: message.body,
+      sound: 'default',
+      channelId: message.channelId ?? 'job-alerts',
       data: { ...message.data, title: message.title, body: message.body },
     };
   }
@@ -155,7 +156,11 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
   let expoClientPromise: Promise<{
     sendPushNotificationsAsync(msgs: unknown[]): Promise<unknown[]>;
-    getPushNotificationReceiptsAsync(receiptIds: string[]): Promise<Record<string, { status: string; message?: string; details?: Record<string, unknown> }>>;
+    getPushNotificationReceiptsAsync(
+      receiptIds: string[],
+    ): Promise<
+      Record<string, { status: string; message?: string; details?: Record<string, unknown> }>
+    >;
     isExpoPushToken?(token: string): boolean;
   } | null> | null = null;
 
@@ -164,12 +169,30 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     if (!expoClientPromise) {
       expoClientPromise = import('expo-server-sdk')
         .then((mod) => {
-          const Expo = (mod as { default?: { new (o: unknown): unknown }; Expo?: { new (o: unknown): unknown } }).Expo
-            ?? (mod as { default?: { new (o: unknown): unknown }; Expo?: { new (o: unknown): unknown } }).default;
+          const Expo =
+            (
+              mod as {
+                default?: { new (o: unknown): unknown };
+                Expo?: { new (o: unknown): unknown };
+              }
+            ).Expo ??
+            (
+              mod as {
+                default?: { new (o: unknown): unknown };
+                Expo?: { new (o: unknown): unknown };
+              }
+            ).default;
           if (!Expo) throw new Error('expo-server-sdk did not expose an Expo client.');
           const client = new Expo({ accessToken: config.expoAccessToken }) as unknown as {
             sendPushNotificationsAsync(msgs: unknown[]): Promise<unknown[]>;
-            getPushNotificationReceiptsAsync(receiptIds: string[]): Promise<Record<string, { status: string; message?: string; details?: Record<string, unknown> }>>;
+            getPushNotificationReceiptsAsync(
+              receiptIds: string[],
+            ): Promise<
+              Record<
+                string,
+                { status: string; message?: string; details?: Record<string, unknown> }
+              >
+            >;
             isExpoPushToken?(token: string): boolean;
           };
           return client;
@@ -208,18 +231,14 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       const tickets = await client.sendPushNotificationsAsync([
         buildPushMessage(pushToken, message, platform),
       ]);
-      const ticket = tickets?.[0] as
-        | { status: string; id?: string; message?: string }
-        | undefined;
+      const ticket = tickets?.[0] as { status: string; id?: string; message?: string } | undefined;
       if (ticket?.status === 'ok') {
         logger.info(
           `[Push] Sent to ${pushToken} for job ${String(message.data.jobId ?? 'unknown')}: ticket ${ticket.id ?? 'no-id'}`,
         );
         return { ok: true, providerRef: ticket.id };
       }
-      logger.warn(
-        `[Push] Expo rejected push to ${pushToken}: ${ticket?.message ?? 'no message'}`,
-      );
+      logger.warn(`[Push] Expo rejected push to ${pushToken}: ${ticket?.message ?? 'no message'}`);
       return { ok: false, error: ticket?.message ?? 'Push rejected by Expo.' };
     } catch (error) {
       logger.error('[Push] Push send failed.', error);
@@ -506,29 +525,44 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       for (const row of waiting) {
         const job = row.job;
         if (!job) {
-          await prisma.notification.update({ where: { id: row.id }, data: { resolvedAt: new Date() } });
+          await prisma.notification.update({
+            where: { id: row.id },
+            data: { resolvedAt: new Date() },
+          });
           continue;
         }
         // Keep paging only while the job is still open and unassigned.
         if (job.status !== JobStatus.REQUESTED || job.proId !== null) {
-          await prisma.notification.update({ where: { id: row.id }, data: { resolvedAt: new Date() } });
+          await prisma.notification.update({
+            where: { id: row.id },
+            data: { resolvedAt: new Date() },
+          });
           continue;
         }
         // Enforce the ceiling so a stale job cannot page a pro forever.
         if (row.repeats >= config.jobAlertMaxRepeats) {
-          await prisma.notification.update({ where: { id: row.id }, data: { resolvedAt: new Date() } });
+          await prisma.notification.update({
+            where: { id: row.id },
+            data: { resolvedAt: new Date() },
+          });
           continue;
         }
         const token = row.pro.pushToken;
         if (!token) continue;
 
-        await alertOne(row.pro.id, {
-          jobId: job.id,
-          serviceName: job.service.name,
-          customSkill: job.customSkill,
-          description: job.description,
-          basePayPaise: job.basePayPaise,
-        }, token, true, row.pro.pushPlatform);
+        await alertOne(
+          row.pro.id,
+          {
+            jobId: job.id,
+            serviceName: job.service.name,
+            customSkill: job.customSkill,
+            description: job.description,
+            basePayPaise: job.basePayPaise,
+          },
+          token,
+          true,
+          row.pro.pushPlatform,
+        );
       }
     } catch (error) {
       // Never let a scheduler error kill the process; log and continue.

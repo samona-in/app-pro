@@ -73,10 +73,12 @@ class FullScreenJobAlertMessagingService : ExpoFirebaseMessagingService() {
   private fun showFullScreenJobAlert(remoteMessage: RemoteMessage, jobId: String, data: Map<String, String>) {
     ensureJobAlertChannel()
 
-    // Job-alert pushes are DATA-ONLY (the server moves title/body into the data
-    // bundle) so FCM always wakes this service even when the app is closed.
-    // `remoteMessage.notification` is therefore null — read from data first,
-    // and never hard-fail on either source.
+    // Job-alert pushes carry a DISPLAY payload (top-level title/body) alongside
+    // the job data: FCM renders the tray alert itself when the app is closed
+    // (process dead), and delivers every message to onMessageReceived whenever
+    // the app is running, where this service raises the full-screen alert.
+    // `remoteMessage.notification` may still be null on unusual paths — read
+    // from data first, and never hard-fail on either source.
     val title = data["title"]?.takeIf { it.isNotBlank() }
       ?: remoteMessage.notification?.title?.takeIf { it.isNotBlank() }
       ?: DEFAULT_TITLE
