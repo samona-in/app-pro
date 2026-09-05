@@ -112,10 +112,10 @@ class DeviceReadinessModule : Module() {
     val context = appContext.reactContext ?: return true
     val connectivityManager =
       context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
-    // RESTRICT_BACKGROUND_STATUS_WHITELISTED and _ENABLED both let the alert
-    // through; only _RESTRICTED puts background receives on hold.
+    // RESTRICT_BACKGROUND_STATUS_DISABLED and _WHITELISTED both let the alert
+    // through; only _ENABLED puts background receives on hold.
     return connectivityManager.restrictBackgroundStatus !=
-      ConnectivityManager.RESTRICT_BACKGROUND_STATUS_RESTRICTED
+      ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
   }
 
   private fun openBackgroundDataSettings(): Boolean {
