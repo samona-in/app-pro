@@ -18,6 +18,7 @@ import { badRequest, notFound, conflict, forbidden } from '../common/errors';
 import { distanceKm, etaMinutes } from '../common/geo';
 import { logger } from '../common/logger';
 import type { NotificationsService } from '../notifications/notifications.service';
+import { hashJobOfferToken, verifyJobOffer } from './job-offers';
 
 export interface JobsServiceDeps {
   prisma: PrismaClient;
@@ -711,8 +712,22 @@ export function createJobsService(deps: JobsServiceDeps) {
    */
   async function acceptJob(proUserId: string, jobId: string): Promise<JobDetail> {
     const pro = await findProByUserId(proUserId);
+    const updated = await claimOpenJob(pro, proUserId, jobId);
+    return finalizeAccepted(proUserId, updated, pro.id);
+  }
 
-    const updated = await prisma.$transaction(async (tx) => {
+  /**
+   * Atomically claims an open REQUESTED job for a pro. Every accept path — the
+   * signed-in app (`acceptJob`) and the native overlay's single-use offer token
+   * (`acceptJobWithOffer`) — funnels through here, so only one pro can ever win
+   * a job no matter which surface arrives first.
+   */
+  async function claimOpenJob(
+    pro: { id: string },
+    proUserId: string,
+    jobId: string,
+  ): Promise<JobDetailRow> {
+    return prisma.$transaction(async (tx) => {
       const row = await tx.job.findFirst({
         where: { id: jobId, status: JobStatus.REQUESTED, proId: null },
         include: jobDetailInclude,
@@ -771,7 +786,14 @@ export function createJobsService(deps: JobsServiceDeps) {
 
       return tx.job.findFirstOrThrow({ where: { id: row.id }, include: jobDetailInclude });
     });
+  }
 
+  /** The post-claim fan-out both accept paths share: emits, terminal pages. */
+  async function finalizeAccepted(
+    proUserId: string,
+    updated: JobDetailRow,
+    proId: string,
+  ): Promise<JobDetail> {
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
     const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
@@ -780,7 +802,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     // A job that is now assigned is no longer open: stop the repeating alert
     // still paging every other eligible pro, and page them with an accepted
     // terminal push so their native overlay/sound/tray entry drops at once.
-    void notifications.resolveJobAlerts(jobId, 'ACCEPTED');
+    void notifications.resolveJobAlerts(updated.id, 'ACCEPTED');
 
     // Every other pro who was alerted for this request should drop it the
     // instant it is claimed. Publishing the accepted status over their socket
@@ -788,10 +810,10 @@ export function createJobsService(deps: JobsServiceDeps) {
     // leaving them showing a dead request until the next validation poll.
     const others = await prisma.notification.findMany({
       where: {
-        jobId,
+        jobId: updated.id,
         kind: NotificationKind.JOB_ALERT,
         resolvedAt: null,
-        proId: { not: pro.id },
+        proId: { not: proId },
       },
       select: { pro: { select: { userId: true } } },
     });
@@ -802,6 +824,105 @@ export function createJobsService(deps: JobsServiceDeps) {
     );
 
     return proDetail;
+  }
+
+  /**
+   * Accepts a job via the signed, single-use offer token delivered inside the
+   * native alert's push data. Untrusted caller (no JWT): the token itself is
+   * the credential. Verifying the signature proves the token came from us; the
+   * device claim ties it to the install the push was delivered to; the
+   * `job_offers` ledger makes it redeemable exactly once. After the offer is
+   * consumed the claim is the same transaction `acceptJob` uses, so whoever
+   * actually wins is decided by the `proId` guard, never by arrival order.
+   */
+  async function acceptJobWithOffer(
+    offerToken: string,
+    deviceId: string,
+    jobId: string,
+  ): Promise<JobDetail> {
+    const secret = config.jobOfferSecret;
+    if (!secret) throw conflict('This offer is no longer valid.');
+
+    const offer = verifyJobOffer(offerToken, secret);
+    if (!offer || offer.jobId !== jobId) throw conflict('This offer is no longer valid.');
+    if (offer.deviceId !== deviceId) throw conflict('This offer belongs to another device.');
+
+    // Single-use: atomically flip the ledger row. Two replays race here and
+    // exactly one wins; the loser gets the conflict below.
+    const tokenHash = hashJobOfferToken(offerToken);
+    const consumed = await prisma.jobOffer.updateMany({
+      where: { tokenHash, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    if (consumed.count !== 1) throw conflict('This offer was already used.');
+
+    const pro = await prisma.proProfile.findUnique({
+      where: { id: offer.proId },
+      select: { id: true, userId: true },
+    });
+    if (!pro) throw notFound('This offer is no longer valid.');
+
+    try {
+      const updated = await claimOpenJob(pro, pro.userId, jobId);
+      await prisma.jobOffer.updateMany({
+        where: { tokenHash },
+        data: { outcome: 'ACCEPTED' },
+      });
+      return await finalizeAccepted(pro.userId, updated, pro.id);
+    } catch (error) {
+      // The token was consumed for good reason — a job can only keep the offer
+      // open while it is winnable. Record where it landed; a later retry over
+      // the same token is already dead.
+      await prisma.jobOffer
+        .updateMany({ where: { tokenHash }, data: { outcome: 'EXPIRED' } })
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  /**
+   * Declines a job via the signed, single-use offer token. Unlike accept this
+   * is deliberately non-destructive: it records a `JobDecline`, stops the
+   * repeating scheduler paging *this* pro, and leaves the job open for others.
+   * Idempotent for the native side — replays of a consumed token are a no-op
+   * 204, so the tray taps can fire more than once without harm.
+   */
+  async function rejectJobOffer(
+    offerToken: string,
+    deviceId: string,
+    jobId: string,
+  ): Promise<void> {
+    const secret = config.jobOfferSecret;
+    if (!secret) return;
+
+    const offer = verifyJobOffer(offerToken, secret);
+    if (!offer || offer.jobId !== jobId) return;
+    if (offer.deviceId !== deviceId) throw conflict('This offer belongs to another device.');
+
+    const tokenHash = hashJobOfferToken(offerToken);
+    await prisma.jobOffer.updateMany({
+      where: { tokenHash, consumedAt: null },
+      data: { consumedAt: new Date(), outcome: 'REJECTED' },
+    });
+
+    // Record the decline and resolve this pro's alert row so the scheduler
+    // stops paging them for a job they have already turned down.
+    await prisma.$transaction(async (tx) => {
+      await tx.jobDecline.upsert({
+        where: { jobId_proId: { jobId, proId: offer.proId } },
+        create: { jobId, proId: offer.proId },
+        update: {},
+      });
+      await tx.notification.updateMany({
+        where: {
+          jobId,
+          proId: offer.proId,
+          kind: NotificationKind.JOB_ALERT,
+          resolvedAt: null,
+        },
+        data: { resolvedAt: new Date() },
+      });
+    });
   }
 
   /**
@@ -1080,6 +1201,8 @@ export function createJobsService(deps: JobsServiceDeps) {
     listJobHistory,
     notifyReadyJobRequests,
     acceptJob,
+    acceptJobWithOffer,
+    rejectJobOffer,
     transitionJob,
     expireStaleJobs,
     startExpireSweep,

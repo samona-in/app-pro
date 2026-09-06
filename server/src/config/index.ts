@@ -130,6 +130,22 @@ const envSchema = z.object({
    * later. Defaults to 60s.
    */
   JOB_ALERT_TTL_MS: z.coerce.number().int().min(5_000).max(300_000).default(60_000),
+
+  /**
+   * Shared secret that signs single-use job-offer tokens (native Accept/Reject
+   * on the Android overlay). Optional but strongly recommended: when absent the
+   * native overlay cannot call the API directly and falls back to opening the
+   * app. Generate with `openssl rand -hex 32`. Never commit a real value.
+   */
+  JOB_OFFER_SECRET: optional(z.string().min(16, 'JOB_OFFER_SECRET must be at least 16 characters.')),
+
+  /**
+   * How long a minted job-offer token stays redeemable, in ms. A little longer
+   * than JOB_ALERT_TTL_MS (the message TTL) so a delivered offer is never
+   * already dead, and far shorter than JOB_EXPIRE_TTL_MS — an offer must not
+   * outlive the request it belongs to. Defaults to 90s.
+   */
+  JOB_OFFER_TTL_MS: z.coerce.number().int().min(5_000).max(600_000).default(90_000),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -169,6 +185,10 @@ export interface AppConfig {
   fcmProjectId: string | null;
   /** How long an FCM job-alert message stays deliverable, in ms. */
   jobAlertTtlMs: number;
+  /** Secret signing single-use job-offer tokens; null disables native direct accept. */
+  jobOfferSecret: string | null;
+  /** How long a minted job-offer token stays redeemable, in ms. */
+  jobOfferTtlMs: number;
 }
 
 /**
@@ -229,5 +249,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     fcmClientEmail: env.FCM_CLIENT_EMAIL ?? null,
     fcmPrivateKey: env.FCM_PRIVATE_KEY ?? null,
     jobAlertTtlMs: env.JOB_ALERT_TTL_MS,
+    jobOfferSecret: env.JOB_OFFER_SECRET ?? null,
+    jobOfferTtlMs: env.JOB_OFFER_TTL_MS,
   };
 }

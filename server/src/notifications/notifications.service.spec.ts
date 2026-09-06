@@ -5,6 +5,15 @@ import {
   buildPushMessage,
   createNotificationsService,
 } from './notifications.service';
+import { verifyJobOffer } from '../jobs/job-offers';
+import type { FcmMessagePayload } from './fcm';
+
+const mockFcmSend = jest.fn();
+jest.mock('./fcm', () => ({
+  createFcmClient: jest.fn(() => ({ send: mockFcmSend })),
+}));
+
+const OFFER_SECRET = 'shared-offer-secret-that-is-long-enough';
 
 const info = {
   jobId: 'job-1',
@@ -75,6 +84,112 @@ describe('createNotificationsService.alertEligiblePros', () => {
 
     expect(ctx.upsert).not.toHaveBeenCalled();
     expect(ctx.proProfileFindMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('createNotificationsService.alertEligiblePros — job-offer minting', () => {
+  const baseConfig = {
+    expoAccessToken: null,
+    jobAlertRepeatMs: 60_000,
+    jobAlertMaxRepeats: 0,
+    jobAlertTtlMs: 60_000,
+    jobOfferTtlMs: 90_000,
+    fcmProjectId: 'samona-test',
+    fcmClientEmail: 'svc@samona-test.iam.gserviceaccount.com',
+    fcmPrivateKey: '-----BEGIN PRIVATE KEY-----',
+  };
+
+  function mintService(overrides: Record<string, unknown>) {
+    const upsert = jest.fn().mockResolvedValue({});
+    const jobOfferCreate = jest.fn().mockResolvedValue({ id: 'offer-1' });
+    const proProfileFindMany = jest.fn().mockResolvedValue([
+      {
+        id: 'pro-1',
+        pushToken: 'fcm-registration-token-1',
+        pushPlatform: 'ANDROID',
+        pushProvider: 'FCM',
+        pushDeviceId: 'device-1',
+        jobAlertsEnabled: true,
+      },
+    ]);
+    const prisma = {
+      proProfile: { findMany: proProfileFindMany },
+      notification: { upsert },
+      jobOffer: { create: jobOfferCreate },
+    };
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: { ...baseConfig, ...overrides } as never,
+    });
+    return { service, jobOfferCreate, proProfileFindMany };
+  }
+
+  beforeEach(() => {
+    mockFcmSend.mockReset();
+    mockFcmSend.mockResolvedValue({ ok: true, messageId: 'msg-1' });
+  });
+
+  it('mints and persists a redeemable single-use token for an FCM pro with a device', async () => {
+    const { service, jobOfferCreate } = mintService({ jobOfferSecret: OFFER_SECRET });
+
+    await service.alertEligiblePros([{ proId: 'pro-1' }], info);
+
+    expect(jobOfferCreate).toHaveBeenCalledTimes(1);
+    const row = jobOfferCreate.mock.calls[0][0] as {
+      data: { jobId: string; proId: string; tokenHash: string; deviceId: string; expiresAt: Date };
+    };
+    expect(row.data).toMatchObject({ jobId: 'job-1', proId: 'pro-1', deviceId: 'device-1' });
+    expect(row.data.tokenHash).toHaveLength(64);
+
+    // The FCM payload itself carried the live token and its expiry.
+    expect(mockFcmSend).toHaveBeenCalledTimes(1);
+    const payload = mockFcmSend.mock.calls[0][1] as FcmMessagePayload;
+    expect(payload.data.jobOfferToken).toBeTruthy();
+    expect(payload.data.offerExpiresAt).toBeTruthy();
+    const offer = verifyJobOffer(payload.data.jobOfferToken!, OFFER_SECRET);
+    expect(offer).toMatchObject({ proId: 'pro-1', jobId: 'job-1', deviceId: 'device-1' });
+    // The token's expiry is floored to whole seconds; the payload keeps ms.
+    expect(
+      Math.abs(Date.parse(payload.data.offerExpiresAt!) - offer!.expiresAt.getTime()),
+    ).toBeLessThan(1000);
+  });
+
+  it('never mints when JOB_OFFER_SECRET is unset, and the payload carries no token', async () => {
+    const { service, jobOfferCreate } = mintService({ jobOfferSecret: null });
+
+    await service.alertEligiblePros([{ proId: 'pro-1' }], info);
+
+    expect(jobOfferCreate).not.toHaveBeenCalled();
+    const payload = mockFcmSend.mock.calls[0][1] as FcmMessagePayload;
+    expect(payload.data.jobOfferToken).toBeUndefined();
+  });
+
+  it('never mints an EXPO push — the native overlay is Android-only', async () => {
+    const { service, jobOfferCreate, proProfileFindMany } = mintService({
+      jobOfferSecret: OFFER_SECRET,
+    });
+    proProfileFindMany.mockResolvedValue([
+      {
+        id: 'pro-1',
+        pushToken: 'ExponentPushToken[abc]',
+        pushPlatform: 'IOS',
+        pushProvider: 'EXPO',
+        pushDeviceId: null,
+        jobAlertsEnabled: true,
+      },
+    ]);
+
+    await service.alertEligiblePros([{ proId: 'pro-1' }], info);
+
+    expect(jobOfferCreate).not.toHaveBeenCalled();
+  });
+
+  it('still delivers the alert when a ledger write fails', async () => {
+    const { service, jobOfferCreate } = mintService({ jobOfferSecret: OFFER_SECRET });
+    jobOfferCreate.mockRejectedValueOnce(new Error('write failed'));
+
+    await expect(service.alertEligiblePros([{ proId: 'pro-1' }], info)).resolves.toBeUndefined();
+    expect(mockFcmSend).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -34,6 +34,8 @@ const config: AppConfig = {
   fcmClientEmail: null,
   fcmPrivateKey: null,
   jobAlertTtlMs: 60_000,
+  jobOfferSecret: null,
+  jobOfferTtlMs: 90_000,
 };
 
 const services = {} as Services;

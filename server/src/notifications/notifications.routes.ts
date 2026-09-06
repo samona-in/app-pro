@@ -32,6 +32,7 @@ export function createNotificationsRouter(services: Services): Router {
         req.body.pushToken,
         req.body.platform,
         req.body.provider,
+        req.body.deviceId,
       );
       res.status(204).send();
     } catch (error) {

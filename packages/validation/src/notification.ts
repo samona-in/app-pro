@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { deviceIdSchema } from './job';
 
 /**
  * Input schemas for the notifications domain, shared by the app and the API.
@@ -39,6 +40,12 @@ export const registerPushTokenSchema = z.object({
    * Android). Controls which delivery channel the server uses.
    */
   provider: pushProviderSchema,
+  /**
+   * The per-install device id minted by the Android job-alert module. The
+   * server stores it so every minted job-offer token is bound to this device
+   * and only redeemable from it. Optional for backwards compatibility.
+   */
+  deviceId: deviceIdSchema.optional(),
 });
 
 export type RegisterPushTokenInput = z.infer<typeof registerPushTokenSchema>;

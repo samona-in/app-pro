@@ -68,6 +68,8 @@ function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> 
       .mockResolvedValue({ ...job, distanceKm: 1.2, estimatedEtaMinutes: 3 }),
     declineJob: jest.fn().mockResolvedValue(undefined),
     acceptJob: jest.fn().mockResolvedValue(job),
+    acceptJobWithOffer: jest.fn().mockResolvedValue(job),
+    rejectJobOffer: jest.fn().mockResolvedValue(undefined),
     transitionJob: jest.fn().mockResolvedValue(job),
     notifyReadyJobRequests: jest.fn().mockResolvedValue(undefined),
     expireStaleJobs: jest.fn().mockResolvedValue(0),

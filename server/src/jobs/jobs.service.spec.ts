@@ -1,5 +1,6 @@
 import { JobStatus, NotificationKind } from '@samona/types';
 import { createJobsService } from './jobs.service';
+import { mintJobOffer } from './job-offers';
 import { REALTIME_EVENTS } from '../realtime/gateway';
 
 const jobRow = {
@@ -770,6 +771,280 @@ describe('createJobsService.acceptJob', () => {
     await ctx.jobs.acceptJob('user-1', 'job-1');
 
     expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'ACCEPTED');
+  });
+});
+
+describe('createJobsService.acceptJobWithOffer', () => {
+  const OFFER_SECRET = 'shared-offer-secret-that-is-long-enough';
+
+  function buildOfferAccept() {
+    const updatedRow = {
+      ...jobRow,
+      status: JobStatus.ACCEPTED,
+      proId: 'pro-1',
+      customer: { userId: 'cust-user-1', displayName: 'Cust' },
+      pro: { userId: 'pro-user-1' },
+    };
+
+    const openRow = {
+      ...jobRow,
+      latitude: 12.972,
+      longitude: 77.594,
+      customer: { userId: 'cust-user-1', displayName: 'Cust' },
+      pro: null,
+    };
+
+    const notificationFindMany = jest
+      .fn()
+      .mockResolvedValue([{ pro: { userId: 'other-1' } }, { pro: { userId: 'other-2' } }]);
+    const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
+    const offerUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+    const realtime = {
+      emitToUser: jest.fn(),
+      emitToUsers: jest.fn(),
+    };
+
+    const storage = {
+      jobImagePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`),
+    };
+
+    const prisma = {
+      proProfile: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'pro-1', userId: 'user-1' }),
+      },
+      jobOffer: { updateMany: offerUpdateMany },
+      notification: { findMany: notificationFindMany },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          job: {
+            findFirst: jest.fn().mockResolvedValue(openRow),
+            count: jest.fn().mockResolvedValue(0),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findFirstOrThrow: jest.fn().mockResolvedValue(updatedRow),
+          },
+          proProfile: { findFirst: jest.fn().mockResolvedValue({ id: 'pro-1' }) },
+          jobStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+        }),
+      ),
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: storage as never,
+      matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
+      realtime: realtime as never,
+      notifications: { resolveJobAlerts } as never,
+      config: { jobOfferSecret: OFFER_SECRET } as never,
+    } as never);
+
+    return { jobs, prisma, realtime, resolveJobAlerts, offerUpdateMany, updatedRow };
+  }
+
+  it('consumes the offer, claims the job and settles the outcome as ACCEPTED', async () => {
+    const ctx = buildOfferAccept();
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-1',
+      deviceId: 'device-1',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    const returned = await ctx.jobs.acceptJobWithOffer(token, 'device-1', 'job-1');
+
+    expect(returned.status).toBe(JobStatus.ACCEPTED);
+    // Ledger: consumed first, then settled ACCEPTED.
+    const [consume, settle] = ctx.offerUpdateMany.mock.calls;
+    expect(consume[0].where).toEqual({ tokenHash: expect.any(String), consumedAt: null });
+    expect(consume[0].data.consumedAt).toBeInstanceOf(Date);
+    expect(settle[0].data.outcome).toBe('ACCEPTED');
+    expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'ACCEPTED');
+  });
+
+  it('rejects an offer minted for a different device', async () => {
+    const ctx = buildOfferAccept();
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-1',
+      deviceId: 'device-a',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    await expect(ctx.jobs.acceptJobWithOffer(token, 'device-b', 'job-1')).rejects.toThrow(
+      'This offer belongs to another device.',
+    );
+    expect(ctx.offerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token for a different job than the route it was sent to', async () => {
+    const ctx = buildOfferAccept();
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-other',
+      deviceId: 'device-1',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    await expect(ctx.jobs.acceptJobWithOffer(token, 'device-1', 'job-1')).rejects.toThrow(
+      'This offer is no longer valid.',
+    );
+  });
+
+  it('refuses to replay a consumed offer token', async () => {
+    const ctx = buildOfferAccept();
+    ctx.offerUpdateMany.mockResolvedValueOnce({ count: 0 });
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-1',
+      deviceId: 'device-1',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    await expect(ctx.jobs.acceptJobWithOffer(token, 'device-1', 'job-1')).rejects.toThrow(
+      'This offer was already used.',
+    );
+    expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when no JOB_OFFER_SECRET is configured', async () => {
+    const ctx = buildOfferAccept();
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-1',
+      deviceId: 'device-1',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    const jobsNoSecret = createJobsService({
+      prisma: ctx.prisma as never,
+      storage: { jobImagePublicUrl: jest.fn() } as never,
+      matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
+      realtime: { emitToUser: jest.fn(), emitToUsers: jest.fn() } as never,
+      notifications: { resolveJobAlerts: jest.fn() } as never,
+      config: { jobOfferSecret: null } as never,
+    } as never);
+
+    await expect(jobsNoSecret.acceptJobWithOffer(token, 'device-1', 'job-1')).rejects.toThrow(
+      'This offer is no longer valid.',
+    );
+  });
+
+  it('marks the offer EXPIRED when the claim loses the race', async () => {
+    const ctx = buildOfferAccept();
+    ctx.prisma.$transaction.mockImplementation(async (_fn: unknown) => {
+      throw new Error('This job was already assigned.');
+    });
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-1',
+      deviceId: 'device-1',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    await expect(ctx.jobs.acceptJobWithOffer(token, 'device-1', 'job-1')).rejects.toThrow(
+      'This job was already assigned.',
+    );
+    const [, settle] = ctx.offerUpdateMany.mock.calls;
+    expect(settle[0].data.outcome).toBe('EXPIRED');
+  });
+});
+
+describe('createJobsService.rejectJobOffer', () => {
+  const OFFER_SECRET = 'shared-offer-secret-that-is-long-enough';
+
+  function buildOfferReject() {
+    const offerUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const declineUpsert = jest.fn().mockResolvedValue({ id: 'decline-1' });
+    const alertUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      jobOffer: { updateMany: offerUpdateMany },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          jobDecline: { upsert: declineUpsert },
+          notification: { updateMany: alertUpdateMany },
+        }),
+      ),
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: { jobImagePublicUrl: jest.fn() } as never,
+      matching: { isProEligible: jest.fn() } as never,
+      realtime: { emitToUser: jest.fn(), emitToUsers: jest.fn() } as never,
+      notifications: { resolveJobAlerts: jest.fn() } as never,
+      config: { jobOfferSecret: OFFER_SECRET } as never,
+    } as never);
+
+    return { jobs, prisma, offerUpdateMany, declineUpsert, alertUpdateMany };
+  }
+
+  it('consumes the offer, records a JobDecline and stops paging this pro', async () => {
+    const ctx = buildOfferReject();
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-1',
+      deviceId: 'device-1',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    await ctx.jobs.rejectJobOffer(token, 'device-1', 'job-1');
+
+    expect(ctx.offerUpdateMany).toHaveBeenCalledWith({
+      where: { tokenHash: expect.any(String), consumedAt: null },
+      data: { consumedAt: expect.any(Date), outcome: 'REJECTED' },
+    });
+    expect(ctx.declineUpsert).toHaveBeenCalledWith({
+      where: { jobId_proId: { jobId: 'job-1', proId: 'pro-1' } },
+      create: { jobId: 'job-1', proId: 'pro-1' },
+      update: {},
+    });
+    expect(ctx.alertUpdateMany).toHaveBeenCalledWith({
+      where: {
+        jobId: 'job-1',
+        proId: 'pro-1',
+        kind: NotificationKind.JOB_ALERT,
+        resolvedAt: null,
+      },
+      data: { resolvedAt: expect.any(Date) },
+    });
+  });
+
+  it('is idempotent for a replayed token: resolves the decline but settles only the first act', async () => {
+    const ctx = buildOfferReject();
+    ctx.offerUpdateMany.mockResolvedValueOnce({ count: 0 });
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-1',
+      deviceId: 'device-1',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    await expect(ctx.jobs.rejectJobOffer(token, 'device-1', 'job-1')).resolves.toBeUndefined();
+    expect(ctx.declineUpsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a token bound to a different device', async () => {
+    const ctx = buildOfferReject();
+    const token = mintJobOffer({
+      proId: 'pro-1',
+      jobId: 'job-1',
+      deviceId: 'device-a',
+      secret: OFFER_SECRET,
+      ttlMs: 90_000,
+    }).token;
+
+    await expect(ctx.jobs.rejectJobOffer(token, 'device-b', 'job-1')).rejects.toThrow(
+      'This offer belongs to another device.',
+    );
+    expect(ctx.offerUpdateMany).not.toHaveBeenCalled();
   });
 });
 

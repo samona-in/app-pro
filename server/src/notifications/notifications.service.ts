@@ -5,6 +5,7 @@ import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
 import { badRequest } from '../common/errors';
 import { distanceKm } from '../common/geo';
+import { mintJobOffer } from '../jobs/job-offers';
 import { createFcmClient, type FcmClient, type FcmMessagePayload, type FcmSendResult } from './fcm';
 
 /**
@@ -534,8 +535,10 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     isRepeat: boolean,
     platform: PushTargetPlatform,
     provider: PushTargetProvider,
+    deviceId: string | null,
   ): Promise<void> {
     const data = jobAlertData(info, config);
+    await attachOfferData(data, proId, info.jobId, deviceId, provider);
     const message = {
       title: jobAlertTitle(info),
       body: jobAlertBody(info),
@@ -549,6 +552,50 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     }
 
     await upsertAlert(proId, info, result, isRepeat);
+  }
+
+  /**
+   * Mints one signed, single-use job-offer token for this push and attaches it
+   * to the payload, so the native Android overlay can Accept/Reject directly
+   * without the app process being alive.
+   *
+   * Only FCM recipients whose install has a registered device id get a token:
+   * there is no native direct-Accept path on any other channel, so minting the
+   * ledger row is pure waste there. When the secret is unset (local dev) every
+   * push simply lacks a token and the native side falls back to opening the app.
+   */
+  async function attachOfferData(
+    data: Record<string, unknown>,
+    proId: string,
+    jobId: string,
+    deviceId: string | null,
+    provider: PushTargetProvider,
+  ): Promise<void> {
+    if (!config.jobOfferSecret || provider !== 'FCM' || !deviceId) return;
+    try {
+      const minted = mintJobOffer({
+        proId,
+        jobId,
+        deviceId,
+        secret: config.jobOfferSecret,
+        ttlMs: config.jobOfferTtlMs,
+      });
+      await prisma.jobOffer.create({
+        data: {
+          jobId,
+          proId,
+          tokenHash: minted.tokenHash,
+          deviceId,
+          expiresAt: minted.expiresAt,
+        },
+      });
+      data.jobOfferToken = minted.token;
+      data.offerExpiresAt = minted.expiresAt.toISOString();
+    } catch (error) {
+      // Never fail the alert over a mint; the native side just falls back to
+      // opening the app, the same as when the secret is unset.
+      logger.error(`[Push] Could not mint job offer for pro ${proId} on job ${jobId}.`, error);
+    }
   }
 
   /**
@@ -572,6 +619,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         pushToken: true,
         pushPlatform: true,
         pushProvider: true,
+        pushDeviceId: true,
         jobAlertsEnabled: true,
       },
     });
@@ -606,6 +654,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           false,
           pro.pushPlatform,
           pushProviderOf(pro),
+          pro.pushDeviceId ?? null,
         );
       }),
     );
@@ -684,6 +733,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     pushToken: string,
     platform: PushPlatformInput,
     provider: PushProviderInput,
+    deviceId?: string | null,
   ): Promise<void> {
     logger.info(`[Push] Token registration request received for user ${userId} (${provider})`);
 
@@ -716,12 +766,25 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     });
 
     // The stored platform/provider only shape the push payload on our side; the
-    // token itself is the identity, and it remains server-validated.
+    // token itself is the identity, and it remains server-validated. The device
+    // id is kept only when the client sends one, so a legacy re-registration
+    // without it cannot wipe a freshly-bound install.
     const storedPlatform = platform === 'android' ? 'ANDROID' : 'IOS';
     const updated = await prisma.proProfile.upsert({
       where: { userId },
-      create: { userId, pushToken, pushPlatform: storedPlatform, pushProvider: providerValue },
-      update: { pushToken, pushPlatform: storedPlatform, pushProvider: providerValue },
+      create: {
+        userId,
+        pushToken,
+        pushPlatform: storedPlatform,
+        pushProvider: providerValue,
+        ...(deviceId ? { pushDeviceId: deviceId } : {}),
+      },
+      update: {
+        pushToken,
+        pushPlatform: storedPlatform,
+        pushProvider: providerValue,
+        ...(deviceId ? { pushDeviceId: deviceId } : {}),
+      },
       select: { id: true, jobAlertsEnabled: true },
     });
 
@@ -773,6 +836,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
               pushToken: true,
               pushPlatform: true,
               pushProvider: true,
+              pushDeviceId: true,
               latitude: true,
               longitude: true,
             },
@@ -851,6 +915,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           true,
           row.pro.pushPlatform,
           pushProviderOf(row.pro),
+          row.pro.pushDeviceId ?? null,
         );
       }
     } catch (error) {
