@@ -142,7 +142,7 @@ describe('buildFcmPushMessage', () => {
     });
     expect(payload.android).toMatchObject({
       priority: 'high',
-      ttl: '60000ms',
+      ttl: '60s',
       collapseKey: 'job-1',
       notification: {
         channelId: 'incoming_jobs',

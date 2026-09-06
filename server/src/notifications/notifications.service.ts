@@ -229,7 +229,10 @@ export function buildFcmPushMessage(
     notification: { title: message.title, body: message.body },
     android: {
       priority: 'high',
-      ttl: `${options.ttlMs}ms`,
+      // FCM's android.ttl is a protobuf Duration: whole seconds with an `s`
+      // suffix only — `ms` is not a valid duration unit. Rounded up so a
+      // sub-second TTL never collapses to zero.
+      ttl: `${Math.ceil(options.ttlMs / 1000)}s`,
       collapseKey: options.collapseKey,
       notification: {
         channelId: message.channelId ?? JOB_ALERT_CHANNEL,
