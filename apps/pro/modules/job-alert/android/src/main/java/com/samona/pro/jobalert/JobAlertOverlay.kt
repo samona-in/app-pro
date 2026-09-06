@@ -21,14 +21,16 @@ import android.widget.TextView
  * The Rapido-style SYSTEM_ALERT_WINDOW banner for a NEW_JOB request.
  *
  * Shown only when the pro has granted "display over other apps" (so it draws
- * over any app, or over the lock screen via SHOW_WHEN_LOCKED). Accept/Decline
+ * over any app, or over the lock screen via SHOW_WHEN_LOCKED). It is the sole
+ * surface for this tier — no tray notification accompanies it — so the window
+ * turns a screen-off device on itself (FLAG_TURN_SCREEN_ON). Accept/Decline
  * route through the [JobAlertActionReceiver]: with an offer token the receiver
  * redeems the job natively over the API; without one it records the choice and
  * hands the job to the app. The overlay auto-dismisses after [MAX_DISPLAY_MS]
- * to match the [JobAlertSound] ring; the alert stays in the tray and
- * [AlertStore] until resolved or expired. A live "Expires in mm:ss" line
- * counts down to the offer expiry (or the job expiry when no token was sent),
- * and the buttons lock once it reaches zero.
+ * to match the [JobAlertSound] ring; the request remains in [AlertStore] until
+ * resolved or expired. A live "Expires in mm:ss" line counts down to the offer
+ * expiry (or the job expiry when no token was sent), and the buttons lock once
+ * it reaches zero.
  */
 object JobAlertOverlay {
   private const val MAX_DISPLAY_MS = 10_000L
@@ -75,7 +77,8 @@ object JobAlertOverlay {
           WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
           PixelFormat.TRANSLUCENT,
         ).apply {
           gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -83,7 +86,7 @@ object JobAlertOverlay {
 
       val added =
         runCatching { wm.addView(view, params) }.onFailure { t ->
-          Log.w(JOB_ALERT_TAG, "Overlay add failed for job ${alert.jobId}; tray remains", t)
+          Log.w(JOB_ALERT_TAG, "Overlay add failed for job ${alert.jobId}", t)
         }.isSuccess
       if (!added) return
 

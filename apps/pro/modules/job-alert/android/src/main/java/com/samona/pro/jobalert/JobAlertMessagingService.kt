@@ -20,8 +20,10 @@ private val TERMINAL_JOB_DATA_TYPES = setOf("JOB_ACCEPTED", "JOB_CANCELLED", "JO
  * foreground, backgrounded or killed:
  *
  *  1. "display over other apps" granted → [JobAlertOverlay] banner + the
- *     native looping alarm (10 s) + a MAX head-up tray entry. The overlay's
- *     Accept/Reject redeem the single-use offer token directly over the API.
+ *     native looping alarm (10 s). The overlay wakes a screen-off device and
+ *     carries Accept/Reject, which redeem the single-use offer token directly
+ *     over the API; no tray entry is posted, so the overlay and its ring are
+ *     the entire presentation for this tier.
  *  2. full-screen intent usable (Android ≤13, or the granted 14+ role) → the
  *     system covers the screen with the `job-alert/[id]` route; the channel's
  *     looping sound plays once.
@@ -90,22 +92,23 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
     AlertStore(this).addOrReplace(alert)
 
     AlertNotifications.ensureChannel(this)
+    if (Settings.canDrawOverlays(this)) {
+      // Explicit user grant: the overlay and its looping alarm are the entire
+      // presentation — no tray entry competes with them. The overlay wakes a
+      // screen-off device (FLAG_TURN_SCREEN_ON) and carries Accept/Decline, so
+      // this tier needs no notification at all and does not even require the
+      // notification permission. A full-screen intent would raise the same
+      // route without the grant, so it is only the fallback where the overlay
+      // permission is missing. Shown for any app state — backgrounded, killed
+      // and foreground alike.
+      JobAlertSound.start(this)
+      JobAlertOverlay.show(this, alert)
+      return
+    }
     if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
       val fullScreenUsable =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
           NotificationManagerCompat.from(this).canUseFullScreenIntent()
-      if (Settings.canDrawOverlays(this)) {
-        // Explicit user grant, so the only tier that draws over any app comes
-        // first: banner + looping alarm + a MAX head-up tray. A full-screen
-        // intent would raise exactly the same route over the same screen without
-        // needing the grant, so it is only the fallback on devices where the
-        // overlay permission is missing. Shown for any app state — backgrounded,
-        // killed and foreground alike.
-        AlertNotifications.postAlert(this, alert, fullScreen = false)
-        JobAlertSound.start(this)
-        JobAlertOverlay.show(this, alert)
-        return
-      }
       if (fullScreenUsable) {
         AlertNotifications.postAlert(this, alert, fullScreen = true)
         return
