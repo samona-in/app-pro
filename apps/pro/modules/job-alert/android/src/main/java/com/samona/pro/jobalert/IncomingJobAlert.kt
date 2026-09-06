@@ -10,6 +10,12 @@ import org.json.JSONObject
  * [AlertStore] so a job alert survives the app being backgrounded, and
  * handed back to JS (`getPendingJobs`) so the in-app ring fetches the
  * full job from the server with the real token.
+ *
+ * [jobOfferToken] is the signed, single-use offer token the server minted
+ * for this device. When present, the native overlay's Accept/Reject call the
+ * API directly and [AlertStore.deviceId] authenticates the call; when absent
+ * (legacy server or a non-FCM delivery) the overlay falls back to recording a
+ * [PendingAction] and opening the app, which performs the authorized call.
  */
 data class IncomingJobAlert(
   val jobId: String,
@@ -20,8 +26,22 @@ data class IncomingJobAlert(
   val amountPaise: String?,
   val expiresAt: String?,
   val professionalId: String?,
+  val jobOfferToken: String?,
+  val offerExpiresAt: String?,
   val receivedAt: Long,
 ) {
+  val hasOfferToken: Boolean get() = !jobOfferToken.isNullOrBlank()
+
+  /** Millis the offer stops being redeemable; null when the token is absent. */
+  fun offerExpiresAtMillis(): Long? =
+    offerExpiresAt?.let { raw ->
+      runCatching {
+        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+          .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+          .parse(raw)
+          ?.time
+      }.getOrNull()
+    }
   val isExpired: Boolean
     get() {
       // From `new Date().toISOString()` (e.g. 2026-09-06T12:34:56.789Z). Parsed
@@ -69,6 +89,8 @@ data class IncomingJobAlert(
       put("amountPaise", amountPaise ?: JSONObject.NULL)
       put("expiresAt", expiresAt ?: JSONObject.NULL)
       put("professionalId", professionalId ?: JSONObject.NULL)
+      put("jobOfferToken", jobOfferToken ?: JSONObject.NULL)
+      put("offerExpiresAt", offerExpiresAt ?: JSONObject.NULL)
       put("receivedAt", receivedAt)
     }
 
@@ -83,6 +105,8 @@ data class IncomingJobAlert(
       "amountPaise" to amountPaise,
       "expiresAt" to expiresAt,
       "professionalId" to professionalId,
+      "jobOfferToken" to jobOfferToken,
+      "offerExpiresAt" to offerExpiresAt,
       "receivedAt" to receivedAt,
     )
 
@@ -97,6 +121,8 @@ data class IncomingJobAlert(
         amountPaise = json.optString("amountPaise").nullable(),
         expiresAt = json.optString("expiresAt").nullable(),
         professionalId = json.optString("professionalId").nullable(),
+        jobOfferToken = json.optString("jobOfferToken").nullable(),
+        offerExpiresAt = json.optString("offerExpiresAt").nullable(),
         receivedAt = json.optLong("receivedAt", System.currentTimeMillis()),
       )
 
@@ -110,6 +136,8 @@ data class IncomingJobAlert(
         amountPaise = data["amountPaise"]?.nullable(),
         expiresAt = data["expiresAt"]?.nullable(),
         professionalId = data["professionalId"]?.nullable(),
+        jobOfferToken = data["jobOfferToken"]?.nullable(),
+        offerExpiresAt = data["offerExpiresAt"]?.nullable(),
         receivedAt = receivedAt,
       )
 

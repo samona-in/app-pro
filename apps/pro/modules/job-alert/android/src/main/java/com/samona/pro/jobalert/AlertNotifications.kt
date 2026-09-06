@@ -91,10 +91,36 @@ object AlertNotifications {
         .setShowWhen(true)
         .setOnlyAlertOnce(true)
         .setContentIntent(contentIntent)
+        .addAction(0, "Decline", actionPendingIntent(context, alert, "decline"))
+        .addAction(0, "Accept", actionPendingIntent(context, alert, "accept"))
     if (fullScreen) builder.setFullScreenIntent(contentIntent, true)
 
     NotificationManagerCompat.from(context).notify(alert.jobId.hashCode(), builder.build())
     Log.i(JOB_ALERT_TAG, "Posted alert job=${alert.jobId} fullScreen=$fullScreen")
+  }
+
+  /**
+   * Broadcast to the [JobAlertActionReceiver] so a tray action behaves exactly
+   * like an overlay tap: it redeems the offer token natively when present and
+   * falls back to recording the choice + opening the app otherwise.
+   */
+  private fun actionPendingIntent(context: Context, alert: IncomingJobAlert, action: String): PendingIntent {
+    val intent =
+      Intent(context, JobAlertActionReceiver::class.java)
+        .setAction(JobAlertActionReceiver.ACTION_ALERT_ACTION)
+        .putExtra(JobAlertActionReceiver.EXTRA_JOB_ID, alert.jobId)
+        .putExtra(JobAlertActionReceiver.EXTRA_ACTION, action)
+        .apply {
+          if (alert.hasOfferToken) {
+            putExtra(JobAlertActionReceiver.EXTRA_OFFER_TOKEN, alert.jobOfferToken)
+          }
+        }
+    return PendingIntent.getBroadcast(
+      context,
+      "tray-$action-${alert.jobId.hashCode()}".hashCode(),
+      intent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
   }
 
   private fun buildBody(alert: IncomingJobAlert): String {

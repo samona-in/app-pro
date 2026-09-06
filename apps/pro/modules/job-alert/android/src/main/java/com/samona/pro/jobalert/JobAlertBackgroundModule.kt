@@ -20,13 +20,43 @@ private const val MODULE_NAME = "SamonaJobAlertBackground"
  *    uses) so a swiped-away app keeps receiving and raising NEW_JOB pushes;
  *  - hand native-persisted job alerts and the overlay's accept/decline choice
  *    back to JS (`getPendingJobs` / `consumePendingAction`) so the in-app ring
- *    can fetch the job and perform the *secured* API call — native code never
- *    holds the token;
+ *    can fetch the job and act — while the *native* overlay redeems the
+ *    single-use offer token straight over the API when the push carried one
+ *    (see [JobAlertActionReceiver]);
+ *  - bind the install for that redemption: `configure(apiUrl)` tells native
+ *    where the API lives and `getDeviceId()` returns the persistent per-install
+ *    id that is sent with push-token registration and with every native
+ *    offer call;
  *  - surface overlay permission state and request it (device-setup/readiness).
  */
 class JobAlertBackgroundModule : Module() {
   override fun definition() = ModuleDefinition {
     Name(MODULE_NAME)
+
+    /**
+     * Configures the native side for direct offer redemption: the API base URL
+     * (scheme://host[:port], no `/api/v1` suffix) used for Accept/Reject.
+     * Called once at startup, before a NEW_JOB push can realistically arrive.
+     */
+    AsyncFunction("configure") { apiUrl: String, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      AlertStore(context).setApiUrl(apiUrl.trimEnd('/'))
+      promise.resolve(true)
+    }
+
+    /**
+     * The stable per-install device id, minted and persisted on first call.
+     * Sending the same value the native overlay later redeems with is what
+     * binds an offer token to one physical device.
+     */
+    AsyncFunction("getDeviceId") { promise: Promise ->
+      val context = appContext.reactContext
+      promise.resolve(context?.let { AlertStore(it).deviceId() } ?: "")
+    }
 
     AsyncFunction("start") { promise: Promise ->
       val context = appContext.reactContext

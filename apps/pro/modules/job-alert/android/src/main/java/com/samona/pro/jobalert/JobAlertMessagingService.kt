@@ -20,12 +20,14 @@ private val TERMINAL_JOB_DATA_TYPES = setOf("JOB_ACCEPTED", "JOB_CANCELLED", "JO
  *
  *  1. app foreground → stored only; the in-app JS ring (socket/push listener)
  *     rings where the pro already is.
- *  2. full-screen intent usable (Android ≤13, or the granted 14+ role) → the
+ *  2. "display over other apps" granted → [JobAlertOverlay] banner + the
+ *     native looping alarm (10 s) + a MAX head-up tray entry. The overlay's
+ *     Accept/Reject redeem the single-use offer token directly over the API.
+ *  3. full-screen intent usable (Android ≤13, or the granted 14+ role) → the
  *     system covers the screen with the `job-alert/[id]` route; the channel's
  *     looping sound plays once.
- *  3. "display over other apps" granted → [JobAlertOverlay] banner + the
- *     native looping alarm (10 s) + a MAX head-up tray entry.
- *  4. otherwise → the MAX head-up tray entry remains tappable.
+ *  4. otherwise → the MAX head-up tray entry (with Accept/Reject actions)
+ *     remains tappable.
  *
  * Terminal messages (JOB_ACCEPTED / JOB_CANCELLED / JOB_EXPIRED) cancel the
  * native alert for that job: sound, overlay and tray. These are data-only, so
@@ -95,17 +97,19 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
     val fullScreenUsable =
       Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
         NotificationManagerCompat.from(this).canUseFullScreenIntent()
-    if (fullScreenUsable) {
-      AlertNotifications.postAlert(this, alert, fullScreen = true)
-      return
-    }
-
     if (Settings.canDrawOverlays(this)) {
-      // Banner + looping alarm while the screen is on; tray stays for lock
-      // screen / dismissal. Tray + FSI do not work on this device.
+      // Explicit user grant, so the only tier that draws over any app comes
+      // first: banner + looping alarm + a MAX head-up tray. A full-screen
+      // intent would raise exactly the same route over the same screen without
+      // needing the grant, so it is only the fallback on devices where the
+      // overlay permission is missing.
       AlertNotifications.postAlert(this, alert, fullScreen = false)
       JobAlertSound.start(this)
       JobAlertOverlay.show(this, alert)
+      return
+    }
+    if (fullScreenUsable) {
+      AlertNotifications.postAlert(this, alert, fullScreen = true)
       return
     }
 
