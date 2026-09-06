@@ -6,7 +6,11 @@ import type { RegisterPushTokenInput, PushSettingsInput } from '@samona/validati
 import { api } from './api';
 import { env } from '@/env';
 import { promptForFullScreenIntentOnce } from './full-screen-alert';
-import { promptForOverlayPermissionOnce } from './overlay-alert';
+import {
+  configureJobAlertModule,
+  getNativeDeviceId,
+  promptForOverlayPermissionOnce,
+} from './overlay-alert';
 
 /**
  * Push notifications for the Pro app.
@@ -99,11 +103,18 @@ export async function registerPushToken(): Promise<string | null> {
   // Android registers the raw FCM registration token so the server can reach
   // Firebase directly with per-job ttl/collapseKey/tag and a display payload
   // that survives the process being dead. No Expo project id is needed for it.
+  // The device id binds the minted single-use offer tokens to this exact
+  // install, and the native overlay is pointed at this bundle's API so it can
+  // redeem them without waiting for the app to load.
   let pushToken: string;
+  let deviceId: string | null = null;
   if (isAndroid) {
     console.log('[Notifications] Using raw FCM device token');
     const tokenData = await Notifications.getDevicePushTokenAsync();
     pushToken = tokenData.data;
+    await configureJobAlertModule();
+    deviceId = (await getNativeDeviceId()) || null;
+    console.log('[Notifications] Native overlay configured with device id');
   } else {
     // No project id means we cannot mint an Expo push token; skip registration.
     if (!PROJECT_ID) {
@@ -125,6 +136,7 @@ export async function registerPushToken(): Promise<string | null> {
       // plus the job data for the full-screen ring whenever the app is running.
       platform: isAndroid ? 'android' : 'ios',
       provider: isAndroid ? 'fcm' : 'expo',
+      ...(deviceId ? { deviceId } : {}),
     } satisfies RegisterPushTokenInput);
     console.log('[Notifications] Token successfully stored on backend');
 

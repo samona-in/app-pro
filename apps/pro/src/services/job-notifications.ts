@@ -341,10 +341,12 @@ interface PendingJobEvent {
    * native alert via the same fetch-and-verify path as a socket/push nudge.
    *
    * The accept/decline a pro taps on the native overlay banner is deliberately
-   * NOT consumed here: the overlay always opens the app through the
-   * `job-alert/:id` route, which performs the recorded action itself (the app
-   * alone holds the token) and then lands the pro on the right screen. This
-   * keeps a single, unambiguous actor — no double accepts, no lost landings.
+   * NOT consumed here when the push carried a signed offer token: the overlay
+   * redeems it directly over the API, no app launch needed. The remaining
+   * case — a legacy push without a token — still routes through the
+   * `job-alert/:id` deep link, which performs the recorded action itself (the
+   * app alone holds the main token) and then lands the pro on the right screen.
+   * This keeps a single, unambiguous actor — no double accepts, no lost landings.
    */
   async function reconcileNativePending(): Promise<void> {
     if (!canShowAlert()) return;

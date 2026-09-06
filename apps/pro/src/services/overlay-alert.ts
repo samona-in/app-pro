@@ -1,17 +1,21 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { requireNativeModule } from 'expo-modules-core';
+import { env } from '@/env';
 
 /**
  * Android job-alert overlay + native store (Rapido-style).
  *
  * The `modules/job-alert` native side raises the Accept/Decline overlay over
- * any app, loops the alarm, and persists the alert metadata + whatever action
- * the pro tapped while the app was not visible. This module is the thin JS
- * bridge that (a) reads those pending alerts back so the in-app ring can fetch
- * and enqueue each job, (b) consumes the recorded Accept/Decline so the app —
- * the only place the token exists — performs the secured API call, and (c)
- * exposes the "display over other apps" permission the overlay depends on.
+ * any app, loops the alarm, and persists the alert metadata. When a push
+ * carried a signed single-use offer token (bound to this install's native
+ * device id), the overlay and tray redeem the job over the API by themselves —
+ * no app launch required. When there is no token (legacy server / non-FCM),
+ * the overlay records the choice and the in-app ring performs the authorized
+ * call. This module is the thin JS bridge that configures the native side
+ * (`configureJobAlertModule`, with the API base URL), hands back the per-install
+ * device id for the push-token registration body (`getNativeDeviceId`), and
+ * reads pending alerts/choices back so the in-app ring can also surface them.
  *
  * Every function degrades to a safe no-op when the native side is absent
  * (non-Android, or a stale APK that never bundled the module).
@@ -27,6 +31,8 @@ export interface PendingNativeJob {
   amountPaise: string | null;
   expiresAt: string | null;
   professionalId: string | null;
+  jobOfferToken: string | null;
+  offerExpiresAt: string | null;
   receivedAt: number;
 }
 
@@ -37,6 +43,8 @@ export interface PendingNativeAction {
 }
 
 interface OverlayAlertNativeModule {
+  configure(apiUrl: string): Promise<boolean>;
+  getDeviceId(): Promise<string>;
   getPendingJobs(): Promise<PendingNativeJob[]>;
   consumePendingAction(): Promise<Record<string, never> | PendingNativeAction>;
   clearJobAlert(jobId: string): Promise<boolean>;
@@ -65,6 +73,37 @@ export async function getPendingNativeJobs(): Promise<PendingNativeJob[]> {
     return await module.getPendingJobs();
   } catch {
     return [];
+  }
+}
+
+/**
+ * Stable per-install device id minted natively and persisted on first use.
+ * The same value must ride the push-token registration body so the server can
+ * bind a minted offer token to this exact device (the overlay redeems it with
+ * this id). Returns '' when the native side is absent.
+ */
+export async function getNativeDeviceId(): Promise<string> {
+  const module = getNativeModule();
+  if (!module) return '';
+  try {
+    return await module.getDeviceId();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Points the native overlay/tray redeem calls at this bundle's API. Best
+ * effort, called once at startup before a NEW_JOB push can realistically
+ * arrive; without it, an overlay tap degrades to the legacy open-app fallback.
+ */
+export async function configureJobAlertModule(): Promise<void> {
+  const module = getNativeModule();
+  if (!module || !env.apiUrl) return;
+  try {
+    await module.configure(env.apiUrl);
+  } catch {
+    // Legacy APK without the module: safe fallback, nothing to configure.
   }
 }
 
