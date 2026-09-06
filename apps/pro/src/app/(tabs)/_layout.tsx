@@ -5,7 +5,11 @@ import { useEffect } from 'react';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
 import { useRealtimeSync, useSession } from '@/hooks';
-import { initializeJobAlertService, stopJobAlertService } from '@/services/foreground-service';
+import {
+  initializeJobAlertService,
+  stopJobAlertService,
+} from '@/services/foreground-service';
+import { jobNotificationService } from '@/services/job-notifications';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -27,19 +31,24 @@ export default function TabsLayout() {
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
 
   // The signed-in surface of the app: keep every jobs query in step with the
-  // realtime channel (offers, status changes, payments). The job-request ring
-  // itself is mounted globally (JobRequestLayer) so it can present over any
-  // route a push lands the app on.
+  // realtime channel (offers, status changes, payments). Job-request
+  // *presentation* is native (overlay/full-screen/tray), so the JS side only
+  // keeps the native alert layer in step — clearing a ring the moment realtime
+  // says the job was claimed — plus the foreground service that keeps the
+  // online process alive for pushes.
   useRealtimeSync();
 
   // The foreground service mirrors the online status so a backgrounded pro
   // still receives pushes; signing out releases it even though the status store
-  // is never told to go offline on logout.
+  // is never told to go offline on logout. The job-notification service rides
+  // the same signed-in lifetime for its realtime cleanup.
   useEffect(() => {
     if (isAuthenticated && isOnboardingComplete) {
       initializeJobAlertService();
+      void jobNotificationService.initialize();
     } else {
       stopJobAlertService();
+      jobNotificationService.cleanup();
     }
   }, [isAuthenticated, isOnboardingComplete]);
 

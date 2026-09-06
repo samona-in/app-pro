@@ -4,27 +4,25 @@ import { jobNotificationService } from '@/services/job-notifications';
 import { useSession } from '@/hooks';
 
 /**
- * Landing screen for a full-screen job alert.
+ * Landing screen for a full-screen job alert / tray action.
  *
- * The native overlay / FCM service opens `samonapro://job-alert/:id` over
- * whatever the pro is doing. Two intents land here:
+ * The native Android alert pipeline brings the app to `samonapro://job-alert/:id`
+ * in two cases:
  *
- * 1. Plain NEW_JOB — the route simply hands the job id to the incoming-job
- *    service, which fetches and enqueues it, raising the accept/reject ring
- *    from the tabs layout. Rendering anything here would cover the ring it is
- *    meant to surface.
+ * 1. The pro tapped Accept or Decline on the native overlay banner WITHOUT a
+ *    signed offer token (legacy / non-FCM push). The native side only recorded
+ *    the choice and stopped the alarm; this route — running with the secured
+ *    token — performs the actual API call and then lands the pro on the
+ *    accepted job (or drops a decline harmlessly).
  *
- * 2. The pro tapped Accept or Decline on the NATIVE overlay banner (the app
- *    was backgrounded/killed). The native side only recorded the choice and
- *    stopped the alarm; the deep link carries it as `?action=` so THIS route —
- *    running with the secured token — performs the actual API call and then
- *    lands the pro on the accepted job (or drops a decline harmlessly).
+ * 2. A full-screen intent / a plain tray tap opens a NEW_JOB with no action.
+ *    Presentation is native everywhere now (no in-app ring), so there is
+ *    nothing to render here — the route just drops back into the app. The job
+ *    stays open server-side; the pro accepts/declines from the native alert.
  *
- * The alert is only raised once the session has been restored: at a true cold
- * start the push arrives before Supabase has hydrated the token, so the fetch
- * the alert depends on would go out unauthenticated and the alert would be
- * silently lost. Waiting on the same session gate the tabs layout uses keeps
- * this path correct for a killed-app launch.
+ * The action is only executed once the session has been restored: at a true
+ * cold start the push arrives before Supabase has hydrated the token, so the
+ * API call would go out unauthenticated and fail.
  */
 export default function JobAlertRoute() {
   const { id, action } = useLocalSearchParams<{ id?: string; action?: string }>();
@@ -33,17 +31,8 @@ export default function JobAlertRoute() {
   const nativeAction = action === 'accept' ? 'accept' : action === 'decline' ? 'decline' : null;
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || !jobId) return;
-    if (nativeAction) {
-      // The pro already decided on the native overlay; execute the recorded
-      // choice with the secured token. Accept lands them on the accepted job
-      // (the redirect below), decline just drops the request.
-      void jobNotificationService.resolveNativePendingAction(jobId, nativeAction);
-      return;
-    }
-    // Best-effort: if the job is unavailable or the pro is offline this is a
-    // no-op and the redirect below just opens the app normally.
-    void jobNotificationService.handleJobNotification(jobId);
+    if (isLoading || !isAuthenticated || !jobId || !nativeAction) return;
+    void jobNotificationService.resolveNativePendingAction(jobId, nativeAction);
   }, [isLoading, isAuthenticated, jobId, nativeAction]);
 
   if (isLoading) return null;

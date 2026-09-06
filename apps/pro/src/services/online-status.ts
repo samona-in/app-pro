@@ -213,7 +213,6 @@ function createSocket(): Socket {
   newSocket.on('reconnect', (attemptNumber) => {
     console.log('[OnlineStatus] Socket reconnected after', attemptNumber, 'attempts');
     _socketReconnectAttempts = 0;
-    syncPendingJobs();
   });
 
   newSocket.on('reconnect_failed', () => {
@@ -247,10 +246,6 @@ function disconnectSocket(): void {
     socket = null;
   }
   _socketReconnectAttempts = 0;
-}
-
-async function syncPendingJobs(): Promise<void> {
-  await jobNotificationService.syncAvailableJobs();
 }
 
 export async function goOnline(token: string): Promise<AvailabilityResult> {
@@ -296,10 +291,6 @@ export async function goOnline(token: string): Promise<AvailabilityResult> {
 
     await api.post('/pros/availability', patch);
 
-    // Pull any open requests now that we're online. A socket nudge can be lost
-    // to the connect race above, so this pull-backfills the queue reliably.
-    void syncPendingJobs();
-
     startLocationServicesMonitor();
 
     setStatus('online');
@@ -325,7 +316,6 @@ export async function goOffline(_token: string): Promise<AvailabilityResult> {
 
   try {
     jobNotificationService.cleanup();
-    jobNotificationService.dismissJob();
 
     const patch = { isOnline: false };
     await api.post('/pros/availability', patch);
