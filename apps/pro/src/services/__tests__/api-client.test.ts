@@ -121,7 +121,7 @@ describe('HTTPS enforcement', () => {
 
   it('allows loopback so local development still works', () => {
     expect(() =>
-      createApiClient({ baseUrl: 'http://localhost:4000', requireHttps: true }),
+      createApiClient({ baseUrl: 'https://24ab-49-37-148-205.ngrok-free.app', requireHttps: true }),
     ).not.toThrow();
   });
 
