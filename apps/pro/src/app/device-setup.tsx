@@ -49,13 +49,14 @@ const ITEMS: ReadinessItem[] = [
     fix: requestFullScreenIntent,
   },
   {
-    // The native overlay banner is the fallback when the full-screen role is
-    // unavailable. It only matters then, so it is shown (and counted) only
-    // while full-screen alerts are off — see `visibleItems` below.
+    // The native overlay banner draws over any app and needs the system's
+    // "display over other apps" permission. It is measured but non-blocking
+    // (online gating excludes it), yet always shown here so the pro can grant
+    // it — the overlay is only useful once it is actually on.
     key: 'overlayPermissionEnabled',
     title: 'Show over other apps',
     description:
-      "This device can't use the full-screen role, so your saved job-alert overlay needs the system's display-over-other-apps permission instead.",
+      'The job-alert overlay draws Accept/Decline over any app while Samona is closed. Grant "Appear on top" under Display over other apps so the banner can show.',
     fix: requestOverlayPermission,
   },
   {
@@ -123,7 +124,7 @@ function checklistRow(item: ReadinessItem, ok: boolean) {
 }
 
 export default function DeviceSetup() {
-  const { readiness, isReady, refreshDeviceReadiness } = useDeviceReadiness();
+  const { readiness, refreshDeviceReadiness } = useDeviceReadiness();
   const [checking, setChecking] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
 
@@ -137,16 +138,16 @@ export default function DeviceSetup() {
     }
   }
 
+  // The overlay permission is measured but deliberately non-blocking (go-online
+  // uses DEVICE_READINESS_KEYS only). It is still part of this checklist — the
+  // whole point is that a pro can grant "Appear on top" here — so count it
+  // alongside the blocking settings and require it for the "All set" state.
+  const allReady = readiness !== null && missingReadinessCount(readiness) === 0;
+  const overlayMissing = readiness?.overlayPermissionEnabled === false;
+  const isReady = allReady && !overlayMissing;
+  const total = DEVICE_READINESS_KEYS.length + 1;
   const openCount =
-    readiness === null ? DEVICE_READINESS_KEYS.length : missingReadinessCount(readiness);
-  const total = DEVICE_READINESS_KEYS.length;
-
-  // The overlay-permission item is the fallback tier: it is only relevant when
-  // the full-screen role is unavailable, so hide it (and keep it uncounted)
-  // while full-screen alerts are on.
-  const visibleItems = ITEMS.filter(
-    (item) => item.key !== 'overlayPermissionEnabled' || readiness?.fullScreenAlertsEnabled === false,
-  );
+    readiness === null ? total : missingReadinessCount(readiness) + (overlayMissing ? 1 : 0);
 
   return (
     <Screen scrollable edges={['bottom']}>
@@ -174,7 +175,7 @@ export default function DeviceSetup() {
               Checking your phone settings…
             </Text>
           ) : (
-            visibleItems.map((item) => checklistRow(item, readiness[item.key]))
+            ITEMS.map((item) => checklistRow(item, readiness[item.key]))
           )}
         </View>
       )}

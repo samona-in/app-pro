@@ -48,8 +48,17 @@ object JobAlertOverlay {
   /**
    * Shows the banner for [alert]. No-op without overlay permission. A second
    * alert replaces any current banner (one ring at a time).
+   *
+   * Must run on the main thread: `WindowManager.addView` requires a Looper and
+   * throws off-thread. Push delivery ([JobAlertMessagingService]) runs on a
+   * Firebase worker thread, so every entry point first hops to the main handler.
    */
   fun show(context: Context, alert: IncomingJobAlert) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      val appContext = context.applicationContext
+      handler.post { show(appContext, alert) }
+      return
+    }
     synchronized(lock) {
       if (overlayView != null) hideAllInternal()
       if (!Settings.canDrawOverlays(context)) return
@@ -94,6 +103,10 @@ object JobAlertOverlay {
 
   /** Dismisses the banner only when it is showing [jobId]. */
   fun hide(jobId: String) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      handler.post { hide(jobId) }
+      return
+    }
     synchronized(lock) {
       if (overlayJobId == jobId) hideAllInternal()
     }
@@ -101,6 +114,10 @@ object JobAlertOverlay {
 
   /** Dismisses whatever banner is showing. */
   fun hideAll() {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      handler.post { hideAll() }
+      return
+    }
     synchronized(lock) { hideAllInternal() }
   }
 

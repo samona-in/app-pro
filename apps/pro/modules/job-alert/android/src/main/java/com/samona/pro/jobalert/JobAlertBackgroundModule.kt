@@ -128,7 +128,14 @@ class JobAlertBackgroundModule : Module() {
       promise.resolve(context != null && Settings.canDrawOverlays(context))
     }
 
-    /** Opens the per-app "display over other apps" settings screen. */
+    /**
+     * Opens the per-app "display over other apps" settings screen.
+     *
+     * The package-scoped `ACTION_MANAGE_OVERLAY_PERMISSION` is the exact "Appear
+     * on top" page on stock Android, but a few OEM settings apps ignore the
+     * package argument. When it does not resolve, fall back to the app's
+     * Application-details page, where the toggle still lives.
+     */
     AsyncFunction("requestOverlayPermission") { promise: Promise ->
       val context = appContext.reactContext
       if (context == null) {
@@ -139,13 +146,29 @@ class JobAlertBackgroundModule : Module() {
         promise.resolve(true)
         return@AsyncFunction
       }
-      val intent =
+      val overlayIntent =
         Intent(
           Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
           Uri.parse("package:${context.packageName}"),
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-      val launched = runCatching { context.startActivity(intent) }.isSuccess
-      promise.resolve(launched)
+      val overlayLaunched = runCatching {
+        context.startActivity(overlayIntent)
+        true
+      }.getOrDefault(false)
+      if (overlayLaunched) {
+        promise.resolve(true)
+        return@AsyncFunction
+      }
+      val detailsLaunched = runCatching {
+        context.startActivity(
+          Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:${context.packageName}"),
+          ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        true
+      }.getOrDefault(false)
+      promise.resolve(detailsLaunched)
     }
 
     /** Whether the online mirror expects the foreground service to be running. */
