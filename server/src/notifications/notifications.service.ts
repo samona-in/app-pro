@@ -1,12 +1,12 @@
-import {
-  JobStatus,
-  NotificationKind,
-  type AppNotification,
-} from '@samona/types';
+import { JobStatus, NotificationKind, type AppNotification } from '@samona/types';
+import type { PushPlatformInput, PushProviderInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
 import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
 import { badRequest } from '../common/errors';
+import { distanceKm } from '../common/geo';
+import { mintJobOffer } from '../jobs/job-offers';
+import { createFcmClient, type FcmClient, type FcmMessagePayload, type FcmSendResult } from './fcm';
 
 /**
  * Notifications domain service.
@@ -15,6 +15,15 @@ import { badRequest } from '../common/errors';
  * the Pro's own job-alert preference, and delivering — on a repeating cadence —
  * the "new job" alert that breaks through a locked phone, a pocket or sleep
  * (the tawk.to-style repeating alert).
+ *
+ * Delivery is provider-aware. Android registers a raw Firebase registration
+ * token (`provider: 'fcm'`) and the server sends FCM HTTP v1 messages directly:
+ * a display notification the system tray renders even when the app process is
+ * dead, plus job data the native service turns into the Rapido-style overlay,
+ * loops the alarm, and keys per job (FCM `tag`/`collapseKey` = jobId so repeats
+ * replace rather than stack). iOS (and any legacy Expo token) keeps the Expo
+ * push service. When neither provider is configured the rows are still recorded
+ * but nothing is sent — the same local-development contract as before.
  *
  * REST stays the source of truth; a push is a nudge to look, never a state
  * change. Each delivered alert is persisted to `notifications` so the app can
@@ -35,9 +44,12 @@ export interface NotificationsServiceDeps {
 export interface JobAlertRecipient {
   /** pro_profiles.id — the join key to a `Notification` row. */
   proId: string;
+  /** Straight-line distance between this pro and the request, km. */
+  distanceKm?: number | null;
 }
 
-export interface JobAlertInfo {
+/** The caller-supplied part of a job alert's content (no per-recipient state). */
+export type JobAlertInfoInput = {
   jobId: string;
   /** Display name of the requested service. */
   serviceName: string;
@@ -47,13 +59,51 @@ export interface JobAlertInfo {
   description: string;
   /** Guaranteed amount, in paise. */
   basePayPaise: number;
+  /** Display label of the work location (never the customer's name). */
+  address: string | null;
+  /** ISO instant the job stops being actionable. Null when the sweep will own it. */
+  expiresAt: string | null;
+};
+
+/** A fully-assembled job alert for one recipient, ready to be pushed. */
+export interface JobAlertInfo extends JobAlertInfoInput {
+  /** pro_profiles.id of the recipient — the payload's `professionalId`. */
+  professionalId: string;
+  /** Straight-line distance from this recipient to the job, km. */
+  distanceKm: number | null;
 }
 
+/**
+ * Which delivery channel a registered token belongs to. Mirrors the Prisma
+ * `PushProvider` enum; null means a legacy registration that used Expo.
+ */
+type PushTargetProvider = 'EXPO' | 'FCM' | null;
+
+/** The types of terminal pushes the native side uses to silence/cancel alerts. */
+export type JobAlertTerminalType = 'JOB_ACCEPTED' | 'JOB_CANCELLED' | 'JOB_EXPIRED';
+
+/** Why a job left the open pool; maps to `JobAlertTerminalType` when pushed. */
+export type JobAlertResolveReason = 'ACCEPTED' | 'CANCELLED' | 'EXPIRED' | 'NONE';
+
 const ROUTE_PREFIX = 'samonapro://job/';
+
+/** Server-side view of a push target's OS (mirrors the Prisma enum values). */
+type PushTargetPlatform = 'ANDROID' | 'IOS' | null;
+
+/** The notification channel job alerts raise on (Android). */
+const JOB_ALERT_CHANNEL = 'incoming_jobs';
 
 function notificationRoute(jobId: string): string {
   return `${ROUTE_PREFIX}${jobId}`;
 }
+
+function pushProviderOf(pro: { pushProvider?: 'EXPO' | 'FCM' | null }): PushTargetProvider {
+  return pro.pushProvider ?? null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Payload builders                                                           */
+/* -------------------------------------------------------------------------- */
 
 /** Format an amount in paise as ₹ with two decimals, e.g. ₹450.00. */
 function formatPay(paise: number): string {
@@ -67,6 +117,140 @@ function jobAlertTitle(info: JobAlertInfo): string {
 
 function jobAlertBody(info: JobAlertInfo): string {
   return `${info.description} — ${formatPay(info.basePayPaise)}. Tap to see and accept.`;
+}
+
+/** FCM `data` mandates string values; the native side stringifies on read. */
+function toFcmData(values: Record<string, unknown>): Record<string, string> {
+  const data: Record<string, string> = {};
+  for (const [key, value] of Object.entries(values)) {
+    if (value === null || value === undefined) {
+      data[key] = '';
+    } else {
+      data[key] = typeof value === 'string' ? value : String(value);
+    }
+  }
+  return data;
+}
+
+/**
+ * The full job data carried by a NEW_JOB message, shared by both providers.
+ *
+ * No customer identity by design (CLAUDE.md "Security" and the jobs domain: the
+ * pro meets the customer only once committed). The address is the job's own
+ * snapshotted location label and distance is per recipient, so the alert can
+ * say "3 km away" without revealing who placed it.
+ */
+function jobAlertData(info: JobAlertInfo, config: AppConfig): Record<string, unknown> {
+  return {
+    type: 'NEW_JOB',
+    kind: NotificationKind.JOB_ALERT,
+    jobId: info.jobId,
+    professionalId: info.professionalId,
+    title: jobAlertTitle(info),
+    serviceName: info.serviceName,
+    address: info.address,
+    distanceMeters:
+      info.distanceKm !== null && info.distanceKm !== undefined
+        ? Math.round(info.distanceKm * 1000)
+        : null,
+    amountPaise: info.basePayPaise,
+    expiresAt: info.expiresAt ?? new Date(Date.now() + config.jobExpireTtlMs).toISOString(),
+  };
+}
+
+/**
+ * Builds the Expo push payload for a job alert.
+ *
+ * Android uses a DISPLAY message (top-level title/body/channelId): FCM renders
+ * it in the system tray even when the app process is dead (killed / swiped
+ * away), which a data-only message never reaches — FCM drops data messages
+ * once the process is gone. When the app IS running, FCM still hands the
+ * display message to `onMessageReceived`, so the native service raises its
+ * alert; tapping the tray notification relaunches the app into the
+ * `job-alert/[id]` route. The full job payload stays in `data` on both
+ * platforms so the client can route straight to the ring.
+ */
+export function buildPushMessage(
+  pushToken: string,
+  message: {
+    title: string;
+    body: string;
+    data: Record<string, unknown>;
+    channelId?: string;
+  },
+  platform: PushTargetPlatform,
+): Record<string, unknown> {
+  if (platform === 'ANDROID') {
+    return {
+      to: pushToken,
+      priority: 'high',
+      title: message.title,
+      body: message.body,
+      sound: 'default',
+      channelId: message.channelId ?? JOB_ALERT_CHANNEL,
+      data: { ...message.data, title: message.title, body: message.body },
+    };
+  }
+  return {
+    to: pushToken,
+    title: message.title,
+    body: message.body,
+    data: message.data,
+    sound: 'default',
+    priority: 'high',
+    // The channel the alert raises on (honoured for display messages).
+    channelId: message.channelId ?? JOB_ALERT_CHANNEL,
+    // iOS: allow this to break through "do not disturb"-tier noise.
+    interruptionLevel: 'time-sensitive',
+  };
+}
+
+/**
+ * Builds the FCM HTTP v1 payload for a job alert.
+ *
+ * Deliberately DATA-ONLY. `firebase-messaging`'s `dispatchMessage` short-
+ * circuits when a message carries a top-level `notification` (or
+ * `android.notification`) block: it renders the tray notification itself via
+ * `DisplayNotification` and NEVER calls `onMessageReceived` — so the native
+ * overlay, looping alarm and Accept/Decline actions would never run, no matter
+ * which service wins `MESSAGING_EVENT` resolution. With a data-only message
+ * FCM always falls through to `onMessageReceived`, where the pro-side
+ * `JobAlertMessagingService` raises the alert (overlay + `incoming_jobs`
+ * channel + `job_alert` sound) using the same per-job ids. The online
+ * foreground service keeps the process alive while the pro is online, which is
+ * what lets a backgrounded app receive these data messages at all. `ttl` is the
+ * configured accept window, bounded far below the job-expiry TTL so a stale
+ * offer cannot surface hours later; `collapseKey` is the job id so duplicates
+ * replace rather than stack.
+ */
+export function buildFcmPushMessage(
+  message: {
+    title: string;
+    body: string;
+    data: Record<string, unknown>;
+    channelId?: string;
+  },
+  options: { ttlMs: number; collapseKey: string },
+): FcmMessagePayload {
+  return {
+    data: toFcmData(message.data),
+    android: {
+      priority: 'high',
+      // FCM's android.ttl is a protobuf Duration: whole seconds with an `s`
+      // suffix only — `ms` is not a valid duration unit. Rounded up so a
+      // sub-second TTL never collapses to zero.
+      ttl: `${Math.ceil(options.ttlMs / 1000)}s`,
+      collapseKey: options.collapseKey,
+    },
+  };
+}
+
+/** Data-only terminal message telling the native side to drop a job alert. */
+export function buildFcmTerminalMessage(
+  type: JobAlertTerminalType,
+  jobId: string,
+): FcmMessagePayload {
+  return { data: { type, jobId } };
 }
 
 /** A persisted notification row, mapped to the client DTO. */
@@ -109,21 +293,45 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
   let expoClientPromise: Promise<{
     sendPushNotificationsAsync(msgs: unknown[]): Promise<unknown[]>;
-    getPushNotificationReceiptsAsync(receiptIds: string[]): Promise<Record<string, { status: string; message?: string; details?: Record<string, unknown> }>>;
+    getPushNotificationReceiptsAsync(
+      receiptIds: string[],
+    ): Promise<
+      Record<string, { status: string; message?: string; details?: Record<string, unknown> }>
+    >;
     isExpoPushToken?(token: string): boolean;
   } | null> | null = null;
+
+  let fcmClient: FcmClient | null = null;
 
   async function getExpoClient() {
     if (!config.expoAccessToken) return null;
     if (!expoClientPromise) {
       expoClientPromise = import('expo-server-sdk')
         .then((mod) => {
-          const Expo = (mod as { default?: { new (o: unknown): unknown }; Expo?: { new (o: unknown): unknown } }).Expo
-            ?? (mod as { default?: { new (o: unknown): unknown }; Expo?: { new (o: unknown): unknown } }).default;
+          const Expo =
+            (
+              mod as {
+                default?: { new (o: unknown): unknown };
+                Expo?: { new (o: unknown): unknown };
+              }
+            ).Expo ??
+            (
+              mod as {
+                default?: { new (o: unknown): unknown };
+                Expo?: { new (o: unknown): unknown };
+              }
+            ).default;
           if (!Expo) throw new Error('expo-server-sdk did not expose an Expo client.');
           const client = new Expo({ accessToken: config.expoAccessToken }) as unknown as {
             sendPushNotificationsAsync(msgs: unknown[]): Promise<unknown[]>;
-            getPushNotificationReceiptsAsync(receiptIds: string[]): Promise<Record<string, { status: string; message?: string; details?: Record<string, unknown> }>>;
+            getPushNotificationReceiptsAsync(
+              receiptIds: string[],
+            ): Promise<
+              Record<
+                string,
+                { status: string; message?: string; details?: Record<string, unknown> }
+              >
+            >;
             isExpoPushToken?(token: string): boolean;
           };
           return client;
@@ -138,7 +346,24 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     return expoClientPromise;
   }
 
-  /** One-off push to a single token. Returns whether Expo accepted it. */
+  /** The FCM client, built once from configured credentials or null. */
+  function getFcmClient(): FcmClient | null {
+    if (fcmClient) return fcmClient;
+    if (config.fcmProjectId && config.fcmClientEmail && config.fcmPrivateKey) {
+      fcmClient = createFcmClient({
+        projectId: config.fcmProjectId,
+        clientEmail: config.fcmClientEmail,
+        privateKey: config.fcmPrivateKey,
+      });
+      return fcmClient;
+    }
+    return null;
+  }
+
+  /**
+   * One-off push to a single token over the provider it belongs to. A null
+   * provider (legacy registration) and any iOS token go through Expo.
+   */
   async function sendPush(
     pushToken: string,
     message: {
@@ -147,7 +372,28 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       data: Record<string, unknown>;
       channelId?: string;
     },
+    platform: PushTargetPlatform,
+    provider: PushTargetProvider,
   ): Promise<{ ok: boolean; providerRef?: string; error?: string }> {
+    if (provider === 'FCM') {
+      const client = getFcmClient();
+      if (!client) {
+        // Local dev without credentials: record but do not fail the request.
+        logger.warn(
+          '[Push] FCM is not configured (FCM_PROJECT_ID / FCM_CLIENT_EMAIL / FCM_PRIVATE_KEY) — skipping an Android job alert.',
+        );
+        return { ok: false };
+      }
+      const result: FcmSendResult = await client.send(
+        pushToken,
+        buildFcmPushMessage(message, {
+          ttlMs: config.jobAlertTtlMs,
+          collapseKey: String(message.data.jobId ?? 'job-alert'),
+        }),
+      );
+      return { ok: result.ok, providerRef: result.messageId, error: result.error };
+    }
+
     const client = await getExpoClient();
     if (!client) {
       // Local dev without a token: record but do not fail the request.
@@ -159,35 +405,44 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
     try {
       const tickets = await client.sendPushNotificationsAsync([
-        {
-          to: pushToken,
-          title: message.title,
-          body: message.body,
-          data: message.data,
-          sound: 'default',
-          priority: 'high',
-          // Android needs an existing channel to raise this as a full alert.
-          channelId: message.channelId ?? 'job-alerts',
-          // iOS: allow this to break through "do not disturb"-tier noise.
-          interruptionLevel: 'time-sensitive',
-        },
+        buildPushMessage(pushToken, message, platform),
       ]);
-      const ticket = tickets?.[0] as
-        | { status: string; id?: string; message?: string }
-        | undefined;
+      const ticket = tickets?.[0] as { status: string; id?: string; message?: string } | undefined;
       if (ticket?.status === 'ok') {
         logger.info(
           `[Push] Sent to ${pushToken} for job ${String(message.data.jobId ?? 'unknown')}: ticket ${ticket.id ?? 'no-id'}`,
         );
         return { ok: true, providerRef: ticket.id };
       }
-      logger.warn(
-        `[Push] Expo rejected push to ${pushToken}: ${ticket?.message ?? 'no message'}`,
-      );
+      logger.warn(`[Push] Expo rejected push to ${pushToken}: ${ticket?.message ?? 'no message'}`);
       return { ok: false, error: ticket?.message ?? 'Push rejected by Expo.' };
     } catch (error) {
       logger.error('[Push] Push send failed.', error);
       return { ok: false, error: error instanceof Error ? error.message : 'Push failed.' };
+    }
+  }
+
+  /**
+   * Data-only terminal push, used to stop a native overlay + looping sound the
+   * instant the job leaves the open pool. Only the FCM path carries this (the
+   * Android native side is what needs it); iOS clears alerts from the socket
+   * status event.
+   */
+  async function sendTerminalAlert(
+    pushToken: string,
+    jobId: string,
+    type: JobAlertTerminalType,
+  ): Promise<void> {
+    const client = getFcmClient();
+    if (!client) {
+      logger.warn(
+        `[Push] FCM not configured — skipping terminal ${type} push for job ${jobId}.`,
+      );
+      return;
+    }
+    const result = await client.send(pushToken, buildFcmTerminalMessage(type, jobId));
+    if (!result.ok) {
+      logger.warn(`[Push] Terminal ${type} push for job ${jobId} was not delivered.`);
     }
   }
 
@@ -222,7 +477,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           ) {
             const removed = await prisma.proProfile.updateMany({
               where: { id: proId, pushToken: { not: null } },
-              data: { pushToken: null },
+              data: { pushToken: null, pushProvider: null },
             });
             if (removed.count > 0) {
               logger.warn(`[Push] Removed invalid push token for pro ${proId}.`);
@@ -279,20 +534,69 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     info: JobAlertInfo,
     token: string,
     isRepeat: boolean,
+    platform: PushTargetPlatform,
+    provider: PushTargetProvider,
+    deviceId: string | null,
   ): Promise<void> {
-    const result = await sendPush(token, {
+    const data = jobAlertData(info, config);
+    await attachOfferData(data, proId, info.jobId, deviceId, provider);
+    const message = {
       title: jobAlertTitle(info),
       body: jobAlertBody(info),
-      data: { type: 'NEW_JOB', jobId: info.jobId, kind: NotificationKind.JOB_ALERT },
-      channelId: 'job-alerts',
-    });
+      data,
+    };
+    const result = await sendPush(token, message, platform, provider);
 
-    // If Expo accepted the ticket, verify actual delivery shortly after.
+    // If the provider accepted the work, verify actual delivery shortly after.
     if (result.ok && result.providerRef) {
       void checkPushReceipts([result.providerRef], proId);
     }
 
     await upsertAlert(proId, info, result, isRepeat);
+  }
+
+  /**
+   * Mints one signed, single-use job-offer token for this push and attaches it
+   * to the payload, so the native Android overlay can Accept/Reject directly
+   * without the app process being alive.
+   *
+   * Only FCM recipients whose install has a registered device id get a token:
+   * there is no native direct-Accept path on any other channel, so minting the
+   * ledger row is pure waste there. When the secret is unset (local dev) every
+   * push simply lacks a token and the native side falls back to opening the app.
+   */
+  async function attachOfferData(
+    data: Record<string, unknown>,
+    proId: string,
+    jobId: string,
+    deviceId: string | null,
+    provider: PushTargetProvider,
+  ): Promise<void> {
+    if (!config.jobOfferSecret || provider !== 'FCM' || !deviceId) return;
+    try {
+      const minted = mintJobOffer({
+        proId,
+        jobId,
+        deviceId,
+        secret: config.jobOfferSecret,
+        ttlMs: config.jobOfferTtlMs,
+      });
+      await prisma.jobOffer.create({
+        data: {
+          jobId,
+          proId,
+          tokenHash: minted.tokenHash,
+          deviceId,
+          expiresAt: minted.expiresAt,
+        },
+      });
+      data.jobOfferToken = minted.token;
+      data.offerExpiresAt = minted.expiresAt.toISOString();
+    } catch (error) {
+      // Never fail the alert over a mint; the native side just falls back to
+      // opening the app, the same as when the secret is unset.
+      logger.error(`[Push] Could not mint job offer for pro ${proId} on job ${jobId}.`, error);
+    }
   }
 
   /**
@@ -305,13 +609,20 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
    */
   async function alertEligiblePros(
     recipients: JobAlertRecipient[],
-    info: JobAlertInfo,
+    info: JobAlertInfoInput,
   ): Promise<void> {
     if (recipients.length === 0) return;
 
     const pros = await prisma.proProfile.findMany({
       where: { id: { in: recipients.map((r) => r.proId) } },
-      select: { id: true, pushToken: true, jobAlertsEnabled: true },
+      select: {
+        id: true,
+        pushToken: true,
+        pushPlatform: true,
+        pushProvider: true,
+        pushDeviceId: true,
+        jobAlertsEnabled: true,
+      },
     });
 
     logger.info(
@@ -320,6 +631,13 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
     await Promise.all(
       pros.map(async (pro) => {
+        const recipient = recipients.find((r) => r.proId === pro.id);
+        const infoForRecipient: JobAlertInfo = {
+          ...info,
+          professionalId: pro.id,
+          distanceKm: recipient?.distanceKm ?? null,
+        };
+
         // Skip anyone who turned alerts off or has no token yet.
         if (!pro.jobAlertsEnabled || !pro.pushToken) {
           logger.warn(
@@ -327,26 +645,65 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           );
           // No push can go out, but the offer is still recorded so the request
           // shows up in the pro's job history (Past jobs) with its final status.
-          await upsertAlert(pro.id, info, { ok: false, providerRef: null }, false);
+          await upsertAlert(pro.id, infoForRecipient, { ok: false, providerRef: null }, false);
           return;
         }
-        await alertOne(pro.id, info, pro.pushToken, false);
+        await alertOne(
+          pro.id,
+          infoForRecipient,
+          pro.pushToken,
+          false,
+          pro.pushPlatform,
+          pushProviderOf(pro),
+          pro.pushDeviceId ?? null,
+        );
       }),
     );
   }
 
   /**
-   * Stops every open job-alert row for a job.
+   * Stops every open job-alert row for a job and pages the affected pros so
+   * their native overlay, sound and tray entry go away at once.
    *
    * Called when a job leaves the open pool (accepted, expired, cancelled). The
    * row stays for history; `resolvedAt` just stops the scheduler from paging
-   * again.
+   * again. The pro who acted resolves their own alert through the app, so the
+   * extra FCM nudge goes to whoever may still be holding the offer.
    */
-  async function resolveJobAlerts(jobId: string): Promise<void> {
+  async function resolveJobAlerts(
+    jobId: string,
+    terminal: JobAlertResolveReason = 'CANCELLED',
+  ): Promise<void> {
+    const open = await prisma.notification.findMany({
+      where: { jobId, kind: NotificationKind.JOB_ALERT, resolvedAt: null },
+      select: {
+        pro: { select: { pushToken: true, pushPlatform: true, pushProvider: true } },
+      },
+    });
+
     await prisma.notification.updateMany({
       where: { jobId, kind: NotificationKind.JOB_ALERT, resolvedAt: null },
       data: { resolvedAt: new Date() },
     });
+
+    if (terminal === 'NONE') return;
+
+    const terminalType: JobAlertTerminalType =
+      terminal === 'ACCEPTED'
+        ? 'JOB_ACCEPTED'
+        : terminal === 'EXPIRED'
+          ? 'JOB_EXPIRED'
+          : 'JOB_CANCELLED';
+
+    // Tell every pro still showing the alert to drop it instantly — no waiting
+    // for the next repeat or a socket reconnect.
+    await Promise.all(
+      open.map(async (row) => {
+        const token = row.pro.pushToken;
+        if (!token || pushProviderOf(row.pro) !== 'FCM') return;
+        await sendTerminalAlert(token, jobId, terminalType);
+      }),
+    );
   }
 
   /** The Pro's own notification history, newest first. */
@@ -368,38 +725,72 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     return rows.map((row) => toDto(row as unknown as NotificationRow));
   }
 
-  /** Registers (or replaces) this Pro's device push token. */
-  async function registerPushToken(userId: string, pushToken: string): Promise<void> {
-    logger.info(`[Push] Token registration request received for user ${userId}`);
+  /**
+   * Registers (or replaces) this Pro's device push token, recording which
+   * provider owns it.
+   */
+  async function registerPushToken(
+    userId: string,
+    pushToken: string,
+    platform: PushPlatformInput,
+    provider: PushProviderInput,
+    deviceId?: string | null,
+  ): Promise<void> {
+    logger.info(`[Push] Token registration request received for user ${userId} (${provider})`);
 
-    // Validate the token shape: it must look like an Expo push token, not an
-    // arbitrary string a client could submit. The client SDK's published rule
-    // matches ExponentPushToken[x] / ExpoPushToken[x] or a token UUID.
-    const client = await getExpoClient();
-    const isValid =
-      client?.isExpoPushToken?.(pushToken) ??
-      /^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9._-]+\]$/.test(pushToken);
-    if (!isValid) {
-      logger.warn(`[Push] Rejected invalid push token shape from user ${userId}.`);
-      throw badRequest('That is not a valid device push token.');
+    // Validate the token shape: Expo tokens must look like Expo push tokens,
+    // FCM tokens are opaque but must not smuggle an Expo-shaped value in as an
+    // FCM registration. Both stay length-bound (see the validation schema).
+    const providerValue: 'EXPO' | 'FCM' = provider === 'fcm' ? 'FCM' : 'EXPO';
+    if (providerValue === 'EXPO') {
+      const client = await getExpoClient();
+      const isValid =
+        client?.isExpoPushToken?.(pushToken) ??
+        /^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9._-]+\]$/.test(pushToken);
+      if (!isValid) {
+        logger.warn(`[Push] Rejected invalid Expo push token shape from user ${userId}.`);
+        throw badRequest('That is not a valid device push token.');
+      }
+    } else {
+      const looksLikeExpo = /^(ExponentPushToken|ExpoPushToken)\[.+\]$/.test(pushToken);
+      if (looksLikeExpo) {
+        logger.warn(`[Push] Rejected an Expo-shaped token registered as FCM from user ${userId}.`);
+        throw badRequest('That token does not match the registered push provider.');
+      }
     }
 
     // A device token identifies one device; a re-sign-in or re-install must not
     // leave a stale copy on an old profile behind (violating the unique index).
     await prisma.proProfile.updateMany({
       where: { pushToken, userId: { not: userId } },
-      data: { pushToken: null },
+      data: { pushToken: null, pushPlatform: null, pushProvider: null },
     });
 
+    // The stored platform/provider only shape the push payload on our side; the
+    // token itself is the identity, and it remains server-validated. The device
+    // id is kept only when the client sends one, so a legacy re-registration
+    // without it cannot wipe a freshly-bound install.
+    const storedPlatform = platform === 'android' ? 'ANDROID' : 'IOS';
     const updated = await prisma.proProfile.upsert({
       where: { userId },
-      create: { userId, pushToken },
-      update: { pushToken },
+      create: {
+        userId,
+        pushToken,
+        pushPlatform: storedPlatform,
+        pushProvider: providerValue,
+        ...(deviceId ? { pushDeviceId: deviceId } : {}),
+      },
+      update: {
+        pushToken,
+        pushPlatform: storedPlatform,
+        pushProvider: providerValue,
+        ...(deviceId ? { pushDeviceId: deviceId } : {}),
+      },
       select: { id: true, jobAlertsEnabled: true },
     });
 
     logger.info(
-      `[Push] Token stored successfully for pro ${updated.id} (alerts ${updated.jobAlertsEnabled ? 'on' : 'off'}).`,
+      `[Push] Token stored successfully for pro ${updated.id} (alerts ${updated.jobAlertsEnabled ? 'on' : 'off'}, ${providerValue}).`,
     );
   }
 
@@ -440,12 +831,26 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           id: true,
           repeats: true,
           jobId: true,
-          pro: { select: { id: true, pushToken: true } },
+          pro: {
+            select: {
+              id: true,
+              pushToken: true,
+              pushPlatform: true,
+              pushProvider: true,
+              pushDeviceId: true,
+              latitude: true,
+              longitude: true,
+            },
+          },
           job: {
             select: {
               id: true,
               status: true,
               proId: true,
+              createdAt: true,
+              latitude: true,
+              longitude: true,
+              locationLabel: true,
               service: { select: { name: true } },
               customSkill: true,
               description: true,
@@ -458,29 +863,61 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       for (const row of waiting) {
         const job = row.job;
         if (!job) {
-          await prisma.notification.update({ where: { id: row.id }, data: { resolvedAt: new Date() } });
+          await prisma.notification.update({
+            where: { id: row.id },
+            data: { resolvedAt: new Date() },
+          });
           continue;
         }
         // Keep paging only while the job is still open and unassigned.
         if (job.status !== JobStatus.REQUESTED || job.proId !== null) {
-          await prisma.notification.update({ where: { id: row.id }, data: { resolvedAt: new Date() } });
+          await prisma.notification.update({
+            where: { id: row.id },
+            data: { resolvedAt: new Date() },
+          });
           continue;
         }
         // Enforce the ceiling so a stale job cannot page a pro forever.
         if (row.repeats >= config.jobAlertMaxRepeats) {
-          await prisma.notification.update({ where: { id: row.id }, data: { resolvedAt: new Date() } });
+          await prisma.notification.update({
+            where: { id: row.id },
+            data: { resolvedAt: new Date() },
+          });
           continue;
         }
         const token = row.pro.pushToken;
         if (!token) continue;
 
-        await alertOne(row.pro.id, {
-          jobId: job.id,
-          serviceName: job.service.name,
-          customSkill: job.customSkill,
-          description: job.description,
-          basePayPaise: job.basePayPaise,
-        }, token, true);
+        const distanceMeters =
+          row.pro.latitude !== null &&
+          row.pro.longitude !== null &&
+          job.latitude !== null &&
+          job.longitude !== null
+            ? distanceKm(
+                { latitude: row.pro.latitude, longitude: row.pro.longitude },
+                { latitude: job.latitude, longitude: job.longitude },
+              )
+            : null;
+
+        await alertOne(
+          row.pro.id,
+          {
+            jobId: job.id,
+            serviceName: job.service.name,
+            customSkill: job.customSkill,
+            description: job.description,
+            basePayPaise: job.basePayPaise,
+            address: job.locationLabel,
+            expiresAt: new Date(job.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
+            professionalId: row.pro.id,
+            distanceKm: distanceMeters,
+          },
+          token,
+          true,
+          row.pro.pushPlatform,
+          pushProviderOf(row.pro),
+          row.pro.pushDeviceId ?? null,
+        );
       }
     } catch (error) {
       // Never let a scheduler error kill the process; log and continue.

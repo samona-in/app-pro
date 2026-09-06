@@ -1,6 +1,15 @@
 import { JobStatus } from '@samona/types';
 import { useIncomingJobStore } from '@/stores/incoming-job';
 import { jobNotificationService } from '../job-notifications';
+import { api } from '@/services/api';
+
+const mockApiGet = api.get as jest.Mock;
+const mockApiPost = api.post as jest.Mock;
+
+/** Drives the mocked online-status-state for one test. */
+function setOnlineStatus(online: boolean, known: boolean): void {
+  mockOnlineStatus.__set(online, known);
+}
 
 jest.mock('@/services/api', () => ({
   api: { get: jest.fn(), post: jest.fn() },
@@ -16,10 +25,27 @@ jest.mock('@/services/realtime', () => ({
   }),
 }));
 
-jest.mock('@/services/online-status-state', () => ({
-  isOnline: () => true,
-  subscribeToOnlineStatus: () => () => {},
-}));
+// Mutable so tests can exercise the cold-start (unknown) gate vs a known state.
+// The `mock` prefix is required by jest's factory scope rule.
+const mockOnlineStatus = {
+  online: true,
+  known: true,
+  __set(online: boolean, known: boolean): void {
+    this.online = online;
+    this.known = known;
+  },
+};
+
+jest.mock('@/services/online-status-state', () => {
+  return {
+    isOnline: () => mockOnlineStatus.online,
+    isOnlineStatusKnown: () => mockOnlineStatus.known,
+    reconcileOnlineStatus: (serverOnline: boolean) => {
+      mockOnlineStatus.__set(serverOnline, true);
+    },
+    subscribeToOnlineStatus: () => () => {},
+  };
+});
 
 jest.mock('@/services/job-alert', () => ({
   startJobAlert: jest.fn().mockResolvedValue(undefined),
@@ -43,7 +69,9 @@ describe('jobNotificationService job:status handling', () => {
   beforeEach(() => {
     useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
     mockHandlers.clear();
+    mockApiGet.mockReset();
     jobNotificationService.setAccepting(null);
+    setOnlineStatus(true, true);
   });
 
   afterEach(() => {
@@ -72,6 +100,106 @@ describe('jobNotificationService job:status handling', () => {
     // Once the accept settles, the guard is lifted for the next event.
     jobNotificationService.setAccepting(null);
     statusHandler()({ id: 'job-1', status: JobStatus.ACCEPTED } as never);
+    expect(useIncomingJobStore.getState().resolution).toBe('unavailable');
+  });
+});
+
+describe('jobNotificationService cold-start alert gate', () => {
+  beforeEach(() => {
+    useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
+    mockApiGet.mockReset();
+    setOnlineStatus(true, true);
+  });
+
+  afterEach(() => {
+    jobNotificationService.cleanup();
+    useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
+  });
+
+  it('drops the alert immediately when the pro is known to be offline', async () => {
+    setOnlineStatus(false, true);
+    await jobNotificationService.initialize();
+
+    await jobNotificationService.handleJobNotification('job-offline');
+
+    // No server round-trip and nothing enqueued: a known-offline pro never rings.
+    expect(mockApiGet).not.toHaveBeenCalled();
+    expect(useIncomingJobStore.getState().job).toBeNull();
+    expect(useIncomingJobStore.getState().pendingJobs).toHaveLength(0);
+  });
+
+  it('does not ring a stale alert when a cold start resolves to offline', async () => {
+    setOnlineStatus(false, false); // cold start: launch default, not yet known
+    mockApiGet.mockResolvedValue({ isOnline: false });
+    await jobNotificationService.initialize();
+
+    await jobNotificationService.handleJobNotification('job-stale');
+
+    // The server was asked, said offline, and the alert was dropped.
+    expect(mockApiGet).toHaveBeenCalledWith('/pros/me');
+    expect(useIncomingJobStore.getState().job).toBeNull();
+    expect(useIncomingJobStore.getState().pendingJobs).toHaveLength(0);
+  });
+
+  it('raises the alert on a cold start once the server confirms the pro is online', async () => {
+    setOnlineStatus(false, false); // cold start: launch default, not yet known
+    mockApiGet.mockImplementation((path: string) =>
+      path === '/pros/me'
+        ? Promise.resolve({ isOnline: true })
+        : Promise.resolve({ id: path.replace('/jobs/', ''), status: JobStatus.REQUESTED }),
+    );
+    await jobNotificationService.initialize();
+
+    await jobNotificationService.handleJobNotification('job-cold');
+
+    // Server truth resolved to online, the job was fetched and enqueued.
+    expect(mockApiGet).toHaveBeenCalledWith('/pros/me');
+    expect(useIncomingJobStore.getState().job?.id).toBe('job-cold');
+  });
+});
+
+describe('jobNotificationService native overlay action', () => {
+  beforeEach(() => {
+    useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
+    mockApiGet.mockReset();
+    mockApiPost.mockReset();
+    setOnlineStatus(true, true);
+  });
+
+  afterEach(() => {
+    jobNotificationService.cleanup();
+    useIncomingJobStore.setState({ job: null, pendingJobs: [], resolution: null });
+  });
+
+  it('accepts the job with the secured token and resolves the already-active alert', async () => {
+    useIncomingJobStore.getState().enqueue({ id: 'job-1' } as never);
+    await jobNotificationService.initialize();
+    mockApiPost.mockResolvedValue({ id: 'job-1', status: JobStatus.ACCEPTED });
+
+    await jobNotificationService.resolveNativePendingAction('job-1', 'accept');
+
+    expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-1/accept', {});
+    expect(useIncomingJobStore.getState().resolution).toBe('accept');
+  });
+
+  it('records a decline and drops the request', async () => {
+    useIncomingJobStore.getState().enqueue({ id: 'job-2' } as never);
+    await jobNotificationService.initialize();
+
+    await jobNotificationService.resolveNativePendingAction('job-2', 'decline');
+
+    expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-2/decline', {});
+    expect(useIncomingJobStore.getState().job).toBeNull();
+    expect(useIncomingJobStore.getState().pendingJobs).toHaveLength(0);
+  });
+
+  it('resolves the active alert as unavailable when the accept fails', async () => {
+    useIncomingJobStore.getState().enqueue({ id: 'job-3' } as never);
+    await jobNotificationService.initialize();
+    mockApiPost.mockRejectedValue(new Error('transition not allowed'));
+
+    await jobNotificationService.resolveNativePendingAction('job-3', 'accept');
+
     expect(useIncomingJobStore.getState().resolution).toBe('unavailable');
   });
 });

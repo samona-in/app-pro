@@ -1,0 +1,10 @@
+{
+  "name": "job-alert",
+  "platforms": ["android"],
+  "android": {
+    "modules": [
+      "com.samona.pro.jobalert.FullScreenPermissionModule",
+      "com.samona.pro.jobalert.JobAlertBackgroundModule"
+    ]
+  }
+}

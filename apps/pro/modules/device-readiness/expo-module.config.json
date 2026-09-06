@@ -1,0 +1,7 @@
+{
+  "name": "device-readiness",
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.samona.pro.devicereadiness.DeviceReadinessModule"]
+  }
+}

@@ -16,5 +16,6 @@ export {
 } from './use-jobs';
 export { useRealtimeSync } from './use-realtime';
 export { useNotifications, usePushSettings } from './use-notifications';
+export { useDeviceReadiness } from './use-device-readiness';
 export { JOB_ALERT_TIMEOUT_MS, useJobAlert } from './use-job-alert';
 export type { IncomingJobResolution } from '@/stores/incoming-job';

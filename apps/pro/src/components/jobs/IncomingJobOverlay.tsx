@@ -11,6 +11,7 @@ import type { IncomingJobResolution } from '@/stores/incoming-job';
 import { api } from '@/services/api';
 import { stopJobAlert } from '@/services/job-alert';
 import { jobNotificationService } from '@/services/job-notifications';
+import { jobsApi } from '@/services/jobs';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr, formatRelativeTime } from '@/utils/format';
 
@@ -43,8 +44,12 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobStatus> = new Set<JobStatus>([
   JobStatus.EXPIRED,
 ]);
 
-/** How long the pro has to decide before the request is treated as expired. */
-export const JOB_ALERT_COUNTDOWN_MS = 16_000;
+/**
+ * How long the pro has to decide before the request ring closes. Matches the
+ * native overlay/alarm cap (10s) so the in-app countdown and the native ring
+ * always agree.
+ */
+export const JOB_ALERT_COUNTDOWN_MS = 10_000;
 
 /** How long the resolution confirmation stays on screen before advancing/dismissing. */
 const RESOLUTION_HOLD_MS = 2_500;
@@ -110,13 +115,19 @@ export function IncomingJobOverlay({
   });
   const { run: runReject } = useSubmitGuard(() => {
     stopJobAlert();
+    // Record the decline so the request stops resurfacing for this pro once the
+    // app closes or reopens. Best effort: the alert still closes immediately,
+    // and a failed decline is logged rather than blocking the ring.
+    void jobsApi.decline(jobRef.current.id).catch((error: unknown) => {
+      console.warn('Could not record job decline.', error);
+    });
     // The pro deliberately declined, so no "declined" confirmation screen — just
     // close the alert and move to the next queued job, if any.
     if (queueCount > 0) onAdvance();
     else onDismiss();
   });
 
-  // 16-second countdown around the reject ring. Reaching zero silently closes
+  // 10-second countdown around the reject ring. Reaching zero silently closes
   // the request.
   useEffect(() => {
     if (resolution) return;
@@ -173,10 +184,7 @@ export function IncomingJobOverlay({
   }, [resolution, queueCount, onAdvance, onDismiss]);
 
   // Progress around the ring: 1 (full) -> 0 as the countdown elapses.
-  const progress = useMemo(
-    () => secondsLeft / (JOB_ALERT_COUNTDOWN_MS / 1000),
-    [secondsLeft],
-  );
+  const progress = useMemo(() => secondsLeft / (JOB_ALERT_COUNTDOWN_MS / 1000), [secondsLeft]);
 
   const feedback = resolution ? RESOLUTION_FEEDBACK[resolution] : null;
 
@@ -308,7 +316,11 @@ export function IncomingJobOverlay({
                     className="absolute inset-0 items-center justify-center"
                   >
                     <View className="h-14 w-14 items-center justify-center rounded-full border-2 border-danger bg-surface">
-                      <Text variant="title" className="font-bold text-danger" style={{ marginTop: -3 }}>
+                      <Text
+                        variant="title"
+                        className="font-bold text-danger"
+                        style={{ marginTop: -3 }}
+                      >
                         −
                       </Text>
                     </View>

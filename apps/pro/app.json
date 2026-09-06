@@ -32,7 +32,9 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -67,7 +69,7 @@
         {
           "icon": "./assets/images/Samona.png",
           "color": "#0F172A",
-          "defaultChannel": "job-alerts",
+          "defaultChannel": "incoming_jobs",
           "enableBackgroundRemoteNotifications": true,
           "sounds": ["./assets/audio/job_alert.wav"]
         }

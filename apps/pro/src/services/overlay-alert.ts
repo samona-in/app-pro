@@ -1,0 +1,180 @@
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import { requireNativeModule } from 'expo-modules-core';
+import { env } from '@/env';
+
+/**
+ * Android job-alert overlay + native store (Rapido-style).
+ *
+ * The `modules/job-alert` native side raises the Accept/Decline overlay over
+ * any app, loops the alarm, and persists the alert metadata. When a push
+ * carried a signed single-use offer token (bound to this install's native
+ * device id), the overlay and tray redeem the job over the API by themselves —
+ * no app launch required. When there is no token (legacy server / non-FCM),
+ * the overlay records the choice and the in-app ring performs the authorized
+ * call. This module is the thin JS bridge that configures the native side
+ * (`configureJobAlertModule`, with the API base URL), hands back the per-install
+ * device id for the push-token registration body (`getNativeDeviceId`), and
+ * reads pending alerts/choices back so the in-app ring can also surface them.
+ *
+ * Every function degrades to a safe no-op when the native side is absent
+ * (non-Android, or a stale APK that never bundled the module).
+ */
+
+/** A job alert the native side persisted for the app to surface. */
+export interface PendingNativeJob {
+  jobId: string;
+  title: string;
+  serviceName: string;
+  address: string | null;
+  distanceMeters: string | null;
+  amountPaise: string | null;
+  expiresAt: string | null;
+  professionalId: string | null;
+  jobOfferToken: string | null;
+  offerExpiresAt: string | null;
+  receivedAt: number;
+}
+
+/** The accept/decline the pro picked on the native overlay. */
+export interface PendingNativeAction {
+  jobId: string;
+  action: 'accept' | 'decline';
+}
+
+interface OverlayAlertNativeModule {
+  configure(apiUrl: string): Promise<boolean>;
+  getDeviceId(): Promise<string>;
+  getPendingJobs(): Promise<PendingNativeJob[]>;
+  consumePendingAction(): Promise<Record<string, never> | PendingNativeAction>;
+  clearJobAlert(jobId: string): Promise<boolean>;
+  hasOverlayPermission(): Promise<boolean>;
+  requestOverlayPermission(): Promise<boolean>;
+}
+
+/** The "already asked on this install" flag, so we never re-loop the settings sheet. */
+const OVERLAY_PROMPTED_KEY = 'samona.overlay-permission-prompted';
+
+function getNativeModule(): OverlayAlertNativeModule | null {
+  if (Platform.OS !== 'android') return null;
+  try {
+    return requireNativeModule<OverlayAlertNativeModule>('SamonaJobAlertBackground');
+  } catch {
+    // requireNativeModule throws when the native side is missing.
+    return null;
+  }
+}
+
+/** Alerts the native side persisted for jobs the JS layer has not surfaced yet. */
+export async function getPendingNativeJobs(): Promise<PendingNativeJob[]> {
+  const module = getNativeModule();
+  if (!module) return [];
+  try {
+    return await module.getPendingJobs();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Stable per-install device id minted natively and persisted on first use.
+ * The same value must ride the push-token registration body so the server can
+ * bind a minted offer token to this exact device (the overlay redeems it with
+ * this id). Returns '' when the native side is absent.
+ */
+export async function getNativeDeviceId(): Promise<string> {
+  const module = getNativeModule();
+  if (!module) return '';
+  try {
+    return await module.getDeviceId();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Points the native overlay/tray redeem calls at this bundle's API. Best
+ * effort, called once at startup before a NEW_JOB push can realistically
+ * arrive; without it, an overlay tap degrades to the legacy open-app fallback.
+ */
+export async function configureJobAlertModule(): Promise<void> {
+  const module = getNativeModule();
+  if (!module || !env.apiUrl) return;
+  try {
+    await module.configure(env.apiUrl);
+  } catch {
+    // Legacy APK without the module: safe fallback, nothing to configure.
+  }
+}
+
+/**
+ * Returns (and clears) the accept/decline the pro tapped on the native overlay
+ * so the in-app ring can perform the secured API call. Android-only; resolves
+ * null elsewhere or when nothing was recorded.
+ */
+export async function consumeNativePendingAction(): Promise<PendingNativeAction | null> {
+  const module = getNativeModule();
+  if (!module) return null;
+  try {
+    const action = await module.consumePendingAction();
+    // The native side returns an empty object when nothing was recorded.
+    if (!action || typeof action.jobId !== 'string') return null;
+    return { jobId: action.jobId, action: action.action === 'decline' ? 'decline' : 'accept' };
+  } catch {
+    return null;
+  }
+}
+
+/** Drops a job alert from native storage, overlay and tray (best-effort). */
+export async function clearNativeJobAlert(jobId: string): Promise<void> {
+  const module = getNativeModule();
+  if (!module || !jobId) return;
+  try {
+    await module.clearJobAlert(jobId);
+  } catch {
+    // Best-effort: the native store self-heals on terminal pushes.
+  }
+}
+
+/** Whether "display over other apps" (the overlay permission) is granted. */
+export async function isOverlayPermissionEnabled(): Promise<boolean> {
+  const module = getNativeModule();
+  if (!module) return false;
+  try {
+    return await module.hasOverlayPermission();
+  } catch {
+    return false;
+  }
+}
+
+/** Opens the per-app "display over other apps" settings screen, when possible. */
+export async function requestOverlayPermission(): Promise<boolean> {
+  const module = getNativeModule();
+  if (!module) return false;
+  try {
+    return await module.requestOverlayPermission();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One-time, best-effort prompt for "display over other apps" (Rapido-style).
+ * Called after the first successful push-token registration; asking again on a
+ * fresh install if the pro has not granted it, never looping within one. The
+ * overlay tier is only a fallback for devices without the full-screen role, so
+ * a refusal never blocks — readiness reports it as a missing setting instead.
+ */
+export async function promptForOverlayPermissionOnce(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+
+  if (await isOverlayPermissionEnabled()) return;
+
+  const alreadyPrompted = (await SecureStore.getItemAsync(OVERLAY_PROMPTED_KEY)) === '1';
+  if (alreadyPrompted) return;
+
+  // Remember we asked BEFORE the sheet opens: a pro who leaves the settings
+  // screen unresolved must not be nagged on the very next launch.
+  await SecureStore.setItemAsync(OVERLAY_PROMPTED_KEY, '1');
+  await requestOverlayPermission();
+}

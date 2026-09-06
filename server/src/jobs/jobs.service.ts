@@ -18,6 +18,7 @@ import { badRequest, notFound, conflict, forbidden } from '../common/errors';
 import { distanceKm, etaMinutes } from '../common/geo';
 import { logger } from '../common/logger';
 import type { NotificationsService } from '../notifications/notifications.service';
+import { hashJobOfferToken, verifyJobOffer } from './job-offers';
 
 export interface JobsServiceDeps {
   prisma: PrismaClient;
@@ -292,15 +293,18 @@ export function createJobsService(deps: JobsServiceDeps) {
         // Push alert every eligible pro, then keep repeating on a cadence
         // until one accepts or the job leaves the open pool. This is what
         // reaches a pro whose phone is locked, in a pocket, or asleep — the
-        // socket cannot.
+        // socket cannot. Distance is per pro (from the match) and the address
+        // is the job's own snapshotted label, never the customer's identity.
         void notifications.alertEligiblePros(
-          eligible.map((pro) => ({ proId: pro.proId })),
+          eligible.map((pro) => ({ proId: pro.proId, distanceKm: pro.distanceKm })),
           {
             jobId: created.id,
             serviceName: service.name,
             customSkill,
             description: input.description,
             basePayPaise: input.basePayPaise,
+            address: locationLabel,
+            expiresAt: new Date(created.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
           },
         );
       }
@@ -445,8 +449,9 @@ export function createJobsService(deps: JobsServiceDeps) {
     realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     if (row.pro) realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, proDetail);
 
-    // A cancelled job is no longer open; stop repeating its alert.
-    void notifications.resolveJobAlerts(jobId);
+    // A cancelled job is no longer open; stop repeating its alert and page its
+    // holders so their native overlay/sound/tray entry closes immediately.
+    void notifications.resolveJobAlerts(jobId, 'CANCELLED');
 
     // If a pro was freed up by this cancellation, re-nudge them only with jobs
     // that arrived after they accepted the cancelled job (the ones they truly
@@ -527,6 +532,8 @@ export function createJobsService(deps: JobsServiceDeps) {
         status: JobStatus.REQUESTED,
         proId: null,
         serviceId: { in: serviceIds },
+        // A request this pro explicitly declined must not resurface.
+        declines: { none: { proId: pro.id } },
       },
       include: jobDetailInclude,
       orderBy: { createdAt: 'desc' },
@@ -580,6 +587,8 @@ export function createJobsService(deps: JobsServiceDeps) {
         status: JobStatus.REQUESTED,
         proId: null,
         serviceId: { in: serviceIds },
+        // A request this pro explicitly declined must not resurface.
+        declines: { none: { proId: pro.id } },
       },
       include: jobDetailInclude,
     });
@@ -602,6 +611,53 @@ export function createJobsService(deps: JobsServiceDeps) {
       distanceKm: km,
       estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
     };
+  }
+
+  /**
+   * Records this pro's explicit decline of an open request and stops the
+   * request from resurfacing for them.
+   *
+   * A decline is per pro per job (idempotent) and only applies while the job
+   * is still open and unassigned. It resolves the pro's own job-alert rows so
+   * the repeating push scheduler stops paging them, `/jobs/available` no longer
+   * lists the job, and the alert refetch by id 404s — so reopening the app
+   * (or tapping an older push) cannot bring a rejected request back. The job's
+   * own status and the customer are untouched; a decline is invisible to the
+   * customer purely because the request leaves this pro's pool.
+   */
+  async function declineJob(proUserId: string, jobId: string): Promise<void> {
+    const pro = await findProByUserId(proUserId);
+
+    const myServices = await prisma.proService.findMany({
+      where: { proProfileId: pro.id },
+      select: { serviceId: true },
+    });
+    const serviceIds = myServices.map((entry) => entry.serviceId);
+    if (serviceIds.length === 0) throw notFound('That request is no longer available.');
+
+    const open = await prisma.job.findFirst({
+      where: {
+        id: jobId,
+        status: JobStatus.REQUESTED,
+        proId: null,
+        serviceId: { in: serviceIds },
+      },
+      select: { id: true },
+    });
+    if (!open) throw notFound('That request is no longer available.');
+
+    await prisma.$transaction(async (tx) => {
+      await tx.jobDecline.upsert({
+        where: { jobId_proId: { jobId, proId: pro.id } },
+        create: { jobId, proId: pro.id },
+        update: {},
+      });
+      // Stop the repeating push scheduler from paging this pro for this job.
+      await tx.notification.updateMany({
+        where: { jobId, proId: pro.id, kind: NotificationKind.JOB_ALERT, resolvedAt: null },
+        data: { resolvedAt: new Date() },
+      });
+    });
   }
 
   /**
@@ -656,8 +712,22 @@ export function createJobsService(deps: JobsServiceDeps) {
    */
   async function acceptJob(proUserId: string, jobId: string): Promise<JobDetail> {
     const pro = await findProByUserId(proUserId);
+    const updated = await claimOpenJob(pro, proUserId, jobId);
+    return finalizeAccepted(proUserId, updated, pro.id);
+  }
 
-    const updated = await prisma.$transaction(async (tx) => {
+  /**
+   * Atomically claims an open REQUESTED job for a pro. Every accept path — the
+   * signed-in app (`acceptJob`) and the native overlay's single-use offer token
+   * (`acceptJobWithOffer`) — funnels through here, so only one pro can ever win
+   * a job no matter which surface arrives first.
+   */
+  async function claimOpenJob(
+    pro: { id: string },
+    proUserId: string,
+    jobId: string,
+  ): Promise<JobDetailRow> {
+    return prisma.$transaction(async (tx) => {
       const row = await tx.job.findFirst({
         where: { id: jobId, status: JobStatus.REQUESTED, proId: null },
         include: jobDetailInclude,
@@ -716,15 +786,23 @@ export function createJobsService(deps: JobsServiceDeps) {
 
       return tx.job.findFirstOrThrow({ where: { id: row.id }, include: jobDetailInclude });
     });
+  }
 
+  /** The post-claim fan-out both accept paths share: emits, terminal pages. */
+  async function finalizeAccepted(
+    proUserId: string,
+    updated: JobDetailRow,
+    proId: string,
+  ): Promise<JobDetail> {
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
     const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
     // A job that is now assigned is no longer open: stop the repeating alert
-    // still paging every other eligible pro.
-    void notifications.resolveJobAlerts(jobId);
+    // still paging every other eligible pro, and page them with an accepted
+    // terminal push so their native overlay/sound/tray entry drops at once.
+    void notifications.resolveJobAlerts(updated.id, 'ACCEPTED');
 
     // Every other pro who was alerted for this request should drop it the
     // instant it is claimed. Publishing the accepted status over their socket
@@ -732,10 +810,10 @@ export function createJobsService(deps: JobsServiceDeps) {
     // leaving them showing a dead request until the next validation poll.
     const others = await prisma.notification.findMany({
       where: {
-        jobId,
+        jobId: updated.id,
         kind: NotificationKind.JOB_ALERT,
         resolvedAt: null,
-        proId: { not: pro.id },
+        proId: { not: proId },
       },
       select: { pro: { select: { userId: true } } },
     });
@@ -746,6 +824,105 @@ export function createJobsService(deps: JobsServiceDeps) {
     );
 
     return proDetail;
+  }
+
+  /**
+   * Accepts a job via the signed, single-use offer token delivered inside the
+   * native alert's push data. Untrusted caller (no JWT): the token itself is
+   * the credential. Verifying the signature proves the token came from us; the
+   * device claim ties it to the install the push was delivered to; the
+   * `job_offers` ledger makes it redeemable exactly once. After the offer is
+   * consumed the claim is the same transaction `acceptJob` uses, so whoever
+   * actually wins is decided by the `proId` guard, never by arrival order.
+   */
+  async function acceptJobWithOffer(
+    offerToken: string,
+    deviceId: string,
+    jobId: string,
+  ): Promise<JobDetail> {
+    const secret = config.jobOfferSecret;
+    if (!secret) throw conflict('This offer is no longer valid.');
+
+    const offer = verifyJobOffer(offerToken, secret);
+    if (!offer || offer.jobId !== jobId) throw conflict('This offer is no longer valid.');
+    if (offer.deviceId !== deviceId) throw conflict('This offer belongs to another device.');
+
+    // Single-use: atomically flip the ledger row. Two replays race here and
+    // exactly one wins; the loser gets the conflict below.
+    const tokenHash = hashJobOfferToken(offerToken);
+    const consumed = await prisma.jobOffer.updateMany({
+      where: { tokenHash, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    if (consumed.count !== 1) throw conflict('This offer was already used.');
+
+    const pro = await prisma.proProfile.findUnique({
+      where: { id: offer.proId },
+      select: { id: true, userId: true },
+    });
+    if (!pro) throw notFound('This offer is no longer valid.');
+
+    try {
+      const updated = await claimOpenJob(pro, pro.userId, jobId);
+      await prisma.jobOffer.updateMany({
+        where: { tokenHash },
+        data: { outcome: 'ACCEPTED' },
+      });
+      return await finalizeAccepted(pro.userId, updated, pro.id);
+    } catch (error) {
+      // The token was consumed for good reason — a job can only keep the offer
+      // open while it is winnable. Record where it landed; a later retry over
+      // the same token is already dead.
+      await prisma.jobOffer
+        .updateMany({ where: { tokenHash }, data: { outcome: 'EXPIRED' } })
+        .catch(() => undefined);
+      throw error;
+    }
+  }
+
+  /**
+   * Declines a job via the signed, single-use offer token. Unlike accept this
+   * is deliberately non-destructive: it records a `JobDecline`, stops the
+   * repeating scheduler paging *this* pro, and leaves the job open for others.
+   * Idempotent for the native side — replays of a consumed token are a no-op
+   * 204, so the tray taps can fire more than once without harm.
+   */
+  async function rejectJobOffer(
+    offerToken: string,
+    deviceId: string,
+    jobId: string,
+  ): Promise<void> {
+    const secret = config.jobOfferSecret;
+    if (!secret) return;
+
+    const offer = verifyJobOffer(offerToken, secret);
+    if (!offer || offer.jobId !== jobId) return;
+    if (offer.deviceId !== deviceId) throw conflict('This offer belongs to another device.');
+
+    const tokenHash = hashJobOfferToken(offerToken);
+    await prisma.jobOffer.updateMany({
+      where: { tokenHash, consumedAt: null },
+      data: { consumedAt: new Date(), outcome: 'REJECTED' },
+    });
+
+    // Record the decline and resolve this pro's alert row so the scheduler
+    // stops paging them for a job they have already turned down.
+    await prisma.$transaction(async (tx) => {
+      await tx.jobDecline.upsert({
+        where: { jobId_proId: { jobId, proId: offer.proId } },
+        create: { jobId, proId: offer.proId },
+        update: {},
+      });
+      await tx.notification.updateMany({
+        where: {
+          jobId,
+          proId: offer.proId,
+          kind: NotificationKind.JOB_ALERT,
+          resolvedAt: null,
+        },
+        data: { resolvedAt: new Date() },
+      });
+    });
   }
 
   /**
@@ -889,7 +1066,10 @@ export function createJobsService(deps: JobsServiceDeps) {
         const jobPoint = { latitude: job.latitude as number, longitude: job.longitude as number };
         return { job, km: distanceKm(proPoint, jobPoint) };
       })
-      .filter(({ job, km }) => job.latitude !== null && job.longitude !== null && km <= pro.serviceRadiusKm)
+      .filter(
+        ({ job, km }) =>
+          job.latitude !== null && job.longitude !== null && km <= pro.serviceRadiusKm,
+      )
       .sort((a, b) => a.km - b.km)
       .slice(0, config.jobCatchupLimit);
 
@@ -908,16 +1088,15 @@ export function createJobsService(deps: JobsServiceDeps) {
       };
 
       realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_NEW, payload);
-      void notifications.alertEligiblePros(
-        [{ proId: pro.id }],
-        {
-          jobId: job.id,
-          serviceName: job.service.name,
-          customSkill: job.customSkill,
-          description: job.description,
-          basePayPaise: job.basePayPaise,
-        },
-      );
+      void notifications.alertEligiblePros([{ proId: pro.id, distanceKm: km }], {
+        jobId: job.id,
+        serviceName: job.service.name,
+        customSkill: job.customSkill,
+        description: job.description,
+        basePayPaise: job.basePayPaise,
+        address: job.locationLabel,
+        expiresAt: new Date(job.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
+      });
     }
   }
 
@@ -963,8 +1142,9 @@ export function createJobsService(deps: JobsServiceDeps) {
       // A racing acceptance or cancellation claimed the job first; nothing to do.
       if (!expired) continue;
 
-      // The job is no longer open; stop the repeating alert still paging pros.
-      void notifications.resolveJobAlerts(row.id);
+      // The job is no longer open; stop the repeating alert still paging pros and
+      // page them with an expired terminal push so open overlays close.
+      void notifications.resolveJobAlerts(row.id, 'EXPIRED');
 
       // Customer and every alerted pro should drop the dead request the instant
       // it expires, not wait for the next validation poll.
@@ -1017,9 +1197,12 @@ export function createJobsService(deps: JobsServiceDeps) {
     listProJobs,
     listAvailableJobs,
     getAvailableJobForPro,
+    declineJob,
     listJobHistory,
     notifyReadyJobRequests,
     acceptJob,
+    acceptJobWithOffer,
+    rejectJobOffer,
     transitionJob,
     expireStaleJobs,
     startExpireSweep,

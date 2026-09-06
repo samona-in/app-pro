@@ -28,6 +28,12 @@ export const jobsApi = {
   /** Accepts an open job. The first eligible pro to claim it wins. */
   accept: (jobId: string) => api.post<JobDetail>(`/jobs/${jobId}/accept`, {}),
 
+  /**
+   * Records this pro's decline of an open request. Idempotent server-side; the
+   * request stops resurfacing for them (feed, push scheduler, alert refetch).
+   */
+  decline: (jobId: string) => api.post<void>(`/jobs/${jobId}/decline`, {}),
+
   /** Advances an assigned job through one on-site stage. */
   transition: (jobId: string, action: ProJobTransitionAction, note?: string) =>
     api.post<JobDetail>(`/jobs/${jobId}/transition`, note ? { action, note } : { action }),

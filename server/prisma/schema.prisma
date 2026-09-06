@@ -114,16 +114,34 @@ model ProProfile {
   /// identity. Null until the app has asked for, and been granted, permission.
   pushToken String? @unique @map("push_token")
 
+  /// The device OS that holds `pushToken`. The job-alert push is sent as a
+  /// data-only message on Android (so the native full-screen service runs even
+  /// when the app is closed) and as a display alert on iOS. Always written
+  /// together with `pushToken`; null only for legacy registrations.
+  pushPlatform PushPlatform? @map("push_platform")
+
+  /// The push service that owns `pushToken`: `EXPO` via the Expo service,
+  /// `FCM` via Firebase direct delivery. Null only for legacy registrations.
+  pushProvider PushProvider? @map("push_provider")
+
   /// Whether this Pro wants job alerts at all. Server-side, so the API stays
   /// the single writer of preference; the app only toggles it through the
   /// notifications domain.
   jobAlertsEnabled Boolean @default(true) @map("job_alerts_enabled")
 
-  services         ProService[]
-  skills           ProSkill[]
+  /// A per-install identifier minted by the Android job-alert module and sent
+  /// with the push token at registration. It binds minted job-offer tokens to
+  /// one physical device, so an offer a push was delivered to cannot be
+  /// redeemed from any other device. Null for legacy registrations.
+  pushDeviceId String? @map("push_device_id")
+
+  services       ProService[]
+  skills         ProSkill[]
   /// Jobs this professional accepted. Authorised against ProProfile.userId.
-  jobs             Job[]
-  notifications    Notification[]
+  jobs           Job[]
+  notifications  Notification[]
+  declines       JobDecline[]
+  jobOffers      JobOffer[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -286,6 +304,8 @@ model Job {
 
   statusHistory JobStatusHistory[]
   notifications Notification[]
+  declines      JobDecline[]
+  jobOffers     JobOffer[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -354,6 +374,69 @@ model Notification {
   @@map("notifications")
 }
 
+/// One professional who explicitly declined an open job request.
+///
+/// A decline is per pro per job: it stops that pro from being paged for the
+/// request again (the repeating push scheduler, the `/jobs/available` feed and
+/// the alert refetch by id) for as long as the job stays open. It records
+/// nothing about the job's own status — the customer is never told a decline
+/// happened, and the request simply leaves this pro's pool. Idempotent: only
+/// the first row matters, so a duplicate Reject tap or a racing network retry
+/// is harmless.
+model JobDecline {
+  id        String   @id @default(uuid()) @db.Uuid
+  jobId     String   @map("job_id") @db.Uuid
+  proId     String   @map("pro_id") @db.Uuid
+
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  pro       ProProfile @relation(fields: [proId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([jobId, proId])
+  @@index([proId])
+  @@map("job_declines")
+}
+
+/// A single-use offer token minted for one pro on one open job and delivered
+/// inside the job alert's FCM data.
+///
+/// The token itself is a signed compact blob (HMAC'd with `JOB_OFFER_SECRET`)
+/// carrying the pro, job, device and expiry; this row is the single-use ledger.
+/// Accept and Reject atomically flip `tokenHash` from unused to consumed, so a
+/// replayed token can never act twice, and `outcome` records where it landed.
+/// One row per *delivery* — the repeating alert mints a fresh token each time it
+/// pages a pro who has not acted, so each push stays independently actionable.
+model JobOffer {
+  id        String @id @default(uuid()) @db.Uuid
+  jobId     String @map("job_id") @db.Uuid
+  job       Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  proId     String @map("pro_id") @db.Uuid
+  pro       ProProfile @relation(fields: [proId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the signed token; the token text is never stored.
+  tokenHash String @unique @map("token_hash")
+  /// The device the token is bound to (ProProfile.pushDeviceId at mint time).
+  deviceId  String? @map("device_id")
+  /// When the signed token stops being redeemable.
+  expiresAt DateTime @map("expires_at")
+  /// Set once the token has been acted on; null while still redeemable.
+  consumedAt DateTime? @map("consumed_at")
+  outcome   JobOfferOutcome? @map("outcome")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([jobId])
+  @@index([proId])
+  @@index([expiresAt])
+  @@map("job_offers")
+}
+
+/// How a minted job-offer token was settled. Mirrors the terminal push kinds.
+enum JobOfferOutcome {
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
 /// Mirrored by `PlaceType` in `@samona/types` — keep the two in sync.
 enum PlaceType {
   RESIDENCE
@@ -395,6 +478,23 @@ enum Gender {
   MALE
   FEMALE
   OTHER
+}
+
+/// The OS a push token was registered from. Used only to shape the push
+/// payload: Android job alerts are data-only so the native full-screen service
+/// runs even when the app is closed; iOS gets a display alert.
+enum PushPlatform {
+  IOS
+  ANDROID
+}
+
+/// The push service a registered token belongs to. `EXPO` goes through the
+/// Expo push service; `FCM` goes through Firebase Cloud Messaging HTTP v1
+/// directly (native Android job alerts). Always written together with
+/// `pushToken`; null only for legacy registrations.
+enum PushProvider {
+  EXPO
+  FCM
 }
 
 /// The kind of push a professional may receive. Mirrors `NotificationKind` in

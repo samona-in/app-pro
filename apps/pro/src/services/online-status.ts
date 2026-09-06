@@ -1,10 +1,11 @@
 import * as Location from 'expo-location';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
 import { env } from '@/env';
 import { jobNotificationService } from './job-notifications';
 import { api } from './api';
+import { checkDeviceReadiness, isDeviceReady } from './device-readiness-state';
 import {
   type OnlineStatus,
   type OnlineStatusState,
@@ -15,7 +16,11 @@ import {
 } from './online-status-state';
 
 export type { OnlineStatus, OnlineStatusState };
-export { subscribeToOnlineStatus } from './online-status-state';
+export {
+  subscribeToOnlineStatus,
+  isOnlineStatusKnown,
+  reconcileOnlineStatus,
+} from './online-status-state';
 
 /** Message shown when the OS-wide Location Services toggle is off. */
 export const LOCATION_SERVICES_DISABLED_MESSAGE =
@@ -27,6 +32,50 @@ export function isLocationServicesDisabledError(message: string | undefined): bo
 }
 
 let abortController: AbortController | null = null;
+
+/**
+ * A pro whose phone can swallow push-delivered job alerts must not be allowed
+ * to go online "deaf" — the alert is the product. This hard gate returns a
+ * sentinel reason the UI routes to the /device-setup fix-it screen.
+ */
+export const DEVICE_NOT_READY_REASON = 'device-not-ready';
+export const DEVICE_NOT_READY_MESSAGE =
+  'Some phone settings can block job alerts while the app is closed. Set them up before going online.';
+
+type DeviceNotReadyError = Error & { reason: typeof DEVICE_NOT_READY_REASON };
+
+function isDeviceNotReadyError(error: unknown): error is DeviceNotReadyError {
+  return (
+    error instanceof Error && (error as { reason?: unknown }).reason === DEVICE_NOT_READY_REASON
+  );
+}
+
+function newDeviceNotReadyError(): DeviceNotReadyError {
+  const error = new Error(DEVICE_NOT_READY_MESSAGE) as DeviceNotReadyError;
+  error.reason = DEVICE_NOT_READY_REASON;
+  return error;
+}
+
+/** Result of an availability toggle. Blocks report a `reason` the UI routes on. */
+export type AvailabilityResult = {
+  success: boolean;
+  error?: string;
+  reason?: typeof DEVICE_NOT_READY_REASON;
+};
+
+/**
+ * Hard gate: on Android, every OS setting that governs whether a push can raise
+ * an alert while the app is closed must be in place first. The pro is routed to
+ * /device-setup through the sentinel reason rather than being presented a bare
+ * failure. Non-Android runs are never blocked.
+ */
+async function assertDeviceReady(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  const readiness = await checkDeviceReadiness();
+  if (!isDeviceReady(readiness)) {
+    throw newDeviceNotReadyError();
+  }
+}
 
 let socket: Socket | null = null;
 let _socketReconnectAttempts = 0;
@@ -204,7 +253,7 @@ async function syncPendingJobs(): Promise<void> {
   await jobNotificationService.syncAvailableJobs();
 }
 
-export async function goOnline(token: string): Promise<{ success: boolean; error?: string }> {
+export async function goOnline(token: string): Promise<AvailabilityResult> {
   if (getIsTransitioning()) {
     return { success: false, error: 'Already transitioning' };
   }
@@ -214,6 +263,10 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
 
   try {
     if (abortController.signal.aborted) throw new Error('Aborted');
+
+    // Block first: going online is pointless if the phone cannot surface a
+    // job alert. Throws the sentinel the UI routes to /device-setup.
+    await assertDeviceReady();
 
     // Ask for the app's location permission up front — this surfaces the OS
     // permission dialog directly, which is all we can do from code and the
@@ -255,11 +308,14 @@ export async function goOnline(token: string): Promise<{ success: boolean; error
     const message = error instanceof Error ? error.message : 'Failed to go online';
     setStatus('offline', message);
     disconnectSocket();
+    if (isDeviceNotReadyError(error)) {
+      return { success: false, error: message, reason: DEVICE_NOT_READY_REASON };
+    }
     return { success: false, error: message };
   }
 }
 
-export async function goOffline(_token: string): Promise<{ success: boolean; error?: string }> {
+export async function goOffline(_token: string): Promise<AvailabilityResult> {
   if (getIsTransitioning()) {
     return { success: false, error: 'Already transitioning' };
   }
@@ -299,24 +355,6 @@ export function cancelTransition(): void {
 }
 
 export { isOnline, isOffline, getOnlineStatus } from './online-status-state';
-
-/**
- * Reconciles the in-memory online status with the server's authoritative value.
- *
- * The module's status starts as `offline` on every launch and only changes via
- * goOnline/goOffline, so on a fresh open it can disagree with the server
- * (e.g. a pro left online). This lets the UI align with the server once the
- * profile loads — but it never clobbers an in-flight toggle, so mid-transition
- * the optimistic value wins until the API call settles.
- */
-export function reconcileOnlineStatus(serverOnline: boolean): void {
-  const status = getStatusState().status;
-  if (status === 'loading' || getIsTransitioning()) return;
-  const target: OnlineStatus = serverOnline ? 'online' : 'offline';
-  if (status !== target) {
-    setStatusState(target);
-  }
-}
 
 export function getSocket(): Socket | null {
   return socket;

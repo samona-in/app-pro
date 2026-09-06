@@ -156,3 +156,40 @@ export const jobListQuerySchema = z.object({
 });
 
 export type JobListQuery = z.infer<typeof jobListQuerySchema>;
+
+/**
+ * The signed, single-use offer token delivered inside a job alert's FCM data.
+ *
+ * Redeemable (Accept/Reject) only by native code that holds both this token and
+ * the device it was minted for. The server verifies the signature, expiry and
+ * device binding, then consumes it atomically so no token can be replayed.
+ */
+export const jobOfferTokenSchema = z
+  .string()
+  .min(1, 'Offer token is required.')
+  .max(1024, 'Offer token is invalid.');
+
+/**
+ * A per-install device identifier, minted by the Android job-alert module and
+ * registered with the push token. Binds every minted offer to one device.
+ */
+export const deviceIdSchema = z
+  .string()
+  .min(8, 'Device id is invalid.')
+  .max(128, 'Device id is invalid.');
+
+/** Redeems a job-offer token by accepting the job. */
+export const acceptJobOfferSchema = z.object({
+  offerToken: jobOfferTokenSchema,
+  deviceId: deviceIdSchema,
+});
+
+export type AcceptJobOfferInput = z.infer<typeof acceptJobOfferSchema>;
+
+/** Redeems a job-offer token by declining (rejecting) the job. */
+export const rejectJobOfferSchema = z.object({
+  offerToken: jobOfferTokenSchema,
+  deviceId: deviceIdSchema,
+});
+
+export type RejectJobOfferInput = z.infer<typeof rejectJobOfferSchema>;

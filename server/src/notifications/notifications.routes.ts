@@ -27,7 +27,13 @@ export function createNotificationsRouter(services: Services): Router {
   /** Registers (or replaces) the caller's device push token. */
   router.post('/register-token', validate(registerPushTokenSchema), async (req, res, next) => {
     try {
-      await services.notifications.registerPushToken(req.user!.id, req.body.pushToken);
+      await services.notifications.registerPushToken(
+        req.user!.id,
+        req.body.pushToken,
+        req.body.platform,
+        req.body.provider,
+        req.body.deviceId,
+      );
       res.status(204).send();
     } catch (error) {
       next(error);

@@ -5,6 +5,8 @@ import {
   jobListQuerySchema,
   transitionJobSchema,
   cancelJobSchema,
+  acceptJobOfferSchema,
+  rejectJobOfferSchema,
 } from '@samona/validation';
 import type { JobStatus } from '@samona/types';
 import type { Services } from '../context';
@@ -33,6 +35,53 @@ export function createJobsRouter(services: Services): Router {
 
   const customer = Router();
   customer.use(requireAuth);
+
+  /**
+   * Native overlay offer redemption — deliberately unauthenticated.
+   *
+   * These are the two endpoints the Android job-alert overlay calls directly
+   * when the app process is dead, so there is no JWT to send. The credential is
+   * the signed, single-use `offerToken` delivered inside the push itself: the
+   * service verifies the HMAC, the expiry and the device binding, then consumes
+   * the `job_offers` ledger row atomically before acting. The `write` limiter
+   * mounted on `/jobs` in `routes.ts` still bounds this surface, keyed by IP
+   * for these anonymous calls. Must be mounted before the authenticated
+   * routers, whose `requireAuth` middleware would otherwise 401 it.
+   */
+  const offers = Router();
+  offers.post(
+    '/:jobId/offers/accept',
+    validate(acceptJobOfferSchema),
+    async (req, res, next) => {
+      try {
+        res.json(
+          await services.jobs.acceptJobWithOffer(
+            req.body.offerToken,
+            req.body.deviceId,
+            routeParamId(req.params.jobId),
+          ),
+        );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+  offers.post(
+    '/:jobId/offers/reject',
+    validate(rejectJobOfferSchema),
+    async (req, res, next) => {
+      try {
+        await services.jobs.rejectJobOffer(
+          req.body.offerToken,
+          req.body.deviceId,
+          routeParamId(req.params.jobId),
+        );
+        res.status(204).send();
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   /** The caller's own requests, newest first. */
   customer.get('/', customerOnly, validate(paginationSchema, 'query'), async (req, res, next) => {
@@ -125,6 +174,20 @@ export function createJobsRouter(services: Services): Router {
     }
   });
 
+  /**
+   * Records this pro's decline of an open request so it stops resurfacing for
+   * them (scheduler, available feed, alert refetch). Idempotent; the job's own
+   * status is never changed.
+   */
+  pro.post('/:id/decline', proOnly, async (req, res, next) => {
+    try {
+      await services.jobs.declineJob(req.user!.id, routeParamId(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
   /** One on-site stage of an accepted job, enforced by the state machine. */
   pro.post('/:id/transition', proOnly, validate(transitionJobSchema), async (req, res, next) => {
     try {
@@ -140,6 +203,10 @@ export function createJobsRouter(services: Services): Router {
       next(error);
     }
   });
+
+  // The offer endpoints are unauthenticated (token-authenticated in the
+  // service) and must run before the authenticated routers.
+  router.use(offers);
 
   // The pro router must win over the customer `/:id` catch-all: a literal
   // `/available` or `/mine` request from a pro must never be captured as a
@@ -160,7 +227,9 @@ export function createJobsRouter(services: Services): Router {
   router.get('/:id', requireAuth, async (req, res, next) => {
     try {
       if (req.user!.appType === 'pro') {
-        res.json(await services.jobs.getAvailableJobForPro(req.user!.id, routeParamId(req.params.id)));
+        res.json(
+          await services.jobs.getAvailableJobForPro(req.user!.id, routeParamId(req.params.id)),
+        );
       } else {
         res.json(await services.jobs.getForCustomer(req.user!.id, routeParamId(req.params.id)));
       }
