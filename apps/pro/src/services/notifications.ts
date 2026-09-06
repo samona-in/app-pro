@@ -23,7 +23,13 @@ import {
  * appears even while the app is open.
  */
 
-/** How foreground pushes are presented: an alert with a sound, like a real job alert. */
+/**
+ * How foreground pushes are presented: an alert with a sound, like a real job
+ * alert. Job requests surface the same way in every app state — on Android the
+ * native (FCM) overlay presents them regardless of foreground, and on iOS
+ * (where no overlay exists) the system banner/list is the presentation, so the
+ * handler always shows them while the app is open.
+ */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,

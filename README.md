@@ -161,13 +161,13 @@ Start PostgreSQL and Redis, then:
 cp .env.example .env          # set DATABASE_URL and a real JWT_SECRET
 
 npm run prisma:migrate -w @samona/server   # create the schema
-npm run dev:server                          # http://localhost:4000/api/v1
+npm run dev:server                          # https://24ab-49-37-148-205.ngrok-free.app/api/v1
 ```
 
 Verify it is up:
 
 ```bash
-curl http://localhost:4000/api/v1/health
+curl https://24ab-49-37-148-205.ngrok-free.app/api/v1/health
 # {"status":"ok","uptimeSeconds":1,"timestamp":"..."}
 ```
 

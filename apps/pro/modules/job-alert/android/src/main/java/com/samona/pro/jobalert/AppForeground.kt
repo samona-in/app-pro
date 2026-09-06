@@ -7,13 +7,11 @@ import android.os.Bundle
 /**
  * Process-wide "is one of our activities in the foreground" flag.
  *
- * Maintained via [Application.ActivityLifecycleCallbacks] because the job-alert
- * messaging service may receive a push while the pro is backgrounded (recents
- * or swiped away — the online foreground service keeps the process alive). The
- * service reads this to decide whether a NEW_JOB push should auto-bring the app
- * forward: when the app is already on screen the started activity must NOT
- * contest the running ring, and when it is backgrounded the ring is exactly
- * what the push should surface.
+ * Maintained via [Application.ActivityLifecycleCallbacks]; the job-alert
+ * messaging and foreground services register so they share one lifecycle
+ * source. A NEW_JOB push no longer consults it — the native overlay presents
+ * in every app state, foreground included — but the flag stays for any
+ * foreground-sensitive service logic and for `JobAlertForegroundService`.
  */
 object AppForeground : Application.ActivityLifecycleCallbacks {
   @Volatile

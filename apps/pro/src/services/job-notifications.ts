@@ -1,22 +1,7 @@
-import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import { JobStatus, type AvailableJob, type JobDetail, type ProProfile } from '@samona/types';
+import { JobStatus, type JobDetail } from '@samona/types';
 import { subscribe } from '@/services/realtime';
-import { startJobAlert, stopJobAlert } from '@/services/job-alert';
-import {
-  clearNativeJobAlert,
-  consumeNativePendingAction,
-  getPendingNativeJobs,
-} from './overlay-alert';
 import { jobsApi } from './jobs';
-import { api } from './api';
-import { useIncomingJobStore, type IncomingJobResolution } from '@/stores/incoming-job';
-import {
-  isOnline,
-  isOnlineStatusKnown,
-  reconcileOnlineStatus,
-  subscribeToOnlineStatus,
-} from './online-status-state';
+import { clearNativeJobAlert, consumeNativePendingAction } from './overlay-alert';
 
 const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail['status']>([
   JobStatus.ACCEPTED,
@@ -30,467 +15,88 @@ const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail
   JobStatus.EXPIRED,
 ]);
 
-// Matches the 10s native ring (JobAlertSound / JobAlertOverlay caps) so the
-// in-app decision window and the native alarm never disagree about how long an
-// alert is actionable.
-const JOB_ALERT_TIMEOUT_MS = 10_000;
-
-interface PendingJobEvent {
-  jobId: string;
-  timestamp: number;
-}
-
-  function createJobNotificationService() {
-    const handledJobIds = new Set<string>();
-    const pendingEvents = new Map<string, PendingJobEvent>();
-    // The job this pro is currently accepting. While set, a `job:status` echo
-    // for that job is this pro's own acceptance confirmation — it must not be
-    // misread as "someone else claimed it".
-    let acceptingJobId: string | null = null;
-    const socketUnsubscribes: (() => void)[] = [];
-    let pushReceivedUnsubscribe: Notifications.EventSubscription | null = null;
-    let pushResponseUnsubscribe: Notifications.EventSubscription | null = null;
-    let initialNotification: Notifications.Notification | null = null;
-    let isInitialized = false;
-    let onlineStatusUnsubscribe: (() => void) | null = null;
-
-  function getStore() {
-    return useIncomingJobStore.getState();
-  }
-
-  function isJobBeingHandled(jobId: string): boolean {
-    return handledJobIds.has(jobId);
-  }
-
-  function markJobHandled(jobId: string): void {
-    handledJobIds.add(jobId);
-    setTimeout(() => handledJobIds.delete(jobId), JOB_ALERT_TIMEOUT_MS * 2);
-  }
-
-  function clearJobHandled(jobId: string): void {
-    handledJobIds.delete(jobId);
-  }
-
-  function canShowAlert(): boolean {
-    // A push only ever reaches a pro the server considers online and eligible,
-    // but right after a cold start the in-memory flag is still the launch-time
-    // default until the profile loads. Gate on a *known* offline, never on the
-    // unknown launch default — handleJobNotification resolves the server truth.
-    return isOnline() || !isOnlineStatusKnown();
-  }
-
-  /**
-   * Resolves the online-status gate against the server on a cold start, where
-   * the in-memory flag has not been reconciled yet. The server's matching gate
-   * already limited the alert to an online pro, so this is only protecting the
-   * rare stale push that lands after the pro toggled offline.
-   */
-  async function resolveServerOnlineStatus(): Promise<boolean> {
-    try {
-      const profile = await api.get<ProProfile>('/pros/me');
-      reconcileOnlineStatus(Boolean(profile.isOnline));
-    } catch {
-      // Could not confirm the server's truth (session still restoring, network
-      // hiccup): fail closed — the alert is not raised on an unverified state.
-      return false;
-    }
-    return isOnline();
-  }
+/**
+ * Coordinates the native Android job-alert layer with the app.
+ *
+ * Job-request *presentation* is fully native now: the Android overlay/full-
+ * screen/tray raises every NEW_JOB push in every app state, so no JS ring
+ * exists anymore. What JS still owns is the two seams only the app can touch:
+ *
+ *  - Executing an Accept/Decline a pro tapped on the native overlay when the
+ *    push carried no signed offer token (with a token the overlay redeems the
+ *    job over the API by itself and never launches the app). The deep link
+ *    `job-alert/[id]?action=` carries the recorded choice here with the token
+ *    the app alone holds.
+ *  - Clearing the native overlay/tray/ring when realtime says a queued job was
+ *    claimed, cancelled or expired, so a pro is never left ringing a dead
+ *    request. REST stays the source of truth; this is a cleanup, not a decision.
+ */
+function createJobNotificationService() {
+  const socketUnsubscribes: (() => void)[] = [];
+  let isInitialized = false;
 
   async function initialize(): Promise<void> {
     if (isInitialized) return;
     isInitialized = true;
-
-    await setupPushListeners();
     setupSocketListeners();
-    await handleInitialNotification();
-    // A backgrounded NEW_JOB may have been persisted natively (overlay/tray)
-    // while this JS runtime was dead or hidden; surface those jobs and perform
-    // any accept/decline the pro tapped on the native overlay.
-    await reconcileNativePending();
-
-    onlineStatusUnsubscribe = subscribeToOnlineStatus((state) => {
-      if (state.status === 'offline') {
-        const store = getStore();
-        if ((store.job || store.pendingJobs.length > 0) && !store.resolution) {
-          stopJobAlert();
-          store.clear();
-        }
-        handledJobIds.clear();
-        pendingEvents.clear();
-      }
-    });
-  }
-
-  async function setupPushListeners(): Promise<void> {
-    if (Platform.OS === 'web') return;
-
-    pushReceivedUnsubscribe = Notifications.addNotificationReceivedListener(onNotificationReceived);
-    pushResponseUnsubscribe = Notifications.addNotificationResponseReceivedListener(onNotificationResponse);
-  }
-
-  function onNotificationReceived(notification: Notifications.Notification): void {
-    if (!canShowAlert()) return;
-
-    const data = notification.request.content.data as Record<string, unknown> | undefined;
-    if (!data || data.type !== 'NEW_JOB' || !data.jobId) return;
-
-    const jobId = String(data.jobId);
-    if (isJobBeingHandled(jobId)) return;
-
-    // Skip if this job is already in the queue or is the active job.
-    const store = getStore();
-    if (store.job?.id === jobId) return;
-    if (store.pendingJobs.some((j) => j.id === jobId)) return;
-
-    pendingEvents.set(jobId, { jobId, timestamp: Date.now() });
-    processPendingEvent(jobId);
-  }
-
-  async function onNotificationResponse(response: Notifications.NotificationResponse): Promise<void> {
-    if (!canShowAlert()) return;
-
-    const data = response.notification.request.content.data as Record<string, unknown> | undefined;
-    if (!data || data.type !== 'NEW_JOB' || !data.jobId) return;
-
-    await handleJobNotification(String(data.jobId));
-  }
-
-  async function handleInitialNotification(): Promise<void> {
-    if (Platform.OS === 'web') return;
-
-    const initial = await Notifications.getLastNotificationResponseAsync();
-    if (initial && initial.notification.request.content.data) {
-      const data = initial.notification.request.content.data as Record<string, unknown>;
-      if (data.type === 'NEW_JOB' && data.jobId) {
-        initialNotification = initial.notification;
-      }
-    }
-  }
-
-  async function handleInitialNotificationIfNeeded(): Promise<void> {
-    if (initialNotification && canShowAlert()) {
-      const data = initialNotification.request.content.data as Record<string, unknown>;
-      if (data.type === 'NEW_JOB' && data.jobId) {
-        await handleJobNotification(String(data.jobId));
-      }
-      initialNotification = null;
-    }
   }
 
   function setupSocketListeners(): void {
-    const onNew = (newJob: AvailableJob) => {
-      if (!canShowAlert()) return;
-      if (isJobBeingHandled(newJob.id)) return;
-      pendingEvents.set(newJob.id, { jobId: newJob.id, timestamp: Date.now() });
-      processPendingEvent(newJob.id);
-    };
-
+    // Terminating job:status events drop the matching native alert. (Only
+    // terminal pushes reach the dead process; this covers the live path.)
     const onStatus = (detail: JobDetail) => {
-      const store = getStore();
-      const current = store.job;
-      if (current && detail.id === current.id && UNAVAILABLE_STATUSES.has(detail.status)) {
-        // If this pro is the one accepting detail.id, the status echo is their
-        // own acceptance confirmation and the accept callback resolves it.
-        if (acceptingJobId === detail.id) return;
-        store.resolve(detail.status === JobStatus.CANCELLED ? 'cancelled' : 'unavailable');
-        return;
-      }
-
-      // Check queued jobs — remove if no longer available.
       if (UNAVAILABLE_STATUSES.has(detail.status)) {
-        store.remove(detail.id);
         void clearNativeJobAlert(detail.id);
       }
     };
 
-    socketUnsubscribes.push(subscribe('job:new', onNew), subscribe('job:status', onStatus));
-  }
-
-  function processPendingEvent(jobId: string): void {
-    const event = pendingEvents.get(jobId);
-    if (!event) return;
-
-    const store = getStore();
-    // Already active or already in the queue — skip.
-    if (store.job?.id === jobId) {
-      pendingEvents.delete(jobId);
-      return;
-    }
-    if (store.pendingJobs.some((j) => j.id === jobId)) {
-      pendingEvents.delete(jobId);
-      return;
-    }
-
-    pendingEvents.delete(jobId);
-    handleJobNotification(jobId);
-  }
-
-  async function handleJobNotification(jobId: string): Promise<void> {
-    if (isJobBeingHandled(jobId)) return;
-
-    // Cold-start gate: a fresh launch begins 'offline' until the profile loads,
-    // so the in-memory flag cannot veto an alert by itself. When the status is
-    // not yet known, resolve the server's truth first (a push only ever reaches
-    // an online, eligible pro); a genuinely stale push for an offline pro is
-    // dropped here rather than ringing over a pro who left.
-    if (!isOnline() && !isOnlineStatusKnown()) {
-      const online = await resolveServerOnlineStatus();
-      if (!online) return;
-    }
-    if (!isOnline()) return;
-
-    markJobHandled(jobId);
-
-    try {
-      const job = await fetchJob(jobId);
-      if (!job) {
-        clearJobHandled(jobId);
-        void clearNativeJobAlert(jobId);
-        return;
-      }
-
-      if (UNAVAILABLE_STATUSES.has(job.status)) {
-        // If this job was queued, remove it rather than resolving the active job.
-        const store = getStore();
-        if (store.pendingJobs.some((j) => j.id === jobId)) {
-          store.remove(jobId);
-        }
-        clearJobHandled(jobId);
-        void clearNativeJobAlert(jobId);
-        return;
-      }
-
-      const availableJob: AvailableJob = {
-        ...job,
-        distanceKm: job.distanceKm ?? null,
-        estimatedEtaMinutes: job.estimatedEtaMinutes ?? null,
-      };
-
-      // Enqueue the job. If nothing is active, the store shows it immediately;
-      // otherwise it appends to the pending queue.
-      getStore().enqueue(availableJob);
-      await startJobAlert();
-    } catch {
-      clearJobHandled(jobId);
-    }
-  }
-
-  async function fetchJob(jobId: string): Promise<JobDetail | null> {
-    try {
-      return await api.get<JobDetail>(`/jobs/${jobId}`);
-    } catch {
-      return null;
-    }
-  }
-
-  async function resolveJob(jobId: string, resolution: IncomingJobResolution): Promise<void> {
-    const store = getStore();
-    if (store.job?.id !== jobId) return;
-
-    if (resolution === 'accept') {
-      try {
-        await api.post<JobDetail>(`/jobs/${jobId}/accept`);
-        store.resolve('accept');
-      } catch {
-        store.resolve('unavailable');
-      }
-    } else {
-      store.resolve(resolution);
-    }
-
-    stopJobAlert();
-    clearJobHandled(jobId);
-    void clearNativeJobAlert(jobId);
-  }
-
-  function dismissJob(): void {
-    const store = getStore();
-    const jobId = store.job?.id;
-    if (jobId) {
-      clearJobHandled(jobId);
-      void clearNativeJobAlert(jobId);
-    }
-    store.clear();
-    stopJobAlert();
-  }
-
-  async function onAppStateChange(state: string): Promise<void> {
-    if (state !== 'active') {
-      const store = getStore();
-      if ((store.job || store.pendingJobs.length > 0) && !store.resolution) {
-        stopJobAlert();
-      }
-      return;
-    }
-    // Coming back to the foreground is a chance to reconcile what was missed
-    // while suspended: pull any still-open requests the pro serves. REST is the
-    // source of truth, so this back-fills a `job:new` nudge or alert that was
-    // never surfaced. Best-effort; the socket and push paths remain primary.
-    void syncAvailableJobs();
-    // Re-read the native store (overlay alerts + the action the pro tapped on
-    // the native Accept/Decline banner) and reconcile both against the queues.
-    void reconcileNativePending();
-  }
-
-  /**
-   * Reconciles the native job-alert store with the in-app queues.
-   *
-   * The native overlay layer may have rung for a job while this JS runtime was
-   * dead, hidden or just starting up. On resume this enqueues every still-open
-   * native alert via the same fetch-and-verify path as a socket/push nudge.
-   *
-   * The accept/decline a pro taps on the native overlay banner is deliberately
-   * NOT consumed here when the push carried a signed offer token: the overlay
-   * redeems it directly over the API, no app launch needed. The remaining
-   * case — a legacy push without a token — still routes through the
-   * `job-alert/:id` deep link, which performs the recorded action itself (the
-   * app alone holds the main token) and then lands the pro on the right screen.
-   * This keeps a single, unambiguous actor — no double accepts, no lost landings.
-   */
-  async function reconcileNativePending(): Promise<void> {
-    if (!canShowAlert()) return;
-
-    const nativeJobs = await getPendingNativeJobs();
-    for (const pending of nativeJobs) {
-      if (!canShowAlert()) break;
-      if (isJobBeingHandled(pending.jobId)) continue;
-      const store = getStore();
-      if (store.job?.id === pending.jobId) continue;
-      if (store.pendingJobs.some((j) => j.id === pending.jobId)) continue;
-      // handleJobNotification re-verifies against the server, so a stale
-      // native entry quietly drops (and clears its native copy) if the job is
-      // no longer open for this pro.
-      void handleJobNotification(pending.jobId);
-    }
+    socketUnsubscribes.push(subscribe('job:status', onStatus));
   }
 
   /**
    * Executes the accept/decline a pro tapped on the native overlay banner.
    *
    * The native button only records the choice, stops the alarm and opens the
-   * app; this is where the authorized API call actually runs — single-tap Rapido
-   * UX with the token held only by the app. Called from the `job-alert/:id`
-   * route with the action it was deep-linked with; the recorded action (if any
-   * is still present) is consumed so nothing ever double-executes.
+   * app; this is where the authorized API call actually runs — single-tap UX
+   * with the token held only by the app. Called from the `job-alert/:id` route
+   * with the action it was deep-linked with; any recorded action still present
+   * is consumed so nothing ever double-executes.
    */
   async function resolveNativePendingAction(
     jobId: string,
     action: 'accept' | 'decline',
   ): Promise<void> {
-    // Clear whatever the native side recorded for this job first, so a later
-    // boot/resume can never re-run this decision.
+    // Clear whatever the native side recorded first, so a later boot/resume can
+    // never re-run this decision.
     await consumeNativePendingAction();
 
-    const store = getStore();
     if (action === 'accept') {
-      if (isJobBeingHandled(jobId)) return;
-      markJobHandled(jobId);
-      // While the accept is in flight, treat this job's status echo as our own
-      // confirmation (mirrors the in-app ring path).
-      setAccepting(jobId);
       try {
         await jobsApi.accept(jobId);
-        if (store.job?.id === jobId) {
-          store.resolve('accept');
-        }
       } catch {
-        if (store.job?.id === jobId && !store.resolution) {
-          store.resolve('unavailable');
-        }
-      } finally {
-        setAccepting(null);
-        clearJobHandled(jobId);
+        // The claim failed (already taken, expired, offline); the error is
+        // server truth and the native alert is dropped below regardless.
       }
     } else {
-      // Decline: record it (idempotent server-side) and drop the request.
       try {
         await jobsApi.decline(jobId);
       } catch {
-        // A stale/unknown job declines nowhere; dropping it locally is correct.
+        // A stale/unknown job declines nowhere; dropping it natively is correct.
       }
-      store.remove(jobId);
     }
 
-    stopJobAlert();
     void clearNativeJobAlert(jobId);
-  }
-
-  /**
-   * Pulls open (REQUESTED) jobs the pro serves from `/jobs/available` and
-   * enqueues any not already showing or waiting. This is the reliable recovery
-   * path when a `job:new` socket nudge was missed, deduped against, or lost to
-   * a connect race — the pro still sees every pending request.
-   */
-  async function syncAvailableJobs(): Promise<void> {
-    if (!canShowAlert()) return;
-    let jobs: JobDetail[];
-    try {
-      jobs = await api.get<JobDetail[]>('/jobs/available', { query: { limit: 20 } });
-    } catch {
-      return;
-    }
-
-    const store = getStore();
-    for (const job of jobs) {
-      if (job.status !== 'REQUESTED') continue;
-      if (store.job?.id === job.id) continue;
-      if (store.pendingJobs.some((j) => j.id === job.id)) continue;
-      if (isJobBeingHandled(job.id)) continue;
-
-      const availableJob: AvailableJob = {
-        ...job,
-        distanceKm: job.distanceKm ?? null,
-        estimatedEtaMinutes: job.estimatedEtaMinutes ?? null,
-      };
-      store.enqueue(availableJob);
-    }
-
-    if (store.job || store.pendingJobs.length > 0) {
-      void startJobAlert();
-    }
   }
 
   function cleanup(): void {
     socketUnsubscribes.forEach((off) => off());
     socketUnsubscribes.length = 0;
-    if (pushReceivedUnsubscribe) {
-      pushReceivedUnsubscribe.remove();
-      pushReceivedUnsubscribe = null;
-    }
-    if (pushResponseUnsubscribe) {
-      pushResponseUnsubscribe.remove();
-      pushResponseUnsubscribe = null;
-    }
-    if (onlineStatusUnsubscribe) {
-      onlineStatusUnsubscribe();
-      onlineStatusUnsubscribe = null;
-    }
-    handledJobIds.clear();
-    pendingEvents.clear();
-    acceptingJobId = null;
-    stopJobAlert();
     isInitialized = false;
-  }
-
-  /**
-   * Marks the job this pro is currently accepting (or clears it). While set,
-   * a `job:status` echo for that job is treated as their own confirmation.
-   */
-  function setAccepting(jobId: string | null): void {
-    acceptingJobId = jobId;
   }
 
   return {
     initialize,
-    handleInitialNotificationIfNeeded,
-    onAppStateChange,
-    handleJobNotification,
-    resolveJob,
-    dismissJob,
     resolveNativePendingAction,
-    setAccepting,
-    syncAvailableJobs,
     cleanup,
   };
 }

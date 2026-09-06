@@ -16,18 +16,22 @@ private val TERMINAL_JOB_DATA_TYPES = setOf("JOB_ACCEPTED", "JOB_CANCELLED", "JO
  * MESSAGING_EVENT handler, so NEW_JOB pushes land here).
  *
  * NEW_JOB — persist to [AlertStore], then present in exactly one tier,
- * strongest first, so a request raises over whatever the pro is doing:
+ * strongest first, so a request raises over whatever the pro is doing — in the
+ * foreground, backgrounded or killed:
  *
- *  1. app foreground → stored only; the in-app JS ring (socket/push listener)
- *     rings where the pro already is.
- *  2. "display over other apps" granted → [JobAlertOverlay] banner + the
+ *  1. "display over other apps" granted → [JobAlertOverlay] banner + the
  *     native looping alarm (10 s) + a MAX head-up tray entry. The overlay's
  *     Accept/Reject redeem the single-use offer token directly over the API.
- *  3. full-screen intent usable (Android ≤13, or the granted 14+ role) → the
+ *  2. full-screen intent usable (Android ≤13, or the granted 14+ role) → the
  *     system covers the screen with the `job-alert/[id]` route; the channel's
  *     looping sound plays once.
- *  4. otherwise → the MAX head-up tray entry (with Accept/Reject actions)
+ *  3. otherwise → the MAX head-up tray entry (with Accept/Reject actions)
  *     remains tappable.
+ *
+ * The native overlay is the single presentation for a NEW_JOB request in every
+ * app state. There is no separate in-app (JS) ring anymore, so the app being
+ * in the foreground is not a reason to skip it — an open pro needs the same
+ * request they would get while backgrounded.
  *
  * Terminal messages (JOB_ACCEPTED / JOB_CANCELLED / JOB_EXPIRED) cancel the
  * native alert for that job: sound, overlay and tray. These are data-only, so
@@ -85,35 +89,32 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
     val alert = IncomingJobAlert.fromFcmData(jobId, data, System.currentTimeMillis())
     AlertStore(this).addOrReplace(alert)
 
-    // The app is where the pro is looking; the JS layer rings from there.
-    if (AppForeground.isForeground) return
-
     AlertNotifications.ensureChannel(this)
-    if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-      Log.w(JOB_ALERT_TAG, "Notifications off — alert for $jobId only stored")
-      return
-    }
+    if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+      val fullScreenUsable =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+          NotificationManagerCompat.from(this).canUseFullScreenIntent()
+      if (Settings.canDrawOverlays(this)) {
+        // Explicit user grant, so the only tier that draws over any app comes
+        // first: banner + looping alarm + a MAX head-up tray. A full-screen
+        // intent would raise exactly the same route over the same screen without
+        // needing the grant, so it is only the fallback on devices where the
+        // overlay permission is missing. Shown for any app state — backgrounded,
+        // killed and foreground alike.
+        AlertNotifications.postAlert(this, alert, fullScreen = false)
+        JobAlertSound.start(this)
+        JobAlertOverlay.show(this, alert)
+        return
+      }
+      if (fullScreenUsable) {
+        AlertNotifications.postAlert(this, alert, fullScreen = true)
+        return
+      }
 
-    val fullScreenUsable =
-      Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
-        NotificationManagerCompat.from(this).canUseFullScreenIntent()
-    if (Settings.canDrawOverlays(this)) {
-      // Explicit user grant, so the only tier that draws over any app comes
-      // first: banner + looping alarm + a MAX head-up tray. A full-screen
-      // intent would raise exactly the same route over the same screen without
-      // needing the grant, so it is only the fallback on devices where the
-      // overlay permission is missing.
       AlertNotifications.postAlert(this, alert, fullScreen = false)
-      JobAlertSound.start(this)
-      JobAlertOverlay.show(this, alert)
-      return
+    } else {
+      Log.w(JOB_ALERT_TAG, "Notifications off — alert for $jobId only stored")
     }
-    if (fullScreenUsable) {
-      AlertNotifications.postAlert(this, alert, fullScreen = true)
-      return
-    }
-
-    AlertNotifications.postAlert(this, alert, fullScreen = false)
   }
 
   private fun handleTerminal(jobId: String) {
