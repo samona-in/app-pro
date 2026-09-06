@@ -20,8 +20,11 @@ private val TERMINAL_JOB_DATA_TYPES = setOf("JOB_ACCEPTED", "JOB_CANCELLED", "JO
  * foreground, backgrounded or killed:
  *
  *  1. "display over other apps" granted → [JobAlertOverlay] banner + the
- *     native looping alarm (10 s) + a MAX head-up tray entry. The overlay's
- *     Accept/Reject redeem the single-use offer token directly over the API.
+ *     native looping alarm (10 s) + a silent MAX head-up tray entry (kept so a
+ *     screen-off device wakes and the request survives the overlay's auto-
+ *     dismiss; it makes no sound of its own — the looping alarm is the single
+ *     ring). The overlay's Accept/Reject redeem the single-use offer token
+ *     directly over the API.
  *  2. full-screen intent usable (Android ≤13, or the granted 14+ role) → the
  *     system covers the screen with the `job-alert/[id]` route; the channel's
  *     looping sound plays once.
@@ -96,12 +99,16 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
           NotificationManagerCompat.from(this).canUseFullScreenIntent()
       if (Settings.canDrawOverlays(this)) {
         // Explicit user grant, so the only tier that draws over any app comes
-        // first: banner + looping alarm + a MAX head-up tray. A full-screen
-        // intent would raise exactly the same route over the same screen without
-        // needing the grant, so it is only the fallback on devices where the
-        // overlay permission is missing. Shown for any app state — backgrounded,
+        // first: banner + looping alarm + a SILENT MAX head-up tray. The
+        // heads-up keeps waking a screen-off device and leaves a durable
+        // Accept/Decline surface after the overlay auto-dismisses; its own
+        // chime is suppressed because JobAlertSound already rings — two alarms
+        // for one request would defeat the point. A full-screen intent would
+        // raise exactly the same route over the same screen without needing
+        // the grant, so it is only the fallback on devices where the overlay
+        // permission is missing. Shown for any app state — backgrounded,
         // killed and foreground alike.
-        AlertNotifications.postAlert(this, alert, fullScreen = false)
+        AlertNotifications.postAlert(this, alert, fullScreen = false, silent = true)
         JobAlertSound.start(this)
         JobAlertOverlay.show(this, alert)
         return

@@ -65,9 +65,18 @@ object AlertNotifications {
    * [fullScreen] the notification tries to cover the screen (Android ≤13
    * automatically; the per-app role decides on 14+); otherwise it is still a
    * MAX importance heads-up. The content intent opens the `job-alert/[id]`
-   * route, which raises the in-app ring.
+   * route. With [silent] the entry is published on the MAX channel but with
+   * its own chime suppressed — used under the native overlay, where
+   * [JobAlertSound] already owns the single audible alarm; the heads-up still
+   * wakes a screen-off device and leaves a durable Accept/Decline surface once
+   * the overlay auto-dismisses.
    */
-  fun postAlert(context: Context, alert: IncomingJobAlert, fullScreen: Boolean) {
+  fun postAlert(
+    context: Context,
+    alert: IncomingJobAlert,
+    fullScreen: Boolean,
+    silent: Boolean = false,
+  ) {
     if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
       Log.w(JOB_ALERT_TAG, "Notifications disabled — skipping tray for job ${alert.jobId}")
       return
@@ -90,6 +99,7 @@ object AlertNotifications {
         .setAutoCancel(true)
         .setShowWhen(true)
         .setOnlyAlertOnce(true)
+        .setSilent(silent)
         .setContentIntent(contentIntent)
         .addAction(0, "Decline", actionPendingIntent(context, alert, "decline"))
         .addAction(0, "Accept", actionPendingIntent(context, alert, "accept"))
