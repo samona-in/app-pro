@@ -30,16 +30,6 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
-          name="booking/new"
-          options={{
-            headerShown: true,
-            title: 'New booking',
-            headerBackTitle: 'Back',
-            headerTintColor: color['text-primary'],
-            headerStyle: { backgroundColor: color.surface },
-          }}
-        />
-        <Stack.Screen
           name="notifications"
           options={{
             headerShown: true,
