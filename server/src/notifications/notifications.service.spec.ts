@@ -243,7 +243,7 @@ describe('buildFcmPushMessage', () => {
     channelId: 'incoming_jobs',
   };
 
-  it('carries string data, a display notification, high priority and a per-job ttl/collapse/tag', () => {
+  it('carries string data, is data-only (so onMessageReceived runs), high priority and a per-job ttl/collapse', () => {
     const payload = buildFcmPushMessage(message, { ttlMs: 60_000, collapseKey: 'job-1' });
 
     expect(payload.data).toEqual({
@@ -251,19 +251,14 @@ describe('buildFcmPushMessage', () => {
       jobId: 'job-1',
       amountPaise: '15000',
     });
-    expect(payload.notification).toEqual({
-      title: 'Electrical job nearby',
-      body: 'Fix the switch near the door — ₹150.00. Tap to see and accept.',
-    });
-    expect(payload.android).toMatchObject({
+    // A display `notification` block would make firebase-messaging render the
+    // tray entry itself and never call onMessageReceived — the native overlay
+    // depends on it being data-only.
+    expect(payload.notification).toBeUndefined();
+    expect(payload.android).toEqual({
       priority: 'high',
       ttl: '60s',
       collapseKey: 'job-1',
-      notification: {
-        channelId: 'incoming_jobs',
-        sound: 'job_alert',
-        tag: 'job-1',
-      },
     });
   });
 });

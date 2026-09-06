@@ -208,13 +208,20 @@ export function buildPushMessage(
 /**
  * Builds the FCM HTTP v1 payload for a job alert.
  *
- * A display `notification` (with the `incoming_jobs` channel + looping sound)
- * is rendered by the system tray even when the app process is dead; the job
- * data drives the native overlay whenever `onMessageReceived` runs. The
- * notification `tag` and message `collapseKey` are both the job id, so every
- * repeat (and any duplicate) replaces the same tray entry instead of stacking.
- * `ttl` is the configured accept window, bounded far below the job-expiry TTL
- * so a stale offer cannot surface hours later.
+ * Deliberately DATA-ONLY. `firebase-messaging`'s `dispatchMessage` short-
+ * circuits when a message carries a top-level `notification` (or
+ * `android.notification`) block: it renders the tray notification itself via
+ * `DisplayNotification` and NEVER calls `onMessageReceived` — so the native
+ * overlay, looping alarm and Accept/Decline actions would never run, no matter
+ * which service wins `MESSAGING_EVENT` resolution. With a data-only message
+ * FCM always falls through to `onMessageReceived`, where the pro-side
+ * `JobAlertMessagingService` raises the alert (overlay + `incoming_jobs`
+ * channel + `job_alert` sound) using the same per-job ids. The online
+ * foreground service keeps the process alive while the pro is online, which is
+ * what lets a backgrounded app receive these data messages at all. `ttl` is the
+ * configured accept window, bounded far below the job-expiry TTL so a stale
+ * offer cannot surface hours later; `collapseKey` is the job id so duplicates
+ * replace rather than stack.
  */
 export function buildFcmPushMessage(
   message: {
@@ -227,7 +234,6 @@ export function buildFcmPushMessage(
 ): FcmMessagePayload {
   return {
     data: toFcmData(message.data),
-    notification: { title: message.title, body: message.body },
     android: {
       priority: 'high',
       // FCM's android.ttl is a protobuf Duration: whole seconds with an `s`
@@ -235,11 +241,6 @@ export function buildFcmPushMessage(
       // sub-second TTL never collapses to zero.
       ttl: `${Math.ceil(options.ttlMs / 1000)}s`,
       collapseKey: options.collapseKey,
-      notification: {
-        channelId: message.channelId ?? JOB_ALERT_CHANNEL,
-        sound: 'job_alert',
-        tag: options.collapseKey,
-      },
     },
   };
 }
