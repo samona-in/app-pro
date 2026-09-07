@@ -686,15 +686,15 @@ describe('createJobsService.acceptJob', () => {
       ...jobRow,
       status: JobStatus.ACCEPTED,
       proId: 'pro-1',
-      customer: { userId: 'cust-user-1', displayName: 'Cust' },
-      pro: { userId: 'pro-user-1' },
+      customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
+      pro: { userId: 'pro-user-1', profile: { phone: null } },
     };
 
     const openRow = {
       ...jobRow,
       latitude: 12.972,
       longitude: 77.594,
-      customer: { userId: 'cust-user-1', displayName: 'Cust' },
+      customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
       pro: null,
     };
 
@@ -782,15 +782,15 @@ describe('createJobsService.acceptJobWithOffer', () => {
       ...jobRow,
       status: JobStatus.ACCEPTED,
       proId: 'pro-1',
-      customer: { userId: 'cust-user-1', displayName: 'Cust' },
-      pro: { userId: 'pro-user-1' },
+      customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
+      pro: { userId: 'pro-user-1', profile: { phone: null } },
     };
 
     const openRow = {
       ...jobRow,
       latitude: 12.972,
       longitude: 77.594,
-      customer: { userId: 'cust-user-1', displayName: 'Cust' },
+      customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
       pro: null,
     };
 
