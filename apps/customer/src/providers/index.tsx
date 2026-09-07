@@ -3,8 +3,15 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './auth-provider';
 import { QueryProvider } from './query-provider';
+// Imported from its module, not the `@/hooks` barrel: that barrel re-exports
+// `use-session.ts`, which imports `./auth-provider`, and re-entry through the
+// barrel would form an import cycle with this file.
+import { usePushNavigation } from '@/hooks/use-push-navigation';
 
 export function AppProviders({ children }: { children: ReactNode }) {
+  // Tap a chat notification → open that booking's thread.
+  usePushNavigation((jobId) => `/booking/${jobId}/chat`);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

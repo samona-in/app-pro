@@ -45,6 +45,7 @@ const colors = {
   brand: palette.ink[900],
   'brand-muted': palette.ink[700],
   'brand-contrast': palette.white,
+  'brand-soft': palette.blue[50],
 
   success: palette.green[600],
   'success-surface': palette.green[50],

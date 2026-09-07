@@ -10,6 +10,7 @@ import { createFilesRouter } from './files/files.routes';
 import { createCustomersRouter } from './customers/customers.routes';
 import { createServicesRouter } from './services/services.routes';
 import { createJobsRouter } from './jobs/jobs.routes';
+import { createMessagesRouter } from './messages/messages.routes';
 import { createLocationsRouter } from './locations/locations.routes';
 import { createEarningsRouter } from './earnings/earnings.routes';
 import { createNotificationsRouter } from './notifications/notifications.routes';
@@ -57,6 +58,11 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
 
   // High-frequency telemetry gets its own, larger budget.
   router.use('/locations', limiters.location, createLocationsRouter(services));
+
+  // Job-scoped chat. Rides the write limiter like jobs; the auth middleware is
+  // per-route inside the router rather than baked into the sub-router so the
+  // caller is validated but no role is enforced (either party may talk).
+  router.use('/messages', limiters.write, createMessagesRouter(services));
 
   // Money and third-party fan-out: the tightest budget, because abuse costs
   // real money rather than CPU. Job payment settles on the jobs router.

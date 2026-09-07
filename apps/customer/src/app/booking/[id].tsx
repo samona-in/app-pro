@@ -1,5 +1,5 @@
-import { Alert, Image, ScrollView, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { JobStatus, type JobDetail } from '@samona/types';
 import { bookingStatusLabel } from '@/components/booking';
@@ -36,6 +36,30 @@ const CANCELLABLE: JobStatus[] = [
 
 function canCancel(status: JobStatus): boolean {
   return CANCELLABLE.includes(status);
+}
+
+/**
+ * Compound "call + message" contact button in the native header. A chat-bubble
+ * glyph with a small call badge reads as both ways to reach the professional;
+ * the 44pt surface circle keeps it consistent with IconButton. Only rendered
+ * once a pro is assigned — before that there is nobody to reach.
+ */
+function CallMessageButton({ jobId }: { jobId: string }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Call or message professional"
+      onPress={() => router.push({ pathname: '/booking/[id]/chat', params: { id: jobId } })}
+      className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
+    >
+      <View>
+        <Ionicons name="chatbubble-ellipses" size={22} color={color.brand} />
+        <View className="absolute -bottom-1 -right-2 h-5 w-5 items-center justify-center rounded-full bg-brand">
+          <Ionicons name="call" size={11} color={color['brand-contrast']} />
+        </View>
+      </View>
+    </Pressable>
+  );
 }
 
 export default function BookingDetail() {
@@ -107,6 +131,14 @@ export default function BookingDetail() {
 
   return (
     <Screen scrollable edges={['top', 'bottom']} className="bg-background">
+      {job.pro ? (
+        <Stack.Screen
+          options={{
+            headerRight: () => <CallMessageButton jobId={job.id} />,
+          }}
+        />
+      ) : null}
+
       <View className="pt-4">
         <Badge label={bookingStatusLabel(job.status)} tone="info" withDot />
         <Text variant="titleLg" className="mt-3">

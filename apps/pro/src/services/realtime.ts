@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
-import type { AvailableJob, JobDetail } from '@samona/types';
+import type { AvailableJob, ChatMessage, JobDetail, MessageReceiptUpdate } from '@samona/types';
 import { env } from '@/env';
 
 /**
@@ -18,6 +18,12 @@ export interface RealtimeEventMap {
   'job:new': AvailableJob;
   /** A job the pro is party to changed state. Payload: JobDetail. */
   'job:status': JobDetail;
+  /** A new chat message landed on a job the pro is party to. Payload: ChatMessage. */
+  'message:new': ChatMessage;
+  /** The other party's device delivered the pro's messages. Payload: MessageReceiptUpdate. */
+  'message:delivered': MessageReceiptUpdate;
+  /** The other party's app read the pro's messages. Payload: MessageReceiptUpdate. */
+  'message:read': MessageReceiptUpdate;
 }
 type RealtimeEvent = keyof RealtimeEventMap;
 

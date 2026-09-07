@@ -1,5 +1,6 @@
-import { JobStatus, NotificationKind, type AppNotification } from '@samona/types';
+import { JobStatus, NotificationKind, type AppNotification, type ChatMessage } from '@samona/types';
 import type { PushPlatformInput, PushProviderInput } from '@samona/validation';
+import type { AppType } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
 import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
@@ -726,11 +727,19 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   }
 
   /**
-   * Registers (or replaces) this Pro's device push token, recording which
-   * provider owns it.
+   * Registers (or replaces) this user's device push token on the surface that
+   * is registering, recording which provider owns it.
+   *
+   * Works for a Pro or a Customer. `appType` decides which row holds the token
+   * — it comes from the caller's `X-App-Type`, never from which profiles exist.
+   * That matters because one account can be both a pro and a customer (a single
+   * phone number provisions both rows under the same `userId`): each phone's
+   * token must land on the row that phone is, or pushes between two phones of
+   * the same person would all ring the wrong device.
    */
   async function registerPushToken(
     userId: string,
+    appType: AppType | null,
     pushToken: string,
     platform: PushPlatformInput,
     provider: PushProviderInput,
@@ -759,19 +768,54 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       }
     }
 
+    const storedPlatform = platform === 'android' ? 'ANDROID' : 'IOS';
+
+    // The surface the calling app is on. Null (missing `X-App-Type`, e.g. an
+    // admin client) defaults to the pro surface, matching `roleForAppType`.
+    const onCustomer = appType === 'customer';
+
     // A device token identifies one device; a re-sign-in or re-install must not
-    // leave a stale copy on an old profile behind (violating the unique index).
+    // leave a stale copy on an old account behind (violating the unique index).
     await prisma.proProfile.updateMany({
       where: { pushToken, userId: { not: userId } },
       data: { pushToken: null, pushPlatform: null, pushProvider: null },
     });
+    await prisma.customerProfile.updateMany({
+      where: { pushToken, userId: { not: userId } },
+      data: { pushToken: null, pushPlatform: null, pushProvider: null },
+    });
 
-    // The stored platform/provider only shape the push payload on our side; the
-    // token itself is the identity, and it remains server-validated. The device
-    // id is kept only when the client sends one, so a legacy re-registration
-    // without it cannot wipe a freshly-bound install.
-    const storedPlatform = platform === 'android' ? 'ANDROID' : 'IOS';
-    const updated = await prisma.proProfile.upsert({
+    if (onCustomer) {
+      const row = await prisma.customerProfile.upsert({
+        where: { userId },
+        create: {
+          userId,
+          pushToken,
+          pushPlatform: storedPlatform,
+          pushProvider: providerValue,
+        },
+        update: {
+          pushToken,
+          pushPlatform: storedPlatform,
+          pushProvider: providerValue,
+        },
+      });
+      // Self-heal: the same token must never also sit on this account's pro
+      // surface (a buggy/legacy registration can leave it there), or a push
+      // meant for one phone would split across the two rows of one person.
+      await prisma.proProfile.updateMany({
+        where: { userId, pushToken },
+        data: { pushToken: null, pushPlatform: null, pushProvider: null },
+      });
+      logger.info(
+        `[Push] Token stored successfully for customer ${row.id} (${providerValue}).`,
+      );
+      return;
+    }
+
+    // Pro path: the Pro profile owns job alerts, plus the device binding that
+    // lets the native overlay operate on a dead process.
+    await prisma.proProfile.upsert({
       where: { userId },
       create: {
         userId,
@@ -786,12 +830,93 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         pushProvider: providerValue,
         ...(deviceId ? { pushDeviceId: deviceId } : {}),
       },
-      select: { id: true, jobAlertsEnabled: true },
     });
+    // See the customer branch above — drop any duplicate of this token that a
+    // legacy registration left on the same account's customer surface.
+    await prisma.customerProfile.updateMany({
+      where: { userId, pushToken },
+      data: { pushToken: null, pushPlatform: null, pushProvider: null },
+    });
+    logger.info(`[Push] Token stored successfully for pro ${userId} (${providerValue}).`);
+  }
 
-    logger.info(
-      `[Push] Token stored successfully for pro ${updated.id} (alerts ${updated.jobAlertsEnabled ? 'on' : 'off'}, ${providerValue}).`,
-    );
+  /**
+   * Delivers a chat-message push to the recipient (the other party of a job),
+   * so they get a tray notification when the thread isn't open on their device.
+   *
+   * The recipient is looked up by Profile id across both surfaces — customer or
+   * pro — and sent over the provider their token was registered with (FCM for
+   * Android, Expo otherwise).
+   *
+   * Unlike a job alert, a chat message is a DISPLAY notification on Android:
+   * FCM renders it in the system tray even when the app process is dead, which
+   * is exactly what a conversation notification should do. The `type` is
+   * `CHAT_MESSAGE`, which the native Android job-alert service passes straight
+   * through to Expo's handler (it only intercepts NEW_JOB / terminal kinds), so
+   * this deep-links into the chat screen on tap.
+   */
+  async function sendChatPush(input: {
+    userId: string;
+    jobId: string;
+    senderName: string | null;
+    message: ChatMessage;
+    /** Which side of the job the recipient is on — the row their token lives on. */
+    recipientIsCustomer: boolean;
+  }): Promise<void> {
+    // Chat is between the two sides of one job, so delivery reads the token of
+    // the surface the recipient acts as there. When one person is both (one
+    // phone number on two devices) their tokens live on the two separate rows;
+    // picking "whichever exists" would ring the wrong phone.
+    const profile = await (input.recipientIsCustomer
+      ? prisma.customerProfile.findUnique({
+          where: { userId: input.userId },
+          select: { pushToken: true, pushPlatform: true, pushProvider: true },
+        })
+      : prisma.proProfile.findUnique({
+          where: { userId: input.userId },
+          select: { pushToken: true, pushPlatform: true, pushProvider: true },
+        }));
+    const token = profile?.pushToken;
+    if (!token) return;
+
+    const title = input.senderName ?? 'New message';
+    const body = input.message.content;
+    const data = toFcmData({
+      type: 'CHAT_MESSAGE',
+      jobId: input.jobId,
+      messageId: input.message.id,
+      senderId: input.message.senderId,
+    });
+    const channelId = 'chat_messages';
+
+    if (pushProviderOf(profile as { pushProvider?: 'EXPO' | 'FCM' | null }) === 'FCM') {
+      const client = getFcmClient();
+      if (!client) {
+        logger.warn('[Push] FCM not configured — skipping a chat push.');
+        return;
+      }
+      // A display message (with a `notification` block) survives the process
+      // being dead, unlike a data-only message. collapseKey keys the thread so
+      // a burst of messages replaces rather than stacks.
+      const result = await client.send(token, {
+        notification: { title, body },
+        data: { ...data, title, body },
+        android: {
+          priority: 'high',
+          collapseKey: `chat-${input.jobId}`,
+          notification: { channelId, sound: 'default' },
+        },
+      });
+      if (!result.ok) {
+        logger.warn(`[Push] Chat push to ${input.userId} on job ${input.jobId} not delivered.`);
+      }
+      return;
+    }
+
+    const result = await sendPush(token, { title, body, data }, profile.pushPlatform, 'EXPO');
+    if (!result.ok) {
+      logger.warn(`[Push] Chat push to ${input.userId} on job ${input.jobId} not delivered.`);
+    }
   }
 
   /** Turns the Pro's job alerts on or off. */
@@ -949,9 +1074,17 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     listForPro,
     registerPushToken,
     setPushSettings,
+    sendChatPush,
     start,
     stop,
   };
 }
 
 export type NotificationsService = ReturnType<typeof createNotificationsService>;
+
+/**
+ * The subset of the notifications service the messages domain injects as a
+ * dependency, avoiding a tight import coupling while giving the messages
+ * service access to push delivery.
+ */
+export type ChatPushSender = NotificationsService['sendChatPush'];

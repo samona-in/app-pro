@@ -50,9 +50,20 @@ const jobDetailInclude = {
       locationLabel: true,
       latitude: true,
       longitude: true,
+      // Contact number, shared once the job is accepted so the pro can call.
+      // Lives on the shared identity row, not the surface profile.
+      profile: { select: { phone: true } },
     },
   },
-  pro: { select: { id: true, userId: true, displayName: true, rating: true } },
+  pro: {
+    select: {
+      id: true,
+      userId: true,
+      displayName: true,
+      rating: true,
+      profile: { select: { phone: true } },
+    },
+  },
 } as const;
 
 type JobRow = {
@@ -84,8 +95,15 @@ type JobDetailRow = JobRow & {
     locationLabel: string | null;
     latitude: number | null;
     longitude: number | null;
+    profile: { phone: string | null };
   };
-  pro: { id: string; userId: string; displayName: string | null; rating: number | null } | null;
+  pro: {
+    id: string;
+    userId: string;
+    displayName: string | null;
+    rating: number | null;
+    profile: { phone: string | null };
+  } | null;
 };
 
 const iso = (d: Date): string => d.toISOString();
@@ -139,11 +157,19 @@ function toJobDetail(
             // The job's own snapshotted label, not the customer's saved one —
             // they may be booking from a different place than their profile.
             locationLabel: row.locationLabel,
+            // Contact share: once a pro commits, the customer's number is
+            // needed to coordinate the job in person.
+            phone: row.customer.profile.phone,
           }
         : null,
     pro:
       forViewer === 'customer' && assigned && row.pro
-        ? { proId: row.pro.id, displayName: row.pro.displayName, rating: row.pro.rating }
+        ? {
+            proId: row.pro.id,
+            displayName: row.pro.displayName,
+            rating: row.pro.rating,
+            phone: row.pro.profile.phone,
+          }
         : null,
   };
 }

@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
-import type { JobDetail } from '@samona/types';
+import type { ChatMessage, JobDetail, MessageReceiptUpdate } from '@samona/types';
 import { env } from '@/env';
 
 /**
@@ -16,11 +16,14 @@ import { env } from '@/env';
 export interface RealtimeEventMap {
   /** A booking the caller is party to changed state. Payload: JobDetail. */
   'job:status': JobDetail;
+  /** A new chat message landed on a job the caller is party to. Payload: ChatMessage. */
+  'message:new': ChatMessage;
+  /** The other party's device delivered the caller's messages. Payload: MessageReceiptUpdate. */
+  'message:delivered': MessageReceiptUpdate;
+  /** The other party's app read the caller's messages. Payload: MessageReceiptUpdate. */
+  'message:read': MessageReceiptUpdate;
 }
 type RealtimeEvent = keyof RealtimeEventMap;
-/** Union over every event's payload; the socket itself is untyped. */
-type RealtimePayload = RealtimeEventMap[RealtimeEvent];
-type RealtimeHandler = (payload: RealtimePayload) => void;
 
 let socket: Socket | null = null;
 
@@ -60,12 +63,15 @@ export function disconnectRealtime(): void {
  * May be called before the socket is connected; listeners are registered the
  * moment `connectRealtime` fires.
  */
-export function subscribe(event: RealtimeEvent, handler: RealtimeHandler): () => void {
+export function subscribe<E extends RealtimeEvent>(
+  event: E,
+  handler: (payload: RealtimeEventMap[E]) => void,
+): () => void {
   const connected = ensureSocket();
-  const listener = (...args: unknown[]) => handler(args[0] as RealtimePayload);
-  connected.on(event, listener);
+  const listener = (...args: unknown[]) => handler(args[0] as RealtimeEventMap[E]);
+  connected.on(event, listener as Parameters<typeof connected.on<E>>[1]);
   return () => {
-    connected.off(event, listener);
+    connected.off(event, listener as Parameters<typeof connected.on<E>>[1]);
   };
 }
 

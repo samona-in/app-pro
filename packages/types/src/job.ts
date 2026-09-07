@@ -152,6 +152,8 @@ export interface JobCustomerSummary {
   userId: string;
   displayName: string | null;
   locationLabel: string | null;
+  /** Contact number, shared once the job is accepted so the pro can call. */
+  phone: string | null;
 }
 
 /**
@@ -173,6 +175,8 @@ export interface JobDetail extends Job {
     proId: string;
     displayName: string | null;
     rating: number | null;
+    /** Contact number, shared once the job is accepted so the customer can call. */
+    phone: string | null;
   } | null;
 }
 

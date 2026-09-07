@@ -18,6 +18,8 @@
     },
     "android": {
       "package": "in.samona.customer",
+      "newArchEnabled": true,
+       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

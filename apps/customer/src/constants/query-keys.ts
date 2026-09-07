@@ -19,4 +19,7 @@ export const queryKeys = {
     results: (query: string) => ['search', 'results', query] as const,
   },
   notifications: ['notifications'] as const,
+  messages: {
+    thread: (jobId: string) => ['messages', 'thread', jobId] as const,
+  },
 } as const;
