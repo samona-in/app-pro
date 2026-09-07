@@ -1,5 +1,6 @@
 import { JobStatus, NotificationKind, type AppNotification, type ChatMessage } from '@samona/types';
 import type { PushPlatformInput, PushProviderInput } from '@samona/validation';
+import type { AppType } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
 import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
@@ -726,13 +727,19 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   }
 
   /**
-   * Registers (or replaces) this user's device push token, recording which
-   * provider owns it. Works for a Pro or a Customer — the same verification and
-   * the same storage columns on the matching profile, so a person who is both
-   * keeps one token per surface.
+   * Registers (or replaces) this user's device push token on the surface that
+   * is registering, recording which provider owns it.
+   *
+   * Works for a Pro or a Customer. `appType` decides which row holds the token
+   * — it comes from the caller's `X-App-Type`, never from which profiles exist.
+   * That matters because one account can be both a pro and a customer (a single
+   * phone number provisions both rows under the same `userId`): each phone's
+   * token must land on the row that phone is, or pushes between two phones of
+   * the same person would all ring the wrong device.
    */
   async function registerPushToken(
     userId: string,
+    appType: AppType | null,
     pushToken: string,
     platform: PushPlatformInput,
     provider: PushProviderInput,
@@ -763,15 +770,12 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
     const storedPlatform = platform === 'android' ? 'ANDROID' : 'IOS';
 
-    // A device token identifies one device; a re-sign-in or re-install must not
-    // leave a stale copy on an old profile behind (violating the unique index).
-    const [, customer] = await Promise.all([
-      prisma.proProfile.findUnique({ where: { userId }, select: { id: true } }),
-      prisma.customerProfile.findUnique({ where: { userId }, select: { id: true } }),
-    ]);
-    const onCustomer = Boolean(customer);
+    // The surface the calling app is on. Null (missing `X-App-Type`, e.g. an
+    // admin client) defaults to the pro surface, matching `roleForAppType`.
+    const onCustomer = appType === 'customer';
 
-    // Any surface exposing the token to another account has to drop it.
+    // A device token identifies one device; a re-sign-in or re-install must not
+    // leave a stale copy on an old account behind (violating the unique index).
     await prisma.proProfile.updateMany({
       where: { pushToken, userId: { not: userId } },
       data: { pushToken: null, pushPlatform: null, pushProvider: null },
@@ -782,7 +786,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     });
 
     if (onCustomer) {
-      await prisma.customerProfile.upsert({
+      const row = await prisma.customerProfile.upsert({
         where: { userId },
         create: {
           userId,
@@ -796,14 +800,21 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           pushProvider: providerValue,
         },
       });
+      // Self-heal: the same token must never also sit on this account's pro
+      // surface (a buggy/legacy registration can leave it there), or a push
+      // meant for one phone would split across the two rows of one person.
+      await prisma.proProfile.updateMany({
+        where: { userId, pushToken },
+        data: { pushToken: null, pushPlatform: null, pushProvider: null },
+      });
       logger.info(
-        `[Push] Token stored successfully for customer ${customer!.id} (${providerValue}).`,
+        `[Push] Token stored successfully for customer ${row.id} (${providerValue}).`,
       );
       return;
     }
 
-    // Pro (or newly-provisioned) path: the Pro profile owns job alerts, plus the
-    // device binding that lets the native overlay operate on a dead process.
+    // Pro path: the Pro profile owns job alerts, plus the device binding that
+    // lets the native overlay operate on a dead process.
     await prisma.proProfile.upsert({
       where: { userId },
       create: {
@@ -819,6 +830,12 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         pushProvider: providerValue,
         ...(deviceId ? { pushDeviceId: deviceId } : {}),
       },
+    });
+    // See the customer branch above — drop any duplicate of this token that a
+    // legacy registration left on the same account's customer surface.
+    await prisma.customerProfile.updateMany({
+      where: { userId, pushToken },
+      data: { pushToken: null, pushPlatform: null, pushProvider: null },
     });
     logger.info(`[Push] Token stored successfully for pro ${userId} (${providerValue}).`);
   }
@@ -843,19 +860,23 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     jobId: string;
     senderName: string | null;
     message: ChatMessage;
+    /** Which side of the job the recipient is on — the row their token lives on. */
+    recipientIsCustomer: boolean;
   }): Promise<void> {
-    const [pro, customer] = await Promise.all([
-      prisma.proProfile.findUnique({
-        where: { userId: input.userId },
-        select: { pushToken: true, pushPlatform: true, pushProvider: true },
-      }),
-      prisma.customerProfile.findUnique({
-        where: { userId: input.userId },
-        select: { pushToken: true, pushPlatform: true, pushProvider: true },
-      }),
-    ]);
-    const target = pro ?? customer;
-    const token = target?.pushToken;
+    // Chat is between the two sides of one job, so delivery reads the token of
+    // the surface the recipient acts as there. When one person is both (one
+    // phone number on two devices) their tokens live on the two separate rows;
+    // picking "whichever exists" would ring the wrong phone.
+    const profile = await (input.recipientIsCustomer
+      ? prisma.customerProfile.findUnique({
+          where: { userId: input.userId },
+          select: { pushToken: true, pushPlatform: true, pushProvider: true },
+        })
+      : prisma.proProfile.findUnique({
+          where: { userId: input.userId },
+          select: { pushToken: true, pushPlatform: true, pushProvider: true },
+        }));
+    const token = profile?.pushToken;
     if (!token) return;
 
     const title = input.senderName ?? 'New message';
@@ -868,7 +889,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     });
     const channelId = 'chat_messages';
 
-    if (pushProviderOf(target as { pushProvider?: 'EXPO' | 'FCM' | null }) === 'FCM') {
+    if (pushProviderOf(profile as { pushProvider?: 'EXPO' | 'FCM' | null }) === 'FCM') {
       const client = getFcmClient();
       if (!client) {
         logger.warn('[Push] FCM not configured — skipping a chat push.');
@@ -892,7 +913,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       return;
     }
 
-    const result = await sendPush(token, { title, body, data }, target!.pushPlatform, 'EXPO');
+    const result = await sendPush(token, { title, body, data }, profile.pushPlatform, 'EXPO');
     if (!result.ok) {
       logger.warn(`[Push] Chat push to ${input.userId} on job ${input.jobId} not delivered.`);
     }

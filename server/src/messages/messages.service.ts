@@ -186,6 +186,7 @@ export function createMessagesService(deps: MessagesServiceDeps) {
       : thread.pro.displayName;
     await sendChatPush({
       userId: thread.otherProfileId,
+      recipientIsCustomer: !thread.actorIsCustomer,
       jobId: input.jobId,
       senderName: senderName ?? 'A conversation',
       message: dto,

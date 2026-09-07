@@ -272,3 +272,182 @@ describe('buildFcmTerminalMessage', () => {
     expect(payload.android).toBeUndefined();
   });
 });
+
+describe('createNotificationsService.registerPushToken', () => {
+  const TOKEN = 'raw-fcm-token';
+  const CLEAR = { pushToken: null, pushPlatform: null, pushProvider: null };
+
+  function build() {
+    const proProfileUpsert = jest.fn().mockResolvedValue({ id: 'pro-row' });
+    const customerProfileUpsert = jest.fn().mockResolvedValue({ id: 'cust-row' });
+    const prisma = {
+      proProfile: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        upsert: proProfileUpsert,
+      },
+      customerProfile: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        upsert: customerProfileUpsert,
+      },
+    };
+
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: { expoAccessToken: null } as never,
+    });
+
+    return { service, prisma };
+  }
+
+  it('stores on the customer profile for the customer surface, dropping any same-token pro copy', async () => {
+    const { service, prisma } = build();
+
+    await service.registerPushToken('user-1', 'customer', TOKEN, 'android', 'fcm');
+
+    expect(prisma.customerProfile.upsert).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      create: { userId: 'user-1', pushToken: TOKEN, pushPlatform: 'ANDROID', pushProvider: 'FCM' },
+      update: { pushToken: TOKEN, pushPlatform: 'ANDROID', pushProvider: 'FCM' },
+    });
+    // Self-heal: no token on the same account's pro surface.
+    expect(prisma.proProfile.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', pushToken: TOKEN },
+      data: CLEAR,
+    });
+    // And the older cross-account clear for uniqueness still runs.
+    expect(prisma.customerProfile.updateMany).toHaveBeenCalledWith({
+      where: { pushToken: TOKEN, userId: { not: 'user-1' } },
+      data: CLEAR,
+    });
+    expect(prisma.proProfile.upsert).not.toHaveBeenCalled();
+  });
+
+  it('stores on the pro profile for the pro surface, keeping the device binding', async () => {
+    const { service, prisma } = build();
+
+    await service.registerPushToken('user-1', 'pro', TOKEN, 'android', 'fcm', 'device-9');
+
+    expect(prisma.proProfile.upsert).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      create: {
+        userId: 'user-1',
+        pushToken: TOKEN,
+        pushPlatform: 'ANDROID',
+        pushProvider: 'FCM',
+        pushDeviceId: 'device-9',
+      },
+      update: {
+        pushToken: TOKEN,
+        pushPlatform: 'ANDROID',
+        pushProvider: 'FCM',
+        pushDeviceId: 'device-9',
+      },
+    });
+    expect(prisma.customerProfile.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', pushToken: TOKEN },
+      data: CLEAR,
+    });
+    expect(prisma.customerProfile.upsert).not.toHaveBeenCalled();
+  });
+
+  it('keeps the pro registration on the pro row even when the same account also has a customer profile', async () => {
+    const { service, prisma } = build();
+
+    // An account that is *both* a pro and a customer (one phone number, two
+    // surface rows) must still register by the surface that called. Previously
+    // the presence of the customer profile hijacked the pro phone's token.
+    await service.registerPushToken('user-1', 'pro', TOKEN, 'android', 'fcm');
+
+    expect(prisma.proProfile.upsert).toHaveBeenCalled();
+    expect(prisma.customerProfile.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('createNotificationsService.sendChatPush', () => {
+  function chatMessage() {
+    return {
+      id: 'msg-1',
+      jobId: 'job-1',
+      senderId: 'sender-1',
+      content: 'On my way',
+      sentAt: '2026-09-07T15:00:00.000Z',
+      deliveredAt: null,
+      readAt: null,
+    };
+  }
+
+  function build() {
+    const prisma = {
+      proProfile: {
+        findUnique: jest.fn().mockResolvedValue({ pushToken: 'pro-tok', pushPlatform: 'ANDROID', pushProvider: 'FCM' }),
+      },
+      customerProfile: {
+        findUnique: jest.fn().mockResolvedValue({
+          pushToken: 'cust-tok',
+          pushPlatform: 'ANDROID',
+          pushProvider: 'FCM',
+        }),
+      },
+    };
+
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {
+        expoAccessToken: null,
+        fcmProjectId: 'samona',
+        fcmClientEmail: 'x@samona',
+        fcmPrivateKey: 'key',
+      } as never,
+    });
+
+    return { service, prisma };
+  }
+
+  it('delivers to the customer row when the recipient is the customer side, even if the same user is also a pro', async () => {
+    mockFcmSend.mockClear();
+    mockFcmSend.mockResolvedValue({ ok: true });
+    const { service, prisma } = build();
+
+    // The same person is both surfaces on two phones: pro-tok lives on the pro
+    // row (their pro phone) and cust-tok on the customer row (their customer
+    // phone). A message TO the customer side must ring the customer phone.
+    await service.sendChatPush({
+      userId: 'user-1',
+      jobId: 'job-1',
+      senderName: 'Ana',
+      message: chatMessage(),
+      recipientIsCustomer: true,
+    });
+
+    expect(prisma.customerProfile.findUnique).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      select: { pushToken: true, pushPlatform: true, pushProvider: true },
+    });
+    expect(prisma.proProfile.findUnique).not.toHaveBeenCalled();
+    expect(mockFcmSend).toHaveBeenCalledTimes(1);
+    const [sentToken, payload] = mockFcmSend.mock.calls[0] as [string, { notification: unknown; android: { notification: { channelId: string } } }];
+    expect(sentToken).toBe('cust-tok');
+    expect(payload.notification).toEqual({ title: 'Ana', body: 'On my way' });
+    expect(payload.android.notification.channelId).toBe('chat_messages');
+  });
+
+  it('does nothing when the recipient-side profile holds no token', async () => {
+    mockFcmSend.mockClear();
+    const { service, prisma } = build();
+    prisma.customerProfile.findUnique.mockResolvedValue({
+      pushToken: null,
+      pushPlatform: null,
+      pushProvider: null,
+    });
+
+    await service.sendChatPush({
+      userId: 'user-1',
+      jobId: 'job-1',
+      senderName: 'Ana',
+      message: chatMessage(),
+      recipientIsCustomer: true,
+    });
+
+    expect(mockFcmSend).not.toHaveBeenCalled();
+  });
+});

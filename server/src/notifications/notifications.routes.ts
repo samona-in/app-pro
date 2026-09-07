@@ -31,6 +31,9 @@ export function createNotificationsRouter(services: Services): Router {
     try {
       await services.notifications.registerPushToken(
         req.user!.id,
+        // Which surface is registering — the caller's own `X-App-Type`. Never a
+        // body value, and never inferred from which profiles exist.
+        req.user!.appType,
         req.body.pushToken,
         req.body.platform,
         req.body.provider,
