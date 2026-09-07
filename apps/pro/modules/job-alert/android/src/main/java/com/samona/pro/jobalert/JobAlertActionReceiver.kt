@@ -112,10 +112,10 @@ class JobAlertActionReceiver : BroadcastReceiver() {
     }
   }
 
-  /** Opens the live job screen after a successful native accept. */
+  /** Opens the map-first trip screen after a successful native accept. */
   private fun launchJob(context: Context, jobId: String) {
     val intent =
-      Intent(Intent.ACTION_VIEW, Uri.parse("$JOB_DEEP_LINK_PREFIX$jobId"))
+      Intent(Intent.ACTION_VIEW, Uri.parse("$JOB_DEEP_LINK_PREFIX$jobId/active"))
         .setComponent(ComponentName(context.packageName, "${context.packageName}.MainActivity"))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
     runCatching { context.startActivity(intent) }.onFailure { t ->
