@@ -20,7 +20,7 @@ export function QuickChatPresets({ onSelect }: Props) {
   const [open, setOpen] = useState(true);
 
   return (
-    <View className="w-[85%] self-start pb-2 pt-1">
+    <View className="w-[85%] self-start rounded-2xl border border-border bg-surface pb-2 pt-1">
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={open ? 'Collapse quick chat' : 'Open quick chat'}
@@ -39,7 +39,7 @@ export function QuickChatPresets({ onSelect }: Props) {
       </Pressable>
 
       {open ? (
-        <View className="gap-1.5">
+        <View className="gap-1.5 px-2.5 pb-1">
           {QUICK_CHAT_PRESETS.map((phrase) => (
             <Pressable
               key={phrase}
