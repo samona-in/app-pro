@@ -302,7 +302,7 @@ export default function ActiveJobScreen() {
     <Screen edges={['top', 'bottom']} padded={false} className="bg-surface">
       {/* Custom header — no native navigation chrome on the trip screen. */}
       <View className="flex-row items-center justify-between bg-surface px-5 pb-3 pt-2">
-        <Text variant="title" className="flex-1 pr-3">
+        <Text variant="title" className="flex-1 pr-3" style={{ fontSize: 16 }}>
           Go To the Working Spot
         </Text>
         <CallMessageButton jobId={id} />
