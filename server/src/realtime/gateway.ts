@@ -32,6 +32,22 @@ export const REALTIME_EVENTS = {
    * shaped for the viewer. REST remains the source of truth.
    */
   JOB_STATUS: 'job:status',
+  /**
+   * A new chat message was posted to a job the recipient is party to. Payload:
+   * `ChatMessage`. The messages REST feed remains the source of truth; this is
+   * the live delivery so a chat screen updates without a poll.
+   */
+  MESSAGE_NEW: 'message:new',
+  /**
+   * The recipient's device delivered messages the caller sent. Payload:
+   * `MessageReceiptUpdate`. Drives the single-tick → double-tick transition.
+   */
+  MESSAGE_DELIVERED: 'message:delivered',
+  /**
+   * The recipient's app read messages the caller sent. Payload:
+   * `MessageReceiptUpdate`. Drives the double-tick → double-blue transition.
+   */
+  MESSAGE_READ: 'message:read',
 } as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];

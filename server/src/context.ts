@@ -11,6 +11,7 @@ import { createCustomersService, type CustomersService } from './customers/custo
 import { createServicesService, type ServicesService } from './services/services.service';
 import { createJobsService, type JobsService } from './jobs/jobs.service';
 import { createMatchingService, type MatchingService } from './matching/matching.service';
+import { createMessagesService, type MessagesService } from './messages/messages.service';
 import { createLocationsService, type LocationsService } from './locations/locations.service';
 import { createEarningsService, type EarningsService } from './earnings/earnings.service';
 import {
@@ -37,6 +38,7 @@ export interface Services {
   customers: CustomersService;
   services: ServicesService;
   jobs: JobsService;
+  messages: MessagesService;
   matching: MatchingService;
   locations: LocationsService;
   earnings: EarningsService;
@@ -70,6 +72,11 @@ export function createServices(
   // reachable behind the composition boundary.
   const matching = createMatchingService({ prisma });
   const notifications = createNotificationsService({ prisma, config });
+  const messages = createMessagesService({
+    prisma,
+    realtime,
+    sendChatPush: (...args) => notifications.sendChatPush(...args),
+  });
   const jobs = createJobsService({ prisma, storage, matching, realtime, notifications, config });
 
   return {
@@ -84,6 +91,7 @@ export function createServices(
     customers: createCustomersService(deps),
     services: createServicesService(deps),
     jobs,
+    messages,
     matching,
     locations: createLocationsService(deps),
     earnings: createEarningsService(deps),
