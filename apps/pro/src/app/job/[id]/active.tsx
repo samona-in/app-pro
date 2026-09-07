@@ -88,14 +88,15 @@ function CustomerPin() {
   );
 }
 
-/** Compact primary pill that launches turn-by-turn navigation. */
+/** Compact pill that launches turn-by-turn navigation — same footprint and
+    visual grammar as the ETA/distance chips in the job-details sheet. */
 function NavigateButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Navigate to work spot"
       onPress={onPress}
-      className="flex-row items-center rounded-full bg-brand px-4 py-2 active:opacity-80"
+      className="flex-row items-center rounded-full bg-surface-muted px-3 py-1.5 active:opacity-80"
       style={{
         shadowColor: '#000',
         shadowOpacity: 0.3,
@@ -104,12 +105,8 @@ function NavigateButton({ onPress }: { onPress: () => void }) {
         elevation: 6,
       }}
     >
-      <Ionicons name="navigate" size={14} color={color['brand-contrast']} />
-      <Text
-        variant="footnote"
-        className="ml-1.5 font-semibold"
-        style={{ color: color['brand-contrast'] }}
-      >
+      <Ionicons name="navigate" size={14} color={color['text-secondary']} />
+      <Text variant="footnote" className="ml-1.5 font-semibold text-text-primary">
         Navigate
       </Text>
     </Pressable>
