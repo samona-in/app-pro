@@ -1,6 +1,6 @@
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Card, Divider, Screen, Text } from '@/components/ui';
+import { Card, Screen, Text } from '@/components/ui';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -53,13 +53,17 @@ function ActionRow({
 export default function JobActionsScreen() {
   return (
     <Screen scrollable>
-      <View className="pt-2">
-        <Text variant="titleLg">Job actions</Text>
-      </View>
-
-      <Card className="mt-4" padded={false}>
+      <Text variant="label" className="mt-2">
+        Contact
+      </Text>
+      <Card className="mt-2" padded={false}>
         <ActionRow icon="chatbubble-ellipses-outline" label="Contact customer" />
-        <Divider />
+      </Card>
+
+      <Text variant="label" className="mt-6">
+        Cancel
+      </Text>
+      <Card className="mt-2" padded={false}>
         <ActionRow icon="close-circle-outline" label="Cancel my job" destructive />
       </Card>
     </Screen>
