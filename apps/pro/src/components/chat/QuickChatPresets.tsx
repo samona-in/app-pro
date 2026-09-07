@@ -48,7 +48,7 @@ export function QuickChatPresets({ onSelect }: Props) {
               onPress={() => onSelect(phrase)}
               className="flex-row items-center gap-2 rounded-2xl bg-surface-muted px-3.5 py-2 active:opacity-70"
             >
-              <Text variant="body" className="max-w-full flex-shrink text-text-primary">
+              <Text variant="body" className="flex-1 text-text-primary">
                 {phrase}
               </Text>
               <Ionicons name="send-outline" size={15} color={color['text-secondary']} />
