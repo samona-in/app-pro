@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
-import { ChatFooter, MessageBubble } from '@/components/chat';
-import { EmptyState, LoadingState } from '@/components/feedback';
+import { ChatFooter, MessageBubble, QuickChatPresets } from '@/components/chat';
+import { LoadingState } from '@/components/feedback';
 import { useBooking, useMessages, useSession } from '@/hooks';
 import { color } from '@/theme';
 
@@ -47,13 +47,15 @@ function ChatHeaderRight({
  * `message:delivered` / `message:read` events the server broadcasts to both
  * parties. The thread is rendered oldest-first through an inverted list, so new
  * messages pin to the bottom. Messaging needs an assigned professional — until
- * one accepts, the thread is a placeholder.
+ * one accepts, the composer stays disabled. Quick-reply phrases list vertically
+ * at the bottom of the thread body, dropping a phrase into the composer.
  */
 export default function BookingChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const chat = useMessages(id);
   const { data: job, isPending: bookingPending } = useBooking(id);
   const { user } = useSession();
+  const [draft, setDraft] = useState('');
 
   const proName = useMemo(() => job?.pro?.displayName ?? 'Professional', [job]);
   const phone = job?.pro?.phone;
@@ -64,18 +66,6 @@ export default function BookingChatScreen() {
     return (
       <View className="flex-1 bg-surface">
         <LoadingState message="Loading messages" />
-      </View>
-    );
-  }
-
-  if (!job) {
-    return (
-      <View className="flex-1 bg-surface">
-        <EmptyState
-          icon="chatbubble-ellipses-outline"
-          title="No conversation yet"
-          message="Messages will appear here once your booking is active."
-        />
       </View>
     );
   }
@@ -93,47 +83,36 @@ export default function BookingChatScreen() {
       />
 
       <KeyboardStickyView style={{ flex: 1 }}>
-        {job.pro ? (
-          <>
-            <FlatList
-              data={reversed}
-              inverted
-              style={{ flex: 1 }}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <MessageBubble message={item} isMine={item.senderId === user?.id} />
-              )}
-              contentContainerClassName="px-4 py-3"
-              keyboardShouldPersistTaps="handled"
-              onEndReached={() => void chat.loadOlder()}
-              onEndReachedThreshold={0.4}
-              ListHeaderComponent={
-                chat.isLoadingOlder ? (
-                  <View className="items-center py-3">
-                    <ActivityIndicator size="small" color={color['text-muted']} />
-                  </View>
-                ) : null
-              }
-              ListEmptyComponent={
-                <EmptyState
-                  icon="chatbubble-ellipses-outline"
-                  title="No messages yet"
-                  message={`Say hello to ${proName}.`}
-                />
-              }
-            />
+        <FlatList
+          data={reversed}
+          inverted
+          style={{ flex: 1 }}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <MessageBubble message={item} isMine={item.senderId === user?.id} />
+          )}
+          contentContainerClassName="px-4 py-3"
+          keyboardShouldPersistTaps="handled"
+          onEndReached={() => void chat.loadOlder()}
+          onEndReachedThreshold={0.4}
+          ListHeaderComponent={
+            <>
+              {chat.isLoadingOlder ? (
+                <View className="items-center py-3">
+                  <ActivityIndicator size="small" color={color['text-muted']} />
+                </View>
+              ) : null}
+              <QuickChatPresets onSelect={setDraft} />
+            </>
+          }
+        />
 
-            <ChatFooter onSend={(content) => chat.send(content)} disabled={!id} />
-          </>
-        ) : (
-          <View className="flex-1 justify-center">
-            <EmptyState
-              icon="people-outline"
-              title="Waiting for a professional"
-              message="You can chat with them the moment your booking is accepted."
-            />
-          </View>
-        )}
+        <ChatFooter
+          draft={draft}
+          onChangeDraft={setDraft}
+          onSend={(content) => chat.send(content)}
+          disabled={!id || !job?.pro}
+        />
       </KeyboardStickyView>
     </View>
   );

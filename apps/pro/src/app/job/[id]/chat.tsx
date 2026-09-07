@@ -5,7 +5,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { ChatFooter, MessageBubble, QuickChatPresets } from '@/components/chat';
-import { EmptyState, LoadingState } from '@/components/feedback';
+import { LoadingState } from '@/components/feedback';
 import { useMessages, useProJobs, useSession } from '@/hooks';
 import { color } from '@/theme';
 
@@ -100,13 +100,6 @@ export default function JobChatScreen() {
               ) : null}
               <QuickChatPresets onSelect={setDraft} />
             </>
-          }
-          ListEmptyComponent={
-            <EmptyState
-              icon="chatbubble-ellipses-outline"
-              title="No messages yet"
-              message={`Say hello to ${customerName} to get the job started.`}
-            />
           }
         />
 

@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { IconButton } from '@/components/ui';
 import { color } from '@/theme';
 
 interface Props {
+  /** The draft text, owned by the screen so quick replies can fill it. */
+  draft: string;
+  onChangeDraft: (text: string) => void;
   /** Sends the draft; resolves when persisted (or rejects). */
   onSend: (content: string) => Promise<unknown>;
   disabled?: boolean;
@@ -11,29 +13,26 @@ interface Props {
 
 /**
  * The chat composer. Multiline input with a send button; text survives a failed
- * send by being restored to the field. The customer surface has no quick-reply
- * chips — those are a Pro convenience (CLAUDE.md keeps the two UIs distinct).
+ * send by being restored to the field. The draft lives on the screen (lifted)
+ * so the quick-reply list in the thread body can fill it.
  */
-export function ChatFooter({ onSend, disabled = false }: Props) {
-  const [draft, setDraft] = useState('');
-  const inputRef = useRef<TextInput>(null);
+export function ChatFooter({ draft, onChangeDraft, onSend, disabled = false }: Props) {
   const trimmed = draft.trim();
   const canSend = trimmed.length > 0 && !disabled;
 
   function handleSend() {
     if (!canSend) return;
     const text = trimmed;
-    setDraft('');
-    void onSend(text).catch(() => setDraft(text));
+    onChangeDraft('');
+    void onSend(text).catch(() => onChangeDraft(text));
   }
 
   return (
     <View className="bg-surface">
       <View className="flex-row items-end gap-2 px-4 pb-3 pt-2">
         <TextInput
-          ref={inputRef}
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={onChangeDraft}
           placeholder="Type a message"
           placeholderTextColor={color['text-muted']}
           multiline
