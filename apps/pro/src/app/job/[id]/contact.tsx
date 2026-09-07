@@ -1,9 +1,10 @@
 import { Alert, Pressable, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Card, Screen, Text } from '@/components/ui';
+import { Card, Divider, Screen, Text } from '@/components/ui';
 import { color } from '@/theme';
-import { cn } from '@/utils/cn';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 /**
  * Job actions — opened from the trip screen's call+message contact button.
@@ -13,73 +14,43 @@ import { cn } from '@/utils/cn';
  *   - Cancel my job: back out of an accepted / in-flight job.
  *
  * Both call/messaging and cancellation are not yet wired to a live flow, so each
- * option surfaces a placeholder for now. The cancel row is styled destructive so
+ * option surfaces a placeholder for now. The cancel row is tinted destructive so
  * the intent is clear before the real cancel path lands.
  */
 
-interface ActionOption {
-  key: 'contact' | 'cancel';
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  title: string;
+function ActionRow({
+  icon,
+  label,
+  description,
+  destructive = false,
+}: {
+  icon: IoniconName;
+  label: string;
   description: string;
-  tone: 'brand' | 'danger';
-}
-
-const OPTIONS: ActionOption[] = [
-  {
-    key: 'contact',
-    icon: 'chatbubble-ellipses',
-    title: 'Contact customer',
-    description: 'Reach the customer by call or message.',
-    tone: 'brand',
-  },
-  {
-    key: 'cancel',
-    icon: 'close-circle',
-    title: 'Cancel my job',
-    description: 'Back out of this job before it is completed.',
-    tone: 'danger',
-  },
-];
-
-function actionRow(option: ActionOption) {
-  const destructive = option.tone === 'danger';
+  destructive?: boolean;
+}) {
+  const tint = destructive ? color.danger : color['text-secondary'];
   return (
     <Pressable
-      key={option.key}
       accessibilityRole="button"
-      accessibilityLabel={option.title}
+      accessibilityLabel={label}
+      className="min-h-[56px] flex-row items-center px-4 active:opacity-60"
       onPress={() =>
         Alert.alert(
-          option.title,
+          label,
           destructive
             ? 'Cancelling a job will be available soon.'
             : 'Calling and messaging will be available soon.',
         )
       }
-      className="flex-row items-center gap-4 rounded-xl active:opacity-70"
     >
-      <View
-        className={cn(
-          'h-12 w-12 items-center justify-center rounded-full',
-          destructive ? 'bg-danger-surface' : 'bg-brand-soft',
-        )}
-      >
-        <Ionicons
-          name={option.icon}
-          size={24}
-          color={destructive ? color.danger : color.brand}
-        />
-      </View>
-      <View className="flex-1">
-        <Text
-          variant="bodyLg"
-          className={cn('font-semibold', destructive && 'text-danger')}
-        >
-          {option.title}
+      <Ionicons name={icon} size={20} color={tint} />
+      <View className="ml-3 flex-1 pr-2">
+        <Text variant="body" className={destructive ? 'text-danger' : undefined}>
+          {label}
         </Text>
         <Text variant="footnote" className="mt-0.5 text-text-secondary">
-          {option.description}
+          {description}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
@@ -91,7 +62,7 @@ export default function JobActionsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable>
       <View className="pt-2">
         <Text variant="titleLg">Job actions</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
@@ -99,23 +70,22 @@ export default function JobActionsScreen() {
         </Text>
       </View>
 
-      <Card className="mt-6 px-5 py-3">
-        <View>
-          {OPTIONS.map((option, index) => (
-            <View
-              key={option.key}
-              className={cn(
-                'py-3',
-                index > 0 && 'border-t border-border',
-              )}
-            >
-              {actionRow(option)}
-            </View>
-          ))}
-        </View>
+      <Card className="mt-4" padded={false}>
+        <ActionRow
+          icon="chatbubble-ellipses-outline"
+          label="Contact customer"
+          description="Reach the customer by call or message."
+        />
+        <Divider />
+        <ActionRow
+          icon="close-circle-outline"
+          label="Cancel my job"
+          description="Back out of this job before it is completed."
+          destructive
+        />
       </Card>
 
-      <Text variant="footnote" className="mt-4 text-center text-text-muted">
+      <Text variant="footnote" className="mt-6 text-center text-text-muted">
         Job #{id}
       </Text>
     </Screen>
