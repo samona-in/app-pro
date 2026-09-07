@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { ChatFooter, MessageBubble } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { useBooking, useMessages, useSession } from '@/hooks';
@@ -91,10 +92,7 @@ export default function BookingChatScreen() {
         }}
       />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
         {job.pro ? (
           <>
             <FlatList

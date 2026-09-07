@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { ChatFooter, MessageBubble, QuickChatPresets } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { useMessages, useProJobs, useSession } from '@/hooks';
@@ -77,10 +78,7 @@ export default function JobChatScreen() {
         }}
       />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
         <FlatList
           data={reversed}
           inverted
