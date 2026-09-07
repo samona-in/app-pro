@@ -20,13 +20,13 @@ export function QuickChatPresets({ onSelect }: Props) {
   const [open, setOpen] = useState(true);
 
   return (
-    <View className="w-[85%] self-start rounded-2xl border border-border bg-surface pb-2 pt-1">
+    <View className="w-[85%] self-end rounded-2xl border border-border bg-surface pb-2 pt-1">
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={open ? 'Collapse quick chat' : 'Open quick chat'}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((value) => !value)}
-        className="flex-row items-center gap-1 self-start py-1.5 active:opacity-70"
+        className="flex-row items-center gap-1 self-end py-1.5 active:opacity-70"
       >
         <Text variant="label" className="text-text-secondary">
           Quick chat
@@ -46,7 +46,7 @@ export function QuickChatPresets({ onSelect }: Props) {
               accessibilityRole="button"
               accessibilityLabel={`${phrase}. Tap to add to your message`}
               onPress={() => onSelect(phrase)}
-              className="flex-row items-center gap-2 self-start rounded-2xl bg-surface-muted px-3.5 py-2 active:opacity-70"
+              className="flex-row items-center gap-2 self-end rounded-2xl bg-surface-muted px-3.5 py-2 active:opacity-70"
             >
               <Text variant="body" className="max-w-full flex-shrink text-text-primary">
                 {phrase}
