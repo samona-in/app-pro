@@ -20,7 +20,7 @@ export function QuickChatPresets({ onSelect }: Props) {
   const [open, setOpen] = useState(true);
 
   return (
-    <View className="w-[85%] self-end rounded-2xl border border-border bg-surface pb-2 pt-1">
+    <View className="mt-3 w-[85%] self-end rounded-2xl border border-border bg-surface pb-2 pt-1">
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={open ? 'Collapse quick chat' : 'Open quick chat'}
