@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { ChatFooter, MessageBubble } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { useBooking, useMessages, useSession } from '@/hooks';
@@ -92,7 +92,7 @@ export default function BookingChatScreen() {
         }}
       />
 
-      <KeyboardAvoidingView behavior="translate-with-padding" style={{ flex: 1 }}>
+      <KeyboardStickyView style={{ flex: 1 }}>
         {job.pro ? (
           <>
             <FlatList
@@ -134,7 +134,7 @@ export default function BookingChatScreen() {
             />
           </View>
         )}
-      </KeyboardAvoidingView>
+      </KeyboardStickyView>
     </View>
   );
 }

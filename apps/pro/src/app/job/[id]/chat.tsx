@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { ChatFooter, MessageBubble, QuickChatPresets } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { useMessages, useProJobs, useSession } from '@/hooks';
@@ -78,7 +78,7 @@ export default function JobChatScreen() {
         }}
       />
 
-      <KeyboardAvoidingView behavior="translate-with-padding" style={{ flex: 1 }}>
+      <KeyboardStickyView style={{ flex: 1 }}>
         <FlatList
           data={reversed}
           inverted
@@ -116,7 +116,7 @@ export default function JobChatScreen() {
           onSend={(content) => chat.send(content)}
           disabled={!id}
         />
-      </KeyboardAvoidingView>
+      </KeyboardStickyView>
     </View>
   );
 }
