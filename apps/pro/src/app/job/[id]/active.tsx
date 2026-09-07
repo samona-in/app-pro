@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
-import { Camera, Map as MapLibreMap, Marker, type CameraRef } from '@maplibre/maplibre-react-native';
+import { Camera, GeoJSONSource, Layer, Map as MapLibreMap, Marker, type CameraRef } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { JobStatus, type JobStatus as Status } from '@samona/types';
@@ -85,6 +85,31 @@ function CustomerPin() {
     >
       <Ionicons name="location-sharp" size={18} color={color.surface} />
     </View>
+  );
+}
+
+/** Compact pill that launches turn-by-turn navigation — same footprint and
+    visual grammar as the ETA/distance chips in the job-details sheet. */
+function NavigateButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Navigate to work spot"
+      onPress={onPress}
+      className="flex-row items-center rounded-full bg-brand px-3 py-1.5 active:opacity-80"
+      style={{
+        shadowColor: '#000',
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 6,
+      }}
+    >
+      <Ionicons name="navigate" size={14} color={color['brand-contrast']} />
+      <Text variant="footnote" className="ml-1.5 font-semibold text-brand-contrast">
+        Navigate
+      </Text>
+    </Pressable>
   );
 }
 
@@ -260,6 +285,23 @@ export default function ActiveJobScreen() {
   const isAccepted = job.status === JobStatus.ACCEPTED;
   const swipeLabel = isAccepted ? 'On My Way' : "I've Arrived";
 
+  /** Straight dashed connector between the pro's live pin and the work spot,
+      drawn until the camera view is replaced by turn-by-turn navigation. */
+  const routeGeometry: GeoJSON.Feature<GeoJSON.LineString> | null =
+    proCoords && hasCustomerCoords
+      ? {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [proCoords.longitude, proCoords.latitude],
+              [job.longitude as number, job.latitude as number],
+            ],
+          },
+        }
+      : null;
+
   async function openDirections() {
     if (!hasCustomerCoords) return;
     const url = buildDirectionsUrl(proCoords, {
@@ -308,6 +350,21 @@ export default function ActiveJobScreen() {
               }}
             />
 
+            {routeGeometry ? (
+              <GeoJSONSource id="trip-route" data={routeGeometry}>
+                <Layer
+                  id="trip-route-line"
+                  type="line"
+                  paint={{
+                    'line-color': color['text-secondary'],
+                    'line-width': 3,
+                    'line-dasharray': [3, 2],
+                    'line-opacity': 0.9,
+                  }}
+                />
+              </GeoJSONSource>
+            ) : null}
+
             {hasCustomerCoords ? (
               <Marker
                 id="customer"
@@ -330,23 +387,7 @@ export default function ActiveJobScreen() {
               keeps the rest of the map pannable. */}
           {hasCustomerCoords ? (
             <View pointerEvents="box-none" className="absolute inset-x-5 bottom-4 items-center">
-              <View
-                style={{
-                  shadowColor: '#000',
-                  shadowOpacity: 0.3,
-                  shadowRadius: 10,
-                  shadowOffset: { width: 0, height: 4 },
-                  elevation: 8,
-                }}
-              >
-                <Button
-                  label="Navigate"
-                  shape="pill"
-                  fullWidth={false}
-                  leading={<Ionicons name="navigate" size={18} color={color['brand-contrast']} />}
-                  onPress={() => void openDirections()}
-                />
-              </View>
+              <NavigateButton onPress={() => void openDirections()} />
             </View>
           ) : null}
         </View>
