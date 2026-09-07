@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import {
   Camera,
@@ -117,19 +117,18 @@ function Chip({
  * Compound "call + message" contact button shown opposite the header title.
  * A chat-bubble glyph with a small call badge reads as both ways to reach the
  * customer; the 44pt surface circle keeps it consistent with IconButton.
+ * Pressing opens the job actions screen (contact / cancel).
  */
-function CallMessageButton({ tint = color.brand }: { tint?: string }) {
+function CallMessageButton({ jobId }: { jobId: string }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Call or message the customer"
-      onPress={() =>
-        Alert.alert('Contact customer', 'Calling and messaging will be available soon.')
-      }
+      accessibilityLabel="Job actions"
+      onPress={() => router.push({ pathname: '/job/[id]/contact', params: { id: jobId } })}
       className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
     >
       <View>
-        <Ionicons name="chatbubble-ellipses" size={22} color={tint} />
+        <Ionicons name="chatbubble-ellipses" size={22} color={color.brand} />
         <View className="absolute -bottom-1 -right-2 h-5 w-5 items-center justify-center rounded-full bg-brand">
           <Ionicons name="call" size={11} color={color['brand-contrast']} />
         </View>
@@ -306,7 +305,7 @@ export default function ActiveJobScreen() {
         <Text variant="title" className="flex-1 pr-3">
           Go To the Working Spot
         </Text>
-        <CallMessageButton />
+        <CallMessageButton jobId={id} />
       </View>
 
       {/* Map body */}

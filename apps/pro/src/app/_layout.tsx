@@ -25,6 +25,17 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="job-alert/[id]" options={{ headerShown: false, animation: 'none' }} />
         <Stack.Screen
+          name="job/[id]/contact"
+          options={{
+            headerShown: true,
+            presentation: 'modal',
+            title: 'Job actions',
+            headerTintColor: color['text-primary'],
+            headerStyle: { backgroundColor: color.surface },
+            contentStyle: { backgroundColor: color.background },
+          }}
+        />
+        <Stack.Screen
           name="notifications"
           options={{
             headerShown: true,
