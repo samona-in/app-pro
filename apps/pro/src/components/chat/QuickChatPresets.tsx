@@ -12,9 +12,9 @@ interface Props {
 
 /**
  * Quick phrases the pro can drop into the composer while on a job. They render
- * as a narrow, titled column in the thread body styled like received message
- * bubbles (asymmetric corner, soft surface) with a send affordance. The header
- * collapses the list via its chevron.
+ * as a narrow, titled column in the thread body styled like message bubbles
+ * (uniform radius, soft surface) with a send affordance. The header collapses
+ * the list via its chevron.
  */
 export function QuickChatPresets({ onSelect }: Props) {
   const [open, setOpen] = useState(true);
@@ -46,7 +46,7 @@ export function QuickChatPresets({ onSelect }: Props) {
               accessibilityRole="button"
               accessibilityLabel={`${phrase}. Tap to add to your message`}
               onPress={() => onSelect(phrase)}
-              className="flex-row items-center gap-2 self-start rounded-2xl rounded-bl-md bg-surface-muted px-3.5 py-2 active:opacity-70"
+              className="flex-row items-center gap-2 self-start rounded-2xl bg-surface-muted px-3.5 py-2 active:opacity-70"
             >
               <Text variant="body" className="max-w-full flex-shrink text-text-primary">
                 {phrase}
