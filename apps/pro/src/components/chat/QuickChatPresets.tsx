@@ -26,7 +26,7 @@ export function QuickChatPresets({ onSelect }: Props) {
         accessibilityLabel={open ? 'Collapse quick chat' : 'Open quick chat'}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((value) => !value)}
-        className="flex-row items-center justify-between px-2.5 py-1.5 active:opacity-70"
+        className="flex-row items-center justify-between px-4 py-1.5 active:opacity-70"
       >
         <Text variant="label" className="text-text-secondary">
           Quick chat
