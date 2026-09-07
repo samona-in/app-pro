@@ -430,7 +430,7 @@ export default function ActiveJobScreen() {
           variant="secondary"
           className="mt-4"
           leading={<Ionicons name="chatbubble-outline" size={18} color={color['text-primary']} />}
-          onPress={() => Alert.alert('Messaging', 'Messaging will be available soon.')}
+          onPress={() => router.push({ pathname: '/job/[id]/chat', params: { id } })}
         />
 
         <View className="mt-3" testID="swipe-to-confirm">

@@ -24,3 +24,8 @@ export function formatRelativeTime(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
 }
+
+/** A chat timestamp as a short clock time, e.g. "4:32 PM". */
+export function formatChatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+}

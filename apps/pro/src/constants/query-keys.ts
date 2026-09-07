@@ -21,4 +21,7 @@ export const queryKeys = {
     summary: (period: string) => ['earnings', 'summary', period] as const,
   },
   notifications: ['notifications'] as const,
+  messages: {
+    thread: (jobId: string) => ['messages', 'thread', jobId] as const,
+  },
 } as const;

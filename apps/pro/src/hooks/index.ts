@@ -15,5 +15,7 @@ export {
   useTransitionJob,
 } from './use-jobs';
 export { useRealtimeSync } from './use-realtime';
+export { useMessages } from './use-messages';
+export { usePushNavigation } from './use-push-navigation';
 export { useNotifications, usePushSettings } from './use-notifications';
 export { useDeviceReadiness } from './use-device-readiness';

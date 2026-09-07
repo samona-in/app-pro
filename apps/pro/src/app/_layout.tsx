@@ -36,6 +36,17 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="job/[id]/chat"
+          options={{
+            headerShown: true,
+            presentation: 'modal',
+            title: 'Chat',
+            headerTintColor: color['text-primary'],
+            headerStyle: { backgroundColor: color.surface },
+            contentStyle: { backgroundColor: color.surface },
+          }}
+        />
+        <Stack.Screen
           name="notifications"
           options={{
             headerShown: true,
