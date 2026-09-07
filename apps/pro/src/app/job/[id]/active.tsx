@@ -282,11 +282,13 @@ export default function ActiveJobScreen() {
           Go To the Working Spot
         </Text>
         <IconButton
-          name="chatbubble-ellipses"
+          name="call"
           tint={color.brand}
           variant="surface"
-          accessibilityLabel="Message the customer"
-          onPress={() => Alert.alert('Messaging', 'Messaging will be available soon.')}
+          accessibilityLabel="Call the customer"
+          onPress={() =>
+            Alert.alert('Call the customer', 'Calling the customer will be available soon.')
+          }
         />
       </View>
 
