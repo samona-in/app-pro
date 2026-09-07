@@ -96,7 +96,7 @@ function NavigateButton({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel="Navigate to work spot"
       onPress={onPress}
-      className="flex-row items-center rounded-full bg-surface-muted px-3 py-1.5 active:opacity-80"
+      className="flex-row items-center rounded-full bg-brand px-3 py-1.5 active:opacity-80"
       style={{
         shadowColor: '#000',
         shadowOpacity: 0.3,
@@ -105,8 +105,8 @@ function NavigateButton({ onPress }: { onPress: () => void }) {
         elevation: 6,
       }}
     >
-      <Ionicons name="navigate" size={14} color={color['text-secondary']} />
-      <Text variant="footnote" className="ml-1.5 font-semibold text-text-primary">
+      <Ionicons name="navigate" size={14} color={color['brand-contrast']} />
+      <Text variant="footnote" className="ml-1.5 font-semibold text-brand-contrast">
         Navigate
       </Text>
     </Pressable>
