@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, View } from 'react-native';
-import { router } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
-import { useProProfile, useDeviceReadiness, useSubmitGuard } from '@/hooks';
+import { isTripStatus } from '@/constants';
+import { useProJobs, useProProfile, useDeviceReadiness, useSubmitGuard } from '@/hooks';
 import {
   subscribeToOnlineStatus,
   isOnline as checkIsOnline,
@@ -245,6 +246,37 @@ function OfflineGate() {
 }
 
 export default function Home() {
+  const { data: jobs, isPending } = useProJobs();
+  const activeTrip = (jobs ?? []).find((job) => isTripStatus(job.status));
+
+  // A pro with an active trip (accepted / on the way) has no use for the
+  // availability home. This mirrors the index-route decision, but also runs
+  // when the pro returns here by dismissing the trip screen (back swipe / phone
+  // back button) instead of only on cold start — so an accepted job always wins
+  // over home and pulls the pro straight back into the trip screen.
+  useFocusEffect(
+    useCallback(() => {
+      if (activeTrip && !isPending) {
+        router.replace(`/job/${activeTrip.id}/active`);
+      }
+    }, [activeTrip, isPending]),
+  );
+
+  // While the job list is still loading we can't yet rule out an active trip;
+  // showing the home UI for a moment would flash the availability screen before
+  // the focus effect above redirects. Hold a loading state instead.
+  if (isPending) {
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <ActivityIndicator color={color.brand} size="large" />
+      </Screen>
+    );
+  }
+
+  if (activeTrip) {
+    return <Redirect href={`/job/${activeTrip.id}/active`} />;
+  }
+
   const isOnline = checkIsOnline();
 
   return (
