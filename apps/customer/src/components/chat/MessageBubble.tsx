@@ -17,7 +17,7 @@ interface Props {
  */
 export function MessageBubble({ message, isMine }: Props) {
   return (
-    <View className={isMine ? 'items-end' : 'items-start'}>
+    <View className={`mb-2 ${isMine ? 'items-end' : 'items-start'}`}>
       <View
         className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${
           isMine ? 'rounded-br-md bg-brand-soft' : 'rounded-bl-md bg-surface-muted'
