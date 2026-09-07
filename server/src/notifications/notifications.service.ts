@@ -94,7 +94,9 @@ type PushTargetPlatform = 'ANDROID' | 'IOS' | null;
 const JOB_ALERT_CHANNEL = 'incoming_jobs';
 
 function notificationRoute(jobId: string): string {
-  return `${ROUTE_PREFIX}${jobId}`;
+  // Deep links carry the trip-screen path (`/active`) — the former `job/[id]`
+  // details route no longer exists in the app.
+  return `${ROUTE_PREFIX}${jobId}/active`;
 }
 
 function pushProviderOf(pro: { pushProvider?: 'EXPO' | 'FCM' | null }): PushTargetProvider {
@@ -435,9 +437,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   ): Promise<void> {
     const client = getFcmClient();
     if (!client) {
-      logger.warn(
-        `[Push] FCM not configured — skipping terminal ${type} push for job ${jobId}.`,
-      );
+      logger.warn(`[Push] FCM not configured — skipping terminal ${type} push for job ${jobId}.`);
       return;
     }
     const result = await client.send(pushToken, buildFcmTerminalMessage(type, jobId));

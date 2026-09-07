@@ -5,11 +5,12 @@ import { queryKeys } from '@/constants';
 import { jobsApi, type ProJobTransitionAction } from '@/services/jobs';
 
 /** The caller's own assigned jobs. */
-export function useProJobs(status?: JobStatus) {
+export function useProJobs(status?: JobStatus, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.jobs.list(status),
     queryFn: () => jobsApi.list({ status }),
     staleTime: 30_000,
+    enabled: options?.enabled,
   });
 }
 

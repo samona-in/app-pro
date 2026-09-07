@@ -1,5 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
+import { LoadingState } from '@/components/feedback';
+import { Screen } from '@/components/ui';
 import { jobNotificationService } from '@/services/job-notifications';
 import { useSession } from '@/hooks';
 
@@ -29,16 +31,35 @@ export default function JobAlertRoute() {
   const { isLoading, isAuthenticated } = useSession();
   const jobId = typeof id === 'string' ? id : null;
   const nativeAction = action === 'accept' ? 'accept' : action === 'decline' ? 'decline' : null;
+  const [resolved, setResolved] = useState(false);
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || !jobId || !nativeAction) return;
-    void jobNotificationService.resolveNativePendingAction(jobId, nativeAction);
+    if (isLoading || !isAuthenticated || !jobId || !nativeAction || startedRef.current) return;
+    startedRef.current = true;
+    // Hold the redirect until the accept/decline has actually landed, so the
+    // trip screen never opens before the server knows the job is claimed.
+    void jobNotificationService.resolveNativePendingAction(jobId, nativeAction).finally(() => {
+      setResolved(true);
+    });
   }, [isLoading, isAuthenticated, jobId, nativeAction]);
 
   if (isLoading) return null;
 
-  // After a native accept, send the pro straight to the accepted job's journey
-  // (TRAVELLING CTA). Everything else drops back into the app normally.
-  const target = nativeAction === 'accept' && isAuthenticated ? `/job/${jobId}` : '/home';
+  // The API call can take a moment — surface a loading screen instead of a
+  // blank flash before the redirect.
+  if (nativeAction && !resolved) {
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <LoadingState
+          message={nativeAction === 'accept' ? 'Accepting the job…' : 'Sending your response…'}
+        />
+      </Screen>
+    );
+  }
+
+  // After a native accept, send the pro straight to the accepted job's map-first
+  // trip screen. Everything else drops back into the app normally.
+  const target = nativeAction === 'accept' && isAuthenticated ? `/job/${jobId}/active` : '/home';
   return <Redirect href={isAuthenticated ? target : '/welcome'} />;
 }

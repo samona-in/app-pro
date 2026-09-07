@@ -1,21 +1,31 @@
 import { Redirect } from 'expo-router';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { useSession } from '@/hooks';
+import { isTripStatus } from '@/constants';
+import { useProJobs, useSession } from '@/hooks';
 
 /**
  * Entry route — the single place the post-sign-in decision is made.
  *
  *   not authenticated        -> phone flow
  *   no/incomplete onboarding -> resume at the first unanswered step
+ *   active trip (on the way) -> the map-first trip screen, not home
  *   onboarding complete      -> home
  *
  * `nextStep` is computed by the server from the profile's own data, so the app
  * never has to assemble the decision from several requests, and resuming works
  * the same whether the Pro closed the app one step in or six.
+ *
+ * A pro mid-job has no use for the availability home screen, so an ACCEPTED or
+ * TRAVELLING job wins over home and drops straight into the trip screen.
  */
 export default function Index() {
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep, error } = useSession();
+  // Only fetch assigned jobs once the Pro is actually eligible for work; a 401
+  // on the welcome screen would be pure waste against the rate limiter.
+  const jobsQuery = useProJobs(undefined, {
+    enabled: isAuthenticated && isOnboardingComplete && !error,
+  });
 
   if (isLoading) {
     return (
@@ -38,6 +48,20 @@ export default function Index() {
 
   if (!isOnboardingComplete) {
     return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
+  }
+
+  const activeTrip = (jobsQuery.data ?? []).find((job) => isTripStatus(job.status));
+
+  if (jobsQuery.isPending) {
+    return (
+      <Screen edges={['top', 'bottom']}>
+        <LoadingState message="Checking your active job" />
+      </Screen>
+    );
+  }
+
+  if (activeTrip) {
+    return <Redirect href={`/job/${activeTrip.id}/active`} />;
   }
 
   return <Redirect href="/home" />;
