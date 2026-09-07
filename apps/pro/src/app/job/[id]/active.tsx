@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import {
@@ -14,7 +14,7 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { JobStatus, type JobStatus as Status } from '@samona/types';
 import { EmptyState, LoadingState } from '@/components/feedback';
-import { Button, Divider, IconButton, Screen, SwipeToConfirm, Text } from '@/components/ui';
+import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
 import { isTripStatus } from '@/constants';
 import { useProJobs, useSubmitGuard, useTransitionJob } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
@@ -110,6 +110,31 @@ function Chip({
         {label}
       </Text>
     </View>
+  );
+}
+
+/**
+ * Compound "call + message" contact button shown opposite the header title.
+ * A chat-bubble glyph with a small call badge reads as both ways to reach the
+ * customer; the 44pt surface circle keeps it consistent with IconButton.
+ */
+function CallMessageButton({ tint = color.brand }: { tint?: string }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Call or message the customer"
+      onPress={() =>
+        Alert.alert('Contact customer', 'Calling and messaging will be available soon.')
+      }
+      className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
+    >
+      <View>
+        <Ionicons name="chatbubble-ellipses" size={22} color={tint} />
+        <View className="absolute -bottom-1 -right-2 h-5 w-5 items-center justify-center rounded-full bg-brand">
+          <Ionicons name="call" size={11} color={color['brand-contrast']} />
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -281,15 +306,7 @@ export default function ActiveJobScreen() {
         <Text variant="title" className="flex-1 pr-3">
           Go To the Working Spot
         </Text>
-        <IconButton
-          name="call"
-          tint={color.brand}
-          variant="surface"
-          accessibilityLabel="Call the customer"
-          onPress={() =>
-            Alert.alert('Call the customer', 'Calling the customer will be available soon.')
-          }
-        />
+        <CallMessageButton />
       </View>
 
       {/* Map body */}
