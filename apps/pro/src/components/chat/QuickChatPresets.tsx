@@ -1,35 +1,36 @@
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
 import { QUICK_CHAT_PRESETS } from '@/constants';
+import { color } from '@/theme';
 
 interface Props {
-  /** Called with the chosen phrase; the footer drops it into the composer. */
+  /** Called with the chosen phrase; the screen drops it into the composer. */
   onSelect: (phrase: string) => void;
 }
 
-/** One-tap phrases the pro can drop into the composer while on a job. */
+/**
+ * Quick phrases the pro can drop into the composer while on a job, rendered as
+ * a vertical list inside the thread body (rather than chips above the composer)
+ * so they read as ready-to-send starters next to the messages.
+ */
 export function QuickChatPresets({ onSelect }: Props) {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View className="flex-row gap-2 px-4 py-2">
-        {QUICK_CHAT_PRESETS.map((phrase) => (
-          <Pressable
-            key={phrase}
-            accessibilityRole="button"
-            accessibilityLabel={phrase}
-            onPress={() => onSelect(phrase)}
-            className="min-h-[36px] items-center justify-center rounded-full border border-border-strong bg-surface px-3.5 active:opacity-70"
-          >
-            <Text variant="footnote" className="text-text-secondary">
-              {phrase}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </ScrollView>
+    <View className="gap-1.5 px-4 pb-2 pt-1">
+      {QUICK_CHAT_PRESETS.map((phrase) => (
+        <Pressable
+          key={phrase}
+          accessibilityRole="button"
+          accessibilityLabel={phrase}
+          onPress={() => onSelect(phrase)}
+          className="min-h-[44px] flex-row items-center justify-between rounded-xl border border-border bg-surface px-4 active:opacity-70"
+        >
+          <Text variant="body" className="flex-1 text-text-secondary">
+            {phrase}
+          </Text>
+          <Ionicons name="arrow-up-outline" size={16} color={color['text-muted']} />
+        </Pressable>
+      ))}
+    </View>
   );
 }

@@ -1,13 +1,18 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import { ChatFooter, MessageBubble } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
-import { IconButton } from '@/components/ui';
 import { useBooking, useMessages, useSession } from '@/hooks';
 import { color } from '@/theme';
 
+/**
+ * The Customer's "call professional" control in the native header, styled like
+ * the contact button on the booking details screen: a circular muted surface
+ * with the icon tinted brand.
+ */
 function ChatHeaderRight({
   phone,
   label,
@@ -17,17 +22,18 @@ function ChatHeaderRight({
 }) {
   if (!phone) return null;
   return (
-    <IconButton
-      name="call"
-      size={20}
-      tint={color.brand}
+    <Pressable
+      accessibilityRole="button"
       accessibilityLabel={`Call ${label}`}
       onPress={() => {
         void openURL(`tel:${phone}`).catch(() => {
           Alert.alert('Could not start the call', 'No app on this device can place calls.');
         });
       }}
-    />
+      className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
+    >
+      <Ionicons name="call" size={22} color={color.brand} />
+    </Pressable>
   );
 }
 
@@ -79,6 +85,8 @@ export default function BookingChatScreen() {
         options={{
           title: proName,
           headerBackTitle: 'Back',
+          headerLargeTitle: false,
+          headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
           headerRight: () => <ChatHeaderRight phone={phone} label={proName} />,
         }}
       />

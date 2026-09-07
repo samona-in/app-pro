@@ -1,27 +1,33 @@
-import { useMemo } from 'react';
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
-import { ChatFooter, MessageBubble } from '@/components/chat';
+import { ChatFooter, MessageBubble, QuickChatPresets } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
-import { IconButton } from '@/components/ui';
 import { useMessages, useProJobs, useSession } from '@/hooks';
 import { color } from '@/theme';
 
+/**
+ * The Pro's "call customer" control in the native header, styled like the
+ * contact button on the job details screen: a circular muted surface with the
+ * icon tinted brand.
+ */
 function ChatHeaderRight({ phone }: { phone: string | null | undefined }) {
   if (!phone) return null;
   return (
-    <IconButton
-      name="call"
-      size={20}
-      tint={color.brand}
+    <Pressable
+      accessibilityRole="button"
       accessibilityLabel="Call customer"
       onPress={() => {
         void openURL(`tel:${phone}`).catch(() => {
           Alert.alert('Could not start the call', 'No app on this device can place calls.');
         });
       }}
-    />
+      className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
+    >
+      <Ionicons name="call" size={22} color={color.brand} />
+    </Pressable>
   );
 }
 
@@ -33,13 +39,15 @@ function ChatHeaderRight({ phone }: { phone: string | null | undefined }) {
  * send is in flight (clawed back on error). Receipt ticks advance via the
  * `message:delivered` / `message:read` events the server broadcasts to both
  * parties. The thread is rendered oldest-first through an inverted list, so new
- * messages pin to the bottom. Pro-only: quick-reply chips above the composer.
+ * messages pin to the bottom. Pro-only: quick-reply phrases list vertically at
+ * the bottom of the thread body, dropping a phrase into the composer.
  */
 export default function JobChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const chat = useMessages(id);
   const { data: jobs } = useProJobs();
   const { user } = useSession();
+  const [draft, setDraft] = useState('');
 
   const job = useMemo(() => (jobs ?? []).find((item) => item.id === id), [id, jobs]);
   const customerName = job?.customer?.displayName ?? 'Customer';
@@ -63,6 +71,8 @@ export default function JobChatScreen() {
         options={{
           title: customerName,
           headerBackTitle: 'Back',
+          headerLargeTitle: false,
+          headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
           headerRight: () => <ChatHeaderRight phone={phone} />,
         }}
       />
@@ -83,11 +93,14 @@ export default function JobChatScreen() {
           onEndReached={() => void chat.loadOlder()}
           onEndReachedThreshold={0.4}
           ListHeaderComponent={
-            chat.isLoadingOlder ? (
-              <View className="items-center py-3">
-                <ActivityIndicator size="small" color={color['text-muted']} />
-              </View>
-            ) : null
+            <>
+              {chat.isLoadingOlder ? (
+                <View className="items-center py-3">
+                  <ActivityIndicator size="small" color={color['text-muted']} />
+                </View>
+              ) : null}
+              <QuickChatPresets onSelect={setDraft} />
+            </>
           }
           ListEmptyComponent={
             <EmptyState
@@ -98,7 +111,12 @@ export default function JobChatScreen() {
           }
         />
 
-        <ChatFooter onSend={(content) => chat.send(content)} quickReplies disabled={!id} />
+        <ChatFooter
+          draft={draft}
+          onChangeDraft={setDraft}
+          onSend={(content) => chat.send(content)}
+          disabled={!id}
+        />
       </KeyboardAvoidingView>
     </View>
   );

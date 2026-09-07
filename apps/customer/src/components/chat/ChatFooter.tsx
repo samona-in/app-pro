@@ -28,8 +28,8 @@ export function ChatFooter({ onSend, disabled = false }: Props) {
   }
 
   return (
-    <View className="border-t border-border bg-surface">
-      <View className="flex-row items-end gap-1 px-3 pb-2 pt-2">
+    <View className="bg-surface">
+      <View className="flex-row items-end gap-2 px-4 pb-3 pt-2">
         <TextInput
           ref={inputRef}
           value={draft}
