@@ -112,12 +112,6 @@ export function SwipeToConfirm({
             className="absolute inset-0 flex-row items-center justify-center"
             style={labelStyle}
           >
-            <Ionicons
-              name="arrow-forward"
-              size={18}
-              style={{ marginRight: 6 }}
-              color={isInactive ? color['text-muted'] : color['brand-contrast']}
-            />
             <Text
               variant="bodyLg"
               className="font-semibold"
