@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
-import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
-import {
-  Camera,
-  GeoJSONSource,
-  Layer,
-  Map as MapLibreMap,
-  Marker,
-  type CameraRef,
-} from '@maplibre/maplibre-react-native';
+import { Camera, Map as MapLibreMap, Marker, type CameraRef } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { JobStatus, type JobStatus as Status } from '@samona/types';
@@ -267,21 +260,6 @@ export default function ActiveJobScreen() {
   const isAccepted = job.status === JobStatus.ACCEPTED;
   const swipeLabel = isAccepted ? 'On My Way' : "I've Arrived";
 
-  const routeGeometry: GeoJSON.Feature<GeoJSON.LineString> | null =
-    proCoords && hasCustomerCoords
-      ? {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [proCoords.longitude, proCoords.latitude],
-              [job.longitude as number, job.latitude as number],
-            ],
-          },
-        }
-      : null;
-
   async function openDirections() {
     if (!hasCustomerCoords) return;
     const url = buildDirectionsUrl(proCoords, {
@@ -299,93 +277,85 @@ export default function ActiveJobScreen() {
   }
 
   return (
-    <Screen edges={['top', 'bottom']} padded={false} className="bg-surface">
-      {/* Custom header — no native navigation chrome on the trip screen. */}
-      <View className="flex-row items-center justify-between bg-surface px-5 pb-3 pt-2">
-        <Text variant="title" className="flex-1 pr-3" style={{ fontSize: 17 }}>
-          Go To the Working Spot
-        </Text>
-        <CallMessageButton jobId={id} />
-      </View>
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Go To the Working Spot',
+          headerBackTitle: 'Back',
+          headerTintColor: color['text-primary'],
+          headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
+          headerStyle: { backgroundColor: color.surface },
+          headerRight: () => <CallMessageButton jobId={id} />,
+        }}
+      />
 
-      {/* Map body */}
-      <View className="flex-1 overflow-hidden">
-        <MapLibreMap
-          mapStyle={MAP_STYLE_URL}
-          style={{ flex: 1 }}
-          onDidFinishLoadingMap={() => setMapReady(true)}
-        >
-          <Camera
-            ref={cameraRef}
-            initialViewState={{
-              center: hasCustomerCoords
-                ? [job.longitude as number, job.latitude as number]
-                : DEFAULT_CENTER,
-              zoom: DEFAULT_ZOOM,
-            }}
-          />
-
-          {routeGeometry ? (
-            <GeoJSONSource id="trip-route" data={routeGeometry}>
-              <Layer
-                id="trip-route-line"
-                type="line"
-                paint={{
-                  'line-color': color['text-secondary'],
-                  'line-width': 3,
-                  'line-dasharray': [3, 2],
-                  'line-opacity': 0.9,
-                }}
-              />
-            </GeoJSONSource>
-          ) : null}
-
-          {hasCustomerCoords ? (
-            <Marker
-              id="customer"
-              anchor="center"
-              lngLat={[job.longitude as number, job.latitude as number]}
-            >
-              <CustomerPin />
-            </Marker>
-          ) : null}
-
-          {proCoords ? (
-            <Marker id="pro" anchor="center" lngLat={[proCoords.longitude, proCoords.latitude]}>
-              <ProPin />
-            </Marker>
-          ) : null}
-        </MapLibreMap>
-
-        {/* Floating CTA — launches Google Maps navigation to the work spot.
-            Floats above the map, just above the job-details card. `box-none`
-            keeps the rest of the map pannable. */}
-        {hasCustomerCoords ? (
-          <View pointerEvents="box-none" className="absolute inset-x-5 bottom-4 items-center">
-            <View
-              style={{
-                shadowColor: '#000',
-                shadowOpacity: 0.3,
-                shadowRadius: 10,
-                shadowOffset: { width: 0, height: 4 },
-                elevation: 8,
+      <Screen edges={['bottom']} padded={false} className="bg-surface">
+        {/* Map body */}
+        <View className="flex-1 overflow-hidden">
+          <MapLibreMap
+            mapStyle={MAP_STYLE_URL}
+            style={{ flex: 1 }}
+            onDidFinishLoadingMap={() => setMapReady(true)}
+          >
+            <Camera
+              ref={cameraRef}
+              initialViewState={{
+                center: hasCustomerCoords
+                  ? [job.longitude as number, job.latitude as number]
+                  : DEFAULT_CENTER,
+                zoom: DEFAULT_ZOOM,
               }}
-            >
-              <Button
-                label="Navigate"
-                shape="pill"
-                fullWidth={false}
-                leading={<Ionicons name="navigate" size={18} color={color['brand-contrast']} />}
-                onPress={() => void openDirections()}
-              />
-            </View>
-          </View>
-        ) : null}
-      </View>
+            />
 
-      {/* Job details + actions */}
-      <View className="border-t border-border bg-surface px-5 pb-4 pt-4">
-        <View className="flex-row items-center gap-3">
+            {hasCustomerCoords ? (
+              <Marker
+                id="customer"
+                anchor="center"
+                lngLat={[job.longitude as number, job.latitude as number]}
+              >
+                <CustomerPin />
+              </Marker>
+            ) : null}
+
+            {proCoords ? (
+              <Marker id="pro" anchor="center" lngLat={[proCoords.longitude, proCoords.latitude]}>
+                <ProPin />
+              </Marker>
+            ) : null}
+          </MapLibreMap>
+
+          {/* Floating CTA — launches Google Maps navigation to the work spot.
+              Floats above the map, just above the job-details sheet. `box-none`
+              keeps the rest of the map pannable. */}
+          {hasCustomerCoords ? (
+            <View pointerEvents="box-none" className="absolute inset-x-5 bottom-4 items-center">
+              <View
+                style={{
+                  shadowColor: '#000',
+                  shadowOpacity: 0.3,
+                  shadowRadius: 10,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 8,
+                }}
+              >
+                <Button
+                  label="Navigate"
+                  shape="pill"
+                  fullWidth={false}
+                  leading={<Ionicons name="navigate" size={18} color={color['brand-contrast']} />}
+                  onPress={() => void openDirections()}
+                />
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+      {/* Job details + actions — docked sheet over the map, rounded like the
+          app's cards. */}
+      <View className="rounded-t-xl border-t border-border bg-surface px-5 pb-4 pt-2">
+        <View className="mx-auto h-1 w-9 rounded-full bg-border" />
+        <View className="mt-3 flex-row items-center gap-3">
           <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
             <Ionicons name="construct-outline" size={22} color={color.brand} />
           </View>
@@ -442,5 +412,6 @@ export default function ActiveJobScreen() {
         </View>
       </View>
     </Screen>
+    </>
   );
 }
