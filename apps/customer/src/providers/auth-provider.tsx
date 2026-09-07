@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase';
 import { setSessionTokenGetter } from '@/services/api';
 import { connectRealtime, disconnectRealtime } from '@/services/realtime';
+import { registerPushToken } from '@/services/notifications';
 
 interface AuthState {
   isLoaded: boolean;
@@ -53,6 +54,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) connectRealtime(token);
     else disconnectRealtime();
   }, [session]);
+
+  // Ask for notification permission and register the device's push token while
+  // signed in, so chat messages and booking updates reach the customer even
+  // with the app locked/backgrounded. Best-effort: denied permission or a
+  // failed registration must not block sign-in.
+  useEffect(() => {
+    if (!session?.access_token) return;
+    void registerPushToken();
+  }, [session?.access_token]);
 
   // The socket outlives a render but not the app; drop it on provider unmount.
   useEffect(() => {

@@ -30,6 +30,17 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen
+          name="booking/[id]/chat"
+          options={{
+            headerShown: true,
+            title: 'Chat',
+            headerBackTitle: 'Back',
+            headerTintColor: color['text-primary'],
+            headerStyle: { backgroundColor: color.surface },
+            contentStyle: { backgroundColor: color.surface },
+          }}
+        />
+        <Stack.Screen
           name="notifications"
           options={{
             headerShown: true,
