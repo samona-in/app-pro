@@ -1,9 +1,9 @@
 /**
  * Quick replies a pro can drop into the job chat without typing.
  *
- * Short, practical phrases used on a visit (traffic, wait time, location). These
- * are Pro-only — the customer messaging surface has no such composer shortcuts
- * (CLAUDE.md keeps the two jobs' UIs distinct).
+ * Short, practical phrases used on a visit (traffic, wait time, location). The
+ * customer app keeps its own set of phrases on the customer's side of the
+ * conversation.
  */
 export const QUICK_CHAT_PRESETS = [
   'Is your working location as per maps?',
