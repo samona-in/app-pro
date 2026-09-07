@@ -95,7 +95,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="jobs"
-        options={{ title: 'Jobs', tabBarIcon: tabIcon('briefcase-outline', 'briefcase') }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="earnings"

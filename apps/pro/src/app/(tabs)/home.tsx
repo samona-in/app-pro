@@ -251,11 +251,18 @@ export default function Home() {
     <Screen scrollable>
       <View className="flex-row items-center justify-between pt-2">
         <Wordmark size="sm" />
-        <IconButton
-          name="notifications-outline"
-          accessibilityLabel="Notifications"
-          onPress={() => router.push('/notifications')}
-        />
+        <View className="flex-row items-center gap-2">
+          <IconButton
+            name="briefcase-outline"
+            accessibilityLabel="Jobs"
+            onPress={() => router.push('/jobs')}
+          />
+          <IconButton
+            name="notifications-outline"
+            accessibilityLabel="Notifications"
+            onPress={() => router.push('/notifications')}
+          />
+        </View>
       </View>
 
       <View className="mt-6">
