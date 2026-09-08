@@ -26,8 +26,8 @@ export function NotificationCard({ notification, className }: { notification: Ap
   const open = notification.resolvedAt === null;
 
   return (
-    <Card className={cn('flex-row items-start gap-3', className)} padded={false}>
-      <View className={cn('rounded-full p-2.5', open ? 'bg-brand/10' : 'bg-surface-muted')}>
+    <Card className={cn('flex-row items-center gap-3', className)} padded={false}>
+      <View className="p-2 pr-0">
         <Ionicons name={icon} size={22} color={open ? tint : color['text-muted']} />
       </View>
       <View className="flex-1 py-3 pr-4">

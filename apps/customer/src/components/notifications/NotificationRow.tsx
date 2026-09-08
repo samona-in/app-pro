@@ -3,22 +3,19 @@ import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { CustomerNotification, NotificationKind } from '@samona/types';
-import { Text } from '@/components/ui';
+import { Card, Text } from '@/components/ui';
 import { useMarkNotificationRead } from '@/hooks';
 import { color } from '@/theme';
 import { formatRelativeTime } from '@/utils/format';
 
-type KindStyle = {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  /** Token key used to tint the leading icon; keeps rows neutral like Profile. */
-  tint: 'text-secondary' | 'text-muted';
-};
+type Ionicon = keyof typeof Ionicons.glyphMap;
 
-const KIND_STYLES: Record<NotificationKind, KindStyle> = {
-  JOB_ALERT: { icon: 'notifications', tint: 'text-secondary' },
-  JOB_STATUS: { icon: 'briefcase-outline', tint: 'text-secondary' },
-  PAYMENT: { icon: 'wallet', tint: 'text-secondary' },
-  SYSTEM: { icon: 'information-circle-outline', tint: 'text-muted' },
+/** Maps a notification kind to a leading icon and its tint, like the Pro app. */
+const KIND_ICON: Record<NotificationKind, { icon: Ionicon; tint: string }> = {
+  JOB_ALERT: { icon: 'notifications', tint: color.brand },
+  JOB_STATUS: { icon: 'construct-outline', tint: color.info },
+  PAYMENT: { icon: 'wallet-outline', tint: color.success },
+  SYSTEM: { icon: 'shield-checkmark-outline', tint: color['text-muted'] },
 };
 
 export interface NotificationRowProps {
@@ -26,17 +23,17 @@ export interface NotificationRowProps {
 }
 
 /**
- * One notification row in the customer's Notifications screen.
- *
- * An unread row shows a brand dot and marks itself read on tap; the row then
- * opens the related booking when the notice carries a route. The read state is
- * optimistic in the list cache and reconciled by REST + the `notification:unread`
- * echo (see `useMarkNotificationRead`).
+ * One notification in the customer's Notifications screen — styled like the
+ * Pro app's NotificationCard. An unread row shows a brand-tinted chip and
+ * marks itself read on tap; the row then opens the related booking when the
+ * notice carries a route. The read state is optimistic in the list cache and
+ * reconciled by REST + the `notification:unread` echo (see
+ * `useMarkNotificationRead`).
  */
 export function NotificationRow({ notice }: NotificationRowProps) {
   const markRead = useMarkNotificationRead();
   const unread = notice.readAt === null;
-  const style = KIND_STYLES[notice.kind];
+  const { icon, tint } = KIND_ICON[notice.kind];
 
   const handlePress = useCallback(() => {
     if (unread) markRead.mutate(notice.id);
@@ -49,27 +46,26 @@ export function NotificationRow({ notice }: NotificationRowProps) {
       accessibilityLabel={`${notice.title}. ${notice.body}`}
       accessibilityHint={notice.route ? 'Opens the related booking.' : undefined}
       onPress={handlePress}
-      className="min-h-[64px] flex-row items-center px-4 active:opacity-60"
+      className="active:opacity-60"
     >
-      <View className="h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-muted">
-        <Ionicons name={style.icon} size={20} color={color[style.tint]} />
-      </View>
-
-      <View className="ml-3 min-w-0 flex-1">
-        <View className="flex-row items-center">
-          <Text variant="bodyStrong" numberOfLines={1} className="min-w-0 flex-1 text-text-primary">
-            {notice.title}
-          </Text>
-          {unread ? <View className="ml-2 h-2 w-2 shrink-0 rounded-full bg-brand" /> : null}
+      <Card className="flex-row items-center gap-3" padded={false}>
+        <View className="p-2 pr-0">
+          <Ionicons name={icon} size={22} color={unread ? tint : color['text-muted']} />
         </View>
-        <Text variant="footnote" numberOfLines={1} className="mt-0.5 text-text-secondary">
-          {notice.body}
-        </Text>
-      </View>
-
-      <Text variant="caption" className="ml-2 shrink-0 self-end text-text-muted">
-        {formatRelativeTime(notice.createdAt)}
-      </Text>
+        <View className="min-w-0 flex-1 py-3 pr-4">
+          <View className="flex-row items-center justify-between gap-2">
+            <Text variant="bodyStrong" numberOfLines={1} className="min-w-0 flex-1">
+              {notice.title}
+            </Text>
+            <Text variant="caption" className="shrink-0 text-text-muted">
+              {formatRelativeTime(notice.createdAt)}
+            </Text>
+          </View>
+          <Text variant="footnote" numberOfLines={2} className="mt-1 leading-4 text-text-secondary">
+            {notice.body}
+          </Text>
+        </View>
+      </Card>
     </Pressable>
   );
 }
