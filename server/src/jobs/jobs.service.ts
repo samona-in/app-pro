@@ -451,9 +451,9 @@ export function createJobsService(deps: JobsServiceDeps) {
       kind: NotificationKind.PAYMENT,
       title:
         updated.finalPayPaise !== null
-          ? `Payment of ${formatPaise(updated.finalPayPaise)} received`
+          ? `Payment received · ${formatPaise(updated.finalPayPaise)}`
           : 'Payment received',
-      body: `Thanks — your ${updated.service.name} booking is paid in full.`,
+      body: `${updated.service.name} · paid in full`,
       route: `/booking/${updated.id}`,
     });
     return customerDetail;
@@ -518,8 +518,8 @@ export function createJobsService(deps: JobsServiceDeps) {
         customerUserId: row.customer.userId,
         jobId: updated.id,
         kind: NotificationKind.JOB_STATUS,
-        title: `${updated.pro?.displayName ?? 'Your professional'} cancelled your booking`,
-        body: `The ${updated.service.name} booking on this request was cancelled. Book again when you are ready.`,
+        title: 'Booking cancelled',
+        body: `${updated.pro?.displayName ?? 'Your professional'} · ${updated.service.name}`,
         route: `/booking/${updated.id}`,
       });
     }
@@ -906,8 +906,8 @@ export function createJobsService(deps: JobsServiceDeps) {
       customerUserId: updated.customer.userId,
       jobId: updated.id,
       kind: NotificationKind.JOB_STATUS,
-      title: `${updated.pro?.displayName ?? 'A professional'} accepted your booking`,
-      body: `You can now chat with ${updated.pro?.displayName ?? 'your professional'} about ${updated.service.name}.`,
+      title: 'Booking accepted',
+      body: `${updated.pro?.displayName ?? 'A professional'} · ${updated.service.name}`,
       route: `/booking/${updated.id}`,
     });
 
@@ -1091,28 +1091,19 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     // Each on-site stage the pro reaches shows up on the customer's
     // Notifications screen too; labour stays visible, not something to poll for.
+    // The title is the action (the row emphasises it); the body carries the
+    // who + what once so the pro name is never shown twice.
     const proName = updated.pro?.displayName ?? 'Your professional';
     const serviceName = updated.service.name;
+    const context = `${proName} · ${serviceName}`;
     const stageCopy =
       action === 'travel'
-        ? {
-            title: `${proName} is on the way`,
-            body: `${proName} is travelling to you for ${serviceName}.`,
-          }
+        ? { title: 'On the way', body: context }
         : action === 'arrived'
-          ? {
-              title: `${proName} has arrived`,
-              body: `${proName} arrived for your ${serviceName} booking.`,
-            }
+          ? { title: 'Arrived', body: context }
           : action === 'start'
-            ? {
-                title: `${serviceName} has started`,
-                body: `${proName} started your ${serviceName} booking.`,
-              }
-            : {
-                title: `${serviceName} is complete`,
-                body: `${proName} completed your ${serviceName} booking. Review the payment to finish up.`,
-              };
+            ? { title: 'Work started', body: context }
+            : { title: 'Work complete', body: context };
     recordCustomerNotice(notifications, {
       customerId: updated.customerId,
       customerUserId: updated.customer.userId,
@@ -1275,8 +1266,8 @@ export function createJobsService(deps: JobsServiceDeps) {
         customerUserId: row.customer.userId,
         jobId: row.id,
         kind: NotificationKind.JOB_STATUS,
-        title: `Your ${row.service.name} request expired`,
-        body: 'No professional accepted it in time. You can place it again — we will match you faster next time.',
+        title: 'Request expired',
+        body: `${row.service.name} · no professional accepted it in time. Place it again to rematch.`,
         route: `/booking/${row.id}`,
       });
 

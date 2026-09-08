@@ -575,7 +575,7 @@ describe('createJobsService.expireStaleJobs', () => {
         customerUserId: 'user-1',
         jobId: 'job-old',
         kind: NotificationKind.JOB_STATUS,
-        title: 'Your Electrical request expired',
+        title: 'Request expired',
         route: '/booking/job-old',
       }),
     );
@@ -832,7 +832,7 @@ describe('createJobsService.acceptJob', () => {
         customerUserId: 'cust-user-1',
         jobId: 'job-1',
         kind: NotificationKind.JOB_STATUS,
-        title: 'A professional accepted your booking',
+        title: 'Booking accepted',
         route: '/booking/job-1',
       }),
     );
