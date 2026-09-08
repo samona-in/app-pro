@@ -27,8 +27,13 @@ Notifications.setNotificationHandler({
   }),
 });
 
-/** The channel chat notification pushes are delivered on (Android). */
-export const CHAT_CHANNEL = 'chat_messages';
+/**
+ * The channel chat notification pushes are delivered on (Android). "v2":
+ * Android won't let an app change a channel's sound once created, and the
+ * original `chat_messages` channel was created silent, so this id (matching
+ * the server) starts fresh with the device default sound.
+ */
+export const CHAT_CHANNEL = 'chat_messages_v2';
 
 /** EAS project id used to mint Expo push tokens (see the Pro app for the chain). */
 const PROJECT_ID =
@@ -39,10 +44,10 @@ async function ensureChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(CHAT_CHANNEL, {
     name: 'Messages',
     importance: Notifications.AndroidImportance.HIGH,
-    // Null = the system default notification sound. A bare string is treated as
-    // a custom sound name and must be shipped via the expo-notifications plugin
-    // `sounds` array, which chat notifications have no need for.
-    sound: null,
+    // Omitting `sound` — not `sound: null`, which is silent — makes the channel
+    // use the device's default notification sound. A bare string would be
+    // treated as a custom sound name and must be shipped via the
+    // expo-notifications plugin `sounds` array, which chat has no need for.
     vibrationPattern: [0, 250, 250],
     enableVibrate: true,
   });

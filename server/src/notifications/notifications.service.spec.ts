@@ -380,13 +380,11 @@ describe('createNotificationsService.sendChatPush', () => {
   function build() {
     const prisma = {
       proProfile: {
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({
-            pushToken: 'pro-tok',
-            pushPlatform: 'ANDROID',
-            pushProvider: 'FCM',
-          }),
+        findUnique: jest.fn().mockResolvedValue({
+          pushToken: 'pro-tok',
+          pushPlatform: 'ANDROID',
+          pushProvider: 'FCM',
+        }),
       },
       customerProfile: {
         findUnique: jest.fn().mockResolvedValue({
@@ -438,7 +436,7 @@ describe('createNotificationsService.sendChatPush', () => {
     ];
     expect(sentToken).toBe('cust-tok');
     expect(payload.notification).toEqual({ title: 'Ana', body: 'On my way' });
-    expect(payload.android.notification.channelId).toBe('chat_messages');
+    expect(payload.android.notification.channelId).toBe('chat_messages_v2');
   });
 
   it('does nothing when the recipient-side profile holds no token', async () => {
