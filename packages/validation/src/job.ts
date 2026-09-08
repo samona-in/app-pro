@@ -133,11 +133,20 @@ export type CreateJobInput = z.infer<typeof createJobSchema>;
 export const JOB_ACTIONS = ['travel', 'arrived', 'start', 'complete'] as const;
 export type JobAction = (typeof JOB_ACTIONS)[number];
 
-/** Moves a confirmed job through one on-site stage. */
+/**
+ * Moves a confirmed job through one on-site stage.
+ *
+ * The `start` action requires the pro's live position so the server can verify
+ * they are actually at the work spot before work begins; the other actions do
+ * not send coordinates. Validation here stays permissive (coordinates optional)
+ * — the proximity rule is enforced authoritatively in the jobs service.
+ */
 export const transitionJobSchema = z.object({
   action: z.enum(JOB_ACTIONS),
   /** Optional context, e.g. a note to the customer. */
   note: z.string().trim().max(200, 'Keep the note under 200 characters.').optional(),
+  /** The pro's live position, required by the server for the `start` action. */
+  coordinates: coordinatesSchema.optional(),
 });
 
 export type TransitionJobInput = z.infer<typeof transitionJobSchema>;

@@ -8,6 +8,7 @@ import {
   type AvailableJob,
 } from '@samona/types';
 import type { CreateJobInput, JobAction } from '@samona/validation';
+import { JOB_DEFAULTS } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
 import type { RealtimeService } from '../realtime/gateway';
@@ -1014,15 +1015,22 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
-   * The on-site stages driven by the assigned pro. Completing the job anchors
-   * the price server-side and moves it to PAYMENT_PENDING in the same
-   * transaction.
+   * The on-site stages driven by the assigned pro.
+   *
+   * Starting work is gated on proximity: the pro must be within
+   * `JOB_DEFAULTS.arrivalRadiusMeters` of the work spot (their live position
+   * is sent with the request), otherwise the transition fails closed and the
+   * job stays ARRIVED. Completing the job anchors the price server-side and
+   * lands it on COMPLETED — the move onwards to PAYMENT_PENDING is a distinct
+   * later step once the customer settles, so the completed stage stays visible
+   * as the pro's end point.
    */
   async function transitionJob(
     proUserId: string,
     jobId: string,
     action: JobAction,
     _note?: string,
+    coordinates?: { latitude: number; longitude: number },
   ): Promise<JobDetail> {
     const pro = await findProByUserId(proUserId);
 
@@ -1045,41 +1053,49 @@ export function createJobsService(deps: JobsServiceDeps) {
         throw conflict(`A job cannot move from ${row.status} to ${target}.`);
       }
 
+      // Fail closed before any write: a pro must be physically at the work
+      // spot to start. Missing coordinates (a client that broke contract) is
+      // treated the same as being too far away — never trust location claims.
+      if (action === 'start') {
+        const jobPoint =
+          row.latitude != null && row.longitude != null
+            ? { latitude: row.latitude, longitude: row.longitude }
+            : null;
+        if (!jobPoint || !coordinates) {
+          throw badRequest('Your location is needed to start work. Please try again.');
+        }
+        const metres = distanceKm(coordinates, jobPoint) * 1000;
+        if (metres > JOB_DEFAULTS.arrivalRadiusMeters) {
+          throw badRequest(
+            `You must be within ${JOB_DEFAULTS.arrivalRadiusMeters} m of the work spot to start work.`,
+          );
+        }
+      }
+
+      const isComplete = action === 'complete';
       await tx.jobStatusHistory.create({
         data: {
           jobId: row.id,
           fromStatus: row.status,
-          toStatus: target,
+          toStatus: isComplete ? JobStatus.COMPLETED : target,
           changedById: proUserId,
         },
       });
 
-      const isComplete = action === 'complete';
+      // Completing anchors the price and stops at COMPLETED, which stays the
+      // pro's visible end state. A later settle step moves it to
+      // PAYMENT_PENDING; the anchor is decided here so no client can set it.
       const next = await tx.job.update({
         where: { id: row.id },
         data: isComplete
           ? {
-              status: JobStatus.PAYMENT_PENDING,
+              status: JobStatus.COMPLETED,
               completedAt: new Date(),
-              // The server anchors the price; a client can never set it.
               finalPayPaise: row.agreedPayPaise ?? row.basePayPaise,
             }
           : { status: target },
         include: jobDetailInclude,
       });
-
-      if (isComplete) {
-        // COMPLETED is the documented half of the IN_PROGRESS → COMPLETED →
-        // PAYMENT_PENDING chain; the row carries the terminal money state.
-        await tx.jobStatusHistory.create({
-          data: {
-            jobId: row.id,
-            fromStatus: JobStatus.COMPLETED,
-            toStatus: JobStatus.PAYMENT_PENDING,
-            changedById: proUserId,
-          },
-        });
-      }
 
       return next;
     });

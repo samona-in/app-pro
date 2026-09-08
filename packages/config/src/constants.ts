@@ -68,4 +68,9 @@ export const JOB_DEFAULTS = {
   etaSpeedKmh: 30,
   /** Cap on the pro app's available-jobs pool and job lists. */
   listLimit: 50,
+  /**
+   * How close (in metres) a pro's live location must be to the work spot
+   * before they may "Start Work". Tune later from field feedback.
+   */
+  arrivalRadiusMeters: 100,
 } as const;

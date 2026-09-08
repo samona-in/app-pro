@@ -197,6 +197,7 @@ export function createJobsRouter(services: Services): Router {
           routeParamId(req.params.id),
           req.body.action,
           req.body.note,
+          req.body.coordinates,
         ),
       );
     } catch (error) {
