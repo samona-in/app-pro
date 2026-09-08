@@ -23,6 +23,6 @@ export function MessageStatusIcon({ message }: Props) {
   }
 
   const done = status === 'delivered' || status === 'read';
-  const tint = status === 'read' ? color.blue[500] : color['text-muted'];
+  const tint = status === 'read' ? color.brand : color['text-muted'];
   return <Ionicons name={done ? 'checkmark-done' : 'checkmark'} size={14} color={tint} />;
 }

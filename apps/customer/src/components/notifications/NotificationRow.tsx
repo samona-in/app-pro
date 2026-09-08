@@ -13,7 +13,7 @@ type Ionicon = keyof typeof Ionicons.glyphMap;
 /** Maps a notification kind to a leading icon and its tint, like the Pro app. */
 const KIND_ICON: Record<NotificationKind, { icon: Ionicon; tint: string }> = {
   JOB_ALERT: { icon: 'notifications', tint: color.brand },
-  JOB_STATUS: { icon: 'construct-outline', tint: color.info },
+  JOB_STATUS: { icon: 'construct-outline', tint: color.brand },
   PAYMENT: { icon: 'wallet-outline', tint: color.success },
   SYSTEM: { icon: 'shield-checkmark-outline', tint: color['text-muted'] },
 };
