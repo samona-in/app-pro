@@ -5,6 +5,7 @@ import type {
   CustomerNotificationUnread,
   JobDetail,
   MessageReceiptUpdate,
+  MessageUnreadUpdate,
 } from '@samona/types';
 import { env } from '@/env';
 
@@ -27,6 +28,8 @@ export interface RealtimeEventMap {
   'message:delivered': MessageReceiptUpdate;
   /** The other party's app read the caller's messages. Payload: MessageReceiptUpdate. */
   'message:read': MessageReceiptUpdate;
+  /** A job thread's unread count changed for the caller's surface. Payload: MessageUnreadUpdate. */
+  'message:unread': MessageUnreadUpdate;
   /**
    * The customer's unread notification count changed. Payload:
    * CustomerNotificationUnread. Drives the home-screen bell pill; the

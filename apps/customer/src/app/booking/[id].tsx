@@ -3,9 +3,16 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { JobStatus, type JobDetail } from '@samona/types';
 import { bookingStatusLabel } from '@/components/booking';
+import { UnreadBadge } from '@/components/chat';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
-import { useBooking, useCancelBooking, usePayBooking, useSubmitGuard } from '@/hooks';
+import {
+  useBooking,
+  useCancelBooking,
+  usePayBooking,
+  useSubmitGuard,
+  useUnreadMessages,
+} from '@/hooks';
 import { color } from '@/theme';
 import { formatRupees } from '@/utils/format';
 
@@ -42,9 +49,10 @@ function canCancel(status: JobStatus): boolean {
  * Compound "call + message" contact button in the native header. A chat-bubble
  * glyph with a small call badge reads as both ways to reach the professional;
  * the 44pt surface circle keeps it consistent with IconButton. Only rendered
- * once a pro is assigned — before that there is nobody to reach.
+ * once a pro is assigned — before that there is nobody to reach. The red dot in
+ * the corner carries how many pro messages are still unread.
  */
-function CallMessageButton({ jobId }: { jobId: string }) {
+function CallMessageButton({ jobId, unread }: { jobId: string; unread: number }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -58,6 +66,7 @@ function CallMessageButton({ jobId }: { jobId: string }) {
           <Ionicons name="call" size={11} color={color['brand-contrast']} />
         </View>
       </View>
+      <UnreadBadge count={unread} className="absolute -right-1 -top-1" />
     </Pressable>
   );
 }
@@ -65,6 +74,7 @@ function CallMessageButton({ jobId }: { jobId: string }) {
 export default function BookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: job, isPending, isError, refetch } = useBooking(id);
+  const unread = useUnreadMessages();
 
   const pay = usePayBooking(id);
   const cancel = useCancelBooking(id);
@@ -134,7 +144,9 @@ export default function BookingDetail() {
       {job.pro ? (
         <Stack.Screen
           options={{
-            headerRight: () => <CallMessageButton jobId={job.id} />,
+            headerRight: () => (
+              <CallMessageButton jobId={job.id} unread={unread.countFor(job.id)} />
+            ),
           }}
         />
       ) : null}

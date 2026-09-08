@@ -2,7 +2,9 @@ import { Pressable, View, type PressableProps } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { type Job, type JobStatus } from '@samona/types';
+import { UnreadBadge } from '@/components/chat';
 import { Badge, Text } from '@/components/ui';
+import { useUnreadMessages } from '@/hooks';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import { formatRupees } from '@/utils/format';
@@ -43,6 +45,7 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
   const iconName = (job.service.icon ?? 'construct-outline') as React.ComponentProps<
     typeof Ionicons
   >['name'];
+  const unread = useUnreadMessages();
 
   return (
     <Pressable
@@ -52,7 +55,7 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
       className={cn('active:opacity-70', className)}
       {...rest}
     >
-      <View className="flex-row items-center rounded-xl border border-border bg-surface p-4">
+      <View className="relative flex-row items-center rounded-xl border border-border bg-surface p-4">
         <View className="h-12 w-12 items-center justify-center rounded-lg bg-surface-muted">
           <Ionicons name={iconName} size={24} color={color['text-secondary']} />
         </View>
@@ -76,6 +79,11 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
             <Text variant="caption">{placeLabel(job)}</Text>
           </View>
         </View>
+
+        {/* Unread-chat badge pinned to the top-right corner; the card is the
+            customer's chat entry point, so an unanswered message reads as a
+            pending-booking signal. */}
+        <UnreadBadge count={unread.countFor(job.id)} className="absolute -right-2 -top-2" />
       </View>
     </Pressable>
   );

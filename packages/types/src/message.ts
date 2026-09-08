@@ -70,6 +70,26 @@ export interface MessageReceiptUpdate {
 }
 
 /**
+ * Live "unread" state for one job thread, as seen from one surface of the job.
+ *
+ * Delivered by REST (`GET /messages/unread-counts`) and kept fresh by the
+ * `message:unread` realtime event. A badge disappears when the count reaches
+ * zero — which happens when the receiving side opens the thread (its app sends
+ * `POST /messages/read`).
+ */
+export interface MessageUnreadUpdate {
+  jobId: string;
+  unreadCount: number;
+  /** The role whose badge this event updates; surfaces of the same account independently. */
+  recipientRole: UserRole;
+}
+
+/** REST response: the caller's per-job unread counts, nonzero entries only. */
+export interface MessageUnreadSummary {
+  items: Array<{ jobId: string; unreadCount: number }>;
+}
+
+/**
  * Derives the WhatsApp-style status for one of the caller's own messages.
  *
  * `isLocal` marks the optimistic placeholder created before the server

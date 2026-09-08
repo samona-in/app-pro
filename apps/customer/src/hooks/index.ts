@@ -22,4 +22,5 @@ export {
   useMarkNotificationRead,
   useUnreadNotifications,
 } from './use-notifications';
+export { useUnreadMessages } from './use-unread-messages';
 export { usePushNavigation } from './use-push-navigation';

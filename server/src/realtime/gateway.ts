@@ -49,6 +49,12 @@ export const REALTIME_EVENTS = {
    */
   MESSAGE_READ: 'message:read',
   /**
+   * A job's thread changed its unread count for the recipient. Payload:
+   * `{ jobId, unreadCount, recipientRole }`. Carried on the role that must
+   * re-render its badge so surfaces of the same account stay independent.
+   */
+  MESSAGE_UNREAD: 'message:unread',
+  /**
    * A customer's unread notification count changed. Payload:
    * `{ unreadCount }`. Emitted by the notifications service whenever a notice
    * is recorded or marked read; drives the bell pill on the customer's home
