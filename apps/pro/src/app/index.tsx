@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { isTripStatus } from '@/constants';
+import { isActiveJobStatus } from '@samona/types';
 import { useProJobs, useSession } from '@/hooks';
 
 /**
@@ -9,15 +9,17 @@ import { useProJobs, useSession } from '@/hooks';
  *
  *   not authenticated        -> phone flow
  *   no/incomplete onboarding -> resume at the first unanswered step
- *   active trip (on the way) -> the map-first trip screen, not home
+ *   active job (not terminal)-> the map-first job screen, not home
  *   onboarding complete      -> home
  *
  * `nextStep` is computed by the server from the profile's own data, so the app
  * never has to assemble the decision from several requests, and resuming works
  * the same whether the Pro closed the app one step in or six.
  *
- * A pro mid-job has no use for the availability home screen, so an ACCEPTED or
- * TRAVELLING job wins over home and drops straight into the trip screen.
+ * A pro mid-job has no use for the availability home screen, so any assigned
+ * job that hasn't reached a terminal outcome (accepted through completed,
+ * until paid / cancelled / expired) wins over home and drops straight into the
+ * job screen.
  */
 export default function Index() {
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep, error } = useSession();
@@ -50,7 +52,7 @@ export default function Index() {
     return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
   }
 
-  const activeTrip = (jobsQuery.data ?? []).find((job) => isTripStatus(job.status));
+  const activeJob = (jobsQuery.data ?? []).find((job) => isActiveJobStatus(job.status));
 
   if (jobsQuery.isPending) {
     return (
@@ -60,8 +62,8 @@ export default function Index() {
     );
   }
 
-  if (activeTrip) {
-    return <Redirect href={`/job/${activeTrip.id}/active`} />;
+  if (activeJob) {
+    return <Redirect href={`/job/${activeJob.id}/active`} />;
   }
 
   return <Redirect href="/home" />;

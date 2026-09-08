@@ -4,8 +4,10 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -18,6 +20,7 @@ const KNOB_SIZE = 52;
 const TRACK_HEIGHT = 60;
 const TRACK_PADDING = 4;
 const CONFIRM_THRESHOLD = 0.78;
+const RESET_DELAY_MS = 300;
 
 export interface SwipeToConfirmProps {
   label: string;
@@ -30,7 +33,9 @@ export interface SwipeToConfirmProps {
 /**
  * Slide-to-confirm action — the signature Pro CTA for one-handed, in-motion
  * steps like "On My Way". Dragging the thumb across releases a high-impact
- * haptic and fires `onConfirm`; releasing early springs it back.
+ * haptic and fires `onConfirm`; the thumb never rests at the far end. Once the
+ * request settles the thumb springs back so the next stage — or the same stage
+ * after an error — is immediately ready to swipe.
  */
 export function SwipeToConfirm({
   label,
@@ -88,6 +93,26 @@ export function SwipeToConfirm({
       transform: [{ translateX: interpolate(progress, [0, 1], [0, 4], 'clamp') }],
     };
   });
+
+  // Return the knob to its starting position once confirmation settles, so the
+  // next action label — or the same one after an error — is immediately
+  // visible and ready to swipe. The knob is kept at the far end only while the
+  // request is in flight (`loading`), and is never allowed to rest there.
+  // Reacting to the loading flag (rather than the label) covers the failure
+  // path too: on error the label does not change, but the knob must still
+  // spring back. Done on the UI thread. The immutability rule cannot see that
+  // Reanimated's `useSharedValue` is a mutable ref, so it flags the write here
+  // (but, inconsistently, not the identical writes in the pan handler above).
+  useAnimatedReaction(
+    () => loading,
+    (current, previous) => {
+      if (previous === true && current === false) {
+        // eslint-disable-next-line react-hooks/immutability
+        translateX.value = withDelay(RESET_DELAY_MS, withSpring(0, { damping: 20, stiffness: 300 }));
+      }
+    },
+    [loading],
+  );
 
   function onTrackLayout(e: LayoutChangeEvent) {
     trackWidth.value = e.nativeEvent.layout.width;

@@ -59,8 +59,15 @@ export function useAcceptJob() {
 export function useTransitionJob() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ jobId, action }: { jobId: string; action: ProJobTransitionAction }) =>
-      jobsApi.transition(jobId, action),
+    mutationFn: ({
+      jobId,
+      action,
+      coordinates,
+    }: {
+      jobId: string;
+      action: ProJobTransitionAction;
+      coordinates?: { latitude: number; longitude: number };
+    }) => jobsApi.transition(jobId, action, undefined, coordinates),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     },

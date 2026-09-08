@@ -1264,3 +1264,130 @@ describe('createJobsService.listAvailableJobs', () => {
     );
   });
 });
+
+describe('createJobsService.transitionJob', () => {
+  /** A job in ARRIVED, ready for `start`. Work spot is Bangalore, MG Road. */
+  const arrivedRow = {
+    ...jobRow,
+    proId: 'pro-1',
+    status: JobStatus.ARRIVED,
+    latitude: 12.9756,
+    longitude: 77.6099,
+    customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
+    pro: { userId: 'user-1', displayName: 'Pro', profile: { phone: null } },
+  };
+
+  function buildTransition() {
+    const jobFindFirst = jest.fn().mockResolvedValue(arrivedRow);
+    const historyCreate = jest.fn().mockResolvedValue({});
+    const jobUpdate = jest
+      .fn()
+      .mockImplementation(
+        async (args: {
+          data: { status: JobStatus; completedAt?: Date; finalPayPaise?: number };
+        }) => ({
+          ...arrivedRow,
+          status: args.data.status,
+          ...(args.data.completedAt ? { completedAt: args.data.completedAt } : {}),
+          ...(args.data.finalPayPaise !== undefined
+            ? { finalPayPaise: args.data.finalPayPaise }
+            : {}),
+        }),
+      );
+    const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+
+    const prisma = {
+      proProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'pro-1', userId: 'user-1' }) },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          job: { findFirst: jobFindFirst, update: jobUpdate },
+          jobStatusHistory: { create: historyCreate },
+        }),
+      ),
+    };
+
+    const realtime = { emitToUser: jest.fn(), emitToUsers: jest.fn() };
+    const storage = {
+      jobImagePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`),
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: storage as never,
+      matching: {} as never,
+      realtime: realtime as never,
+      notifications: { recordCustomerNotification } as never,
+    } as never);
+
+    return { jobs, jobFindFirst, historyCreate, jobUpdate, realtime };
+  }
+
+  it('starts work when the pro is within the arrival radius', async () => {
+    const ctx = buildTransition();
+
+    const result = await ctx.jobs.transitionJob('user-1', 'job-1', 'start', undefined, {
+      latitude: 12.9756, // same work spot
+      longitude: 77.6099,
+    });
+
+    expect(ctx.jobUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: JobStatus.IN_PROGRESS }),
+      }),
+    );
+    expect(result.status).toBe(JobStatus.IN_PROGRESS);
+  });
+
+  it('rejects starting work beyond the arrival radius and leaves the job ARRIVED', async () => {
+    const ctx = buildTransition();
+
+    // ~2.5 km north of the work spot.
+    await expect(
+      ctx.jobs.transitionJob('user-1', 'job-1', 'start', undefined, {
+        latitude: 12.9999,
+        longitude: 77.6099,
+      }),
+    ).rejects.toMatchObject({ name: 'HttpError', status: 400 });
+
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
+    expect(ctx.jobFindFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when live coordinates are missing for start', async () => {
+    const ctx = buildTransition();
+
+    await expect(ctx.jobs.transitionJob('user-1', 'job-1', 'start')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 400,
+    });
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
+  });
+
+  it('stops work at COMPLETED, anchoring the price, without jumping to PAYMENT_PENDING', async () => {
+    const ctx = buildTransition();
+    ctx.jobFindFirst.mockResolvedValue({
+      ...arrivedRow,
+      status: JobStatus.IN_PROGRESS,
+      agreedPayPaise: 20_000,
+    });
+
+    const result = await ctx.jobs.transitionJob('user-1', 'job-1', 'complete');
+
+    expect(ctx.jobUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: JobStatus.COMPLETED,
+          finalPayPaise: 20_000,
+        }),
+      }),
+    );
+    expect(result.status).toBe(JobStatus.COMPLETED);
+    // A single history row (IN_PROGRESS → COMPLETED); no PAYMENT_PENDING write.
+    expect(ctx.historyCreate).toHaveBeenCalledTimes(1);
+    expect(ctx.historyCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ toStatus: JobStatus.COMPLETED }),
+      }),
+    );
+  });
+});
