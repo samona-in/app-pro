@@ -807,9 +807,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         where: { userId, pushToken },
         data: { pushToken: null, pushPlatform: null, pushProvider: null },
       });
-      logger.info(
-        `[Push] Token stored successfully for customer ${row.id} (${providerValue}).`,
-      );
+      logger.info(`[Push] Token stored successfully for customer ${row.id} (${providerValue}).`);
       return;
     }
 
@@ -887,7 +885,11 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       messageId: input.message.id,
       senderId: input.message.senderId,
     });
-    const channelId = 'chat_messages';
+    // Delivered on the chat channel both apps create. "v2" is intentional:
+    // Android does not let an app change a channel's sound after it's created,
+    // and the original `chat_messages` channel was created silent, so the id is
+    // bumped (with the apps) to a channel that uses the device default sound.
+    const channelId = 'chat_messages_v2';
 
     if (pushProviderOf(profile as { pushProvider?: 'EXPO' | 'FCM' | null }) === 'FCM') {
       const client = getFcmClient();

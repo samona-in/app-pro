@@ -47,6 +47,14 @@ Notifications.setNotificationHandler({
 export const JOB_ALERT_CHANNEL = 'incoming_jobs';
 
 /**
+ * The notification channel chat-message pushes are delivered on (Android).
+ * Matches the server's `channelId` on every chat FCM push. Unlike the job-alert
+ * channel, the `sound` key is deliberately omitted so the channel uses the
+ * physical device's default notification sound.
+ */
+export const CHAT_CHANNEL = 'chat_messages_v2';
+
+/**
  * The EAS project id used to mint Expo push tokens.
  *
  * `Constants.easConfig.projectId` is only populated by EAS cloud builds; a
@@ -59,9 +67,14 @@ const PROJECT_ID =
   env.easProjectId ?? Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
 
 /**
- * Ensures the Android channel exists once. The server sets `channelId` to this
- * on every job alert so it raises as a full, audible alert rather than a silent
- * tray item.
+ * Ensures the Android channels exist once. The server sets `channelId` to these
+ * on every push:
+ *  - `incoming_jobs` for job alerts, so a request raises as a full, audible
+ *    alert rather than a silent tray item;
+ *  - `chat_messages_v2` for chat, which has no `sound` key and therefore
+ *    follows the device default notification sound. (The id is a bumped "v2" —
+ *    the original `chat_messages` was created silent and Android never lets an
+ *    app change an existing channel's sound, so the fresh id starts clean.)
  */
 async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -73,6 +86,14 @@ async function ensureChannel(): Promise<void> {
     enableVibrate: true,
     // Bypass "do not disturb" so a sleeping pro still hears the alert.
     bypassDnd: true,
+  });
+  await Notifications.setNotificationChannelAsync(CHAT_CHANNEL, {
+    name: 'Messages',
+    importance: Notifications.AndroidImportance.HIGH,
+    // Omitting `sound` — not `sound: null`, which is silent — makes the channel
+    // use the device's default notification sound.
+    vibrationPattern: [0, 250, 250],
+    enableVibrate: true,
   });
 }
 
