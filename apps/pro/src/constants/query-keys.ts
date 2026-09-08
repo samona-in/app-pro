@@ -23,5 +23,7 @@ export const queryKeys = {
   notifications: ['notifications'] as const,
   messages: {
     thread: (jobId: string) => ['messages', 'thread', jobId] as const,
+    /** Scoped by user so a signed-out cache is never served to another account. */
+    unread: (userId: string) => ['messages', 'unread', userId] as const,
   },
 } as const;

@@ -4,11 +4,8 @@ import type { ColorValue } from 'react-native';
 import { useEffect } from 'react';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { useRealtimeSync, useSession } from '@/hooks';
-import {
-  initializeJobAlertService,
-  stopJobAlertService,
-} from '@/services/foreground-service';
+import { useRealtimeSync, useSession, useUnreadMessages } from '@/hooks';
+import { initializeJobAlertService, stopJobAlertService } from '@/services/foreground-service';
 import { jobNotificationService } from '@/services/job-notifications';
 import { color } from '@/theme';
 
@@ -37,6 +34,11 @@ export default function TabsLayout() {
   // says the job was claimed — plus the foreground service that keeps the
   // online process alive for pushes.
   useRealtimeSync();
+
+  // Live unread-chat counts for every badge across the app. Mounted here where
+  // the signed-in surface lives so a badge anywhere updates the moment the
+  // count changes on the socket (CLAUDE.md "Realtime").
+  useUnreadMessages();
 
   // The foreground service mirrors the online status so a backgrounded pro
   // still receives pushes; signing out releases it even though the status store
@@ -93,10 +95,7 @@ export default function TabsLayout() {
         name="home"
         options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
       />
-      <Tabs.Screen
-        name="jobs"
-        options={{ href: null }}
-      />
+      <Tabs.Screen name="jobs" options={{ href: null }} />
       <Tabs.Screen
         name="earnings"
         options={{ title: 'Earnings', tabBarIcon: tabIcon('wallet-outline', 'wallet') }}

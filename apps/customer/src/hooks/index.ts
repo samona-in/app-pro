@@ -17,4 +17,5 @@ export { useSession, type SessionResponse } from './use-session';
 export { useServiceCategories } from './use-service-categories';
 export { useSubmitGuard } from './use-submit-guard';
 export { useMessages } from './use-messages';
+export { useUnreadMessages } from './use-unread-messages';
 export { usePushNavigation } from './use-push-navigation';

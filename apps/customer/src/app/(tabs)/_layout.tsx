@@ -1,9 +1,10 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import type { ColorValue } from 'react-native';
+import { View, type ColorValue } from 'react-native';
+import { UnreadBadge } from '@/components/chat';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { useRealtimeSync, useSession } from '@/hooks';
+import { useRealtimeSync, useSession, useUnreadMessages } from '@/hooks';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -20,12 +21,29 @@ function tabIcon(outline: IoniconName, filled: IoniconName) {
   };
 }
 
+/** Bookings tab icon with the total unread-chat pill over its corner. */
+function bookingsTabIcon(unread: number) {
+  return function BookingsTabIcon({ color: tint, focused }: TabBarIconProps) {
+    return (
+      <View>
+        <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={tint} />
+        <UnreadBadge count={unread} className="absolute -right-3 -top-1.5" />
+      </View>
+    );
+  };
+}
+
 export default function TabsLayout() {
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
 
   // Realtime events (shortlist updated, status changed, payment settled)
   // invalidate the bookings cache wherever the signed-in app is mounted.
   useRealtimeSync();
+
+  // Live unread-chat counts for the bookings tab badge and every booking card.
+  // Mounted here where the signed-in surface lives so a badge anywhere updates
+  // the moment the count changes on the socket (CLAUDE.md "Realtime").
+  const unread = useUnreadMessages();
 
   if (isLoading) {
     return (
@@ -65,7 +83,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="bookings"
-        options={{ title: 'Bookings', tabBarIcon: tabIcon('calendar-outline', 'calendar') }}
+        options={{ title: 'Bookings', tabBarIcon: bookingsTabIcon(unread.total) }}
       />
       <Tabs.Screen
         name="profile"

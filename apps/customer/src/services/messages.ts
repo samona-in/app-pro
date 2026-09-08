@@ -1,4 +1,4 @@
-import type { ChatMessage, MessagePage } from '@samona/types';
+import type { ChatMessage, MessagePage, MessageUnreadSummary } from '@samona/types';
 import type { SendMessageInput } from '@samona/validation';
 import { api } from './api';
 
@@ -13,6 +13,9 @@ export const messagesApi = {
   /** The job's thread, newest page first ordered oldest-to-newest. */
   list: (jobId: string, options: { limit?: number; before?: string } = {}) =>
     api.get<MessagePage>('/messages', { query: { jobId, ...options } }),
+
+  /** The caller's per-job unread chat counts (nonzero entries only). */
+  unreadCounts: () => api.get<MessageUnreadSummary>('/messages/unread-counts'),
 
   /** Sends one message; the server anchors sender and job. */
   send: (input: SendMessageInput) => api.post<ChatMessage>('/messages', input),

@@ -48,6 +48,12 @@ export const REALTIME_EVENTS = {
    * `MessageReceiptUpdate`. Drives the double-tick → double-blue transition.
    */
   MESSAGE_READ: 'message:read',
+  /**
+   * A job's thread changed its unread count for the recipient. Payload:
+   * `{ jobId, unreadCount, recipientRole }`. Carried on the role that must
+   * re-render its badge so surfaces of the same account stay independent.
+   */
+  MESSAGE_UNREAD: 'message:unread',
 } as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];
