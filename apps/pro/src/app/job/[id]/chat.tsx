@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
+import type { ChatMessage } from '@samona/types';
 import { ChatFooter, MessageBubble, QuickChatPresets } from '@/components/chat';
 import { LoadingState } from '@/components/feedback';
 import { useMessages, useProJobs, useSession } from '@/hooks';
@@ -54,6 +55,12 @@ export default function JobChatScreen() {
   const customerName = job?.customer?.displayName ?? 'Customer';
   const phone = job?.customer?.phone;
 
+  // Mine vs theirs is decided by the surface's role, not by id — the same
+  // account can be both sides of a job (same phone on two apps), and then the
+  // pro and customer share one userId.
+  const isMine = (item: ChatMessage) =>
+    item.senderRole ? item.senderRole === user?.role : item.senderId === user?.id;
+
   // The thread is cached oldest-first; an inverted list needs newest first so
   // item 0 sits at the bottom and new arrivals pin in view.
   const reversed = useMemo(() => [...chat.messages].reverse(), [chat.messages]);
@@ -84,9 +91,7 @@ export default function JobChatScreen() {
           inverted
           style={{ flex: 1 }}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <MessageBubble message={item} isMine={item.senderId === user?.id} />
-          )}
+          renderItem={({ item }) => <MessageBubble message={item} isMine={isMine(item)} />}
           contentContainerClassName="px-4 py-3"
           keyboardShouldPersistTaps="handled"
           onEndReached={() => void chat.loadOlder()}

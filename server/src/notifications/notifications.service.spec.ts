@@ -1,4 +1,4 @@
-import { NotificationKind } from '@samona/types';
+import { NotificationKind, type ChatMessage } from '@samona/types';
 import {
   buildFcmPushMessage,
   buildFcmTerminalMessage,
@@ -364,11 +364,12 @@ describe('createNotificationsService.registerPushToken', () => {
 });
 
 describe('createNotificationsService.sendChatPush', () => {
-  function chatMessage() {
+  function chatMessage(): ChatMessage {
     return {
       id: 'msg-1',
       jobId: 'job-1',
       senderId: 'sender-1',
+      senderRole: 'CUSTOMER',
       content: 'On my way',
       sentAt: '2026-09-07T15:00:00.000Z',
       deliveredAt: null,
@@ -379,7 +380,13 @@ describe('createNotificationsService.sendChatPush', () => {
   function build() {
     const prisma = {
       proProfile: {
-        findUnique: jest.fn().mockResolvedValue({ pushToken: 'pro-tok', pushPlatform: 'ANDROID', pushProvider: 'FCM' }),
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({
+            pushToken: 'pro-tok',
+            pushPlatform: 'ANDROID',
+            pushProvider: 'FCM',
+          }),
       },
       customerProfile: {
         findUnique: jest.fn().mockResolvedValue({
@@ -425,7 +432,10 @@ describe('createNotificationsService.sendChatPush', () => {
     });
     expect(prisma.proProfile.findUnique).not.toHaveBeenCalled();
     expect(mockFcmSend).toHaveBeenCalledTimes(1);
-    const [sentToken, payload] = mockFcmSend.mock.calls[0] as [string, { notification: unknown; android: { notification: { channelId: string } } }];
+    const [sentToken, payload] = mockFcmSend.mock.calls[0] as [
+      string,
+      { notification: unknown; android: { notification: { channelId: string } } },
+    ];
     expect(sentToken).toBe('cust-tok');
     expect(payload.notification).toEqual({ title: 'Ana', body: 'On my way' });
     expect(payload.android.notification.channelId).toBe('chat_messages');
