@@ -2,6 +2,8 @@ import {
   type ChatMessage,
   type MessagePage,
   type MessageReceiptUpdate,
+  type MessageUnreadSummary,
+  type MessageUnreadUpdate,
   UserRole,
 } from '@samona/types';
 import { type MessageListQuery, type SendMessageInput } from '@samona/validation';
@@ -175,6 +177,57 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     return thread.actorIsCustomer ? thread.pro : thread.customer;
   }
 
+  /** How many of one side's messages in a job are still unread. */
+  async function countUnread(jobId: string, senderRole: UserRole): Promise<number> {
+    return prisma.message.count({
+      where: { jobId, senderRole, readAt: null },
+    });
+  }
+
+  /**
+   * The caller's unread counts across every job thread they are a party of,
+   * as seen from the surface they are on. Nonzero entries only — the UI only
+   * renders a badge when there is something to read.
+   */
+  async function listUnreadCounts(
+    actorProfileId: string,
+    appType: AppType | null,
+  ): Promise<MessageUnreadSummary> {
+    // The surface decides which side's inbox to tally; without one there is no
+    // reliable way to pick (a single account can own both sides of a job).
+    const otherSenderRole =
+      appType === 'customer' ? UserRole.PRO : appType === 'pro' ? UserRole.CUSTOMER : null;
+    if (!otherSenderRole) return { items: [] };
+
+    const callerSide =
+      appType === 'customer'
+        ? { job: { customer: { userId: actorProfileId } } }
+        : { job: { pro: { userId: actorProfileId } } };
+
+    const rows = await prisma.message.groupBy({
+      by: ['jobId'],
+      where: { senderRole: otherSenderRole, readAt: null, ...callerSide },
+      _count: { _all: true },
+    });
+
+    return {
+      items: rows
+        .filter((row) => row._count._all > 0)
+        .map((row) => ({ jobId: row.jobId, unreadCount: row._count._all })),
+    };
+  }
+
+  /** Nudges the recipient's surfaces with the job's current unread count. */
+  function emitUnread(
+    recipientProfileId: string,
+    recipientRole: UserRole,
+    jobId: string,
+    unreadCount: number,
+  ): void {
+    const update: MessageUnreadUpdate = { jobId, unreadCount, recipientRole };
+    realtime.emitToUser(recipientProfileId, REALTIME_EVENTS.MESSAGE_UNREAD, update);
+  }
+
   /**
    * The job's thread, oldest first in chat reading order.
    *
@@ -241,6 +294,18 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     // emit reaches the other surface (which filters by `senderRole`) without
     // touching the sender's own app.
     realtime.emitToUser(thread.otherProfileId, REALTIME_EVENTS.MESSAGE_NEW, dto);
+
+    // The recipient's badge moves too. Re-count from the store so the value is
+    // authoritative even when a burst of messages races ahead of the socket.
+    // The message just sent is "theirs", so it counts under the actor's role
+    // and the badge belongs to the recipient's surface.
+    const recipientRole: UserRole = thread.actorIsCustomer ? UserRole.PRO : UserRole.CUSTOMER;
+    emitUnread(
+      thread.otherProfileId,
+      recipientRole,
+      input.jobId,
+      await countUnread(input.jobId, senderRole),
+    );
 
     const senderName = thread.actorIsCustomer
       ? thread.customer.displayName
@@ -332,6 +397,10 @@ export function createMessagesService(deps: MessagesServiceDeps) {
       messageIds: ids.map((m) => m.id),
       senderRole: otherSenderRole,
     });
+
+    // The reader's own badge drops to whatever this job still has unread.
+    const readerRole: UserRole = thread.actorIsCustomer ? UserRole.CUSTOMER : UserRole.PRO;
+    emitUnread(thread.thisProfileId, readerRole, jobId, await countUnread(jobId, otherSenderRole));
   }
 
   /** Sends the receipt update to both parties (the sender is one of them). */
@@ -344,7 +413,7 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     realtime.emitToUser(thread.pro.userId, event, update);
   }
 
-  return { listForParty, send, markDelivered, markRead, otherParty };
+  return { listForParty, listUnreadCounts, send, markDelivered, markRead, otherParty };
 }
 
 export type MessagesService = ReturnType<typeof createMessagesService>;

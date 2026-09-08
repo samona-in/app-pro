@@ -6,6 +6,7 @@ import {
   createNotificationsService,
 } from './notifications.service';
 import { verifyJobOffer } from '../jobs/job-offers';
+import { REALTIME_EVENTS } from '../realtime/gateway';
 import type { FcmMessagePayload } from './fcm';
 
 const mockFcmSend = jest.fn();
@@ -457,5 +458,206 @@ describe('createNotificationsService.sendChatPush', () => {
     });
 
     expect(mockFcmSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('createNotificationsService customer notices', () => {
+  const createdAt = new Date('2026-09-08T08:00:00.000Z');
+
+  it('records a notice and nudges the customer bell over the socket', async () => {
+    const customerProfileFindUnique = jest.fn().mockResolvedValue({ id: 'cust-1' });
+    const create = jest.fn().mockResolvedValue({
+      id: 'notif-1',
+      customerId: 'cust-1',
+      jobId: 'job-1',
+      kind: NotificationKind.JOB_STATUS,
+      title: 'Rakesh accepted your booking',
+      body: 'You can now chat with Rakesh about Electrical.',
+      route: '/booking/job-1',
+      readAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    });
+    const count = jest.fn().mockResolvedValue(1);
+    const prisma = {
+      customerProfile: { findUnique: customerProfileFindUnique },
+      customerNotification: { create, count, findMany: jest.fn(), updateMany: jest.fn() },
+    };
+    const emitToUser = jest.fn();
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+      realtime: { emitToUser } as never,
+    });
+
+    const dto = await service.recordCustomerNotification({
+      customerId: 'cust-1',
+      customerUserId: 'user-1',
+      jobId: 'job-1',
+      kind: NotificationKind.JOB_STATUS,
+      title: 'Rakesh accepted your booking',
+      body: 'You can now chat with Rakesh about Electrical.',
+      route: '/booking/job-1',
+    });
+
+    expect(prisma.customerNotification.create).toHaveBeenCalledWith({
+      data: {
+        customerId: 'cust-1',
+        jobId: 'job-1',
+        kind: NotificationKind.JOB_STATUS,
+        title: 'Rakesh accepted your booking',
+        body: 'You can now chat with Rakesh about Electrical.',
+        route: '/booking/job-1',
+      },
+    });
+    expect(prisma.customerNotification.count).toHaveBeenCalledWith({
+      where: { customerId: 'cust-1', readAt: null },
+    });
+    expect(emitToUser).toHaveBeenCalledWith('user-1', REALTIME_EVENTS.NOTIFICATION_UNREAD, {
+      unreadCount: 1,
+    });
+    expect(dto).toEqual({
+      id: 'notif-1',
+      jobId: 'job-1',
+      kind: NotificationKind.JOB_STATUS,
+      title: 'Rakesh accepted your booking',
+      body: 'You can now chat with Rakesh about Electrical.',
+      route: '/booking/job-1',
+      readAt: null,
+      createdAt: '2026-09-08T08:00:00.000Z',
+    });
+  });
+
+  it('lists only the caller’s own notices, newest first', async () => {
+    const customerProfileFindUnique = jest.fn().mockResolvedValue({ id: 'cust-1' });
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: 'n2',
+        customerId: 'cust-1',
+        jobId: null,
+        kind: NotificationKind.SYSTEM,
+        title: 'Welcome',
+        body: 'Happy to have you.',
+        route: null,
+        readAt: new Date(),
+        createdAt,
+      },
+    ]);
+    const prisma = {
+      customerProfile: { findUnique: customerProfileFindUnique },
+      customerNotification: {
+        create: jest.fn(),
+        count: jest.fn(),
+        findMany,
+        updateMany: jest.fn(),
+      },
+    };
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+    });
+
+    const result = await service.listForCustomer('user-1', { limit: 10 });
+
+    expect(prisma.customerNotification.findMany).toHaveBeenCalledWith({
+      where: { customerId: 'cust-1' },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ id: 'n2', jobId: null, readAt: expect.any(String) });
+  });
+
+  it('counts unread notices for the bell pill', async () => {
+    const customerProfileFindUnique = jest.fn().mockResolvedValue({ id: 'cust-1' });
+    const count = jest.fn().mockResolvedValue(3);
+    const prisma = {
+      customerProfile: { findUnique: customerProfileFindUnique },
+      customerNotification: {
+        create: jest.fn(),
+        count,
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+      },
+    };
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+    });
+
+    await expect(service.countUnreadForCustomer('user-1')).resolves.toBe(3);
+    expect(prisma.customerNotification.count).toHaveBeenCalledWith({
+      where: { customerId: 'cust-1', readAt: null },
+    });
+  });
+
+  it('marks a notice read and pushes the fresh count', async () => {
+    const customerProfileFindUnique = jest.fn().mockResolvedValue({ id: 'cust-1' });
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const count = jest.fn().mockResolvedValue(0);
+    const prisma = {
+      customerProfile: { findUnique: customerProfileFindUnique },
+      customerNotification: { create: jest.fn(), count, findMany: jest.fn(), updateMany },
+    };
+    const emitToUser = jest.fn();
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+      realtime: { emitToUser } as never,
+    });
+
+    await expect(
+      service.markCustomerNotificationRead('user-1', 'notif-1'),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.customerNotification.updateMany).toHaveBeenCalledWith({
+      where: { id: 'notif-1', customer: { userId: 'user-1' } },
+      data: { readAt: expect.any(Date) },
+    });
+    expect(emitToUser).toHaveBeenCalledWith('user-1', REALTIME_EVENTS.NOTIFICATION_UNREAD, {
+      unreadCount: 0,
+    });
+  });
+
+  it('404s when marking someone else’s notice read', async () => {
+    const customerProfileFindUnique = jest.fn().mockResolvedValue({ id: 'cust-1' });
+    const updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const prisma = {
+      customerProfile: { findUnique: customerProfileFindUnique },
+      customerNotification: {
+        create: jest.fn(),
+        count: jest.fn(),
+        findMany: jest.fn(),
+        updateMany,
+      },
+    };
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+    });
+
+    await expect(service.markCustomerNotificationRead('user-1', 'notif-9')).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+
+  it('returns an empty list and a zero count for an account with no profile', async () => {
+    const customerProfileFindUnique = jest.fn().mockResolvedValue(null);
+    const prisma = {
+      customerProfile: { findUnique: customerProfileFindUnique },
+      customerNotification: {
+        create: jest.fn(),
+        count: jest.fn(),
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+      },
+    };
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+    });
+
+    await expect(service.listForCustomer('user-1')).resolves.toEqual([]);
+    await expect(service.countUnreadForCustomer('user-1')).resolves.toBe(0);
   });
 });

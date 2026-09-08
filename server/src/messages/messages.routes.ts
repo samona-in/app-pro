@@ -39,6 +39,19 @@ export function createMessagesRouter(services: Services): Router {
     }
   });
 
+  /**
+   * The caller's unread chat counts (nonzero only), as seen from their surface.
+   * Lives in the messages domain (not the jobs payloads) because it is derived
+   * from message receipts and pushes live via `message:unread`.
+   */
+  router.get('/unread-counts', async (req, res, next) => {
+    try {
+      res.json(await services.messages.listUnreadCounts(req.user!.id, req.user!.appType));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   /** Posts one message to a job conversation. */
   router.post('/', validate(sendMessageSchema), async (req, res, next) => {
     try {

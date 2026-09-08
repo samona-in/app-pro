@@ -29,9 +29,11 @@ function build({
     deliveredAt: null,
     readAt: null,
   },
+  unreadCount = 2,
 }: {
   job?: unknown;
   createdMessage?: unknown;
+  unreadCount?: number;
 } = {}) {
   const prisma = {
     job: { findUnique: jest.fn().mockResolvedValue(job) },
@@ -39,6 +41,8 @@ function build({
       create: jest.fn().mockResolvedValue(createdMessage),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findMany: jest.fn().mockResolvedValue([{ id: 'msg-1' }]),
+      count: jest.fn().mockResolvedValue(unreadCount),
+      groupBy: jest.fn().mockResolvedValue([]),
     },
   };
 
@@ -82,6 +86,17 @@ describe('createMessagesService.send', () => {
       'user-1',
       REALTIME_EVENTS.MESSAGE_NEW,
       expect.objectContaining({ senderId: 'user-1', senderRole: UserRole.PRO }),
+    );
+
+    // A pro message is unread for the customer surface, so the recipient's
+    // badge gets the authoritative recount of PRO-authored messages.
+    expect(prisma.message.count).toHaveBeenCalledWith({
+      where: { jobId: 'job-1', senderRole: UserRole.PRO, readAt: null },
+    });
+    expect(realtime.emitToUser).toHaveBeenCalledWith(
+      'user-1',
+      REALTIME_EVENTS.MESSAGE_UNREAD,
+      expect.objectContaining({ jobId: 'job-1', recipientRole: UserRole.CUSTOMER, unreadCount: 2 }),
     );
 
     // A pro message goes to the customer side — the customer's own phone.
@@ -164,5 +179,75 @@ describe('createMessagesService.markDelivered', () => {
       REALTIME_EVENTS.MESSAGE_DELIVERED,
       expect.objectContaining({ senderRole: UserRole.CUSTOMER }),
     );
+  });
+});
+
+describe('createMessagesService.markRead', () => {
+  it('recounts the reader’s badge after marking the counterpart’s messages read', async () => {
+    const { service, prisma, realtime } = build({ unreadCount: 0 });
+
+    await service.markRead('user-1', 'job-1', 'pro');
+
+    // Reading implies a recount, and the caller’s own surface gets it — even
+    // though the same account owns both sides.
+    expect(prisma.message.count).toHaveBeenCalledWith({
+      where: { jobId: 'job-1', senderRole: UserRole.CUSTOMER, readAt: null },
+    });
+    expect(realtime.emitToUser).toHaveBeenCalledWith(
+      'user-1',
+      REALTIME_EVENTS.MESSAGE_UNREAD,
+      expect.objectContaining({ jobId: 'job-1', recipientRole: UserRole.PRO, unreadCount: 0 }),
+    );
+  });
+});
+
+describe('createMessagesService.listUnreadCounts', () => {
+  it('counts PRO-authored unread messages the customer side has not read', async () => {
+    const { service, prisma } = build();
+    (prisma.message.groupBy as jest.Mock).mockResolvedValue([
+      { jobId: 'job-1', _count: { _all: 3 } },
+      { jobId: 'job-2', _count: { _all: 1 } },
+    ]);
+
+    const result = await service.listUnreadCounts('cust-1', 'customer');
+
+    expect(prisma.message.groupBy).toHaveBeenCalledWith({
+      by: ['jobId'],
+      where: {
+        senderRole: UserRole.PRO,
+        readAt: null,
+        job: { customer: { userId: 'cust-1' } },
+      },
+      _count: { _all: true },
+    });
+    expect(result.items).toEqual([
+      { jobId: 'job-1', unreadCount: 3 },
+      { jobId: 'job-2', unreadCount: 1 },
+    ]);
+  });
+
+  it('counts CUSTOMER-authored unread messages the pro side has not read', async () => {
+    const { service, prisma } = build();
+    (prisma.message.groupBy as jest.Mock).mockResolvedValue([
+      { jobId: 'job-2', _count: { _all: 7 } },
+    ]);
+
+    const result = await service.listUnreadCounts('pro-1', 'pro');
+
+    expect(prisma.message.groupBy).toHaveBeenCalledWith({
+      by: ['jobId'],
+      where: {
+        senderRole: UserRole.CUSTOMER,
+        readAt: null,
+        job: { pro: { userId: 'pro-1' } },
+      },
+      _count: { _all: true },
+    });
+    expect(result.items).toEqual([{ jobId: 'job-2', unreadCount: 7 }]);
+  });
+
+  it('returns nothing when the surface is unknown', async () => {
+    const { service } = build();
+    await expect(service.listUnreadCounts('user-1', null)).resolves.toEqual({ items: [] });
   });
 });

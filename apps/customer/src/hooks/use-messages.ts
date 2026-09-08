@@ -114,8 +114,17 @@ export function useMessages(jobId: string) {
     if (pendingAck.current === ackKey) return;
     pendingAck.current = ackKey;
     if (unackedDelivered.length > 0) void messagesApi.markDelivered(jobId).catch(() => {});
-    if (unackedRead.length > 0) void messagesApi.markRead(jobId).catch(() => {});
-  }, [isMine, query.data, query.isPending, selfId, jobId]);
+    if (unackedRead.length > 0) {
+      void messagesApi
+        .markRead(jobId)
+        // The server emits `message:unread` back to the reader on its own; this
+        // invalidation just reconciles the badge cache if the socket missed it.
+        .then(
+          () => void queryClient.invalidateQueries({ queryKey: queryKeys.messages.unread(selfId) }),
+        )
+        .catch(() => {});
+    }
+  }, [isMine, query.data, query.isPending, selfId, jobId, queryClient]);
 
   const loadOlder = useCallback(async () => {
     if (isLoadingOlder || !query.data?.nextCursor) return;

@@ -2,14 +2,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
-import { Camera, GeoJSONSource, Layer, Map as MapLibreMap, Marker, type CameraRef } from '@maplibre/maplibre-react-native';
+import {
+  Camera,
+  GeoJSONSource,
+  Layer,
+  Map as MapLibreMap,
+  Marker,
+  type CameraRef,
+} from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { JobStatus, type JobStatus as Status } from '@samona/types';
+import { UnreadBadge } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
 import { isTripStatus } from '@/constants';
-import { useProJobs, useSubmitGuard, useTransitionJob } from '@/hooks';
+import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr } from '@/utils/format';
@@ -135,9 +143,10 @@ function Chip({
  * Compound "call + message" contact button shown opposite the header title.
  * A chat-bubble glyph with a small call badge reads as both ways to reach the
  * customer; the 44pt surface circle keeps it consistent with IconButton.
- * Pressing opens the job actions screen (contact / cancel).
+ * Pressing opens the job actions screen (contact / cancel). The red dot in the
+ * corner carries how many customer messages are still unread.
  */
-function CallMessageButton({ jobId }: { jobId: string }) {
+function CallMessageButton({ jobId, unread }: { jobId: string; unread: number }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -151,6 +160,7 @@ function CallMessageButton({ jobId }: { jobId: string }) {
           <Ionicons name="call" size={11} color={color['brand-contrast']} />
         </View>
       </View>
+      <UnreadBadge count={unread} className="absolute -right-1 -top-1" />
     </Pressable>
   );
 }
@@ -159,6 +169,7 @@ export default function ActiveJobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: jobs, isPending, isFetching, refetch } = useProJobs();
   const transition = useTransitionJob();
+  const unread = useUnreadMessages();
   const { run, isSubmitting } = useSubmitGuard(async (action: ProJobTransitionAction) => {
     try {
       await transition.mutateAsync({ jobId: id, action });
@@ -328,7 +339,7 @@ export default function ActiveJobScreen() {
           headerTintColor: color['text-primary'],
           headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
           headerStyle: { backgroundColor: color.surface },
-          headerRight: () => <CallMessageButton jobId={id} />,
+          headerRight: () => <CallMessageButton jobId={id} unread={unread.countFor(id)} />,
         }}
       />
 
@@ -392,67 +403,71 @@ export default function ActiveJobScreen() {
           ) : null}
         </View>
 
-      {/* Job details + actions — docked sheet over the map, rounded like the
+        {/* Job details + actions — docked sheet over the map, rounded like the
           app's cards. */}
-      <View className="rounded-t-xl border-t border-border bg-surface px-5 pb-4 pt-2">
-        <View className="mx-auto h-1 w-9 rounded-full bg-border" />
-        <View className="mt-3 flex-row items-center gap-3">
-          <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
-            <Ionicons name="construct-outline" size={22} color={color.brand} />
-          </View>
-          <View className="flex-1">
-            <Text variant="bodyLg" className="font-semibold">
-              {job.service.name}
-            </Text>
-            <Text variant="footnote" className="text-text-secondary">
-              {job.customSkill ?? job.skill.name}
-            </Text>
-          </View>
-          <Text variant="title" className="text-brand">
-            {formatInr(price)}
-          </Text>
-        </View>
-
-        <Divider spaced />
-
-        <View className="flex-row items-start gap-3">
-          <Ionicons name="person-circle-outline" size={22} color={color['text-secondary']} />
-          <View className="flex-1">
-            <Text variant="bodyStrong">{customerName}</Text>
-            <Text variant="footnote" className="mt-0.5 text-text-secondary" numberOfLines={2}>
-              {address}
+        <View className="rounded-t-xl border-t border-border bg-surface px-5 pb-4 pt-2">
+          <View className="mx-auto h-1 w-9 rounded-full bg-border" />
+          <View className="mt-3 flex-row items-center gap-3">
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
+              <Ionicons name="construct-outline" size={22} color={color.brand} />
+            </View>
+            <View className="flex-1">
+              <Text variant="bodyLg" className="font-semibold">
+                {job.service.name}
+              </Text>
+              <Text variant="footnote" className="text-text-secondary">
+                {job.customSkill ?? job.skill.name}
+              </Text>
+            </View>
+            <Text variant="title" className="text-brand">
+              {formatInr(price)}
             </Text>
           </View>
-        </View>
 
-        {proCoords && (job.distanceKm != null || job.estimatedEtaMinutes != null) ? (
-          <View className="mt-3 flex-row gap-2">
-            {job.estimatedEtaMinutes != null ? (
-              <Chip label={formatEta(job.estimatedEtaMinutes)} icon="time-outline" />
-            ) : null}
-            {job.distanceKm != null ? (
-              <Chip label={formatDistance(job.distanceKm)} icon="navigate-outline" />
-            ) : null}
+          <Divider spaced />
+
+          <View className="flex-row items-start gap-3">
+            <Ionicons name="person-circle-outline" size={22} color={color['text-secondary']} />
+            <View className="flex-1">
+              <Text variant="bodyStrong">{customerName}</Text>
+              <Text variant="footnote" className="mt-0.5 text-text-secondary" numberOfLines={2}>
+                {address}
+              </Text>
+            </View>
           </View>
-        ) : null}
 
-        <Button
-          label="Message customer"
-          variant="secondary"
-          className="mt-4"
-          leading={<Ionicons name="chatbubble-outline" size={18} color={color['text-primary']} />}
-          onPress={() => router.push({ pathname: '/job/[id]/chat', params: { id } })}
-        />
+          {proCoords && (job.distanceKm != null || job.estimatedEtaMinutes != null) ? (
+            <View className="mt-3 flex-row gap-2">
+              {job.estimatedEtaMinutes != null ? (
+                <Chip label={formatEta(job.estimatedEtaMinutes)} icon="time-outline" />
+              ) : null}
+              {job.distanceKm != null ? (
+                <Chip label={formatDistance(job.distanceKm)} icon="navigate-outline" />
+              ) : null}
+            </View>
+          ) : null}
 
-        <View className="mt-3" testID="swipe-to-confirm">
-          <SwipeToConfirm
-            label={swipeLabel}
-            loading={isSubmitting}
-            onConfirm={() => void run(action!)}
-          />
+          <View className="relative mt-4">
+            <Button
+              label="Message customer"
+              variant="secondary"
+              leading={
+                <Ionicons name="chatbubble-outline" size={18} color={color['text-primary']} />
+              }
+              onPress={() => router.push({ pathname: '/job/[id]/chat', params: { id } })}
+            />
+            <UnreadBadge count={unread.countFor(id)} className="absolute -right-2 -top-2" />
+          </View>
+
+          <View className="mt-3" testID="swipe-to-confirm">
+            <SwipeToConfirm
+              label={swipeLabel}
+              loading={isSubmitting}
+              onConfirm={() => void run(action!)}
+            />
+          </View>
         </View>
-      </View>
-    </Screen>
+      </Screen>
     </>
   );
 }

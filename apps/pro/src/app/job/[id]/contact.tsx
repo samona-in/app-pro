@@ -1,7 +1,10 @@
+import type { ReactNode } from 'react';
 import { Alert, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { UnreadBadge } from '@/components/chat';
 import { Card, Screen, Text } from '@/components/ui';
+import { useUnreadMessages } from '@/hooks';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -23,11 +26,14 @@ function ActionRow({
   label,
   onPress,
   destructive = false,
+  badge,
 }: {
   icon: IoniconName;
   label: string;
   onPress?: () => void;
   destructive?: boolean;
+  /** Optional trailing slot for an unread counter, rendered before the chevron. */
+  badge?: ReactNode;
 }) {
   const tint = destructive ? color.danger : color['text-secondary'];
   return (
@@ -47,6 +53,7 @@ function ActionRow({
       <Text variant="body" className={`ml-3 flex-1 ${destructive ? 'text-danger' : ''}`}>
         {label}
       </Text>
+      {badge}
       <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
     </Pressable>
   );
@@ -54,6 +61,7 @@ function ActionRow({
 
 export default function JobActionsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const unread = useUnreadMessages();
 
   return (
     <Screen scrollable>
@@ -64,6 +72,7 @@ export default function JobActionsScreen() {
         <ActionRow
           icon="chatbubble-ellipses-outline"
           label="Contact customer"
+          badge={<UnreadBadge count={unread.countFor(id)} className="mr-2" />}
           onPress={() => router.replace({ pathname: '/job/[id]/chat', params: { id } })}
         />
       </Card>

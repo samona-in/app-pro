@@ -181,7 +181,8 @@ model CustomerProfile {
   pushPlatform PushPlatform? @map("push_platform")
   pushProvider PushProvider? @map("push_provider")
 
-  jobs Job[]
+  jobs          Job[]
+  notifications CustomerNotification[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -313,6 +314,7 @@ model Job {
 
   statusHistory JobStatusHistory[]
   notifications Notification[]
+  customerNotifications CustomerNotification[]
   declines      JobDecline[]
   jobOffers     JobOffer[]
   messages      Message[]
@@ -382,6 +384,44 @@ model Notification {
   @@index([proId, createdAt])
   @@index([jobId])
   @@map("notifications")
+}
+
+/// A status/payment notification shown in the Customer app's Notifications
+/// screen (opened from the bell on the home screen).
+///
+/// Where the pro `Notification` row records a *push* (delivery state, repeats,
+/// resolution), this row records a *notice*: a job-status or payment event the
+/// API chooses to surface to a customer. It is written by the jobs domain at
+/// each transition it publishes and read back here; `readAt` tracks whether the
+/// customer has acknowledged it. Rows carry a `kind` from the shared enum but
+/// no push machinery, because customer notices are in-app only — a push to the
+/// customer for a job event is a separate, later concern.
+model CustomerNotification {
+  id         String           @id @default(uuid()) @db.Uuid
+  /// The CustomerProfile this notice belongs to.
+  customerId String           @map("customer_id") @db.Uuid
+  customer   CustomerProfile  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  /// The booking a job-status notice is about; null for a system notice.
+  jobId      String?          @map("job_id") @db.Uuid
+  job        Job?             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  /// Short machine label, e.g. `job_status`. Mirrors `NotificationKind`.
+  kind       NotificationKind @map("kind")
+  /// The title shown on the row, e.g. "Rakesh took your booking".
+  title      String
+  /// The body shown under the title.
+  body       String
+  /// The in-app route to open on tap, e.g. `/booking/{jobId}`. Null when there
+  /// is nowhere useful to send the customer (e.g. a system notice).
+  route      String?
+  /// The customer opened it; null while unread. The bell's unread pill counts
+  /// rows where this is null.
+  readAt     DateTime?         @map("read_at")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  @@index([customerId, createdAt])
+  @@index([jobId])
+  @@map("customer_notifications")
 }
 
 /// One professional who explicitly declined an open job request.

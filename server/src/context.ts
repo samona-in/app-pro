@@ -71,7 +71,7 @@ export function createServices(
   // realtime and push. Each service reads only what it received, so nothing is
   // reachable behind the composition boundary.
   const matching = createMatchingService({ prisma });
-  const notifications = createNotificationsService({ prisma, config });
+  const notifications = createNotificationsService({ prisma, config, realtime });
   const messages = createMessagesService({
     prisma,
     realtime,
