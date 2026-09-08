@@ -12,11 +12,10 @@ import {
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { JobStatus, type JobStatus as Status } from '@samona/types';
+import { isActiveJobStatus, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
-import { isTripStatus } from '@/constants';
 import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
@@ -38,6 +37,16 @@ const DEFAULT_ZOOM = 12.5;
 const SWIPE_ACTION: Partial<Record<Status, ProJobTransitionAction>> = {
   ACCEPTED: 'travel',
   TRAVELLING: 'arrived',
+  ARRIVED: 'start',
+  IN_PROGRESS: 'complete',
+};
+
+/** The label shown on the swipe button for each on-site stage. */
+const SWIPE_LABEL: Partial<Record<Status, string>> = {
+  ACCEPTED: 'On My Way',
+  TRAVELLING: "I've Arrived",
+  ARRIVED: 'Start Work',
+  IN_PROGRESS: 'Work Completed',
 };
 
 /**
@@ -170,14 +179,27 @@ export default function ActiveJobScreen() {
   const { data: jobs, isPending, isFetching, refetch } = useProJobs();
   const transition = useTransitionJob();
   const unread = useUnreadMessages();
+  // Mirrors the pro's live position so the submit guard below can read the
+  // latest coords when sending the "start work" request (it is defined here,
+  // before the location state, to avoid using the ref before its declaration).
+  const proCoordsRef = useRef<Coordinates | null>(null);
   const { run, isSubmitting } = useSubmitGuard(async (action: ProJobTransitionAction) => {
     try {
-      await transition.mutateAsync({ jobId: id, action });
+      await transition.mutateAsync({
+        jobId: id,
+        action,
+        // The server requires the pro's live position to start work so it can
+        // verify they are actually at the work spot. Send the latest known
+        // coords only for that action.
+        coordinates: action === 'start' ? (proCoordsRef.current ?? undefined) : undefined,
+      });
     } catch (error) {
-      Alert.alert(
-        'Could not update this job',
-        error instanceof Error ? error.message : 'Please try again.',
-      );
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      if (action === 'start' && message.toLowerCase().includes('must be within')) {
+        Alert.alert('Not at the work spot yet', message);
+      } else {
+        Alert.alert('Could not update this job', message);
+      }
     }
   });
 
@@ -217,17 +239,21 @@ export default function ActiveJobScreen() {
           accuracy: Location.Accuracy.Balanced,
         });
         if (!cancelled) {
-          setProCoords({
+          const coords = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-          });
+          };
+          proCoordsRef.current = coords;
+          setProCoords(coords);
         }
 
         subscription = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.Balanced, distanceInterval: 10 },
           (loc) => {
             if (!cancelled) {
-              setProCoords({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+              const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+              proCoordsRef.current = coords;
+              setProCoords(coords);
             }
           },
         );
@@ -282,9 +308,10 @@ export default function ActiveJobScreen() {
     );
   }
 
-  // Once the pro arrives (or the job otherwise leaves the trip phase), the
-  // availability home takes over; the in-person flow is a later milestone.
-  if (!isTripStatus(job.status)) {
+  // The pro stays on this screen through the whole job: on the way, arrived,
+  // working and in progress. Once the job leaves the active working set —
+  // completed, paid, cancelled or expired — the availability home takes over.
+  if (!isActiveJobStatus(job.status)) {
     return <Redirect href="/home" />;
   }
 
@@ -293,8 +320,7 @@ export default function ActiveJobScreen() {
   const address =
     job.locationLabel ?? job.customer?.locationLabel ?? 'Location shared after you arrive';
   const price = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  const isAccepted = job.status === JobStatus.ACCEPTED;
-  const swipeLabel = isAccepted ? 'On My Way' : "I've Arrived";
+  const swipeLabel = SWIPE_LABEL[job.status] ?? 'On My Way';
 
   /** Straight dashed connector between the pro's live pin and the work spot,
       drawn until the camera view is replaced by turn-by-turn navigation. */

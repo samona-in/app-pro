@@ -4,8 +4,10 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   interpolate,
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -18,6 +20,7 @@ const KNOB_SIZE = 52;
 const TRACK_HEIGHT = 60;
 const TRACK_PADDING = 4;
 const CONFIRM_THRESHOLD = 0.78;
+const RESET_DELAY_MS = 300;
 
 export interface SwipeToConfirmProps {
   label: string;
@@ -30,7 +33,8 @@ export interface SwipeToConfirmProps {
 /**
  * Slide-to-confirm action — the signature Pro CTA for one-handed, in-motion
  * steps like "On My Way". Dragging the thumb across releases a high-impact
- * haptic and fires `onConfirm`; releasing early springs it back.
+ * haptic and fires `onConfirm`; the thumb springs back so the next label
+ * (e.g. "I've Arrived") is immediately ready to swipe.
  */
 export function SwipeToConfirm({
   label,
@@ -88,6 +92,19 @@ export function SwipeToConfirm({
       transform: [{ translateX: interpolate(progress, [0, 1], [0, 4], 'clamp') }],
     };
   });
+
+  // Reset the knob to the starting position after confirmation so the next
+  // action label is immediately visible and ready to swipe. Done on the UI
+  // thread via a reaction to the label. The immutability rule cannot see that
+  // Reanimated's `useSharedValue` is a mutable ref, so it flags the write here
+  // (but, inconsistently, not the identical writes in the pan handler above).
+  useAnimatedReaction(
+    () => label,
+    () => {
+      // eslint-disable-next-line react-hooks/immutability
+      translateX.value = withDelay(RESET_DELAY_MS, withSpring(0, { damping: 20, stiffness: 300 }));
+    },
+  );
 
   function onTrackLayout(e: LayoutChangeEvent) {
     trackWidth.value = e.nativeEvent.layout.width;

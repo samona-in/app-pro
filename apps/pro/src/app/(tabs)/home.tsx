@@ -4,7 +4,7 @@ import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
-import { isTripStatus } from '@/constants';
+import { isActiveJobStatus } from '@samona/types';
 import { useProJobs, useProProfile, useDeviceReadiness, useSubmitGuard } from '@/hooks';
 import {
   subscribeToOnlineStatus,
@@ -247,22 +247,23 @@ function OfflineGate() {
 
 export default function Home() {
   const { data: jobs, isPending } = useProJobs();
-  const activeTrip = (jobs ?? []).find((job) => isTripStatus(job.status));
+  const activeJob = (jobs ?? []).find((job) => isActiveJobStatus(job.status));
 
-  // A pro with an active trip (accepted / on the way) has no use for the
-  // availability home. This mirrors the index-route decision, but also runs
-  // when the pro returns here by dismissing the trip screen (back swipe / phone
-  // back button) instead of only on cold start — so an accepted job always wins
-  // over home and pulls the pro straight back into the trip screen.
+  // A pro with a job still in the active working set (accepted through in
+  // progress) has no use for the availability home. This mirrors the
+  // index-route decision, but also runs when the pro returns here by dismissing
+  // the job screen (back swipe / phone back button) instead of only on cold
+  // start — so an in-flight job always wins over home and pulls the pro straight
+  // back into the job screen.
   useFocusEffect(
     useCallback(() => {
-      if (activeTrip && !isPending) {
-        router.replace(`/job/${activeTrip.id}/active`);
+      if (activeJob && !isPending) {
+        router.replace(`/job/${activeJob.id}/active`);
       }
-    }, [activeTrip, isPending]),
+    }, [activeJob, isPending]),
   );
 
-  // While the job list is still loading we can't yet rule out an active trip;
+  // While the job list is still loading we can't yet rule out an active job;
   // showing the home UI for a moment would flash the availability screen before
   // the focus effect above redirects. Hold a loading state instead.
   if (isPending) {
@@ -273,8 +274,8 @@ export default function Home() {
     );
   }
 
-  if (activeTrip) {
-    return <Redirect href={`/job/${activeTrip.id}/active`} />;
+  if (activeJob) {
+    return <Redirect href={`/job/${activeJob.id}/active`} />;
   }
 
   const isOnline = checkIsOnline();

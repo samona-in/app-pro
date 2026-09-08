@@ -35,8 +35,19 @@ export const jobsApi = {
   decline: (jobId: string) => api.post<void>(`/jobs/${jobId}/decline`, {}),
 
   /** Advances an assigned job through one on-site stage. */
-  transition: (jobId: string, action: ProJobTransitionAction, note?: string) =>
-    api.post<JobDetail>(`/jobs/${jobId}/transition`, note ? { action, note } : { action }),
+  transition: (
+    jobId: string,
+    action: ProJobTransitionAction,
+    note?: string,
+    coordinates?: { latitude: number; longitude: number },
+  ) => {
+    const body: Record<string, unknown> = { action };
+    if (note) body.note = note;
+    // The server requires the pro's live position to "start work" so it can
+    // verify they are actually at the work spot.
+    if (coordinates) body.coordinates = coordinates;
+    return api.post<JobDetail>(`/jobs/${jobId}/transition`, body);
+  },
 
   /** Cancels a job the caller is party to, before it leaves cancellation land. */
   cancel: (jobId: string, note?: string) =>
