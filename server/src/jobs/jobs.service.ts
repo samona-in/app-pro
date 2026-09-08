@@ -45,6 +45,21 @@ function formatPaise(paise: number): string {
   return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
+/**
+ * Records a customer notice without ever making the primary transition await
+ * it. A notice write is a display side effect: it must not turn an already
+ * committed accept/travel/complete/pay into a 500, nor lose the state change.
+ * Failures are logged loudly, never swallowed.
+ */
+function recordCustomerNotice(
+  notifications: NotificationsService,
+  notice: Parameters<NotificationsService['recordCustomerNotification']>[0],
+): void {
+  void notifications.recordCustomerNotification(notice).catch((error: unknown) => {
+    logger.error(`Failed to record a customer notice for job ${notice.jobId}.`, error);
+  });
+}
+
 /** The projection job *detail* reads use: counterparty identity + coordinates. */
 const jobDetailInclude = {
   ...jobInclude,
@@ -429,7 +444,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     }
 
     // The payment outcome lands on the customer's Notifications screen.
-    await notifications.recordCustomerNotification({
+    recordCustomerNotice(notifications, {
       customerId: updated.customerId,
       customerUserId,
       jobId: updated.id,
@@ -498,7 +513,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     // cancellation is their own action — no own-notice — but the page already
     // states the outcome in place.
     if (!actorIsCustomer) {
-      await notifications.recordCustomerNotification({
+      recordCustomerNotice(notifications, {
         customerId: updated.customerId,
         customerUserId: row.customer.userId,
         jobId: updated.id,
@@ -886,7 +901,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     // The customer hears about the booking being taken, in-app and via the
     // realtime nudge to their bell pill. This row is the source of truth for
     // their Notifications screen.
-    await notifications.recordCustomerNotification({
+    recordCustomerNotice(notifications, {
       customerId: updated.customerId,
       customerUserId: updated.customer.userId,
       jobId: updated.id,
@@ -1098,7 +1113,7 @@ export function createJobsService(deps: JobsServiceDeps) {
                 title: `${serviceName} is complete`,
                 body: `${proName} completed your ${serviceName} booking. Review the payment to finish up.`,
               };
-    await notifications.recordCustomerNotification({
+    recordCustomerNotice(notifications, {
       customerId: updated.customerId,
       customerUserId: updated.customer.userId,
       jobId: updated.id,
@@ -1255,7 +1270,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       if (!expired) continue;
 
       // The customer hears that no one picked up their request in time.
-      await notifications.recordCustomerNotification({
+      recordCustomerNotice(notifications, {
         customerId: row.customerId,
         customerUserId: row.customer.userId,
         jobId: row.id,

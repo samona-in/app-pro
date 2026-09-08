@@ -837,6 +837,17 @@ describe('createJobsService.acceptJob', () => {
       }),
     );
   });
+
+  it('still accepts even when the notice write fails — notices never block the transition', async () => {
+    const ctx = buildAccept();
+    ctx.recordCustomerNotification.mockRejectedValueOnce(
+      new Error('PrismaClientKnownRequestError: table does not exist'),
+    );
+
+    await expect(ctx.jobs.acceptJob('user-1', 'job-1')).resolves.toMatchObject({
+      status: JobStatus.ACCEPTED,
+    });
+  });
 });
 
 describe('createJobsService.acceptJobWithOffer', () => {
