@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { NotificationCard } from '@/components/notifications';
-import { Screen, Text } from '@/components/ui';
+import { Screen } from '@/components/ui';
 import { useNotifications } from '@/hooks';
 
 /**
@@ -14,13 +14,6 @@ export default function Notifications() {
 
   return (
     <Screen scrollable edges={['bottom']}>
-      <View className="pt-2">
-        <Text variant="titleLg">Notifications</Text>
-        <Text variant="footnote" className="mt-1 text-text-secondary">
-          Alerts about new jobs, status changes and payouts.
-        </Text>
-      </View>
-
       {isPending ? (
         <View className="mt-10">
           <LoadingState message="Loading notifications" />
