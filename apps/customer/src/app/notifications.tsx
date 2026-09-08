@@ -1,7 +1,7 @@
 import { ScrollView, View } from 'react-native';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { NotificationRow } from '@/components/notifications';
-import { Screen } from '@/components/ui';
+import { Card, Divider, Screen } from '@/components/ui';
 import { useCustomerNotifications } from '@/hooks';
 
 export default function Notifications() {
@@ -28,10 +28,15 @@ export default function Notifications() {
           message="Booking confirmations, status updates and reminders will appear here."
         />
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="gap-3 pb-8">
-          {notices.data.map((notice) => (
-            <NotificationRow key={notice.id} notice={notice} />
-          ))}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerClassName="pb-8">
+          <Card className="mt-4" padded={false}>
+            {notices.data.map((notice, index) => (
+              <View key={notice.id}>
+                {index > 0 ? <Divider /> : null}
+                <NotificationRow notice={notice} />
+              </View>
+            ))}
+          </Card>
         </ScrollView>
       )}
     </Screen>

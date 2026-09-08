@@ -5,31 +5,20 @@ import { Ionicons } from '@expo/vector-icons';
 import type { CustomerNotification, NotificationKind } from '@samona/types';
 import { Text } from '@/components/ui';
 import { useMarkNotificationRead } from '@/hooks';
-import { color, type ColorTokens } from '@/theme';
-import { cn } from '@/utils/cn';
+import { color } from '@/theme';
 import { formatRelativeTime } from '@/utils/format';
-
-/** Color tokens that hold a plain CSS color (tokens also carry the scales). */
-type StringColorKey = {
-  [K in keyof ColorTokens]: ColorTokens[K] extends string ? K : never;
-}[keyof ColorTokens];
 
 type KindStyle = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
-  tint: StringColorKey;
-  /** NativeWind background class for the leading icon chip. */
-  surface: string;
+  /** Token key used to tint the leading icon; keeps rows neutral like Profile. */
+  tint: 'text-secondary' | 'text-muted';
 };
 
 const KIND_STYLES: Record<NotificationKind, KindStyle> = {
-  JOB_ALERT: { icon: 'notifications', tint: 'brand-contrast', surface: 'bg-brand' },
-  JOB_STATUS: { icon: 'briefcase-outline', tint: 'info', surface: 'bg-info-surface' },
-  PAYMENT: { icon: 'wallet', tint: 'success', surface: 'bg-success-surface' },
-  SYSTEM: {
-    icon: 'information-circle-outline',
-    tint: 'text-secondary',
-    surface: 'bg-surface-muted',
-  },
+  JOB_ALERT: { icon: 'notifications', tint: 'text-secondary' },
+  JOB_STATUS: { icon: 'briefcase-outline', tint: 'text-secondary' },
+  PAYMENT: { icon: 'wallet', tint: 'text-secondary' },
+  SYSTEM: { icon: 'information-circle-outline', tint: 'text-muted' },
 };
 
 export interface NotificationRowProps {
@@ -60,31 +49,27 @@ export function NotificationRow({ notice }: NotificationRowProps) {
       accessibilityLabel={`${notice.title}. ${notice.body}`}
       accessibilityHint={notice.route ? 'Opens the related booking.' : undefined}
       onPress={handlePress}
-      className="flex-row items-start rounded-xl border border-border bg-surface p-4 active:opacity-70"
+      className="min-h-[64px] flex-row items-center px-4 active:opacity-60"
     >
-      <View className={cn('h-10 w-10 items-center justify-center rounded-full', style.surface)}>
+      <View className="h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-muted">
         <Ionicons name={style.icon} size={20} color={color[style.tint]} />
       </View>
 
-      <View className="ml-3 flex-1">
-        <View className="flex-row items-center justify-between gap-2">
-          <Text
-            variant="bodyStrong"
-            numberOfLines={1}
-            className={cn('flex-1', unread && 'text-text-primary')}
-          >
+      <View className="ml-3 min-w-0 flex-1">
+        <View className="flex-row items-center">
+          <Text variant="bodyStrong" numberOfLines={1} className="min-w-0 flex-1 text-text-primary">
             {notice.title}
           </Text>
-          <Text variant="caption" className="shrink-0 text-text-muted">
-            {formatRelativeTime(notice.createdAt)}
-          </Text>
+          {unread ? <View className="ml-2 h-2 w-2 shrink-0 rounded-full bg-brand" /> : null}
         </View>
-        <Text variant="body" numberOfLines={2} className="mt-0.5 text-text-secondary">
+        <Text variant="footnote" numberOfLines={1} className="mt-0.5 text-text-secondary">
           {notice.body}
         </Text>
       </View>
 
-      {unread ? <View className="ml-2 mt-1.5 h-2.5 w-2.5 rounded-full bg-brand" /> : null}
+      <Text variant="caption" className="ml-2 shrink-0 self-end text-text-muted">
+        {formatRelativeTime(notice.createdAt)}
+      </Text>
     </Pressable>
   );
 }
