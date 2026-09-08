@@ -33,7 +33,7 @@ export function createMessagesRouter(services: Services): Router {
         limit: number;
         before?: string;
       };
-      res.json(await services.messages.listForParty(req.user!.id, query));
+      res.json(await services.messages.listForParty(req.user!.id, query, req.user!.appType));
     } catch (error) {
       next(error);
     }
@@ -43,10 +43,14 @@ export function createMessagesRouter(services: Services): Router {
   router.post('/', validate(sendMessageSchema), async (req, res, next) => {
     try {
       res.status(201).json(
-        await services.messages.send(req.user!.id, {
-          jobId: req.body.jobId,
-          content: req.body.content,
-        }),
+        await services.messages.send(
+          req.user!.id,
+          {
+            jobId: req.body.jobId,
+            content: req.body.content,
+          },
+          req.user!.appType,
+        ),
       );
     } catch (error) {
       next(error);
@@ -54,23 +58,19 @@ export function createMessagesRouter(services: Services): Router {
   });
 
   /** Acks the other party's messages as delivered (single→double tick). */
-  router.post(
-    '/delivered',
-    validate(markMessagesReceivedSchema),
-    async (req, res, next) => {
-      try {
-        await services.messages.markDelivered(req.user!.id, req.body.jobId);
-        res.status(204).send();
-      } catch (error) {
-        next(error);
-      }
-    },
-  );
+  router.post('/delivered', validate(markMessagesReceivedSchema), async (req, res, next) => {
+    try {
+      await services.messages.markDelivered(req.user!.id, req.body.jobId, req.user!.appType);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
 
   /** Acks the other party's messages as read (double-blue tick). */
   router.post('/read', validate(markMessagesReceivedSchema), async (req, res, next) => {
     try {
-      await services.messages.markRead(req.user!.id, req.body.jobId);
+      await services.messages.markRead(req.user!.id, req.body.jobId, req.user!.appType);
       res.status(204).send();
     } catch (error) {
       next(error);

@@ -449,15 +449,19 @@ model JobOffer {
 /// client can draw the WhatsApp-style clock → single tick → double tick →
 /// double-blue sequence.
 model Message {
-  id          String    @id @default(uuid()) @db.Uuid
+  id          String     @id @default(uuid()) @db.Uuid
   /// The job the conversation belongs to.
-  jobId       String    @map("job_id") @db.Uuid
+  jobId       String     @map("job_id") @db.Uuid
   /// Which Profile sent this message (matches `auth.users.id`, like `Profile`).
-  senderId    String    @map("sender_id") @db.Uuid
+  senderId    String     @map("sender_id") @db.Uuid
+  /// Which side of the job sent it. Stored, never derived: one account can be
+  /// both the customer and the pro of the same job, so `senderId` alone cannot
+  /// tell the sides apart. Mirrors `UserRole` in `@samona/types`.
+  senderRole  SenderRole @map("sender_role")
   /// The message text. Bounded by the shared send schema (max 500 chars).
   content     String
   /// When the server persisted the message.
-  sentAt      DateTime  @default(now()) @map("sent_at")
+  sentAt      DateTime   @default(now()) @map("sent_at")
   /// When the recipient's device confirmed delivery (double grey tick).
   deliveredAt DateTime? @map("delivered_at")
   /// When the recipient's app marked the message as read (double blue tick).
@@ -535,6 +539,13 @@ enum PushPlatform {
 enum PushProvider {
   EXPO
   FCM
+}
+
+/// Which side of a job authored a chat `Message`. Mirrors `UserRole` in
+/// `@samona/types` — keep the two in sync.
+enum SenderRole {
+  CUSTOMER
+  PRO
 }
 
 /// The kind of push a professional may receive. Mirrors `NotificationKind` in

@@ -34,6 +34,10 @@ export function useMessages(jobId: string) {
   const queryClient = useQueryClient();
   const threadKey = useMemo(() => queryKeys.messages.thread(jobId), [jobId]);
   const selfId = user?.id;
+  // One account can be both sides of a job (same phone number on two apps), so
+  // "mine vs theirs" is decided by the surface's role, never by id — the id
+  // would match the sender on both apps.
+  const myRole = user?.role;
 
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 
@@ -44,19 +48,29 @@ export function useMessages(jobId: string) {
     staleTime: 30_000,
   });
 
+  /** Whether a message was sent by the surface this app acts as. */
+  const isMine = useCallback(
+    (message: ChatMessage) =>
+      message.senderRole ? message.senderRole === myRole : message.senderId === selfId,
+    [myRole, selfId],
+  );
+
   const applyIncoming = useCallback(
     (message: ChatMessage) => {
-      if (message.senderId === selfId) return;
+      if (isMine(message)) return;
       queryClient.setQueryData<MessagePage>(threadKey, (old) => {
         if (!old || old.messages.some((m) => m.id === message.id)) return old;
         return { ...old, messages: [...old.messages, message] };
       });
     },
-    [queryClient, selfId, threadKey],
+    [isMine, queryClient, threadKey],
   );
 
   const applyReceipts = useCallback(
     (kind: 'delivered' | 'read', update: MessageReceiptUpdate) => {
+      // A receipt confirms the other side saw MY messages; ignore events for
+      // the counterpart's role (the same account's other surface).
+      if (update.senderRole !== undefined && update.senderRole !== myRole) return;
       if (update.jobId !== jobId || update.messageIds.length === 0) return;
       const now = new Date().toISOString();
       const ids = new Set(update.messageIds);
@@ -71,7 +85,7 @@ export function useMessages(jobId: string) {
         return { ...old, messages };
       });
     },
-    [jobId, queryClient, threadKey],
+    [jobId, myRole, queryClient, threadKey],
   );
 
   // Live delivery while the thread is mounted (the chat screen is open).
@@ -95,12 +109,8 @@ export function useMessages(jobId: string) {
   useEffect(() => {
     if (!selfId || query.isPending || !jobId) return;
     const messages = query.data?.messages ?? [];
-    const unackedDelivered = messages
-      .filter((m) => m.senderId !== selfId && !m.deliveredAt)
-      .map((m) => m.id);
-    const unackedRead = messages
-      .filter((m) => m.senderId !== selfId && !m.readAt)
-      .map((m) => m.id);
+    const unackedDelivered = messages.filter((m) => !isMine(m) && !m.deliveredAt).map((m) => m.id);
+    const unackedRead = messages.filter((m) => !isMine(m) && !m.readAt).map((m) => m.id);
     if (unackedDelivered.length === 0 && unackedRead.length === 0) {
       pendingAck.current = '';
       return;
@@ -110,13 +120,16 @@ export function useMessages(jobId: string) {
     pendingAck.current = ackKey;
     if (unackedDelivered.length > 0) void messagesApi.markDelivered(jobId).catch(() => {});
     if (unackedRead.length > 0) void messagesApi.markRead(jobId).catch(() => {});
-  }, [query.data, query.isPending, selfId, jobId]);
+  }, [isMine, query.data, query.isPending, selfId, jobId]);
 
   const loadOlder = useCallback(async () => {
     if (isLoadingOlder || !query.data?.nextCursor) return;
     setIsLoadingOlder(true);
     try {
-      const page = await messagesApi.list(jobId, { limit: LIST_LIMIT, before: query.data.nextCursor });
+      const page = await messagesApi.list(jobId, {
+        limit: LIST_LIMIT,
+        before: query.data.nextCursor,
+      });
       queryClient.setQueryData<MessagePage>(threadKey, (old) =>
         old ? { messages: [...page.messages, ...old.messages], nextCursor: page.nextCursor } : page,
       );
@@ -135,6 +148,7 @@ export function useMessages(jobId: string) {
         id: localId,
         jobId,
         senderId: selfId ?? '',
+        senderRole: myRole ?? 'PRO',
         content,
         sentAt: new Date().toISOString(),
         deliveredAt: null,
@@ -161,7 +175,10 @@ export function useMessages(jobId: string) {
       if (!ctx) return;
       queryClient.setQueryData<MessagePage>(threadKey, (old) =>
         old
-          ? { messages: old.messages.filter((m) => m.id !== ctx.localId), nextCursor: old.nextCursor }
+          ? {
+              messages: old.messages.filter((m) => m.id !== ctx.localId),
+              nextCursor: old.nextCursor,
+            }
           : old,
       );
     },
@@ -176,5 +193,6 @@ export function useMessages(jobId: string) {
     send: (content: string) => send.mutateAsync(content),
     isSending: send.isPending,
     selfId,
+    myRole,
   };
 }

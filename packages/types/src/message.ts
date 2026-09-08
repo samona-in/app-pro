@@ -6,6 +6,8 @@
  * parties (a pro accepted it), which the server enforces.
  */
 
+import { type UserRole } from './user';
+
 /** The clock → single tick → double tick → double-blue tick progression. */
 export const MessageStatus = {
   /** Not yet acknowledged by the server — the optimistic placeholder. */
@@ -32,6 +34,13 @@ export interface ChatMessage {
   id: string;
   jobId: string;
   senderId: string;
+  /**
+   * Which side of the job sent this — `CUSTOMER` or `PRO`. This is the
+   * reliable way to tell "mine" from "theirs": the same account can be both
+   * the customer and the pro of one job (one phone number on two apps), when
+   * an id comparison would think every message was sent by me.
+   */
+  senderRole: UserRole;
   content: string;
   sentAt: string;
   deliveredAt: string | null;
@@ -52,6 +61,12 @@ export interface MessagePage {
 export interface MessageReceiptUpdate {
   jobId: string;
   messageIds: string[];
+  /**
+   * The role that authored the acknowledged messages. Only the surface acting
+   * as that role has sent messages to render these ticks on; the other surface
+   * of the same account must ignore the event.
+   */
+  senderRole: UserRole;
 }
 
 /**

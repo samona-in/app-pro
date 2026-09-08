@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
+import type { ChatMessage } from '@samona/types';
 import { ChatFooter, MessageBubble, QuickChatPresets } from '@/components/chat';
 import { LoadingState } from '@/components/feedback';
 import { useBooking, useMessages, useSession } from '@/hooks';
@@ -14,13 +15,7 @@ import { color } from '@/theme';
  * the contact button on the booking details screen: a circular muted surface
  * with the icon tinted brand.
  */
-function ChatHeaderRight({
-  phone,
-  label,
-}: {
-  phone: string | null | undefined;
-  label: string;
-}) {
+function ChatHeaderRight({ phone, label }: { phone: string | null | undefined; label: string }) {
   if (!phone) return null;
   return (
     <Pressable
@@ -60,6 +55,12 @@ export default function BookingChatScreen() {
   const proName = useMemo(() => job?.pro?.displayName ?? 'Professional', [job]);
   const phone = job?.pro?.phone;
 
+  // Mine vs theirs is decided by the surface's role, not by id — the same
+  // account can be both sides of a job (same phone on two apps), and then the
+  // customer and pro share one userId.
+  const isMine = (item: ChatMessage) =>
+    item.senderRole ? item.senderRole === user?.role : item.senderId === user?.id;
+
   const reversed = useMemo(() => [...chat.messages].reverse(), [chat.messages]);
 
   if (bookingPending || chat.isPending) {
@@ -88,9 +89,7 @@ export default function BookingChatScreen() {
           inverted
           style={{ flex: 1 }}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <MessageBubble message={item} isMine={item.senderId === user?.id} />
-          )}
+          renderItem={({ item }) => <MessageBubble message={item} isMine={isMine(item)} />}
           contentContainerClassName="px-4 py-3"
           keyboardShouldPersistTaps="handled"
           onEndReached={() => void chat.loadOlder()}
