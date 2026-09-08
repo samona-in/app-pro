@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import type { CustomerNotification, CustomerNotificationUnread } from '@samona/types';
 import type { RegisterPushTokenInput } from '@samona/validation';
 import { api } from './api';
 import { env } from '@/env';
@@ -101,3 +102,24 @@ export async function registerPushToken(): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * In-app notification feed, mounted at `/notifications` (customer surface).
+ *
+ * These are the notices the jobs domain records at each booking transition —
+ * distinct from pushes, which deliver a banner. REST stays the source of truth:
+ * the `notification:unread` realtime event only moves the home-screen bell pill,
+ * and this API back-fills it.
+ */
+export const notificationsApi = {
+  /** The customer's notices, newest first. */
+  list: (options: { limit?: number } = {}) =>
+    api.get<CustomerNotification[]>('/notifications', { query: { limit: options.limit ?? 20 } }),
+
+  /** How many notices are still unread (the bell pill). */
+  unreadCount: () => api.get<CustomerNotificationUnread>('/notifications/unread-count'),
+
+  /** Acknowledges one notice as read; idempotent server-side. */
+  markRead: (notificationId: string) =>
+    api.post<undefined>(`/notifications/${notificationId}/read`),
+};

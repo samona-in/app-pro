@@ -5,7 +5,7 @@ import {
   notificationListQuerySchema,
 } from '@samona/validation';
 import type { Services } from '../context';
-import { createRequireAuth, requireRole, validate } from '../common';
+import { createRequireAuth, requireRole, routeParamId, validate } from '../common';
 
 /**
  * HTTP surface for the notifications domain, mounted at `/notifications`.
@@ -16,6 +16,12 @@ import { createRequireAuth, requireRole, validate } from '../common';
  * do this so push reaches them wherever they are. The job-alert preference only
  * exists for pros, so `settings` stays pro-scoped while `register-token` is
  * open to either surface.
+ *
+ * Notification *history* is split by surface. Pros read their push history;
+ * customers read their in-app notices, which the jobs domain records at each
+ * booking transition. The `/notifications` list and the two customer-only
+ * routes below therefore accept either role and dispatch on the caller's own
+ * app type.
  */
 export function createNotificationsRouter(services: Services): Router {
   const router = Router();
@@ -61,10 +67,10 @@ export function createNotificationsRouter(services: Services): Router {
     },
   );
 
-  /** The caller's own notification history, newest first (pro only). */
+  /** The caller's own notification history, newest first. */
   router.get(
     '/',
-    requireRole('PRO', 'ADMIN'),
+    requireRole('PRO', 'CUSTOMER', 'ADMIN'),
     validate(notificationListQuerySchema, 'query'),
     async (req, res, next) => {
       try {
@@ -73,12 +79,42 @@ export function createNotificationsRouter(services: Services): Router {
           limit: number;
           cursor?: string;
         };
-        res.json(await services.notifications.listForPro(req.user!.id, { limit, cursor }));
+        res.json(
+          req.user!.appType === 'pro'
+            ? await services.notifications.listForPro(req.user!.id, { limit, cursor })
+            : await services.notifications.listForCustomer(req.user!.id, { limit, cursor }),
+        );
       } catch (error) {
         next(error);
       }
     },
   );
+
+  /** How many of the customer's notices are still unread (bell pill count). */
+  router.get('/unread-count', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
+    try {
+      res.json({ unreadCount: await services.notifications.countUnreadForCustomer(req.user!.id) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Acknowledges one of the customer's notices as read. Idempotent: a second
+   * tap is still a 204. The row is scoped to the caller's own profile in the
+   * service, never trusted from the path.
+   */
+  router.post('/:notificationId/read', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
+    try {
+      await services.notifications.markCustomerNotificationRead(
+        req.user!.id,
+        routeParamId(req.params.notificationId),
+      );
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
 
   return router;
 }

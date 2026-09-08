@@ -49,15 +49,13 @@ function buildJobs() {
 
   const prisma = {
     customerProfile: {
-      findUnique: jest
-        .fn()
-        .mockResolvedValue({
-          id: 'cust-1',
-          userId: 'user-1',
-          locationLabel: null,
-          latitude: null,
-          longitude: null,
-        }),
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'cust-1',
+        userId: 'user-1',
+        locationLabel: null,
+        latitude: null,
+        longitude: null,
+      }),
     },
     service: { findFirst: jest.fn().mockResolvedValue({ id: 'svc-1' }) },
     skill: { findFirst: jest.fn().mockResolvedValue({ id: 'skill-1' }) },
@@ -355,7 +353,11 @@ describe('createJobsService.notifyReadyJobRequests', () => {
       matching: { isProEligible } as never,
       realtime: realtime as never,
       notifications: notifications as never,
-      config: { jobCatchupWindowMs: 2 * 60 * 60_000, jobCatchupLimit: 3, jobExpireTtlMs: 10_000 } as never,
+      config: {
+        jobCatchupWindowMs: 2 * 60 * 60_000,
+        jobCatchupLimit: 3,
+        jobExpireTtlMs: 10_000,
+      } as never,
     } as never);
 
     return { jobs, prisma, realtime, notifications, isProEligible, storage };
@@ -479,19 +481,18 @@ describe('createJobsService.expireStaleJobs', () => {
     const notifications = {
       alertEligiblePros: jest.fn().mockResolvedValue(undefined),
       resolveJobAlerts: jest.fn().mockResolvedValue(undefined),
+      recordCustomerNotification: jest.fn().mockResolvedValue(undefined),
     };
 
     const jobFindMany = jest.fn().mockResolvedValue([]);
     const updateMany = jest.fn().mockResolvedValue({ count: 1 });
     const historyCreate = jest.fn().mockResolvedValue({});
-    const findFirstOrThrow = jest
-      .fn()
-      .mockResolvedValue({
-        ...jobRow,
-        id: 'job-old',
-        status: JobStatus.EXPIRED,
-        expiresAt: new Date(),
-      });
+    const findFirstOrThrow = jest.fn().mockResolvedValue({
+      ...jobRow,
+      id: 'job-old',
+      status: JobStatus.EXPIRED,
+      expiresAt: new Date(),
+    });
     const notificationFindMany = jest.fn().mockResolvedValue([]);
 
     const prisma = {
@@ -525,7 +526,14 @@ describe('createJobsService.expireStaleJobs', () => {
 
   it('scans only REQUESTED jobs older than the TTL', async () => {
     const ctx = buildExpiry();
-    ctx.prisma.job.findMany.mockResolvedValue([{ id: 'job-old', customer: { userId: 'user-1' } }]);
+    ctx.prisma.job.findMany.mockResolvedValue([
+      {
+        id: 'job-old',
+        customerId: 'cust-1',
+        customer: { userId: 'user-1' },
+        service: { name: 'Electrical' },
+      },
+    ]);
 
     await ctx.jobs.expireStaleJobs();
 
@@ -538,7 +546,14 @@ describe('createJobsService.expireStaleJobs', () => {
 
   it('expires a stale job: status, history, alerts and realtime for the customer', async () => {
     const ctx = buildExpiry();
-    ctx.prisma.job.findMany.mockResolvedValue([{ id: 'job-old', customer: { userId: 'user-1' } }]);
+    ctx.prisma.job.findMany.mockResolvedValue([
+      {
+        id: 'job-old',
+        customerId: 'cust-1',
+        customer: { userId: 'user-1' },
+        service: { name: 'Electrical' },
+      },
+    ]);
 
     await ctx.jobs.expireStaleJobs();
 
@@ -554,6 +569,16 @@ describe('createJobsService.expireStaleJobs', () => {
       }),
     );
     expect(ctx.notifications.resolveJobAlerts).toHaveBeenCalledWith('job-old', 'EXPIRED');
+    expect(ctx.notifications.recordCustomerNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: 'cust-1',
+        customerUserId: 'user-1',
+        jobId: 'job-old',
+        kind: NotificationKind.JOB_STATUS,
+        title: 'Your Electrical request expired',
+        route: '/booking/job-old',
+      }),
+    );
     expect(ctx.realtime.emitToUser).toHaveBeenCalledWith(
       'user-1',
       'job:status',
@@ -563,7 +588,14 @@ describe('createJobsService.expireStaleJobs', () => {
 
   it('also closes the overlays of every alerted pro', async () => {
     const ctx = buildExpiry();
-    ctx.prisma.job.findMany.mockResolvedValue([{ id: 'job-old', customer: { userId: 'user-1' } }]);
+    ctx.prisma.job.findMany.mockResolvedValue([
+      {
+        id: 'job-old',
+        customerId: 'cust-1',
+        customer: { userId: 'user-1' },
+        service: { name: 'Electrical' },
+      },
+    ]);
     ctx.prisma.notification.findMany.mockResolvedValue([
       { pro: { userId: 'pro-user-1' } },
       { pro: { userId: 'pro-user-2' } },
@@ -580,7 +612,14 @@ describe('createJobsService.expireStaleJobs', () => {
 
   it('never expires a job that was just accepted by a racing pro', async () => {
     const ctx = buildExpiry();
-    ctx.prisma.job.findMany.mockResolvedValue([{ id: 'job-old', customer: { userId: 'user-1' } }]);
+    ctx.prisma.job.findMany.mockResolvedValue([
+      {
+        id: 'job-old',
+        customerId: 'cust-1',
+        customer: { userId: 'user-1' },
+        service: { name: 'Electrical' },
+      },
+    ]);
     ctx.prisma.job.updateMany.mockResolvedValue({ count: 0 });
 
     await ctx.jobs.expireStaleJobs();
@@ -702,6 +741,7 @@ describe('createJobsService.acceptJob', () => {
       .fn()
       .mockResolvedValue([{ pro: { userId: 'other-1' } }, { pro: { userId: 'other-2' } }]);
     const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
+    const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
 
     const realtime = {
       emitToUser: jest.fn(),
@@ -734,10 +774,18 @@ describe('createJobsService.acceptJob', () => {
       storage: storage as never,
       matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
       realtime: realtime as never,
-      notifications: { resolveJobAlerts } as never,
+      notifications: { resolveJobAlerts, recordCustomerNotification } as never,
     } as never);
 
-    return { jobs, prisma, realtime, storage, resolveJobAlerts, updatedRow };
+    return {
+      jobs,
+      prisma,
+      realtime,
+      storage,
+      resolveJobAlerts,
+      recordCustomerNotification,
+      updatedRow,
+    };
   }
 
   it('publishes the accepted status to every other alerted pro, excluding the accepting pro', async () => {
@@ -772,6 +820,23 @@ describe('createJobsService.acceptJob', () => {
 
     expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'ACCEPTED');
   });
+
+  it('records an accepted notice for the customer', async () => {
+    const ctx = buildAccept();
+
+    await ctx.jobs.acceptJob('user-1', 'job-1');
+
+    expect(ctx.recordCustomerNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: 'cust-1',
+        customerUserId: 'cust-user-1',
+        jobId: 'job-1',
+        kind: NotificationKind.JOB_STATUS,
+        title: 'A professional accepted your booking',
+        route: '/booking/job-1',
+      }),
+    );
+  });
 });
 
 describe('createJobsService.acceptJobWithOffer', () => {
@@ -798,6 +863,7 @@ describe('createJobsService.acceptJobWithOffer', () => {
       .fn()
       .mockResolvedValue([{ pro: { userId: 'other-1' } }, { pro: { userId: 'other-2' } }]);
     const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
+    const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
     const offerUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
 
     const realtime = {
@@ -834,11 +900,19 @@ describe('createJobsService.acceptJobWithOffer', () => {
       storage: storage as never,
       matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
       realtime: realtime as never,
-      notifications: { resolveJobAlerts } as never,
+      notifications: { resolveJobAlerts, recordCustomerNotification } as never,
       config: { jobOfferSecret: OFFER_SECRET } as never,
     } as never);
 
-    return { jobs, prisma, realtime, resolveJobAlerts, offerUpdateMany, updatedRow };
+    return {
+      jobs,
+      prisma,
+      realtime,
+      resolveJobAlerts,
+      recordCustomerNotification,
+      offerUpdateMany,
+      updatedRow,
+    };
   }
 
   it('consumes the offer, claims the job and settles the outcome as ACCEPTED', async () => {

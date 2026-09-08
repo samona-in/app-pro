@@ -1,6 +1,11 @@
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
-import type { ChatMessage, JobDetail, MessageReceiptUpdate } from '@samona/types';
+import type {
+  ChatMessage,
+  CustomerNotificationUnread,
+  JobDetail,
+  MessageReceiptUpdate,
+} from '@samona/types';
 import { env } from '@/env';
 
 /**
@@ -22,6 +27,12 @@ export interface RealtimeEventMap {
   'message:delivered': MessageReceiptUpdate;
   /** The other party's app read the caller's messages. Payload: MessageReceiptUpdate. */
   'message:read': MessageReceiptUpdate;
+  /**
+   * The customer's unread notification count changed. Payload:
+   * CustomerNotificationUnread. Drives the home-screen bell pill; the
+   * notifications list itself is refetched from REST.
+   */
+  'notification:unread': CustomerNotificationUnread;
 }
 type RealtimeEvent = keyof RealtimeEventMap;
 

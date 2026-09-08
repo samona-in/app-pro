@@ -40,6 +40,11 @@ const jobInclude = {
   skill: { select: { id: true, slug: true, name: true } },
 } as const;
 
+/** Formats paise as a whole rupee string for customer-notice copy. */
+function formatPaise(paise: number): string {
+  return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
 /** The projection job *detail* reads use: counterparty identity + coordinates. */
 const jobDetailInclude = {
   ...jobInclude,
@@ -422,6 +427,20 @@ export function createJobsService(deps: JobsServiceDeps) {
         toJobDetail(updated as unknown as JobDetailRow, 'pro', storage),
       );
     }
+
+    // The payment outcome lands on the customer's Notifications screen.
+    await notifications.recordCustomerNotification({
+      customerId: updated.customerId,
+      customerUserId,
+      jobId: updated.id,
+      kind: NotificationKind.PAYMENT,
+      title:
+        updated.finalPayPaise !== null
+          ? `Payment of ${formatPaise(updated.finalPayPaise)} received`
+          : 'Payment received',
+      body: `Thanks — your ${updated.service.name} booking is paid in full.`,
+      route: `/booking/${updated.id}`,
+    });
     return customerDetail;
   }
 
@@ -474,6 +493,21 @@ export function createJobsService(deps: JobsServiceDeps) {
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
     realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     if (row.pro) realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, proDetail);
+
+    // When the pro backs out, the customer hears about it. A customer-initiated
+    // cancellation is their own action — no own-notice — but the page already
+    // states the outcome in place.
+    if (!actorIsCustomer) {
+      await notifications.recordCustomerNotification({
+        customerId: updated.customerId,
+        customerUserId: row.customer.userId,
+        jobId: updated.id,
+        kind: NotificationKind.JOB_STATUS,
+        title: `${updated.pro?.displayName ?? 'Your professional'} cancelled your booking`,
+        body: `The ${updated.service.name} booking on this request was cancelled. Book again when you are ready.`,
+        route: `/booking/${updated.id}`,
+      });
+    }
 
     // A cancelled job is no longer open; stop repeating its alert and page its
     // holders so their native overlay/sound/tray entry closes immediately.
@@ -849,6 +883,19 @@ export function createJobsService(deps: JobsServiceDeps) {
       proDetail,
     );
 
+    // The customer hears about the booking being taken, in-app and via the
+    // realtime nudge to their bell pill. This row is the source of truth for
+    // their Notifications screen.
+    await notifications.recordCustomerNotification({
+      customerId: updated.customerId,
+      customerUserId: updated.customer.userId,
+      jobId: updated.id,
+      kind: NotificationKind.JOB_STATUS,
+      title: `${updated.pro?.displayName ?? 'A professional'} accepted your booking`,
+      body: `You can now chat with ${updated.pro?.displayName ?? 'your professional'} about ${updated.service.name}.`,
+      route: `/booking/${updated.id}`,
+    });
+
     return proDetail;
   }
 
@@ -1026,6 +1073,40 @@ export function createJobsService(deps: JobsServiceDeps) {
     const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+
+    // Each on-site stage the pro reaches shows up on the customer's
+    // Notifications screen too; labour stays visible, not something to poll for.
+    const proName = updated.pro?.displayName ?? 'Your professional';
+    const serviceName = updated.service.name;
+    const stageCopy =
+      action === 'travel'
+        ? {
+            title: `${proName} is on the way`,
+            body: `${proName} is travelling to you for ${serviceName}.`,
+          }
+        : action === 'arrived'
+          ? {
+              title: `${proName} has arrived`,
+              body: `${proName} arrived for your ${serviceName} booking.`,
+            }
+          : action === 'start'
+            ? {
+                title: `${serviceName} has started`,
+                body: `${proName} started your ${serviceName} booking.`,
+              }
+            : {
+                title: `${serviceName} is complete`,
+                body: `${proName} completed your ${serviceName} booking. Review the payment to finish up.`,
+              };
+    await notifications.recordCustomerNotification({
+      customerId: updated.customerId,
+      customerUserId: updated.customer.userId,
+      jobId: updated.id,
+      kind: NotificationKind.JOB_STATUS,
+      title: stageCopy.title,
+      body: stageCopy.body,
+      route: `/booking/${updated.id}`,
+    });
     return proDetail;
   }
 
@@ -1146,7 +1227,12 @@ export function createJobsService(deps: JobsServiceDeps) {
     const cutoff = new Date(Date.now() - config.jobExpireTtlMs);
     const stale = await prisma.job.findMany({
       where: { status: JobStatus.REQUESTED, createdAt: { lt: cutoff } },
-      select: { id: true, customer: { select: { userId: true } } },
+      select: {
+        id: true,
+        customerId: true,
+        customer: { select: { userId: true } },
+        service: { select: { name: true } },
+      },
       take: 500,
     });
 
@@ -1167,6 +1253,17 @@ export function createJobsService(deps: JobsServiceDeps) {
 
       // A racing acceptance or cancellation claimed the job first; nothing to do.
       if (!expired) continue;
+
+      // The customer hears that no one picked up their request in time.
+      await notifications.recordCustomerNotification({
+        customerId: row.customerId,
+        customerUserId: row.customer.userId,
+        jobId: row.id,
+        kind: NotificationKind.JOB_STATUS,
+        title: `Your ${row.service.name} request expired`,
+        body: 'No professional accepted it in time. You can place it again — we will match you faster next time.',
+        route: `/booking/${row.id}`,
+      });
 
       // The job is no longer open; stop the repeating alert still paging pros and
       // page them with an expired terminal push so open overlays close.

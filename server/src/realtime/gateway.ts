@@ -48,6 +48,13 @@ export const REALTIME_EVENTS = {
    * `MessageReceiptUpdate`. Drives the double-tick → double-blue transition.
    */
   MESSAGE_READ: 'message:read',
+  /**
+   * A customer's unread notification count changed. Payload:
+   * `{ unreadCount }`. Emitted by the notifications service whenever a notice
+   * is recorded or marked read; drives the bell pill on the customer's home
+   * screen. REST (`GET /notifications`) remains the source of truth.
+   */
+  NOTIFICATION_UNREAD: 'notification:unread',
 } as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];

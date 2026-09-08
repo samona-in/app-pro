@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import type { ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
-import { Screen, IconButton } from '@/components/ui';
+import { NotificationBell } from '@/components/notifications';
+import { Screen } from '@/components/ui';
 import { useServiceCategories, useSession } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
 
@@ -27,13 +28,7 @@ export default function Home() {
       <HomeHeader
         locationLabel={customerProfile?.locationLabel ?? undefined}
         onPress={() => router.push('/location-picker')}
-        trailing={
-          <IconButton
-            name="notifications-outline"
-            accessibilityLabel="Notifications"
-            onPress={() => router.push('/notifications')}
-          />
-        }
+        trailing={<NotificationBell />}
       >
         <SearchBar onPress={() => router.push('/bookings')} />
       </HomeHeader>

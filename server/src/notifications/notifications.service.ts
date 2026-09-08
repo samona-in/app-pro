@@ -1,11 +1,18 @@
-import { JobStatus, NotificationKind, type AppNotification, type ChatMessage } from '@samona/types';
+import {
+  JobStatus,
+  NotificationKind,
+  type AppNotification,
+  type ChatMessage,
+  type CustomerNotification,
+} from '@samona/types';
 import type { PushPlatformInput, PushProviderInput } from '@samona/validation';
 import type { AppType } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
 import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
-import { badRequest } from '../common/errors';
+import { badRequest, notFound } from '../common/errors';
 import { distanceKm } from '../common/geo';
+import { REALTIME_EVENTS, type RealtimeService } from '../realtime/gateway';
 import { mintJobOffer } from '../jobs/job-offers';
 import { createFcmClient, type FcmClient, type FcmMessagePayload, type FcmSendResult } from './fcm';
 
@@ -39,6 +46,12 @@ import { createFcmClient, type FcmClient, type FcmMessagePayload, type FcmSendRe
 export interface NotificationsServiceDeps {
   prisma: PrismaClient;
   config: AppConfig;
+  /**
+   * The socket fan-out used to nudge a customer's bell pill on
+   * `notification:unread`. Optional only so unit tests that never exercise
+   * customer notices can build the service with prisma + config alone.
+   */
+  realtime?: RealtimeService;
 }
 
 /** The shape the jobs domain hands over when a job opens for a list of pros. */
@@ -279,6 +292,31 @@ function toDto(row: NotificationRow): AppNotification {
     delivered: row.delivered,
     repeats: row.repeats,
     resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** A persisted customer notice row, mapped to the client DTO. */
+type CustomerNotificationRow = {
+  id: string;
+  jobId: string | null;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  route: string | null;
+  readAt: Date | null;
+  createdAt: Date;
+};
+
+function toCustomerDto(row: CustomerNotificationRow): CustomerNotification {
+  return {
+    id: row.id,
+    jobId: row.jobId,
+    kind: row.kind,
+    title: row.title,
+    body: row.body,
+    route: row.route,
+    readAt: row.readAt ? row.readAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -726,6 +764,101 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     return rows.map((row) => toDto(row as unknown as NotificationRow));
   }
 
+  /* ------------------------------------------------------------------------ */
+  /* Customer notices                                                         */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * Persists one notice for a customer and nudges their bell pill live.
+   *
+   * Invoked by the jobs domain at each status/payment transition it publishes,
+   * with the `customerId` (customer_profiles.id) it already holds and the
+   * customer's `userId` (the socket key for the `notification:unread` nudge).
+   * The row is the feature — REST is the source of truth for what the
+   * Notifications screen shows; the realtime event only moves the unread pill.
+   */
+  async function recordCustomerNotification(input: {
+    customerId: string;
+    customerUserId: string;
+    jobId?: string | null;
+    kind: NotificationKind;
+    title: string;
+    body: string;
+    route?: string | null;
+  }): Promise<CustomerNotification> {
+    const row = await prisma.customerNotification.create({
+      data: {
+        customerId: input.customerId,
+        jobId: input.jobId ?? null,
+        kind: input.kind,
+        title: input.title,
+        body: input.body,
+        route: input.route ?? null,
+      },
+    });
+    await emitUnreadForCustomer(input.customerUserId);
+    return toCustomerDto(row);
+  }
+
+  /** The customer's own notices, newest first. */
+  async function listForCustomer(
+    customerUserId: string,
+    options: { limit?: number; cursor?: string } = {},
+  ): Promise<CustomerNotification[]> {
+    const customer = await prisma.customerProfile.findUnique({
+      where: { userId: customerUserId },
+      select: { id: true },
+    });
+    if (!customer) return [];
+
+    const rows = await prisma.customerNotification.findMany({
+      where: { customerId: customer.id, ...(options.cursor ? { id: { lt: options.cursor } } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: Math.max(1, Math.min(options.limit ?? 20, 50)),
+    });
+    return rows.map(toCustomerDto);
+  }
+
+  /** How many of the customer's notices are still unread (drives the bell pill). */
+  async function countUnreadForCustomer(customerUserId: string): Promise<number> {
+    const customer = await prisma.customerProfile.findUnique({
+      where: { userId: customerUserId },
+      select: { id: true },
+    });
+    if (!customer) return 0;
+    return prisma.customerNotification.count({
+      where: { customerId: customer.id, readAt: null },
+    });
+  }
+
+  /**
+   * Acknowledges one notice as read, scoped to the caller's own profile.
+   * Idempotent: acknowledging an already-read notice is still a 204. Emits the
+   * fresh unread count so the pill reconciles even when nothing changed.
+   */
+  async function markCustomerNotificationRead(
+    customerUserId: string,
+    notificationId: string,
+  ): Promise<void> {
+    const updated = await prisma.customerNotification.updateMany({
+      where: { id: notificationId, customer: { userId: customerUserId } },
+      data: { readAt: new Date() },
+    });
+    await emitUnreadForCustomer(customerUserId);
+    if (updated.count === 0) {
+      // Not theirs or it no longer exists; a 404 avoids leaking what exists.
+      throw notFound('That notification could not be found.');
+    }
+  }
+
+  /** Recomputes the customer's unread count and pushes it over their socket. */
+  async function emitUnreadForCustomer(customerUserId: string): Promise<void> {
+    const unreadCount = await countUnreadForCustomer(customerUserId);
+    deps.realtime?.emitToUser(customerUserId, REALTIME_EVENTS.NOTIFICATION_UNREAD, {
+      unreadCount,
+    });
+  }
+
   /**
    * Registers (or replaces) this user's device push token on the surface that
    * is registering, recording which provider owns it.
@@ -1074,6 +1207,10 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     alertEligiblePros,
     resolveJobAlerts,
     listForPro,
+    recordCustomerNotification,
+    listForCustomer,
+    countUnreadForCustomer,
+    markCustomerNotificationRead,
     registerPushToken,
     setPushSettings,
     sendChatPush,

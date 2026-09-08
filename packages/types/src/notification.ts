@@ -35,6 +35,39 @@ export interface AppNotification {
 }
 
 /**
+ * A notice shown in the Customer app's Notifications screen.
+ *
+ * Unlike the pro `AppNotification`, this row records a *notice* the API chose
+ * to surface (a job-status or payment event), not a push: it has delivery-free
+ * fields and a per-row `readAt` that drives the bell's unread pill. Written by
+ * the jobs domain at each transition it publishes (CLAUDE.md "Job State
+ * Machine"); REST is the source of truth, and `notification:unread` only
+ * nudges the pill.
+ */
+export interface CustomerNotification {
+  id: string;
+  /** The booking the notice is about; null for a system notice. */
+  jobId: string | null;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  /** The in-app route to open on tap; null when there is none. */
+  route: string | null;
+  /** When the customer opened it; null while unread. */
+  readAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * The customer's unread notification count. Returned by
+ * `GET /notifications/unread-count` and pushed live on `notification:unread`
+ * whenever a row is added or marked read.
+ */
+export interface CustomerNotificationUnread {
+  unreadCount: number;
+}
+
+/**
  * Which push provider a device token belongs to.
  *
  * Android registers a raw FCM registration token so the server can reach FCM
