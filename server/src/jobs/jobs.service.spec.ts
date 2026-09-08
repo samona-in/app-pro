@@ -1266,11 +1266,11 @@ describe('createJobsService.listAvailableJobs', () => {
 });
 
 describe('createJobsService.transitionJob', () => {
-  /** A job in ARRIVED, ready for `start`. Work spot is Bangalore, MG Road. */
-  const arrivedRow = {
+  /** A job in TRAVELLING, ready to confirm arrival. Work spot is Bangalore, MG Road. */
+  const travellingRow = {
     ...jobRow,
     proId: 'pro-1',
-    status: JobStatus.ARRIVED,
+    status: JobStatus.TRAVELLING,
     latitude: 12.9756,
     longitude: 77.6099,
     customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
@@ -1278,7 +1278,7 @@ describe('createJobsService.transitionJob', () => {
   };
 
   function buildTransition() {
-    const jobFindFirst = jest.fn().mockResolvedValue(arrivedRow);
+    const jobFindFirst = jest.fn().mockResolvedValue(travellingRow);
     const historyCreate = jest.fn().mockResolvedValue({});
     const jobUpdate = jest
       .fn()
@@ -1286,7 +1286,7 @@ describe('createJobsService.transitionJob', () => {
         async (args: {
           data: { status: JobStatus; completedAt?: Date; finalPayPaise?: number };
         }) => ({
-          ...arrivedRow,
+          ...travellingRow,
           status: args.data.status,
           ...(args.data.completedAt ? { completedAt: args.data.completedAt } : {}),
           ...(args.data.finalPayPaise !== undefined
@@ -1322,28 +1322,28 @@ describe('createJobsService.transitionJob', () => {
     return { jobs, jobFindFirst, historyCreate, jobUpdate, realtime };
   }
 
-  it('starts work when the pro is within the arrival radius', async () => {
+  it('confirms arrival when the pro is within the arrival radius', async () => {
     const ctx = buildTransition();
 
-    const result = await ctx.jobs.transitionJob('user-1', 'job-1', 'start', undefined, {
+    const result = await ctx.jobs.transitionJob('user-1', 'job-1', 'arrived', undefined, {
       latitude: 12.9756, // same work spot
       longitude: 77.6099,
     });
 
     expect(ctx.jobUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: JobStatus.IN_PROGRESS }),
+        data: expect.objectContaining({ status: JobStatus.ARRIVED }),
       }),
     );
-    expect(result.status).toBe(JobStatus.IN_PROGRESS);
+    expect(result.status).toBe(JobStatus.ARRIVED);
   });
 
-  it('rejects starting work beyond the arrival radius and leaves the job ARRIVED', async () => {
+  it('rejects confirming arrival beyond the arrival radius and leaves the job TRAVELLING', async () => {
     const ctx = buildTransition();
 
     // ~2.5 km north of the work spot.
     await expect(
-      ctx.jobs.transitionJob('user-1', 'job-1', 'start', undefined, {
+      ctx.jobs.transitionJob('user-1', 'job-1', 'arrived', undefined, {
         latitude: 12.9999,
         longitude: 77.6099,
       }),
@@ -1353,20 +1353,34 @@ describe('createJobsService.transitionJob', () => {
     expect(ctx.jobFindFirst).toHaveBeenCalledTimes(1);
   });
 
-  it('fails closed when live coordinates are missing for start', async () => {
+  it('fails closed when live coordinates are missing for arrived', async () => {
     const ctx = buildTransition();
 
-    await expect(ctx.jobs.transitionJob('user-1', 'job-1', 'start')).rejects.toMatchObject({
+    await expect(ctx.jobs.transitionJob('user-1', 'job-1', 'arrived')).rejects.toMatchObject({
       name: 'HttpError',
       status: 400,
     });
     expect(ctx.jobUpdate).not.toHaveBeenCalled();
   });
 
+  it('starts work without coordinates because arrival is already verified', async () => {
+    const ctx = buildTransition();
+    ctx.jobFindFirst.mockResolvedValue({ ...travellingRow, status: JobStatus.ARRIVED });
+
+    const result = await ctx.jobs.transitionJob('user-1', 'job-1', 'start');
+
+    expect(ctx.jobUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: JobStatus.IN_PROGRESS }),
+      }),
+    );
+    expect(result.status).toBe(JobStatus.IN_PROGRESS);
+  });
+
   it('stops work at COMPLETED, anchoring the price, without jumping to PAYMENT_PENDING', async () => {
     const ctx = buildTransition();
     ctx.jobFindFirst.mockResolvedValue({
-      ...arrivedRow,
+      ...travellingRow,
       status: JobStatus.IN_PROGRESS,
       agreedPayPaise: 20_000,
     });

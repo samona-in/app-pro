@@ -1053,21 +1053,23 @@ export function createJobsService(deps: JobsServiceDeps) {
         throw conflict(`A job cannot move from ${row.status} to ${target}.`);
       }
 
-      // Fail closed before any write: a pro must be physically at the work
-      // spot to start. Missing coordinates (a client that broke contract) is
-      // treated the same as being too far away — never trust location claims.
-      if (action === 'start') {
+      // Fail closed before any write: a pro must actually be at the work spot
+      // before claiming arrival. Missing coordinates (a client that broke
+      // contract) is treated the same as being too far away — never trust
+      // location claims. Arrival is the last physical gate; "start work"
+      // follows immediately after and does not re-verify.
+      if (action === 'arrived') {
         const jobPoint =
           row.latitude != null && row.longitude != null
             ? { latitude: row.latitude, longitude: row.longitude }
             : null;
         if (!jobPoint || !coordinates) {
-          throw badRequest('Your location is needed to start work. Please try again.');
+          throw badRequest('Your location is needed to confirm you have arrived. Please try again.');
         }
         const metres = distanceKm(coordinates, jobPoint) * 1000;
         if (metres > JOB_DEFAULTS.arrivalRadiusMeters) {
           throw badRequest(
-            `You must be within ${JOB_DEFAULTS.arrivalRadiusMeters} m of the work spot to start work.`,
+            `You must be within ${JOB_DEFAULTS.arrivalRadiusMeters} m of the work spot to confirm you have arrived.`,
           );
         }
       }

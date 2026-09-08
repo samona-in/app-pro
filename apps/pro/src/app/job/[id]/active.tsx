@@ -188,14 +188,14 @@ export default function ActiveJobScreen() {
       await transition.mutateAsync({
         jobId: id,
         action,
-        // The server requires the pro's live position to start work so it can
-        // verify they are actually at the work spot. Send the latest known
+        // The server requires the pro's live position to confirm arrival so it
+        // can verify they are actually at the work spot. Send the latest known
         // coords only for that action.
-        coordinates: action === 'start' ? (proCoordsRef.current ?? undefined) : undefined,
+        coordinates: action === 'arrived' ? (proCoordsRef.current ?? undefined) : undefined,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';
-      if (action === 'start' && message.toLowerCase().includes('must be within')) {
+      if (action === 'arrived' && message.toLowerCase().includes('must be within')) {
         Alert.alert('Not at the work spot yet', message);
       } else {
         Alert.alert('Could not update this job', message);
