@@ -33,8 +33,9 @@ export interface SwipeToConfirmProps {
 /**
  * Slide-to-confirm action — the signature Pro CTA for one-handed, in-motion
  * steps like "On My Way". Dragging the thumb across releases a high-impact
- * haptic and fires `onConfirm`; the thumb springs back so the next label
- * (e.g. "I've Arrived") is immediately ready to swipe.
+ * haptic and fires `onConfirm`; the thumb never rests at the far end. Once the
+ * request settles the thumb springs back so the next stage — or the same stage
+ * after an error — is immediately ready to swipe.
  */
 export function SwipeToConfirm({
   label,
@@ -93,17 +94,24 @@ export function SwipeToConfirm({
     };
   });
 
-  // Reset the knob to the starting position after confirmation so the next
-  // action label is immediately visible and ready to swipe. Done on the UI
-  // thread via a reaction to the label. The immutability rule cannot see that
+  // Return the knob to its starting position once confirmation settles, so the
+  // next action label — or the same one after an error — is immediately
+  // visible and ready to swipe. The knob is kept at the far end only while the
+  // request is in flight (`loading`), and is never allowed to rest there.
+  // Reacting to the loading flag (rather than the label) covers the failure
+  // path too: on error the label does not change, but the knob must still
+  // spring back. Done on the UI thread. The immutability rule cannot see that
   // Reanimated's `useSharedValue` is a mutable ref, so it flags the write here
   // (but, inconsistently, not the identical writes in the pan handler above).
   useAnimatedReaction(
-    () => label,
-    () => {
-      // eslint-disable-next-line react-hooks/immutability
-      translateX.value = withDelay(RESET_DELAY_MS, withSpring(0, { damping: 20, stiffness: 300 }));
+    () => loading,
+    (current, previous) => {
+      if (previous === true && current === false) {
+        // eslint-disable-next-line react-hooks/immutability
+        translateX.value = withDelay(RESET_DELAY_MS, withSpring(0, { damping: 20, stiffness: 300 }));
+      }
     },
+    [loading],
   );
 
   function onTrackLayout(e: LayoutChangeEvent) {
