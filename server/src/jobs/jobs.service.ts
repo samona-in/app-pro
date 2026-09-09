@@ -85,9 +85,11 @@ function recordCustomerNotice(
 }
 
 /** The projection job *detail* reads use: counterparty identity + coordinates. */
+// `verificationOtp` is a scalar on Job and is returned with every include-based
+// read automatically — it must not appear in this relation projection (Prisma
+// rejects a scalar in `include`). `toJobDetail` decides who sees it.
 const jobDetailInclude = {
   ...jobInclude,
-  verificationOtp: true,
   customer: {
     select: {
       userId: true,
