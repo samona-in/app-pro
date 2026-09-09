@@ -70,10 +70,10 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
               {job.customSkill ?? job.skill.name}
             </Text>
           </View>
+          <Text variant="title" className="text-brand">
+            {formatInr(price)}
+          </Text>
         </View>
-        <Text variant="title" className="mt-3 text-brand">
-          {formatInr(price)}
-        </Text>
 
         <Divider spaced />
 
