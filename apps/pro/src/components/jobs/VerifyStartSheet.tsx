@@ -8,8 +8,8 @@ import {
 } from '@expo/ui/community/bottom-sheet';
 import { useVerifyStart } from '@/hooks/use-jobs';
 import { color } from '@/theme';
-import { Button } from '../ui/Button';
 import { OtpInput } from '../ui/OtpInput';
+import { SwipeToConfirm } from '../ui/SwipeToConfirm';
 import { Text } from '../ui/Text';
 
 export interface VerifyStartSheetProps {
@@ -33,8 +33,6 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
   const sheetRef = useRef<BottomSheet>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | undefined>();
-
-  const canSubmit = code.length === 4 && !verify.isPending;
 
   // The native sheet always starts closed; open it the moment the parent asks
   // for it. Closing is driven here instead — pan-down/back/scrim or a successful
@@ -64,7 +62,7 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
   }
 
   async function submit() {
-    if (!canSubmit) return;
+    if (code.length !== 4 || verify.isPending) return;
     setError(undefined);
     try {
       await verify.mutateAsync({ jobId, code });
@@ -108,12 +106,11 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
         </View>
 
         <View className="mt-6">
-          <Button
+          <SwipeToConfirm
             label="Verify and Start Work"
-            size="lg"
+            disabled={code.length !== 4}
             loading={verify.isPending}
-            disabled={!canSubmit}
-            onPress={() => void submit()}
+            onConfirm={() => void submit()}
           />
         </View>
       </BottomSheetView>
