@@ -36,6 +36,9 @@ Notifications.setNotificationHandler({
  */
 export const CHAT_CHANNEL = 'chat_messages_v2';
 
+/** The channel booking-status pushes (accepted, on the way, arrived, etc.) raise on. */
+export const JOB_STATUS_CHANNEL = 'job_updates';
+
 /** EAS project id used to mint Expo push tokens (see the Pro app for the chain). */
 const PROJECT_ID =
   env.easProjectId ?? Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
@@ -49,6 +52,12 @@ async function ensureChannel(): Promise<void> {
     // use the device's default notification sound. A bare string would be
     // treated as a custom sound name and must be shipped via the
     // expo-notifications plugin `sounds` array, which chat has no need for.
+    vibrationPattern: [0, 250, 250],
+    enableVibrate: true,
+  });
+  await Notifications.setNotificationChannelAsync(JOB_STATUS_CHANNEL, {
+    name: 'Booking updates',
+    importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250],
     enableVibrate: true,
   });

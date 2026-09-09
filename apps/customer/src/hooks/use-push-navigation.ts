@@ -18,7 +18,9 @@ function jobRouteFor(
   detailRouteFor?: (jobId: string) => string,
 ) {
   if (typeof data.jobId !== 'string') return null;
-  if (data.type === 'JOB_OTP' && detailRouteFor) return detailRouteFor(data.jobId);
+  if ((data.type === 'JOB_OTP' || data.type === 'JOB_STATUS') && detailRouteFor) {
+    return detailRouteFor(data.jobId);
+  }
   return null;
 }
 
@@ -26,10 +28,12 @@ function jobRouteFor(
  * Routes notification taps to their screen.
  *
  * Chat pushes carry `type: 'CHAT_MESSAGE'` plus the `jobId`, so tapping one
- * opens the job's thread. Job pushes (e.g. the start-work OTP, `type:
- * 'JOB_OTP'`) open the booking detail — the one place the customer can read the
- * code back to the pro. Everything else is ignored here, and REST, not push,
- * is the source of truth once the screen loads.
+ * opens the job's thread. Job pushes — the start-work OTP (`type: 'JOB_OTP'`)
+ * and booking-status updates (`type: 'JOB_STATUS'`: accepted, on the way,
+ * arrived, started, complete, paid, expired) — open the booking detail, the
+ * one place the customer can read the code back to the pro or follow the
+ * job. Everything else is ignored here, and REST, not push, is the source of
+ * truth once the screen loads.
  */
 export function usePushNavigation(
   routeFor: (jobId: string) => string,
