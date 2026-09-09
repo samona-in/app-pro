@@ -72,5 +72,5 @@ export const JOB_DEFAULTS = {
    * How close (in metres) a pro's live location must be to the work spot
    * before they may "Start Work". Tune later from field feedback.
    */
-  arrivalRadiusMeters: 100,
+  arrivalRadiusMeters: 250,
 } as const;
