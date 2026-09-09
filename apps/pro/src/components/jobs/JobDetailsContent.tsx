@@ -90,7 +90,10 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
 
       {/* Card 2 — job description. */}
       <Card className="mt-4">
-        <Text variant="label">Job description</Text>
+        <View className="flex-row items-center gap-2">
+          <Ionicons name="document-text-outline" size={18} color={color['text-secondary']} />
+          <Text variant="label">Job description</Text>
+        </View>
         <Text variant="body" className="mt-1">
           {job.description}
         </Text>
