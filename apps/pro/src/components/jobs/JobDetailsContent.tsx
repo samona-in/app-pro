@@ -94,7 +94,7 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
           <Ionicons name="document-text-outline" size={18} color={color['text-secondary']} />
           <Text variant="label">Job description</Text>
         </View>
-        <Text variant="body" className="mt-1">
+        <Text variant="body" className="mt-1 ml-[26px]">
           {job.description}
         </Text>
       </Card>
