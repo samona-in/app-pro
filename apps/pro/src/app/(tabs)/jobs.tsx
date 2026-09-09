@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { JobStatus } from '@samona/types';
+import { isSettlementPendingStatus } from '@samona/types';
 import { EmptyState } from '@/components/feedback';
 import { Card, Divider, Screen, Text } from '@/components/ui';
 import { JobStatusBadge } from '@/components/jobs';
@@ -42,7 +43,7 @@ function statusLabel(status: JobStatus): string {
 
 /** What a history row does when tapped, based on where that job is today. */
 function openJob(job: { id: string; status: JobStatus }) {
-  if (job.status === 'COMPLETED' || job.status === 'PAYMENT_PENDING') {
+  if (isSettlementPendingStatus(job.status)) {
     // The pro's doorstep settlement screen.
     router.push({ pathname: '/job/[id]/pay', params: { id: job.id } });
     return;

@@ -143,6 +143,22 @@ export function isActiveJobStatus(status: JobStatus): boolean {
 }
 
 /**
+ * A job the pro worked and handed back but that has not been paid yet —
+ * COMPLETED (work done, cash not yet collected) or PAYMENT_PENDING (awaiting
+ * confirmation). A job in either state is not truly finished for the pro: the
+ * availability home must not host them, and the app pulls them back to the
+ * cash-settlement screen until the money is in.
+ */
+export const SETTLEMENT_PENDING_STATUSES: readonly JobStatus[] = [
+  JobStatus.COMPLETED,
+  JobStatus.PAYMENT_PENDING,
+] as const;
+
+export function isSettlementPendingStatus(status: JobStatus): boolean {
+  return (SETTLEMENT_PENDING_STATUSES as readonly JobStatus[]).includes(status);
+}
+
+/**
  * Customer context shared with the assigned pro.
  *
  * Hidden from a pro until the job is accepted: the pro meets the customer only

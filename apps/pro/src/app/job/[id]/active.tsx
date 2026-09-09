@@ -12,7 +12,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { JobStatus, isActiveJobStatus, type JobStatus as Status } from '@samona/types';
+import { JobStatus, isActiveJobStatus, isSettlementPendingStatus, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { CallMessageButton, JobDetailsContent, VerifyStartSheet } from '@/components/jobs';
@@ -315,11 +315,11 @@ export default function ActiveJobScreen() {
 
   // The pro stays on this screen through the whole job: on the way, arrived,
   // working and in progress. Once the job leaves the active working set it
-  // hands off elsewhere — completed jobs go to the cash-settlement screen, and
-  // everything else (paid, cancelled, expired) returns to the availability
-  // home.
+  // hands off elsewhere — a completed job keeps the pro in the cash-settlement
+  // screen until they confirm the money is collected, and everything else
+  // (paid, cancelled, expired) returns to the availability home.
   if (!isActiveJobStatus(job.status)) {
-    if (job.status === JobStatus.COMPLETED || job.status === JobStatus.PAYMENT_PENDING) {
+    if (isSettlementPendingStatus(job.status)) {
       return <Redirect href={{ pathname: '/job/[id]/pay', params: { id } }} />;
     }
     return <Redirect href="/home" />;

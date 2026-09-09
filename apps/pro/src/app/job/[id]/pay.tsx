@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { JobStatus } from '@samona/types';
+import { isSettlementPendingStatus } from '@samona/types';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { CallMessageButton, CollectCashSheet } from '@/components/jobs';
 import { Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
@@ -63,11 +63,7 @@ export default function CollectCashScreen() {
   // Only a job pending settlement belongs here. Anything already paid,
   // cancelled or expired returns to the availability home — unless the payment
   // sheet is up, in which case the sheet owns the exit (success beat → home).
-  if (
-    !collectOpen &&
-    job.status !== JobStatus.COMPLETED &&
-    job.status !== JobStatus.PAYMENT_PENDING
-  ) {
+  if (!collectOpen && !isSettlementPendingStatus(job.status)) {
     return <Redirect href="/home" />;
   }
 
