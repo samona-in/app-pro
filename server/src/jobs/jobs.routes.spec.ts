@@ -58,7 +58,6 @@ function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> 
     createForCustomer: jest.fn().mockResolvedValue(job),
     listForCustomer: jest.fn().mockResolvedValue([job]),
     getForCustomer: jest.fn().mockResolvedValue(job),
-    payForCustomer: jest.fn().mockResolvedValue(job),
     collectCashForPro: jest.fn().mockResolvedValue(job),
     cancelJob: jest.fn().mockResolvedValue(job),
     listAvailableJobs: jest.fn().mockResolvedValue([job]),

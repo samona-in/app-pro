@@ -7,7 +7,8 @@ import { api } from './api';
  *
  * Thin functions over the shared `api` client — REST stays the source of truth
  * (CLAUDE.md "Realtime"). The server is the only writer of prices and statuses;
- * the customer states what they need and settles what was completed.
+ * the customer states what they need and pays their professional in cash once
+ * the work is done — there is no online payment.
  */
 export const bookingApi = {
   /** The caller's booking history, newest first. */
@@ -18,9 +19,6 @@ export const bookingApi = {
 
   /** One booking, including the assigned professional when there is one. */
   get: (jobId: string) => api.get<JobDetail>(`/jobs/${jobId}`),
-
-  /** Settles a completed booking; the amount was anchored server-side. */
-  pay: (jobId: string) => api.post<JobDetail>(`/jobs/${jobId}/pay`, {}),
 
   /** Cancels a booking that is still cancellable. */
   cancel: (jobId: string, note?: string) =>

@@ -21,9 +21,12 @@ import { createRequireAuth, requireRole, validate, routeParamId } from '../commo
  * body (CLAUDE.md "Security"), and the state machine is enforced in the
  * service — no route asserts a status (CLAUDE.md "Job State Machine").
  *
- * - Customer/Admin: create, list own, read own, settle payment, cancel.
+ * Payments are cash-only today — the customer never taps "pay", and PRO/Admin
+ * alone can settle a completed job by confirming the cash was collected.
+ *
+ * - Customer/Admin: create, list own, read own, cancel.
  * - Pro/Admin: list assigned, list open available, accept, on-site transition,
- *   cancel. The single `/pay` route is deliberately customer-scoped.
+ *   collect cash, cancel.
  */
 export function createJobsRouter(services: Services): Router {
   const router = Router();
@@ -105,18 +108,6 @@ export function createJobsRouter(services: Services): Router {
   customer.post('/', customerOnly, validate(createJobSchema), async (req, res, next) => {
     try {
       res.status(201).json(await services.jobs.createForCustomer(req.user!.id, req.body));
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  /**
-   * Settles a completed job: PAYMENT_PENDING → PAID. Exactly once, in the
-   * service; the price was anchored server-side when the job was completed.
-   */
-  customer.post('/:id/pay', customerOnly, async (req, res, next) => {
-    try {
-      res.json(await services.jobs.payForCustomer(req.user!.id, routeParamId(req.params.id)));
     } catch (error) {
       next(error);
     }
@@ -208,9 +199,9 @@ export function createJobsRouter(services: Services): Router {
 
   /**
    * The pro settles a completed job in cash on the doorstep: COMPLETED (or
-   * PAYMENT_PENDING) → PAID. The service walks the same two status steps the
-   * online settle takes and is idempotent once PAID. Rides the shared `write`
-   * limiter mounted on `/jobs` in routes.ts.
+   * PAYMENT_PENDING) → PAID. Payments are cash-only — this is the sole path to
+   * PAID. The service walks two status steps and is idempotent once PAID.
+   * Rides the shared `write` limiter mounted on `/jobs` in routes.ts.
    */
   pro.post('/:id/collect-cash', proOnly, async (req, res, next) => {
     try {

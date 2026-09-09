@@ -9,7 +9,6 @@ import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import {
   useBooking,
   useCancelBooking,
-  usePayBooking,
   useSubmitGuard,
   useUnreadMessages,
 } from '@/hooks';
@@ -76,18 +75,7 @@ export default function BookingDetail() {
   const { data: job, isPending, isError, refetch } = useBooking(id);
   const unread = useUnreadMessages();
 
-  const pay = usePayBooking(id);
   const cancel = useCancelBooking(id);
-  const { run: requestPayment, isSubmitting: paying } = useSubmitGuard(async () => {
-    try {
-      await pay.mutateAsync();
-    } catch (error) {
-      Alert.alert(
-        'Could not settle this booking',
-        error instanceof Error ? error.message : 'Please try again.',
-      );
-    }
-  });
   const { run: requestCancel, isSubmitting: cancelling } = useSubmitGuard(() => {
     Alert.alert('Cancel this booking?', 'The job will be cancelled for everyone.', [
       { text: 'Keep the booking', style: 'cancel' },
@@ -294,12 +282,15 @@ export default function BookingDetail() {
 
       {job.status === JobStatus.PAYMENT_PENDING ? (
         <View className="mt-8 gap-3 pb-4">
-          <Button
-            label="Pay now"
-            size="lg"
-            loading={paying}
-            onPress={() => void requestPayment()}
-          />
+          <View className="rounded-xl border border-brand bg-brand-soft p-4">
+            <Text variant="bodyStrong" className="text-brand">
+              Pay your professional in cash
+            </Text>
+            <Text variant="footnote" className="mt-0.5 text-text-secondary">
+              SAMONA takes cash only today. Settle the agreed amount with your
+              professional; they'll confirm the collection on their side.
+            </Text>
+          </View>
           <Button
             label="Cancel booking"
             variant="ghost"

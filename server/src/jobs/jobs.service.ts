@@ -419,88 +419,15 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
-   * A customer settles a completed job: PAYMENT_PENDING → PAID. Exactly once.
-   */
-  async function payForCustomer(customerUserId: string, jobId: string): Promise<JobDetail> {
-    let proUserId: string | null = null;
-
-    const updated = await prisma.$transaction(async (tx) => {
-      const customer = await tx.customerProfile.findUnique({
-        where: { userId: customerUserId },
-      });
-      if (!customer) throw notFound('That booking could not be found.');
-      const row = await tx.job.findFirst({
-        where: { id: jobId, customerId: customer.id },
-        include: {
-          ...jobDetailInclude,
-          pro: { select: { id: true, userId: true, displayName: true, rating: true } },
-        },
-      });
-      if (!row) throw notFound('That booking could not be found.');
-      if (!canTransition(row.status, JobStatus.PAID)) {
-        throw conflict('Only a completed job can be paid.');
-      }
-
-      await tx.jobStatusHistory.create({
-        data: {
-          jobId: row.id,
-          fromStatus: row.status,
-          toStatus: JobStatus.PAID,
-          changedById: customerUserId,
-        },
-      });
-      await tx.job.update({
-        where: { id: row.id },
-        data: { status: JobStatus.PAID },
-      });
-
-      if (row.pro) {
-        proUserId = row.pro.userId;
-        await tx.proProfile.update({
-          where: { id: row.pro.id },
-          data: { completedJobs: { increment: 1 } },
-        });
-      }
-
-      return tx.job.findFirstOrThrow({ where: { id: row.id }, include: jobDetailInclude });
-    });
-
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
-    realtime.emitToUser(customerUserId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
-    if (proUserId) {
-      realtime.emitToUser(
-        proUserId,
-        REALTIME_EVENTS.JOB_STATUS,
-        toJobDetail(updated as unknown as JobDetailRow, 'pro', storage),
-      );
-    }
-
-    // The payment outcome lands on the customer's Notifications screen.
-    recordCustomerNotice(notifications, {
-      customerId: updated.customerId,
-      customerUserId,
-      jobId: updated.id,
-      kind: NotificationKind.PAYMENT,
-      title:
-        updated.finalPayPaise !== null
-          ? `Payment received · ${formatPaise(updated.finalPayPaise)}`
-          : 'Payment received',
-      body: `${updated.service.name} · paid in full`,
-      route: `/booking/${updated.id}`,
-    });
-    return customerDetail;
-  }
-
-  /**
    * A pro settles a completed job in cash on the doorstep: COMPLETED (or
    * PAYMENT_PENDING) → PAID.
    *
-   * Cash needs no payment provider, so this is the pro's terminal step — the
-   * one they reach from the "Collected cash" screen after completing. The
-   * status passes through PAYMENT_PENDING on the way so the audit timeline is
-   * the same shape the customer's online settle would have produced. Exactly
-   * once: a repeat call on an already-PAID job is a harmless no-op returning
-   * the job unchanged.
+   * Payments are cash-only today: the customer never settles online, so this
+   * is the single path to PAID and the pro's terminal step — the one they
+   * reach from the "Collected cash" screen after completing. The status passes
+   * through PAYMENT_PENDING on the way so the audit timeline records both the
+   * completion and the collection. Exactly once: a repeat call on an
+   * already-PAID job is a harmless no-op returning the job unchanged.
    */
   async function collectCashForPro(proUserId: string, jobId: string): Promise<JobDetail> {
     const pro = await findProByUserId(proUserId);
@@ -517,9 +444,9 @@ export function createJobsService(deps: JobsServiceDeps) {
         throw conflict(`Cash can only be collected once the work is done (state: ${row.status}).`);
       }
 
-      // Walk the same steps the online settle takes, so history reads
-      // identically for cash and card. A job already sitting in
-      // PAYMENT_PENDING skips the first row.
+      // Record the completion → collection steps, even though both land in the
+      // one cash settlement, so the timeline tells the full story. A job
+      // already sitting in PAYMENT_PENDING skips the first row.
       if (!isPending) {
         await tx.jobStatusHistory.create({
           data: {
@@ -1622,7 +1549,6 @@ export function createJobsService(deps: JobsServiceDeps) {
     createForCustomer,
     listForCustomer,
     getForCustomer,
-    payForCustomer,
     collectCashForPro,
     cancelJob,
     listProJobs,
