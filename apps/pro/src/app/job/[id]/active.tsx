@@ -15,9 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { JobStatus, isActiveJobStatus, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
-import { JobDetailsContent } from '@/components/jobs';
+import { JobDetailsContent, VerifyStartSheet } from '@/components/jobs';
 import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
-import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
+import {
+  useProJobs,
+  useSubmitGuard,
+  useTransitionJob,
+  useUnreadMessages,
+} from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr } from '@/utils/format';
@@ -187,6 +192,10 @@ export default function ActiveJobScreen() {
   const { data: jobs, isPending, isFetching, refetch } = useProJobs();
   const transition = useTransitionJob();
   const unread = useUnreadMessages();
+  // Docks the start-work OTP sheet. The server issues a single code the moment
+  // the pro swipes Start Work; the job only moves ARRIVED → IN_PROGRESS once
+  // the pro enters the code the customer reads out to them.
+  const [verifyOpen, setVerifyOpen] = useState(false);
   // Mirrors the pro's live position so the submit guard below can read the
   // latest coords when sending the "start work" request (it is defined here,
   // before the location state, to avoid using the ref before its declaration).
@@ -210,6 +219,19 @@ export default function ActiveJobScreen() {
       }
     }
   });
+
+  // The swipe advances each stage directly EXCEPT "Start Work": that step only
+  // issues the customer's code server-side, then hands the screen to the
+  // VerifyStartSheet which submits the code. Directly running `start` here
+  // would mint a code with nowhere to enter it.
+  function onSwipeConfirm(action: ProJobTransitionAction | undefined) {
+    if (!action) return;
+    if (action === 'start') {
+      setVerifyOpen(true);
+      return;
+    }
+    void run(action);
+  }
 
   const job = useMemo(() => (jobs ?? []).find((item) => item.id === id), [id, jobs]);
   const hasCustomerCoords = job?.latitude != null && job.longitude != null;
@@ -392,11 +414,16 @@ export default function ActiveJobScreen() {
               <SwipeToConfirm
                 label={swipeLabel}
                 loading={isSubmitting}
-                onConfirm={() => void run(action!)}
+                onConfirm={() => onSwipeConfirm(action)}
               />
             }
           />
         </Screen>
+        <VerifyStartSheet
+          visible={verifyOpen}
+          jobId={id}
+          onClose={() => setVerifyOpen(false)}
+        />
       </>
     );
   }
@@ -534,11 +561,16 @@ export default function ActiveJobScreen() {
             <SwipeToConfirm
               label={swipeLabel}
               loading={isSubmitting}
-              onConfirm={() => void run(action!)}
+              onConfirm={() => onSwipeConfirm(action)}
             />
           </View>
         </View>
       </Screen>
+      <VerifyStartSheet
+        visible={verifyOpen}
+        jobId={id}
+        onClose={() => setVerifyOpen(false)}
+      />
     </>
   );
 }

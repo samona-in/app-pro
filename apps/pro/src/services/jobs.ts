@@ -53,6 +53,15 @@ export const jobsApi = {
   cancel: (jobId: string, note?: string) =>
     api.post<JobDetail>(`/jobs/${jobId}/cancel`, note ? { note } : {}),
 
+  /**
+   * Verifies the start-work code the customer read out to the pro, advancing
+   * the job ARRIVED → IN_PROGRESS. The code is only ever handed to the customer
+   * (never returned on the pro's API view), so this submits what the pro reads
+   * from the customer's screen.
+   */
+  verify: (jobId: string, code: string) =>
+    api.post<JobDetail>(`/jobs/${jobId}/verify`, { action: 'start', code }),
+
   setAvailability: (patch: AvailabilityPatchInput) =>
     api.post<ProProfile>('/pros/availability', patch),
 };

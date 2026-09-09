@@ -84,3 +84,18 @@ export function useCancelJob() {
     },
   });
 }
+
+/**
+ * Verifies the start-work code the customer read to the pro, moving the job
+ * ARRIVED → IN_PROGRESS on the server.
+ */
+export function useVerifyStart() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, code }: { jobId: string; code: string }) =>
+      jobsApi.verify(jobId, code),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    },
+  });
+}
