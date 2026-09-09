@@ -102,13 +102,14 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
       {/* Card 3 — customer's reference photos. */}
       {job.imageUrls.length > 0 ? (
         <Card className="mt-4" padded={false}>
-          <View className="px-4 pb-3 pt-4">
+          <View className="flex-row items-center gap-2 px-4 pb-3 pt-4">
+            <Ionicons name="images-outline" size={18} color={color['text-secondary']} />
             <Text variant="label">Customer photos</Text>
           </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerClassName="flex-row gap-2 px-4 pb-4"
+            contentContainerClassName="flex-row gap-2 pb-4 pr-4 pl-[42px]"
           >
             {job.imageUrls.map((url) => (
               <Image
