@@ -6,24 +6,10 @@ import { Card, Divider, Text } from '@/components/ui';
 import { color } from '@/theme';
 import { formatInr } from '@/utils/format';
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
-const INSTRUCTIONS: { icon: IoniconName; title: string; detail: string }[] = [
-  {
-    icon: 'search-outline',
-    title: 'Inspect the issue',
-    detail: 'Check the work spot before starting.',
-  },
-  {
-    icon: 'chatbubbles-outline',
-    title: 'Confirm the work with the customer',
-    detail: 'Agree on the scope and any changes.',
-  },
-  {
-    icon: 'checkmark-circle-outline',
-    title: 'Start only when you are ready',
-    detail: 'Begin once you are sure and prepared.',
-  },
+const INSTRUCTIONS = [
+  'Inspect the issue',
+  'Confirm the work with the customer',
+  'Start only when you are ready',
 ];
 
 export interface JobDetailsContentProps {
@@ -124,21 +110,21 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
 
       {/* Card 4 — instructions before starting. */}
       <Card className="mt-4">
-        <Text variant="label">Before you start</Text>
-        <View className="mt-3">
+        <View className="flex-row items-center gap-2">
+          <Ionicons name="shield-checkmark-outline" size={18} color={color['text-secondary']} />
+          <Text variant="label">Before you start</Text>
+        </View>
+        <View className="mt-3 ml-[26px]">
           {INSTRUCTIONS.map((item, index) => (
-            <View key={item.title}>
+            <View key={item}>
               {index > 0 ? <Divider /> : null}
               <View className="flex-row items-start py-3">
-                <View className="mt-0.5 mr-3 h-8 w-8 items-center justify-center rounded-full bg-brand-soft">
-                  <Ionicons name={item.icon} size={18} color={color.brand} />
-                </View>
-                <View className="flex-1">
-                  <Text variant="bodyStrong">{item.title}</Text>
-                  <Text variant="footnote" className="mt-0.5 text-text-secondary">
-                    {item.detail}
-                  </Text>
-                </View>
+                <Text variant="bodyStrong" className="mr-3 w-5 text-text-secondary">
+                  {index + 1}.
+                </Text>
+                <Text variant="bodyStrong" className="flex-1">
+                  {item}
+                </Text>
               </View>
             </View>
           ))}
