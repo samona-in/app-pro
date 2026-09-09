@@ -413,7 +413,11 @@ export default function ActiveJobScreen() {
             footer={
               <SwipeToConfirm
                 label={swipeLabel}
-                loading={isSubmitting}
+                // The Start Work swipe presents the OTP sheet instead of running
+                // a request, so `isSubmitting` never flips and the knob would stay
+                // latched at the far end. Treat the open sheet as in-flight so the
+                // knob springs back the moment it closes — cancelled or verified.
+                loading={isSubmitting || verifyOpen}
                 onConfirm={() => onSwipeConfirm(action)}
               />
             }
@@ -560,7 +564,11 @@ export default function ActiveJobScreen() {
           <View className="mt-3" testID="swipe-to-confirm">
             <SwipeToConfirm
               label={swipeLabel}
-              loading={isSubmitting}
+              // The Start Work swipe presents the OTP sheet instead of running a
+              // request, so `isSubmitting` never flips and the knob would stay
+              // latched. Treat the open sheet as in-flight so the knob springs
+              // back the moment it closes — cancelled or verified.
+              loading={isSubmitting || verifyOpen}
               onConfirm={() => onSwipeConfirm(action)}
             />
           </View>
