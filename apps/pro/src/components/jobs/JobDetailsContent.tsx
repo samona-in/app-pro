@@ -135,7 +135,7 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
 
       {/* Footer action — pinned to the bottom so the swipe is always
           reachable, regardless of how tall the card stack gets. */}
-      <View className="border-t border-border bg-surface px-5 py-4">{footer}</View>
+      <View className="bg-surface px-5 py-4">{footer}</View>
     </View>
   );
 }
