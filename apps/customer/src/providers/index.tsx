@@ -9,8 +9,12 @@ import { QueryProvider } from './query-provider';
 import { usePushNavigation } from '@/hooks/use-push-navigation';
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  // Tap a chat notification → open that booking's thread.
-  usePushNavigation((jobId) => `/booking/${jobId}/chat`);
+  // Tap a chat notification → open that booking's thread. Tap a job push
+  // (e.g. the start-work OTP) → open the booking detail to read the code out.
+  usePushNavigation(
+    (jobId) => `/booking/${jobId}/chat`,
+    (jobId) => `/booking/${jobId}`,
+  );
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

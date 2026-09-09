@@ -208,6 +208,31 @@ export default function BookingDetail() {
         </Text>
       </Card>
 
+      {job.status === JobStatus.ARRIVED && job.verificationOtp ? (
+        <Card className="mt-4 border-brand bg-brand-soft">
+          <View className="flex-row items-center gap-3">
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-surface">
+              <Ionicons name="shield-checkmark-outline" size={24} color={color.brand} />
+            </View>
+            <View className="flex-1">
+              <Text variant="bodyStrong" className="text-brand">
+                Your verification code
+              </Text>
+              <Text variant="footnote" className="mt-0.5 text-text-secondary">
+                Read this out to your professional so they can start work.
+              </Text>
+            </View>
+          </View>
+          <Text
+            variant="display"
+            className="mt-4 text-center"
+            style={{ color: color.brand, letterSpacing: 6 }}
+          >
+            {job.verificationOtp}
+          </Text>
+        </Card>
+      ) : null}
+
       {job.imageUrls.length > 0 ? (
         <Card className="mt-4" padded={false}>
           <View className="px-4 pb-3 pt-4">
