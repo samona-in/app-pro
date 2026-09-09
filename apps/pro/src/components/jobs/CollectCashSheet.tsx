@@ -106,7 +106,7 @@ export function CollectCashSheet({
               {amount}
             </Text>
             <Text variant="footnote" className="mt-2 text-text-secondary">
-              Nice one — head home for your next job.
+              Nice one — on to your next job.
             </Text>
           </View>
         ) : (
