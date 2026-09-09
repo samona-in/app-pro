@@ -91,7 +91,7 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
           <View className="flex-row items-center gap-2 px-4 pb-3 pt-4">
             <Ionicons name="images-outline" size={18} color={color['text-secondary']} />
             <Text variant="label">Customer photos</Text>
-            <Text variant="caption">{job.imageUrls.length}</Text>
+            <Text variant="caption">({job.imageUrls.length})</Text>
           </View>
           <ScrollView
             horizontal
