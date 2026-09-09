@@ -210,6 +210,11 @@ export default function ActiveJobScreen() {
         // coords only for that action.
         coordinates: action === 'arrived' ? (proCoordsRef.current ?? undefined) : undefined,
       });
+      // The `start` transition does not move the job — the server just mints a
+      // one-time code and delivers it to the customer. Only hand over to the
+      // sheet once the code is actually issued, so the customer holds it before
+      // the pro is asked to enter it.
+      if (action === 'start') setVerifyOpen(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';
       if (action === 'arrived' && message.toLowerCase().includes('must be within')) {
@@ -220,16 +225,12 @@ export default function ActiveJobScreen() {
     }
   });
 
-  // The swipe advances each stage directly EXCEPT "Start Work": that step only
-  // issues the customer's code server-side, then hands the screen to the
-  // VerifyStartSheet which submits the code. Directly running `start` here
-  // would mint a code with nowhere to enter it.
+  // Every stage advances directly through the state machine. For "Start Work"
+  // the `start` transition mints the customer's one-time code server-side
+  // (staying ARRIVED); once issued, the handler above presents the
+  // VerifyStartSheet, where the pro enters the code the customer reads out.
   function onSwipeConfirm(action: ProJobTransitionAction | undefined) {
     if (!action) return;
-    if (action === 'start') {
-      setVerifyOpen(true);
-      return;
-    }
     void run(action);
   }
 
