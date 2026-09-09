@@ -56,40 +56,34 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
       contentContainerClassName="p-5 pb-8"
       showsVerticalScrollIndicator={false}
     >
-      {/* Card 1 — the work (left) and the customer (right), side by side. */}
+      {/* Card 1 — the work (top) and the customer (bottom), stacked vertically. */}
       <Card>
-        <View className="flex-row">
-          <View className="flex-1 pr-3">
-            <View className="flex-row items-center gap-3">
-              <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
-                <Ionicons name="construct-outline" size={22} color={color.brand} />
-              </View>
-              <View className="flex-1">
-                <Text variant="bodyLg" className="font-semibold">
-                  {job.service.name}
-                </Text>
-                <Text variant="footnote" className="text-text-secondary">
-                  {job.customSkill ?? job.skill.name}
-                </Text>
-              </View>
-            </View>
-            <Text variant="title" className="mt-3 text-brand">
-              {formatInr(price)}
+        <View className="flex-row items-center gap-3">
+          <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
+            <Ionicons name="construct-outline" size={22} color={color.brand} />
+          </View>
+          <View className="flex-1">
+            <Text variant="bodyLg" className="font-semibold">
+              {job.service.name}
+            </Text>
+            <Text variant="footnote" className="text-text-secondary">
+              {job.customSkill ?? job.skill.name}
             </Text>
           </View>
+        </View>
+        <Text variant="title" className="mt-3 text-brand">
+          {formatInr(price)}
+        </Text>
 
-          <View className="w-px bg-border" />
+        <Divider spaced />
 
-          <View className="flex-1 pl-3">
-            <View className="flex-row items-start gap-2">
-              <Ionicons name="person-circle-outline" size={20} color={color['text-secondary']} />
-              <View className="flex-1">
-                <Text variant="bodyStrong">{customerName}</Text>
-                <Text variant="footnote" className="mt-0.5 text-text-secondary" numberOfLines={2}>
-                  {address}
-                </Text>
-              </View>
-            </View>
+        <View className="flex-row items-start gap-3">
+          <Ionicons name="person-circle-outline" size={22} color={color['text-secondary']} />
+          <View className="flex-1">
+            <Text variant="bodyStrong">{customerName}</Text>
+            <Text variant="footnote" className="mt-0.5 text-text-secondary" numberOfLines={2}>
+              {address}
+            </Text>
           </View>
         </View>
       </Card>
