@@ -33,12 +33,18 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
   const sheetRef = useRef<BottomSheet>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | undefined>();
+  const [focusKey, setFocusKey] = useState(0);
 
   // The native sheet always starts closed; open it the moment the parent asks
   // for it. Closing is driven here instead — pan-down/back/scrim or a successful
-  // verify — so we never double-dismiss against the platform.
+  // verify — so we never double-dismiss against the platform. Once the modal has
+  // come up, bump focusKey so the (already-mounted) OTP field can take focus and
+  // summon the keyboard.
   useEffect(() => {
-    if (visible) sheetRef.current?.present();
+    if (!visible) return;
+    sheetRef.current?.present();
+    const timer = setTimeout(() => setFocusKey((key) => key + 1), 350);
+    return () => clearTimeout(timer);
   }, [visible]);
 
   // A presented sheet must not outlive its host screen (e.g. user navigates
@@ -102,7 +108,14 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
         </Text>
 
         <View className="mt-5">
-          <OtpInput length={4} value={code} onChange={handleChange} error={error} radius={8} />
+          <OtpInput
+            length={4}
+            value={code}
+            onChange={handleChange}
+            error={error}
+            radius={8}
+            focusKey={focusKey}
+          />
         </View>
 
         <View className="mt-6">

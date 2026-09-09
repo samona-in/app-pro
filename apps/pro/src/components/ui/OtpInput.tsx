@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   TextInput,
@@ -19,6 +19,12 @@ export interface OtpInputProps {
   editable?: boolean;
   /** Box corner radius; squares are 0. */
   radius?: number;
+  /**
+   * Bump this value to imperatively re-focus the input. Needed inside native
+   * modal sheets where the field is already mounted (unseen) and `autoFocus`
+   * has long passed by the time the sheet presents.
+   */
+  focusKey?: number;
 }
 
 /**
@@ -33,11 +39,18 @@ export function OtpInput({
   error,
   editable = true,
   radius = 0,
+  focusKey = 0,
 }: OtpInputProps) {
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const hasError = Boolean(error);
   const chars = value.split('');
+
+  // A bump in `focusKey` re-requests the keyboard. Mount-time `autoFocus` alone
+  // is lost when the field renders inside a native sheet that starts closed.
+  useEffect(() => {
+    if (focusKey > 0) inputRef.current?.focus();
+  }, [focusKey]);
 
   function onKeyPress(e: NativeSyntheticEvent<TextInputKeyPressEventData>) {
     if (e.nativeEvent.key === 'Backspace' && value.length > 0) {
@@ -47,7 +60,10 @@ export function OtpInput({
 
   return (
     <View className="w-full">
-      <View className="flex-row justify-between" accessibilityLabel="Verification code">
+      <View
+        className="relative flex-row justify-between"
+        accessibilityLabel="Verification code"
+      >
         {Array.from({ length }, (_, i) => (
           <Pressable key={i} onPress={() => inputRef.current?.focus()}>
             <View
@@ -83,7 +99,12 @@ export function OtpInput({
           editable={editable}
           caretHidden
           selection={{ start: value.length, end: value.length }}
-          className="absolute left-[-9999px] top-0 h-0 w-0 opacity-0"
+          // An invisible overlay covering the boxes, not an off-screen 0x0 node:
+          // a sheet-hosted input with no visible bounds (and no bounding box for
+          // IOS while the sheet presents) will not become first responder, so the
+          // keyboard never appears. `opacity-0` keeps it hit-testable and
+          // focusable while staying invisible.
+          className="absolute inset-0 opacity-0"
           accessibilityLabel="Verification code"
           placeholderTextColor={color['text-muted']}
         />
