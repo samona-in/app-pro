@@ -367,11 +367,10 @@ export default function ActiveJobScreen() {
 
   // Once the pro has arrived, the map is no longer needed. Show the full
   // job-details view — work/customer summary, description, photos and a
-  // pre-start checklist — with a footer action that fits the stage:
-  //   ARRIVED      -> "Start work" button (start)
+  // pre-start checklist — with a footer swipe that fits the stage:
+  //   ARRIVED      -> "Start Work" swipe (start)
   //   IN_PROGRESS  -> "Work Completed" swipe (complete)
   if (showsJobDetails) {
-    const isInProgress = job.status === JobStatus.IN_PROGRESS;
     return (
       <>
         <Stack.Screen
@@ -390,21 +389,11 @@ export default function ActiveJobScreen() {
           <JobDetailsContent
             job={job}
             footer={
-              isInProgress ? (
-                <SwipeToConfirm
-                  label={swipeLabel}
-                  loading={isSubmitting}
-                  onConfirm={() => void run(action!)}
-                />
-              ) : (
-                <Button
-                  label="Start work"
-                  size="lg"
-                  leading={<Ionicons name="play" size={20} color={color['brand-contrast']} />}
-                  loading={isSubmitting}
-                  onPress={() => void run(action!)}
-                />
-              )
+              <SwipeToConfirm
+                label={swipeLabel}
+                loading={isSubmitting}
+                onConfirm={() => void run(action!)}
+              />
             }
           />
         </Screen>
