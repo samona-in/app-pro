@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Keyboard, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   BottomSheetModal,
@@ -59,6 +59,11 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
   function handleChange(next: string) {
     setCode(next);
     if (error) setError(undefined);
+    // Native sheets do not avoid the keyboard: while it is up it covers the
+    // sheet's bottom edge, including the swipe-to-confirm track. Once the code
+    // is complete the keyboard is no longer needed, so drop it to clear the
+    // button for the swipe. Tapping the code field brings it back if needed.
+    if (next.length === 4) Keyboard.dismiss();
   }
 
   function handleSheetClosed() {
