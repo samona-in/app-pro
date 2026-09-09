@@ -530,6 +530,33 @@ describe('createNotificationsService.sendCustomerPush', () => {
 
     expect(mockFcmSend).not.toHaveBeenCalled();
   });
+
+  it('pushes a job-status update on the job_updates channel with its own data type', async () => {
+    mockFcmSend.mockClear();
+    mockFcmSend.mockResolvedValue({ ok: true });
+    const { service } = build();
+
+    await service.sendCustomerPush({
+      userId: 'user-1',
+      jobId: 'job-1',
+      title: 'Booking accepted',
+      body: 'Rakesh · Electrical',
+      type: 'JOB_STATUS',
+    });
+
+    const [sentToken, payload] = mockFcmSend.mock.calls[0] as [
+      string,
+      { data: Record<string, string>; notification: { title: string; body: string }; android: { notification: { channelId: string } } },
+    ];
+    expect(sentToken).toBe('cust-tok');
+    expect(payload.data).toMatchObject({
+      type: 'JOB_STATUS',
+      jobId: 'job-1',
+      title: 'Booking accepted',
+      body: 'Rakesh · Electrical',
+    });
+    expect(payload.android.notification.channelId).toBe('job_updates');
+  });
 });
 
 describe('createNotificationsService customer notices', () => {

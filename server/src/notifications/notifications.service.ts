@@ -107,6 +107,12 @@ type PushTargetPlatform = 'ANDROID' | 'IOS' | null;
 /** The notification channel job alerts raise on (Android). */
 const JOB_ALERT_CHANNEL = 'incoming_jobs';
 
+/** The notification channel customer booking-status pushes raise on (Android). */
+const CUSTOMER_STATUS_CHANNEL = 'job_updates';
+
+/** The push types the jobs domain can raise for a customer. */
+export type CustomerPushType = 'JOB_OTP' | 'JOB_STATUS';
+
 function notificationRoute(jobId: string): string {
   // Deep links carry the trip-screen path (`/active`) — the former `job/[id]`
   // details route no longer exists in the app.
@@ -1059,16 +1065,21 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
    *
    * Reads the token from the customer's own profile row (never guessing which
    * surface "whichever exists" of a shared phone number owns it) and sends a
-   * DISPLAY message on the `job_otp` channel, so it shows in the tray even when
-   * the Customer app is backgrounded or killed. A customer with no registered
-   * token simply skips delivery — the code is still visible in-app and on their
-   * booking screen, so a missing push never fails the job.
+   * DISPLAY message, so it shows in the tray even when the Customer app is
+   * backgrounded or killed. Delivery is type-aware: the start-work OTP raises on
+   * the dedicated `job_otp` channel with per-job collapse so the code replaces
+   * a stale one, while booking-status updates (accepted / on the way / arrived /
+   * started / complete / paid / expired) raise on the `job_updates` channel so
+   * each stage surfaces individually. A customer with no registered token simply
+   * skips delivery — nothing sent ever fails the job.
    */
   async function sendCustomerPush(input: {
     userId: string;
     jobId: string;
     title: string;
     body: string;
+    /** Which client behavior the push maps to (drives the tray channel + data type). */
+    type?: CustomerPushType;
   }): Promise<void> {
     const profile = await prisma.customerProfile.findUnique({
       where: { userId: input.userId },
@@ -1077,18 +1088,19 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     const token = profile?.pushToken;
     if (!token) {
       logger.info(
-        `[Push] No customer push token for user ${input.userId} on job ${input.jobId} — skipping the OTP push.`,
+        `[Push] No customer push token for user ${input.userId} on job ${input.jobId} — skipping the push.`,
       );
       return;
     }
 
-    const data = toFcmData({ type: 'JOB_OTP', jobId: input.jobId });
-    const channelId = 'job_otp';
+    const type = input.type ?? 'JOB_OTP';
+    const channelId = type === 'JOB_OTP' ? 'job_otp' : CUSTOMER_STATUS_CHANNEL;
+    const data = toFcmData({ type, jobId: input.jobId });
 
     if (pushProviderOf(profile as { pushProvider?: 'EXPO' | 'FCM' | null }) === 'FCM') {
       const client = getFcmClient();
       if (!client) {
-        logger.warn('[Push] FCM not configured — skipping a customer OTP push.');
+        logger.warn(`[Push] FCM not configured — skipping a customer push (${type}).`);
         return;
       }
       const result = await client.send(token, {
@@ -1096,12 +1108,12 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         data: { ...data, title: input.title, body: input.body },
         android: {
           priority: 'high',
-          collapseKey: `otp-${input.jobId}`,
+          collapseKey: type === 'JOB_OTP' ? `otp-${input.jobId}` : undefined,
           notification: { channelId, sound: 'default' },
         },
       });
       if (!result.ok) {
-        logger.warn(`[Push] Customer OTP push to ${input.userId} on job ${input.jobId} not delivered.`);
+        logger.warn(`[Push] Customer ${type} push to ${input.userId} on job ${input.jobId} not delivered.`);
       }
       return;
     }
@@ -1113,7 +1125,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       'EXPO',
     );
     if (!result.ok) {
-      logger.warn(`[Push] Customer OTP push to ${input.userId} on job ${input.jobId} not delivered.`);
+      logger.warn(`[Push] Customer ${type} push to ${input.userId} on job ${input.jobId} not delivered.`);
     }
   }
 

@@ -84,6 +84,31 @@ function recordCustomerNotice(
   });
 }
 
+/**
+ * Records a customer notice and pushes the same headline as a job-status
+ * notification. Both are display side effects: neither ever awaits the primary
+ * transition, and a failed push (unregistered token, transient FCM/Expo error)
+ * must not turn an already committed accept/status/payment into an error.
+ * Failures are logged loudly, never swallowed.
+ */
+function notifyCustomer(
+  notifications: NotificationsService,
+  notice: Parameters<NotificationsService['recordCustomerNotification']>[0] & { jobId: string },
+): void {
+  recordCustomerNotice(notifications, notice);
+  void notifications
+    .sendCustomerPush({
+      userId: notice.customerUserId,
+      jobId: notice.jobId,
+      title: notice.title,
+      body: notice.body,
+      type: 'JOB_STATUS',
+    })
+    .catch((error: unknown) => {
+      logger.error(`Failed to push a customer status notice for job ${notice.jobId}.`, error);
+    });
+}
+
 /** The projection job *detail* reads use: counterparty identity + coordinates. */
 // `verificationOtp` is a scalar on Job and is returned with every include-based
 // read automatically — it must not appear in this relation projection (Prisma
@@ -486,7 +511,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       toJobDetail(updated as unknown as JobDetailRow, 'customer', storage),
     );
 
-    recordCustomerNotice(notifications, {
+    notifyCustomer(notifications, {
       customerId: updated.customerId,
       customerUserId: updated.customer.userId,
       jobId: updated.id,
@@ -555,7 +580,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     // cancellation is their own action — no own-notice — but the page already
     // states the outcome in place.
     if (!actorIsCustomer) {
-      recordCustomerNotice(notifications, {
+      notifyCustomer(notifications, {
         customerId: updated.customerId,
         customerUserId: row.customer.userId,
         jobId: updated.id,
@@ -944,7 +969,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     // The customer hears about the booking being taken, in-app and via the
     // realtime nudge to their bell pill. This row is the source of truth for
     // their Notifications screen.
-    recordCustomerNotice(notifications, {
+    notifyCustomer(notifications, {
       customerId: updated.customerId,
       customerUserId: updated.customer.userId,
       jobId: updated.id,
@@ -1172,7 +1197,7 @@ export function createJobsService(deps: JobsServiceDeps) {
         : action === 'arrived'
           ? { title: 'Arrived', body: context }
           : { title: 'Work complete', body: context };
-    recordCustomerNotice(notifications, {
+    notifyCustomer(notifications, {
       customerId: updated.customerId,
       customerUserId: updated.customer.userId,
       jobId: updated.id,
@@ -1332,7 +1357,7 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     const proName = updated.pro?.displayName ?? 'Your professional';
     const serviceName = updated.service.name;
-    recordCustomerNotice(notifications, {
+    notifyCustomer(notifications, {
       customerId: updated.customerId,
       customerUserId: updated.customer.userId,
       jobId: updated.id,
@@ -1489,7 +1514,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       if (!expired) continue;
 
       // The customer hears that no one picked up their request in time.
-      recordCustomerNotice(notifications, {
+      notifyCustomer(notifications, {
         customerId: row.customerId,
         customerUserId: row.customer.userId,
         jobId: row.id,

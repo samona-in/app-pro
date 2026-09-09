@@ -482,6 +482,7 @@ describe('createJobsService.expireStaleJobs', () => {
       alertEligiblePros: jest.fn().mockResolvedValue(undefined),
       resolveJobAlerts: jest.fn().mockResolvedValue(undefined),
       recordCustomerNotification: jest.fn().mockResolvedValue(undefined),
+      sendCustomerPush: jest.fn().mockResolvedValue(undefined),
     };
 
     const jobFindMany = jest.fn().mockResolvedValue([]);
@@ -579,6 +580,13 @@ describe('createJobsService.expireStaleJobs', () => {
         route: '/booking/job-old',
       }),
     );
+    expect(ctx.notifications.sendCustomerPush).toHaveBeenCalledWith({
+      userId: 'user-1',
+      jobId: 'job-old',
+      title: 'Request expired',
+      body: expect.stringContaining('Electrical'),
+      type: 'JOB_STATUS',
+    });
     expect(ctx.realtime.emitToUser).toHaveBeenCalledWith(
       'user-1',
       'job:status',
@@ -742,6 +750,7 @@ describe('createJobsService.acceptJob', () => {
       .mockResolvedValue([{ pro: { userId: 'other-1' } }, { pro: { userId: 'other-2' } }]);
     const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+    const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
 
     const realtime = {
       emitToUser: jest.fn(),
@@ -774,7 +783,7 @@ describe('createJobsService.acceptJob', () => {
       storage: storage as never,
       matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
       realtime: realtime as never,
-      notifications: { resolveJobAlerts, recordCustomerNotification } as never,
+      notifications: { resolveJobAlerts, recordCustomerNotification, sendCustomerPush } as never,
     } as never);
 
     return {
@@ -784,6 +793,7 @@ describe('createJobsService.acceptJob', () => {
       storage,
       resolveJobAlerts,
       recordCustomerNotification,
+      sendCustomerPush,
       updatedRow,
     };
   }
@@ -821,7 +831,7 @@ describe('createJobsService.acceptJob', () => {
     expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'ACCEPTED');
   });
 
-  it('records an accepted notice for the customer', async () => {
+  it('records an accepted notice and pushes it to the customer', async () => {
     const ctx = buildAccept();
 
     await ctx.jobs.acceptJob('user-1', 'job-1');
@@ -836,6 +846,13 @@ describe('createJobsService.acceptJob', () => {
         route: '/booking/job-1',
       }),
     );
+    expect(ctx.sendCustomerPush).toHaveBeenCalledWith({
+      userId: 'cust-user-1',
+      jobId: 'job-1',
+      title: 'Booking accepted',
+      body: expect.stringContaining('Electrical'),
+      type: 'JOB_STATUS',
+    });
   });
 
   it('still accepts even when the notice write fails — notices never block the transition', async () => {
@@ -843,6 +860,15 @@ describe('createJobsService.acceptJob', () => {
     ctx.recordCustomerNotification.mockRejectedValueOnce(
       new Error('PrismaClientKnownRequestError: table does not exist'),
     );
+
+    await expect(ctx.jobs.acceptJob('user-1', 'job-1')).resolves.toMatchObject({
+      status: JobStatus.ACCEPTED,
+    });
+  });
+
+  it('still accepts even when the status push fails — pushes never block the transition', async () => {
+    const ctx = buildAccept();
+    ctx.sendCustomerPush.mockRejectedValueOnce(new Error('socket hang up'));
 
     await expect(ctx.jobs.acceptJob('user-1', 'job-1')).resolves.toMatchObject({
       status: JobStatus.ACCEPTED,
@@ -875,6 +901,7 @@ describe('createJobsService.acceptJobWithOffer', () => {
       .mockResolvedValue([{ pro: { userId: 'other-1' } }, { pro: { userId: 'other-2' } }]);
     const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+    const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
     const offerUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
 
     const realtime = {
@@ -911,7 +938,7 @@ describe('createJobsService.acceptJobWithOffer', () => {
       storage: storage as never,
       matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
       realtime: realtime as never,
-      notifications: { resolveJobAlerts, recordCustomerNotification } as never,
+      notifications: { resolveJobAlerts, recordCustomerNotification, sendCustomerPush } as never,
       config: { jobOfferSecret: OFFER_SECRET } as never,
     } as never);
 
@@ -921,6 +948,7 @@ describe('createJobsService.acceptJobWithOffer', () => {
       realtime,
       resolveJobAlerts,
       recordCustomerNotification,
+      sendCustomerPush,
       offerUpdateMany,
       updatedRow,
     };
@@ -1346,6 +1374,13 @@ describe('createJobsService.transitionJob', () => {
       }),
     );
     expect(result.status).toBe(JobStatus.ARRIVED);
+    expect(ctx.sendCustomerPush).toHaveBeenCalledWith({
+      userId: 'cust-user-1',
+      jobId: 'job-1',
+      title: 'Arrived',
+      body: expect.stringContaining('Electrical'),
+      type: 'JOB_STATUS',
+    });
   });
 
   it('rejects confirming arrival beyond the arrival radius and leaves the job TRAVELLING', async () => {
@@ -1442,6 +1477,13 @@ describe('createJobsService.transitionJob', () => {
         data: expect.objectContaining({ toStatus: JobStatus.COMPLETED }),
       }),
     );
+    expect(ctx.sendCustomerPush).toHaveBeenCalledWith({
+      userId: 'cust-user-1',
+      jobId: 'job-1',
+      title: 'Work complete',
+      body: expect.stringContaining('Electrical'),
+      type: 'JOB_STATUS',
+    });
   });
 });
 
@@ -1479,6 +1521,7 @@ describe('createJobsService.verifyStart', () => {
         }),
       );
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+    const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
     const jobUpdateNoTx = jest.fn().mockResolvedValue(undefined);
 
     const prisma = {
@@ -1507,7 +1550,7 @@ describe('createJobsService.verifyStart', () => {
       storage: storage as never,
       matching: {} as never,
       realtime: realtime as never,
-      notifications: { recordCustomerNotification } as never,
+      notifications: { recordCustomerNotification, sendCustomerPush } as never,
       startOtpGuard: startOtpGuard as never,
     } as never);
 
@@ -1520,6 +1563,7 @@ describe('createJobsService.verifyStart', () => {
       jobUpdateNoTx,
       realtime,
       recordCustomerNotification,
+      sendCustomerPush,
       startOtpGuard,
     };
   }
@@ -1544,6 +1588,13 @@ describe('createJobsService.verifyStart', () => {
     expect(ctx.recordCustomerNotification).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Work started' }),
     );
+    expect(ctx.sendCustomerPush).toHaveBeenCalledWith({
+      userId: 'cust-user-1',
+      jobId: 'job-1',
+      title: 'Work started',
+      body: expect.stringContaining('Electrical'),
+      type: 'JOB_STATUS',
+    });
   });
 
   it('rejects a wrong code, counts the failure, and leaves the job ARRIVED', async () => {
@@ -1616,7 +1667,7 @@ describe('createJobsService.collectCashForPro', () => {
   };
 
   function buildCollect() {
-    let row = completedRow;
+    let row: Omit<typeof completedRow, 'status'> & { status: JobStatus } = completedRow;
     const jobFindFirst = jest.fn().mockImplementation(async () => row);
     const historyCreate = jest.fn().mockResolvedValue({});
     const jobUpdate = jest
@@ -1628,6 +1679,7 @@ describe('createJobsService.collectCashForPro', () => {
     const proProfileUpdate = jest.fn().mockResolvedValue({ id: 'pro-1' });
     const jobFindFirstOrThrow = jest.fn().mockImplementation(async () => row);
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+    const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
 
     const prisma = {
       proProfile: {
@@ -1653,7 +1705,7 @@ describe('createJobsService.collectCashForPro', () => {
       storage: storage as never,
       matching: {} as never,
       realtime: realtime as never,
-      notifications: { recordCustomerNotification } as never,
+      notifications: { recordCustomerNotification, sendCustomerPush } as never,
     } as never);
 
     return {
@@ -1668,6 +1720,7 @@ describe('createJobsService.collectCashForPro', () => {
       jobFindFirstOrThrow,
       realtime,
       recordCustomerNotification,
+      sendCustomerPush,
     };
   }
 
@@ -1711,6 +1764,13 @@ describe('createJobsService.collectCashForPro', () => {
         title: 'Payment received · ₹150',
       }),
     );
+    expect(ctx.sendCustomerPush).toHaveBeenCalledWith({
+      userId: 'cust-user-1',
+      jobId: 'job-1',
+      title: 'Payment received · ₹150',
+      body: expect.stringContaining('Electrical'),
+      type: 'JOB_STATUS',
+    });
   });
 
   it('accepts a job already sitting in PAYMENT_PENDING', async () => {
@@ -1772,7 +1832,7 @@ describe('createJobsService.cancelJob', () => {
   };
 
   function buildCancel() {
-    let row = arrivedRow;
+    let row: Omit<typeof arrivedRow, 'status'> & { status: JobStatus } = arrivedRow;
     const jobFindUnique = jest.fn().mockImplementation(async () => row);
     const historyCreate = jest.fn().mockResolvedValue({});
     const jobUpdate = jest
@@ -1782,6 +1842,7 @@ describe('createJobsService.cancelJob', () => {
         return row;
       });
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+    const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
     const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
 
     const prisma = {
@@ -1799,6 +1860,7 @@ describe('createJobsService.cancelJob', () => {
     };
     const notifications = {
       recordCustomerNotification,
+      sendCustomerPush,
       resolveJobAlerts,
     };
 
@@ -1820,6 +1882,7 @@ describe('createJobsService.cancelJob', () => {
       jobUpdate,
       realtime,
       recordCustomerNotification,
+      sendCustomerPush,
       resolveJobAlerts,
     };
   }
@@ -1861,6 +1924,13 @@ describe('createJobsService.cancelJob', () => {
 
     expect(result).toMatchObject({ detail: expect.objectContaining({ status: JobStatus.CANCELLED }) });
     expect(ctx.recordCustomerNotification).toHaveBeenCalled();
+    expect(ctx.sendCustomerPush).toHaveBeenCalledWith({
+      userId: 'cust-user-1',
+      jobId: 'job-1',
+      title: 'Booking cancelled',
+      body: expect.stringContaining('Electrical'),
+      type: 'JOB_STATUS',
+    });
     expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'CANCELLED');
   });
 
