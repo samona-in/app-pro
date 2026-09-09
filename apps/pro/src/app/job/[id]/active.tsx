@@ -385,7 +385,7 @@ export default function ActiveJobScreen() {
           }}
         />
 
-        <Screen edges={['bottom']} padded={false} className="bg-background">
+        <Screen edges={['bottom']} padded={false} className="bg-surface">
           <JobDetailsContent
             job={job}
             footer={
