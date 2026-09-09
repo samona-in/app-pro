@@ -26,6 +26,7 @@
     "doctor": "expo-doctor"
   },
   "dependencies": {
+    "@expo/ui": "~57.0.17",
     "@expo/vector-icons": "^15.1.1",
     "@maplibre/maplibre-react-native": "^11.3.7",
     "@noma4i/vision-camera-face-detector": "^3.0.1",

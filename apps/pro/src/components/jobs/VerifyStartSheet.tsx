@@ -1,12 +1,11 @@
-import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  View,
-} from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  BottomSheetModal,
+  BottomSheetView,
+  type BottomSheet,
+} from '@expo/ui/community/bottom-sheet';
 import { useVerifyStart } from '@/hooks/use-jobs';
 import { color } from '@/theme';
 import { Button } from '../ui/Button';
@@ -26,22 +25,39 @@ export interface VerifyStartSheetProps {
  * and shows it only to the customer (it is never returned on the pro's API
  * view). The pro reads the code off the customer's booking screen and enters it
  * here; a correct constant-time match is what advances the job ARRIVED →
- * IN_PROGRESS. Docked as a plain RN `Modal` at the bottom — no new dependency.
+ * IN_PROGRESS. Presented as a native modal sheet via @expo/ui — Jetpack
+ * Compose ModalBottomSheet on Android, SwiftUI on iOS.
  */
 export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetProps) {
   const verify = useVerifyStart();
+  const sheetRef = useRef<BottomSheet>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | undefined>();
 
   const canSubmit = code.length === 4 && !verify.isPending;
+
+  // The native sheet always starts closed; open it the moment the parent asks
+  // for it. Closing is driven here instead — pan-down/back/scrim or a successful
+  // verify — so we never double-dismiss against the platform.
+  useEffect(() => {
+    if (visible) sheetRef.current?.present();
+  }, [visible]);
+
+  // A presented sheet must not outlive its host screen (e.g. user navigates
+  // back mid-verification): tear it down with the component.
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    return () => {
+      sheet?.dismiss();
+    };
+  }, []);
 
   function handleChange(next: string) {
     setCode(next);
     if (error) setError(undefined);
   }
 
-  function close() {
-    if (verify.isPending) return;
+  function handleSheetClosed() {
     setCode('');
     setError(undefined);
     onClose();
@@ -52,6 +68,7 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
     setError(undefined);
     try {
       await verify.mutateAsync({ jobId, code });
+      sheetRef.current?.dismiss();
       setCode('');
       onClose();
     } catch (submitError) {
@@ -62,58 +79,44 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      statusBarTranslucent={Platform.OS === 'android'}
-      onRequestClose={close}
+    <BottomSheetModal
+      ref={sheetRef}
+      enablePanDownToClose
+      backgroundStyle={{ backgroundColor: color.surface }}
+      onClose={handleSheetClosed}
     >
-      <View className="flex-1 justify-end">
-        <Pressable
-          accessibilityLabel="Close verification sheet"
-          className="absolute inset-0 bg-black/50"
-          onPress={close}
-        />
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          className="rounded-t-2xl border-t border-border bg-surface px-5 pb-8 pt-2"
-        >
-          <View className="mx-auto mb-4 h-1 w-9 rounded-full bg-border" />
-
-          <View className="flex-row items-center gap-3">
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
-              <Ionicons name="shield-checkmark-outline" size={24} color={color.brand} />
-            </View>
-            <View className="flex-1">
-              <Text variant="title">Start Work</Text>
-              <Text variant="footnote" className="text-text-secondary">
-                Ask the customer for their code
-              </Text>
-            </View>
+      <BottomSheetView style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 }}>
+        <View className="flex-row items-center gap-3">
+          <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
+            <Ionicons name="shield-checkmark-outline" size={24} color={color.brand} />
           </View>
-
-          <Text variant="body" className="mt-4 text-text-secondary">
-            The customer got a 4-digit verification code on their screen. Enter it
-            below to confirm you’ve met and are starting.
-          </Text>
-
-          <View className="mt-5">
-            <OtpInput length={4} value={code} onChange={handleChange} error={error} radius={8} />
+          <View className="flex-1">
+            <Text variant="title">Start Work</Text>
+            <Text variant="footnote" className="text-text-secondary">
+              Ask the customer for their code
+            </Text>
           </View>
+        </View>
 
-          <View className="mt-6">
-            <Button
-              label="Verify and Start Work"
-              size="lg"
-              loading={verify.isPending}
-              disabled={!canSubmit}
-              onPress={() => void submit()}
-            />
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
+        <Text variant="body" className="mt-4 text-text-secondary">
+          The customer got a 4-digit verification code on their screen. Enter it below to confirm
+          you’ve met and are starting.
+        </Text>
+
+        <View className="mt-5">
+          <OtpInput length={4} value={code} onChange={handleChange} error={error} radius={8} />
+        </View>
+
+        <View className="mt-6">
+          <Button
+            label="Verify and Start Work"
+            size="lg"
+            loading={verify.isPending}
+            disabled={!canSubmit}
+            onPress={() => void submit()}
+          />
+        </View>
+      </BottomSheetView>
+    </BottomSheetModal>
   );
 }
