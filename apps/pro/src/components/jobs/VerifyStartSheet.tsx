@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import {
   BottomSheetModal,
@@ -9,8 +8,8 @@ import {
 } from '@expo/ui/community/bottom-sheet';
 import { useVerifyStart } from '@/hooks/use-jobs';
 import { color } from '@/theme';
+import { Button } from '../ui/Button';
 import { OtpInput } from '../ui/OtpInput';
-import { SwipeToConfirm } from '../ui/SwipeToConfirm';
 import { Text } from '../ui/Text';
 
 export interface VerifyStartSheetProps {
@@ -96,47 +95,43 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
       onClose={handleSheetClosed}
     >
       <BottomSheetView style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 24 }}>
-        {/* The native sheet hosts its content outside the app's gesture-handler
-            root, so slide-to-confirm inside it would never recognize. Establish
-            a root within the sheet's own tree. */}
-        <GestureHandlerRootView>
-          <View className="flex-row items-center gap-3">
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
-              <Ionicons name="shield-checkmark-outline" size={24} color={color.brand} />
-            </View>
-            <View className="flex-1">
-              <Text variant="title">Start Work</Text>
-              <Text variant="footnote" className="text-text-secondary">
-                Ask the customer for their code
-              </Text>
-            </View>
+        <View className="flex-row items-center gap-3">
+          <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
+            <Ionicons name="shield-checkmark-outline" size={24} color={color.brand} />
           </View>
-
-          <Text variant="body" className="mt-4 text-text-secondary">
-            The customer got a 4-digit verification code on their screen. Enter it below to confirm
-            you’ve met and are starting.
-          </Text>
-
-          <View className="mt-5">
-            <OtpInput
-              length={4}
-              value={code}
-              onChange={handleChange}
-              error={error}
-              radius={8}
-              focusKey={focusKey}
-            />
+          <View className="flex-1">
+            <Text variant="title">Start Work</Text>
+            <Text variant="footnote" className="text-text-secondary">
+              Ask the customer for their code
+            </Text>
           </View>
+        </View>
 
-          <View className="mt-6">
-            <SwipeToConfirm
-              label="Verify and Start Work"
-              disabled={code.length !== 4}
-              loading={verify.isPending}
-              onConfirm={() => void submit()}
-            />
-          </View>
-        </GestureHandlerRootView>
+        <Text variant="body" className="mt-4 text-text-secondary">
+          The customer got a 4-digit verification code on their screen. Enter it below to confirm
+          you’ve met and are starting.
+        </Text>
+
+        <View className="mt-5">
+          <OtpInput
+            length={4}
+            value={code}
+            onChange={handleChange}
+            error={error}
+            radius={8}
+            focusKey={focusKey}
+          />
+        </View>
+
+        <View className="mt-6">
+          <Button
+            label="Verify and Start Work"
+            size="lg"
+            disabled={code.length !== 4}
+            loading={verify.isPending}
+            onPress={() => void submit()}
+          />
+        </View>
       </BottomSheetView>
     </BottomSheetModal>
   );
