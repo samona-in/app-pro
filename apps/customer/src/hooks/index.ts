@@ -6,7 +6,6 @@ export {
   useBookings,
   useCancelBooking,
   useCreateBooking,
-  usePayBooking,
   useServiceSkills,
 } from './use-bookings';
 export { getAppHash, extractOtpCode, useOtpAutoFill } from './use-otp-autofill';

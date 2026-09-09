@@ -9,7 +9,6 @@ import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import {
   useBooking,
   useCancelBooking,
-  usePayBooking,
   useSubmitGuard,
   useUnreadMessages,
 } from '@/hooks';
@@ -32,13 +31,16 @@ function currentStepIndex(job: JobDetail): number {
   return index === -1 ? 0 : index;
 }
 
-/** Statuses the customer may still cancel: before work is underway and after completion. */
+/**
+ * Statuses the customer may still cancel: only before the professional starts
+ * the work. Once the job is in progress there is no turning back — the last
+ * chance is after arrival, when the pro has seen the job and can hand it back.
+ */
 const CANCELLABLE: JobStatus[] = [
   JobStatus.REQUESTED,
   JobStatus.ACCEPTED,
   JobStatus.TRAVELLING,
   JobStatus.ARRIVED,
-  JobStatus.PAYMENT_PENDING,
 ];
 
 function canCancel(status: JobStatus): boolean {
@@ -76,18 +78,7 @@ export default function BookingDetail() {
   const { data: job, isPending, isError, refetch } = useBooking(id);
   const unread = useUnreadMessages();
 
-  const pay = usePayBooking(id);
   const cancel = useCancelBooking(id);
-  const { run: requestPayment, isSubmitting: paying } = useSubmitGuard(async () => {
-    try {
-      await pay.mutateAsync();
-    } catch (error) {
-      Alert.alert(
-        'Could not settle this booking',
-        error instanceof Error ? error.message : 'Please try again.',
-      );
-    }
-  });
   const { run: requestCancel, isSubmitting: cancelling } = useSubmitGuard(() => {
     Alert.alert('Cancel this booking?', 'The job will be cancelled for everyone.', [
       { text: 'Keep the booking', style: 'cancel' },
@@ -208,6 +199,31 @@ export default function BookingDetail() {
         </Text>
       </Card>
 
+      {job.status === JobStatus.ARRIVED && job.verificationOtp ? (
+        <Card className="mt-4 border-brand bg-brand-soft">
+          <View className="flex-row items-center gap-3">
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-surface">
+              <Ionicons name="shield-checkmark-outline" size={24} color={color.brand} />
+            </View>
+            <View className="flex-1">
+              <Text variant="bodyStrong" className="text-brand">
+                Your verification code
+              </Text>
+              <Text variant="footnote" className="mt-0.5 text-text-secondary">
+                Read this out to your professional so they can start work.
+              </Text>
+            </View>
+          </View>
+          <Text
+            variant="display"
+            className="mt-4 text-center"
+            style={{ color: color.brand, letterSpacing: 6 }}
+          >
+            {job.verificationOtp}
+          </Text>
+        </Card>
+      ) : null}
+
       {job.imageUrls.length > 0 ? (
         <Card className="mt-4" padded={false}>
           <View className="px-4 pb-3 pt-4">
@@ -269,19 +285,15 @@ export default function BookingDetail() {
 
       {job.status === JobStatus.PAYMENT_PENDING ? (
         <View className="mt-8 gap-3 pb-4">
-          <Button
-            label="Pay now"
-            size="lg"
-            loading={paying}
-            onPress={() => void requestPayment()}
-          />
-          <Button
-            label="Cancel booking"
-            variant="ghost"
-            size="md"
-            loading={cancelling}
-            onPress={() => void requestCancel()}
-          />
+          <View className="rounded-xl border border-brand bg-brand-soft p-4">
+            <Text variant="bodyStrong" className="text-brand">
+              Pay your professional in cash
+            </Text>
+            <Text variant="footnote" className="mt-0.5 text-text-secondary">
+              SAMONA takes cash only today. Settle the agreed amount with your
+              professional; they'll confirm the collection on their side.
+            </Text>
+          </View>
         </View>
       ) : canCancel(job.status) ? (
         <View className="mt-8 gap-3 pb-4">

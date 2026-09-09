@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
-import { isActiveJobStatus } from '@samona/types';
+import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { useProJobs, useSession } from '@/hooks';
 
 /**
@@ -9,6 +9,7 @@ import { useProJobs, useSession } from '@/hooks';
  *
  *   not authenticated        -> phone flow
  *   no/incomplete onboarding -> resume at the first unanswered step
+ *   unpaid completed job     -> the cash-settlement screen, not home
  *   active job (not terminal)-> the map-first job screen, not home
  *   onboarding complete      -> home
  *
@@ -17,9 +18,10 @@ import { useProJobs, useSession } from '@/hooks';
  * the same whether the Pro closed the app one step in or six.
  *
  * A pro mid-job has no use for the availability home screen, so any assigned
- * job that hasn't reached a terminal outcome (accepted through completed,
- * until paid / cancelled / expired) wins over home and drops straight into the
- * job screen.
+ * job that hasn't reached a terminal outcome wins over home and drops straight
+ * into the job screen. Money owed comes first: a completed but unpaid job holds
+ * the payment screen until the pro confirms the cash is collected — only then
+ * is the job truly finished (CLAUDE.md workflow).
  */
 export default function Index() {
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep, error } = useSession();
@@ -52,7 +54,9 @@ export default function Index() {
     return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
   }
 
-  const activeJob = (jobsQuery.data ?? []).find((job) => isActiveJobStatus(job.status));
+  const jobs = jobsQuery.data ?? [];
+  const settlementJob = jobs.find((job) => isSettlementPendingStatus(job.status));
+  const activeJob = jobs.find((job) => isActiveJobStatus(job.status));
 
   if (jobsQuery.isPending) {
     return (
@@ -60,6 +64,10 @@ export default function Index() {
         <LoadingState message="Checking your active job" />
       </Screen>
     );
+  }
+
+  if (settlementJob) {
+    return <Redirect href={`/job/${settlementJob.id}/pay`} />;
   }
 
   if (activeJob) {

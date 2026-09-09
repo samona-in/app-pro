@@ -4,7 +4,7 @@ import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
-import { isActiveJobStatus } from '@samona/types';
+import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { useProJobs, useProProfile, useDeviceReadiness, useSubmitGuard } from '@/hooks';
 import {
   subscribeToOnlineStatus,
@@ -247,23 +247,30 @@ function OfflineGate() {
 
 export default function Home() {
   const { data: jobs, isPending } = useProJobs();
-  const activeJob = (jobs ?? []).find((job) => isActiveJobStatus(job.status));
+  // Money owed wins: a completed but unpaid job (or one awaiting payment) has
+  // to be settled before the pro belongs on home — only their own "Collect
+  // cash" swipe finishes it. Otherwise an in-flight job routes map-first.
+  const jobsList = jobs ?? [];
+  const settlementJob = jobsList.find((job) => isSettlementPendingStatus(job.status));
+  const activeJob = jobsList.find((job) => isActiveJobStatus(job.status));
+  const occupiedJob = settlementJob ?? activeJob;
 
-  // A pro with a job still in the active working set (accepted through in
-  // progress) has no use for the availability home. This mirrors the
+  // A pro with an unfinished job (accepted through in-progress, or completed
+  // but not yet paid) has no use for the availability home. This mirrors the
   // index-route decision, but also runs when the pro returns here by dismissing
   // the job screen (back swipe / phone back button) instead of only on cold
-  // start — so an in-flight job always wins over home and pulls the pro straight
-  // back into the job screen.
+  // start — so an in-flight or unpaid job always wins over home and pulls the
+  // pro straight back into the right screen.
   useFocusEffect(
     useCallback(() => {
-      if (activeJob && !isPending) {
-        router.replace(`/job/${activeJob.id}/active`);
+      if (occupiedJob && !isPending) {
+        const suffix = settlementJob ? 'pay' : 'active';
+        router.replace(`/job/${occupiedJob.id}/${suffix}`);
       }
-    }, [activeJob, isPending]),
+    }, [occupiedJob, settlementJob, isPending]),
   );
 
-  // While the job list is still loading we can't yet rule out an active job;
+  // While the job list is still loading we can't yet rule out an open job;
   // showing the home UI for a moment would flash the availability screen before
   // the focus effect above redirects. Hold a loading state instead.
   if (isPending) {
@@ -272,6 +279,10 @@ export default function Home() {
         <ActivityIndicator color={color.brand} size="large" />
       </Screen>
     );
+  }
+
+  if (settlementJob) {
+    return <Redirect href={`/job/${settlementJob.id}/pay`} />;
   }
 
   if (activeJob) {

@@ -152,6 +152,21 @@ export const transitionJobSchema = z.object({
 
 export type TransitionJobInput = z.infer<typeof transitionJobSchema>;
 
+/**
+ * Verifies a pro's claim to start work using the one-time code the customer
+ * holds.
+ *
+ * The code is 4 digits, issued once per job and entered by the pro from what
+ * the customer reads out. The server compares it in constant time and counts
+ * failures so a wrong code cannot be sprayed (server-side brute-force guard).
+ */
+export const verifyStartSchema = z.object({
+  action: z.literal('start'),
+  code: z.string().regex(/^\d{4}$/, 'Enter the 4-digit code you got from the customer.'),
+});
+
+export type VerifyStartInput = z.infer<typeof verifyStartSchema>;
+
 /** Optional context for a cancellation; never loaded with meaning. */
 export const cancelJobSchema = z.object({
   note: z.string().trim().max(200, 'Keep the note under 200 characters.').optional(),

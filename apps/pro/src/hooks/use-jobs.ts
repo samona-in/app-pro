@@ -84,3 +84,32 @@ export function useCancelJob() {
     },
   });
 }
+
+/**
+ * Verifies the start-work code the customer read to the pro, moving the job
+ * ARRIVED → IN_PROGRESS on the server.
+ */
+export function useVerifyStart() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ jobId, code }: { jobId: string; code: string }) =>
+      jobsApi.verify(jobId, code),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    },
+  });
+}
+
+/**
+ * Settles a completed job in cash on the doorstep. The server walks the job to
+ * PAID (idempotent once paid), so a double-tap on "Collected cash" is safe.
+ */
+export function useCollectCash() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => jobsApi.collectCash(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    },
+  });
+}

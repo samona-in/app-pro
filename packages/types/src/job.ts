@@ -39,9 +39,13 @@ export const JOB_STATUS_TRANSITIONS: Readonly<Record<JobStatus, readonly JobStat
   ACCEPTED: [JobStatus.TRAVELLING, JobStatus.CANCELLED],
   TRAVELLING: [JobStatus.ARRIVED, JobStatus.CANCELLED],
   ARRIVED: [JobStatus.IN_PROGRESS, JobStatus.CANCELLED],
-  IN_PROGRESS: [JobStatus.COMPLETED, JobStatus.CANCELLED],
+  // Once the pro has started the work there is no turning back: cancellation
+  // is only allowed up to and including ARRIVED, when the pro has seen the job
+  // and can still hand it back. From IN_PROGRESS the job must run to
+  // completion and collection.
+  IN_PROGRESS: [JobStatus.COMPLETED],
   COMPLETED: [JobStatus.PAYMENT_PENDING],
-  PAYMENT_PENDING: [JobStatus.PAID, JobStatus.CANCELLED],
+  PAYMENT_PENDING: [JobStatus.PAID],
   PAID: [],
   CANCELLED: [],
   EXPIRED: [],
@@ -143,6 +147,22 @@ export function isActiveJobStatus(status: JobStatus): boolean {
 }
 
 /**
+ * A job the pro worked and handed back but that has not been paid yet —
+ * COMPLETED (work done, cash not yet collected) or PAYMENT_PENDING (awaiting
+ * confirmation). A job in either state is not truly finished for the pro: the
+ * availability home must not host them, and the app pulls them back to the
+ * cash-settlement screen until the money is in.
+ */
+export const SETTLEMENT_PENDING_STATUSES: readonly JobStatus[] = [
+  JobStatus.COMPLETED,
+  JobStatus.PAYMENT_PENDING,
+] as const;
+
+export function isSettlementPendingStatus(status: JobStatus): boolean {
+  return (SETTLEMENT_PENDING_STATUSES as readonly JobStatus[]).includes(status);
+}
+
+/**
  * Customer context shared with the assigned pro.
  *
  * Hidden from a pro until the job is accepted: the pro meets the customer only
@@ -168,6 +188,12 @@ export interface JobDetail extends Job {
   distanceKm: number | null;
   /** Derived travel time from the viewing pro, minutes. Null unless filled. */
   estimatedEtaMinutes: number | null;
+  /**
+   * The one-time start-work code. Present **only** in the customer's read, once
+   * it has been issued (after the pro swipes Start Work). Always null for the
+   * pro view — the pro must ask the customer for it, never read it from the API.
+   */
+  verificationOtp: string | null;
   /** The customer who placed the job; shared with the pro once assigned. */
   customer: JobCustomerSummary | null;
   /** The assigned professional, shared back to the customer. */

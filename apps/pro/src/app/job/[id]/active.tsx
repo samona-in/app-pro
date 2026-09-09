@@ -12,12 +12,17 @@ import {
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { JobStatus, isActiveJobStatus, type JobStatus as Status } from '@samona/types';
+import { JobStatus, isActiveJobStatus, isSettlementPendingStatus, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
-import { JobDetailsContent } from '@/components/jobs';
+import { CallMessageButton, JobDetailsContent, VerifyStartSheet } from '@/components/jobs';
 import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
-import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
+import {
+  useProJobs,
+  useSubmitGuard,
+  useTransitionJob,
+  useUnreadMessages,
+} from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr } from '@/utils/format';
@@ -156,37 +161,15 @@ function Chip({
   );
 }
 
-/**
- * Compound "call + message" contact button shown opposite the header title.
- * A chat-bubble glyph with a small call badge reads as both ways to reach the
- * customer; the 44pt surface circle keeps it consistent with IconButton.
- * Pressing opens the job actions screen (contact / cancel). The red dot in the
- * corner carries how many customer messages are still unread.
- */
-function CallMessageButton({ jobId, unread }: { jobId: string; unread: number }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Job actions"
-      onPress={() => router.push({ pathname: '/job/[id]/contact', params: { id: jobId } })}
-      className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
-    >
-      <View>
-        <Ionicons name="chatbubble-ellipses" size={22} color={color.brand} />
-        <View className="absolute -bottom-1 -right-2 h-5 w-5 items-center justify-center rounded-full bg-brand">
-          <Ionicons name="call" size={11} color={color['brand-contrast']} />
-        </View>
-      </View>
-      <UnreadBadge count={unread} className="absolute -right-1 -top-1" />
-    </Pressable>
-  );
-}
-
 export default function ActiveJobScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: jobs, isPending, isFetching, refetch } = useProJobs();
   const transition = useTransitionJob();
   const unread = useUnreadMessages();
+  // Docks the start-work OTP sheet. The server issues a single code the moment
+  // the pro swipes Start Work; the job only moves ARRIVED → IN_PROGRESS once
+  // the pro enters the code the customer reads out to them.
+  const [verifyOpen, setVerifyOpen] = useState(false);
   // Mirrors the pro's live position so the submit guard below can read the
   // latest coords when sending the "start work" request (it is defined here,
   // before the location state, to avoid using the ref before its declaration).
@@ -201,6 +184,11 @@ export default function ActiveJobScreen() {
         // coords only for that action.
         coordinates: action === 'arrived' ? (proCoordsRef.current ?? undefined) : undefined,
       });
+      // The `start` transition does not move the job — the server just mints a
+      // one-time code and delivers it to the customer. Only hand over to the
+      // sheet once the code is actually issued, so the customer holds it before
+      // the pro is asked to enter it.
+      if (action === 'start') setVerifyOpen(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';
       if (action === 'arrived' && message.toLowerCase().includes('must be within')) {
@@ -210,6 +198,15 @@ export default function ActiveJobScreen() {
       }
     }
   });
+
+  // Every stage advances directly through the state machine. For "Start Work"
+  // the `start` transition mints the customer's one-time code server-side
+  // (staying ARRIVED); once issued, the handler above presents the
+  // VerifyStartSheet, where the pro enters the code the customer reads out.
+  function onSwipeConfirm(action: ProJobTransitionAction | undefined) {
+    if (!action) return;
+    void run(action);
+  }
 
   const job = useMemo(() => (jobs ?? []).find((item) => item.id === id), [id, jobs]);
   const hasCustomerCoords = job?.latitude != null && job.longitude != null;
@@ -317,9 +314,14 @@ export default function ActiveJobScreen() {
   }
 
   // The pro stays on this screen through the whole job: on the way, arrived,
-  // working and in progress. Once the job leaves the active working set —
-  // completed, paid, cancelled or expired — the availability home takes over.
+  // working and in progress. Once the job leaves the active working set it
+  // hands off elsewhere — a completed job keeps the pro in the cash-settlement
+  // screen until they confirm the money is collected, and everything else
+  // (paid, cancelled, expired) returns to the availability home.
   if (!isActiveJobStatus(job.status)) {
+    if (isSettlementPendingStatus(job.status)) {
+      return <Redirect href={{ pathname: '/job/[id]/pay', params: { id } }} />;
+    }
     return <Redirect href="/home" />;
   }
 
@@ -377,6 +379,7 @@ export default function ActiveJobScreen() {
           options={{
             headerShown: true,
             title: 'Your job details',
+            headerBackVisible: false,
             headerBackTitle: 'Back',
             headerTintColor: color['text-primary'],
             headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
@@ -391,12 +394,21 @@ export default function ActiveJobScreen() {
             footer={
               <SwipeToConfirm
                 label={swipeLabel}
-                loading={isSubmitting}
-                onConfirm={() => void run(action!)}
+                // The Start Work swipe presents the OTP sheet instead of running
+                // a request, so `isSubmitting` never flips and the knob would stay
+                // latched at the far end. Treat the open sheet as in-flight so the
+                // knob springs back the moment it closes — cancelled or verified.
+                loading={isSubmitting || verifyOpen}
+                onConfirm={() => onSwipeConfirm(action)}
               />
             }
           />
         </Screen>
+        <VerifyStartSheet
+          visible={verifyOpen}
+          jobId={id}
+          onClose={() => setVerifyOpen(false)}
+        />
       </>
     );
   }
@@ -407,6 +419,7 @@ export default function ActiveJobScreen() {
         options={{
           headerShown: true,
           title: 'Go To the Working Spot',
+          headerBackVisible: false,
           headerBackTitle: 'Back',
           headerTintColor: color['text-primary'],
           headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
@@ -533,12 +546,21 @@ export default function ActiveJobScreen() {
           <View className="mt-3" testID="swipe-to-confirm">
             <SwipeToConfirm
               label={swipeLabel}
-              loading={isSubmitting}
-              onConfirm={() => void run(action!)}
+              // The Start Work swipe presents the OTP sheet instead of running a
+              // request, so `isSubmitting` never flips and the knob would stay
+              // latched. Treat the open sheet as in-flight so the knob springs
+              // back the moment it closes — cancelled or verified.
+              loading={isSubmitting || verifyOpen}
+              onConfirm={() => onSwipeConfirm(action)}
             />
           </View>
         </View>
       </Screen>
+      <VerifyStartSheet
+        visible={verifyOpen}
+        jobId={id}
+        onClose={() => setVerifyOpen(false)}
+      />
     </>
   );
 }

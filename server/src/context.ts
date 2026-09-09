@@ -1,6 +1,8 @@
 import type { AppConfig } from './config';
 import type { PrismaClient } from './database/prisma';
 import type { Redis } from './database/redis';
+import { JOB_DEFAULTS } from '@samona/config';
+import { createBruteForceGuard } from './common';
 
 import { createAuthService, type AuthService } from './auth/auth.service';
 import { createTokenVerifier, type TokenVerifier } from './auth/token';
@@ -60,6 +62,7 @@ export function createServices(
   prisma: PrismaClient,
   config: AppConfig,
   realtime: RealtimeService,
+  redis: Redis | null,
 ): Services {
   const storage = createStorageService({
     supabaseUrl: config.supabaseUrl,
@@ -77,7 +80,20 @@ export function createServices(
     realtime,
     sendChatPush: (...args) => notifications.sendChatPush(...args),
   });
-  const jobs = createJobsService({ prisma, storage, matching, realtime, notifications, config });
+  const jobs = createJobsService({
+    prisma,
+    storage,
+    matching,
+    realtime,
+    notifications,
+    config,
+    // Per-identity lockout for the start-work code, keyed by the job being
+    // targeted. Degrades to counting-less when Redis is down (see the guard),
+    // never failing open silently.
+    startOtpGuard: createBruteForceGuard(redis, {
+      maxAttempts: JOB_DEFAULTS.startOtpMaxAttempts,
+    }),
+  });
 
   return {
     auth: createAuthService({ prisma }),

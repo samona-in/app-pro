@@ -50,18 +50,6 @@ export function useCreateBooking() {
   });
 }
 
-/** Settles a completed booking; the amount is anchored server-side. */
-export function usePayBooking(jobId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => bookingApi.pay(jobId),
-    onSuccess: (job) => {
-      queryClient.setQueryData(queryKeys.bookings.detail(jobId), job);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
-    },
-  });
-}
-
 /** Cancels a booking that is still cancellable. */
 export function useCancelBooking(jobId: string) {
   const queryClient = useQueryClient();

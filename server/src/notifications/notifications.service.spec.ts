@@ -461,6 +461,77 @@ describe('createNotificationsService.sendChatPush', () => {
   });
 });
 
+describe('createNotificationsService.sendCustomerPush', () => {
+  function build() {
+    const prisma = {
+      customerProfile: {
+        findUnique: jest.fn().mockResolvedValue({
+          pushToken: 'cust-tok',
+          pushPlatform: 'ANDROID',
+          pushProvider: 'FCM',
+        }),
+      },
+    };
+
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {
+        expoAccessToken: null,
+        fcmProjectId: 'samona',
+        fcmClientEmail: 'x@samona',
+        fcmPrivateKey: 'key',
+      } as never,
+    });
+
+    return { service, prisma };
+  }
+
+  it('pushes the start-work code on the job_otp channel to the customer row', async () => {
+    mockFcmSend.mockClear();
+    mockFcmSend.mockResolvedValue({ ok: true });
+    const { service, prisma } = build();
+
+    await service.sendCustomerPush({
+      userId: 'user-1',
+      jobId: 'job-1',
+      title: 'Rakesh is about to start work',
+      body: 'Your code to confirm: 8238',
+    });
+
+    expect(prisma.customerProfile.findUnique).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      select: { pushToken: true, pushPlatform: true, pushProvider: true },
+    });
+    expect(mockFcmSend).toHaveBeenCalledTimes(1);
+    const [sentToken, payload] = mockFcmSend.mock.calls[0] as [
+      string,
+      { data: Record<string, string>; notification: { title: string; body: string }; android: { notification: { channelId: string } } },
+    ];
+    expect(sentToken).toBe('cust-tok');
+    expect(payload.data).toMatchObject({ type: 'JOB_OTP', jobId: 'job-1', title: 'Rakesh is about to start work', body: 'Your code to confirm: 8238' });
+    expect(payload.android.notification.channelId).toBe('job_otp');
+  });
+
+  it('silently skips a customer with no registered push token', async () => {
+    mockFcmSend.mockClear();
+    const { service, prisma } = build();
+    prisma.customerProfile.findUnique.mockResolvedValue({
+      pushToken: null,
+      pushPlatform: null,
+      pushProvider: null,
+    });
+
+    await service.sendCustomerPush({
+      userId: 'user-1',
+      jobId: 'job-1',
+      title: 'Rakesh is about to start work',
+      body: 'Your code to confirm: 8238',
+    });
+
+    expect(mockFcmSend).not.toHaveBeenCalled();
+  });
+});
+
 describe('createNotificationsService customer notices', () => {
   const createdAt = new Date('2026-09-08T08:00:00.000Z');
 
