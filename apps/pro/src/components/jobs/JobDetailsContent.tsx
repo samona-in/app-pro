@@ -80,7 +80,7 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
         </Card>
 
         {/* Card 2 — job description. */}
-        <Card className="mt-4 bg-background">
+        <Card className="mt-4 bg-surface">
           <View className="flex-row items-center gap-2">
             <Ionicons name="document-text-outline" size={18} color={color['text-secondary']} />
             <Text variant="label">Job description</Text>
@@ -115,7 +115,7 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
         ) : null}
 
         {/* Card 4 — instructions before starting. */}
-        <Card className="mt-4 bg-background">
+        <Card className="mt-4 bg-surface">
           <View className="flex-row items-center gap-2">
             <Ionicons name="shield-checkmark-outline" size={18} color={color['text-secondary']} />
             <Text variant="label">Before you start</Text>
