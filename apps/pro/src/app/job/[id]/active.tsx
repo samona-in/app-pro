@@ -12,9 +12,10 @@ import {
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { isActiveJobStatus, type JobStatus as Status } from '@samona/types';
+import { JobStatus, isActiveJobStatus, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
+import { JobDetailsContent } from '@/components/jobs';
 import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
 import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
@@ -48,6 +49,13 @@ const SWIPE_LABEL: Partial<Record<Status, string>> = {
   ARRIVED: 'Start Work',
   IN_PROGRESS: 'Work Completed',
 };
+
+/**
+ * The states that drop the map for the job-details view. Once the pro has
+ * arrived, the map's job is done — the details (work, customer, photos,
+ * instructions) take the full screen until the job is completed.
+ */
+const SHOWS_JOB_DETAILS: readonly Status[] = [JobStatus.ARRIVED, JobStatus.IN_PROGRESS];
 
 /**
  * Google Maps universal link (`/maps/dir/?api=1`). Opens the installed Google
@@ -355,6 +363,44 @@ export default function ActiveJobScreen() {
     }
   }
 
+  const showsJobDetails = (SHOWS_JOB_DETAILS as readonly Status[]).includes(job.status);
+
+  // Once the pro has arrived, the map is no longer needed. Show the full
+  // job-details view — work/customer summary, description, photos and a
+  // pre-start checklist — with a footer swipe that fits the stage:
+  //   ARRIVED      -> "Start Work" swipe (start)
+  //   IN_PROGRESS  -> "Work Completed" swipe (complete)
+  if (showsJobDetails) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: 'Your job details',
+            headerBackTitle: 'Back',
+            headerTintColor: color['text-primary'],
+            headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
+            headerStyle: { backgroundColor: color.surface },
+            headerRight: () => <CallMessageButton jobId={id} unread={unread.countFor(id)} />,
+          }}
+        />
+
+        <Screen edges={['bottom']} padded={false} className="bg-surface">
+          <JobDetailsContent
+            job={job}
+            footer={
+              <SwipeToConfirm
+                label={swipeLabel}
+                loading={isSubmitting}
+                onConfirm={() => void run(action!)}
+              />
+            }
+          />
+        </Screen>
+      </>
+    );
+  }
+
   return (
     <>
       <Stack.Screen
@@ -368,7 +414,6 @@ export default function ActiveJobScreen() {
           headerRight: () => <CallMessageButton jobId={id} unread={unread.countFor(id)} />,
         }}
       />
-
       <Screen edges={['bottom']} padded={false} className="bg-surface">
         {/* Map body */}
         <View className="flex-1 overflow-hidden">
