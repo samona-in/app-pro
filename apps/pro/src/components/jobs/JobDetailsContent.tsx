@@ -114,11 +114,11 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
           <Ionicons name="shield-checkmark-outline" size={18} color={color['text-secondary']} />
           <Text variant="label">Before you start</Text>
         </View>
-        <View className="mt-4 ml-[26px] gap-3">
+        <View className="mt-3 ml-[26px] gap-2">
           {INSTRUCTIONS.map((item) => (
             <View key={item} className="flex-row items-start">
               <View className="mr-3 mt-1.5 h-1.5 w-1.5 rounded-full bg-text-secondary" />
-              <Text variant="bodyStrong" className="flex-1">
+              <Text variant="body" className="flex-1">
                 {item}
               </Text>
             </View>
