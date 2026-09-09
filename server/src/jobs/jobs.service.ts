@@ -7,6 +7,7 @@ import {
   type JobDetail,
   type AvailableJob,
 } from '@samona/types';
+import { randomInt } from 'node:crypto';
 import type { CreateJobInput, JobAction } from '@samona/validation';
 import { JOB_DEFAULTS } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
@@ -15,9 +16,17 @@ import type { RealtimeService } from '../realtime/gateway';
 import { REALTIME_EVENTS } from '../realtime/gateway';
 import type { MatchingService } from '../matching/matching.service';
 import type { AppConfig } from '../config';
-import { badRequest, notFound, conflict, forbidden } from '../common/errors';
+import {
+  badRequest,
+  notFound,
+  conflict,
+  forbidden,
+  createHttpError,
+} from '../common/errors';
+import { ApiErrorCode } from '@samona/types';
 import { distanceKm, etaMinutes } from '../common/geo';
 import { logger } from '../common/logger';
+import { safeEqual, type BruteForceGuard } from '../common';
 import type { NotificationsService } from '../notifications/notifications.service';
 import { hashJobOfferToken, verifyJobOffer } from './job-offers';
 
@@ -28,6 +37,12 @@ export interface JobsServiceDeps {
   realtime: RealtimeService;
   notifications: NotificationsService;
   config: AppConfig;
+  /**
+   * Per-identity lockout keyed by the job being targeted, so a wrong start code
+   * cannot be sprayed even across many callers. With no Redis it degrades to
+   * per-request counting (see `recordFailure`) — never fails open silently.
+   */
+  startOtpGuard?: BruteForceGuard;
 }
 
 /** The customer scoped folder every job image is minted under. */
@@ -44,6 +59,14 @@ const jobInclude = {
 /** Formats paise as a whole rupee string for customer-notice copy. */
 function formatPaise(paise: number): string {
   return `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * A cryptographically-random, fixed-length numeric code (padded so leading
+ * zeros survive), used for the customer-to-pro start-work verification.
+ */
+function generateStartOtp(length: number): string {
+  return String(randomInt(0, 10 ** length)).padStart(length, '0');
 }
 
 /**
@@ -64,6 +87,7 @@ function recordCustomerNotice(
 /** The projection job *detail* reads use: counterparty identity + coordinates. */
 const jobDetailInclude = {
   ...jobInclude,
+  verificationOtp: true,
   customer: {
     select: {
       userId: true,
@@ -110,6 +134,7 @@ type JobRow = {
 };
 
 type JobDetailRow = JobRow & {
+  verificationOtp: string | null;
   customer: {
     userId: string;
     displayName: string | null;
@@ -170,6 +195,10 @@ function toJobDetail(
     ...toJobDto(row, storage),
     distanceKm: null,
     estimatedEtaMinutes: null,
+    // The start-work code is customer-only by design: it is never shipped to
+    // the pro's view, so the pro must read it back from the customer's device
+    // (CLAUDE.md "Security"). A pro may only prove possession by submitting it.
+    verificationOtp: forViewer === 'customer' ? row.verificationOtp : null,
     customer:
       forViewer === 'pro' && assigned && row.customer
         ? {
@@ -205,7 +234,7 @@ function toJobDetail(
  * JobStatusHistory. REST is the source of truth; realtime only notifies.
  */
 export function createJobsService(deps: JobsServiceDeps) {
-  const { prisma, storage, matching, realtime, notifications, config } = deps;
+  const { prisma, storage, matching, realtime, notifications, config, startOtpGuard } = deps;
 
   const findProByUserId = async (userId: string) => {
     const pro = await prisma.proProfile.findUnique({
@@ -776,6 +805,7 @@ export function createJobsService(deps: JobsServiceDeps) {
         ...toJobDto(row.job as unknown as JobRow, storage),
         distanceKm: km,
         estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
+        verificationOtp: null,
         customer: null,
         pro: null,
       });
@@ -1034,14 +1064,22 @@ export function createJobsService(deps: JobsServiceDeps) {
   ): Promise<JobDetail> {
     const pro = await findProByUserId(proUserId);
 
+    // "Start work" no longer advances the status directly. The swipe mints the
+    // one-time code the pro must then prove (verifyStart) before the job may
+    // leave ARRIVED. A repeat swipe is a safe idempotent no-op: one job, one
+    // code — the customer already holds it, so nothing is re-sent.
+    if (action === 'start') {
+      return issueStartOtp(proUserId, pro.id, jobId);
+    }
+
+    // The remaining on-site actions move through the state machine directly;
+    // `start` was rerouted above, so the target here is never IN_PROGRESS.
     const target =
       action === 'travel'
         ? JobStatus.TRAVELLING
         : action === 'arrived'
           ? JobStatus.ARRIVED
-          : action === 'start'
-            ? JobStatus.IN_PROGRESS
-            : JobStatus.COMPLETED;
+          : JobStatus.COMPLETED;
 
     const updated = await prisma.$transaction(async (tx) => {
       const row = await tx.job.findFirst({
@@ -1056,8 +1094,8 @@ export function createJobsService(deps: JobsServiceDeps) {
       // Fail closed before any write: a pro must actually be at the work spot
       // before claiming arrival. Missing coordinates (a client that broke
       // contract) is treated the same as being too far away — never trust
-      // location claims. Arrival is the last physical gate; "start work"
-      // follows immediately after and does not re-verify.
+      // location claims. Arrival is the last physical gate; the start-work code
+      // is the identity gate that follows immediately after.
       if (action === 'arrived') {
         const jobPoint =
           row.latitude != null && row.longitude != null
@@ -1114,14 +1152,14 @@ export function createJobsService(deps: JobsServiceDeps) {
     const proName = updated.pro?.displayName ?? 'Your professional';
     const serviceName = updated.service.name;
     const context = `${proName} · ${serviceName}`;
+    // `start` returns early (issueStartOtp), so only travel/arrived/complete
+    // reach here; the work-started notice is handled by verifyStart.
     const stageCopy =
       action === 'travel'
         ? { title: 'On the way', body: context }
         : action === 'arrived'
           ? { title: 'Arrived', body: context }
-          : action === 'start'
-            ? { title: 'Work started', body: context }
-            : { title: 'Work complete', body: context };
+          : { title: 'Work complete', body: context };
     recordCustomerNotice(notifications, {
       customerId: updated.customerId,
       customerUserId: updated.customer.userId,
@@ -1129,6 +1167,166 @@ export function createJobsService(deps: JobsServiceDeps) {
       kind: NotificationKind.JOB_STATUS,
       title: stageCopy.title,
       body: stageCopy.body,
+      route: `/booking/${updated.id}`,
+    });
+    return proDetail;
+  }
+
+  /**
+   * Issues the one-time start-work code to the customer when a pro swipes
+   * "Start Work".
+   *
+   * The job stays ARRIVED; this only mints a 4-digit code, delivers it to the
+   * customer (in-app push, persisted notice, and a realtime nudge to their open
+   * booking screen), and marks when it was issued. A repeat swipe returns the
+   * same job unchanged — one job, one code — so a pro cannot mint a fresh code
+   * or spam the customer's device.
+   *
+   * The code is never returned to the pro (pro view sets it null); the pro must
+   * read it back from the customer and prove possession via `verifyStart`.
+   */
+  async function issueStartOtp(proUserId: string, proId: string, jobId: string): Promise<JobDetail> {
+    const { row, issued } = await prisma.$transaction(async (tx) => {
+      const current = await tx.job.findFirst({
+        where: { id: jobId, proId },
+        include: jobDetailInclude,
+      });
+      if (!current) throw notFound('This job is not assigned to you.');
+      if (current.status !== JobStatus.ARRIVED) {
+        throw conflict(
+          `The start code can only be issued once the pro has arrived (state: ${current.status}).`,
+        );
+      }
+      if (current.verificationOtp) return { row: current, issued: false };
+
+      const otp = generateStartOtp(JOB_DEFAULTS.startOtpLength);
+      const updated = await tx.job.update({
+        where: { id: current.id },
+        data: { verificationOtp: otp, otpIssuedAt: new Date() },
+        include: jobDetailInclude,
+      });
+      return { row: updated, issued: true };
+    });
+
+    // Deliver the code to the customer only when it was newly minted. A push is
+    // a courtesy — it must never fail the issuance, since the code also shows
+    // in-app on the customer's booking screen.
+    if (issued) {
+      try {
+        await notifications.sendCustomerPush({
+          userId: row.customer.userId,
+          jobId: row.id,
+          title: 'Your verification code is ready',
+          body: `Share the 4-digit code with ${row.pro?.displayName ?? 'your professional'} to start the work.`,
+        });
+      } catch (error) {
+        logger.error(`Failed to push the start-work code for job ${row.id} to the customer.`, error);
+      }
+      recordCustomerNotice(notifications, {
+        customerId: row.customerId,
+        customerUserId: row.customer.userId,
+        jobId: row.id,
+        kind: NotificationKind.JOB_STATUS,
+        title: 'Your verification code is ready',
+        body: 'Open this booking to find the 4-digit code to share with your professional.',
+        route: `/booking/${row.id}`,
+      });
+    }
+
+    const proDetail = toJobDetail(row as unknown as JobDetailRow, 'pro', storage);
+    const customerDetail = toJobDetail(row as unknown as JobDetailRow, 'customer', storage);
+    realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
+    realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    return proDetail;
+  }
+
+  /**
+   * Verifies the pro's claim to start work by checking the one-time code the
+   * customer holds, then advances ARRIVED → IN_PROGRESS on success.
+   *
+   * The code is compared in constant time, and a wrong code is counted both on
+   * the row and (with a guard provided) in a per-identity Redis lockout keyed by
+   * the job, so it cannot be sprayed across many callers. A correct code is
+   * consumed (nulled) so it works exactly once; the pro view never receives it.
+   */
+  async function verifyStart(proUserId: string, jobId: string, code: string): Promise<JobDetail> {
+    const pro = await findProByUserId(proUserId);
+    const identifier = `job:${jobId}`;
+
+    if (startOtpGuard) {
+      const status = await startOtpGuard.check(identifier);
+      if (status.locked) {
+        throw createHttpError(
+          429,
+          ApiErrorCode.RATE_LIMITED,
+          `Too many wrong codes. Try again in ${Math.max(1, Math.ceil(status.retryAfterSeconds / 60))} minutes.`,
+        );
+      }
+    }
+
+    // Read and compare outside the write transaction so a wrong code never
+    // consumes a transaction; the transition below re-validates atomically.
+    const current = await prisma.job.findFirst({
+      where: { id: jobId, proId: pro.id },
+      include: jobDetailInclude,
+    });
+    if (!current) throw notFound('This job is not assigned to you.');
+    if (current.status !== JobStatus.ARRIVED) {
+      throw conflict(`This job cannot be started from its current state (${current.status}).`);
+    }
+    if (!current.verificationOtp) {
+      throw badRequest('No verification code has been issued yet. Swipe Start Work first.');
+    }
+    if (!safeEqual(current.verificationOtp, code)) {
+      if (startOtpGuard) await startOtpGuard.recordFailure(identifier);
+      await prisma.job.update({
+        where: { id: current.id },
+        data: { startOtpAttempts: { increment: 1 } },
+      });
+      throw badRequest('That verification code is not correct. Check with the customer and try again.');
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.job.findFirst({
+        where: { id: jobId, proId: pro.id },
+        include: jobDetailInclude,
+      });
+      if (!row) throw notFound('This job is not assigned to you.');
+      if (row.status !== JobStatus.ARRIVED || !row.verificationOtp) {
+        throw conflict('This job is no longer waiting to be verified.');
+      }
+      await tx.jobStatusHistory.create({
+        data: {
+          jobId: row.id,
+          fromStatus: row.status,
+          toStatus: JobStatus.IN_PROGRESS,
+          changedById: proUserId,
+        },
+      });
+      const next = await tx.job.update({
+        where: { id: row.id },
+        data: { status: JobStatus.IN_PROGRESS, verificationOtp: null, startOtpAttempts: 0 },
+        include: jobDetailInclude,
+      });
+      return next;
+    });
+
+    if (startOtpGuard) await startOtpGuard.reset(identifier);
+
+    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
+    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
+    realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
+    realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+
+    const proName = updated.pro?.displayName ?? 'Your professional';
+    const serviceName = updated.service.name;
+    recordCustomerNotice(notifications, {
+      customerId: updated.customerId,
+      customerUserId: updated.customer.userId,
+      jobId: updated.id,
+      kind: NotificationKind.JOB_STATUS,
+      title: 'Work started',
+      body: `${proName} · ${serviceName}`,
       route: `/booking/${updated.id}`,
     });
     return proDetail;
@@ -1351,6 +1549,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     acceptJobWithOffer,
     rejectJobOffer,
     transitionJob,
+    verifyStart,
     expireStaleJobs,
     startExpireSweep,
     stopExpireSweep,

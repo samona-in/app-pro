@@ -1054,6 +1054,69 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     }
   }
 
+  /**
+   * One-off push to a customer's device — used to surface the start-work OTP.
+   *
+   * Reads the token from the customer's own profile row (never guessing which
+   * surface "whichever exists" of a shared phone number owns it) and sends a
+   * DISPLAY message on the `job_otp` channel, so it shows in the tray even when
+   * the Customer app is backgrounded or killed. A customer with no registered
+   * token simply skips delivery — the code is still visible in-app and on their
+   * booking screen, so a missing push never fails the job.
+   */
+  async function sendCustomerPush(input: {
+    userId: string;
+    jobId: string;
+    title: string;
+    body: string;
+  }): Promise<void> {
+    const profile = await prisma.customerProfile.findUnique({
+      where: { userId: input.userId },
+      select: { pushToken: true, pushPlatform: true, pushProvider: true },
+    });
+    const token = profile?.pushToken;
+    if (!token) {
+      logger.info(
+        `[Push] No customer push token for user ${input.userId} on job ${input.jobId} — skipping the OTP push.`,
+      );
+      return;
+    }
+
+    const data = toFcmData({ type: 'JOB_OTP', jobId: input.jobId });
+    const channelId = 'job_otp';
+
+    if (pushProviderOf(profile as { pushProvider?: 'EXPO' | 'FCM' | null }) === 'FCM') {
+      const client = getFcmClient();
+      if (!client) {
+        logger.warn('[Push] FCM not configured — skipping a customer OTP push.');
+        return;
+      }
+      const result = await client.send(token, {
+        notification: { title: input.title, body: input.body },
+        data: { ...data, title: input.title, body: input.body },
+        android: {
+          priority: 'high',
+          collapseKey: `otp-${input.jobId}`,
+          notification: { channelId, sound: 'default' },
+        },
+      });
+      if (!result.ok) {
+        logger.warn(`[Push] Customer OTP push to ${input.userId} on job ${input.jobId} not delivered.`);
+      }
+      return;
+    }
+
+    const result = await sendPush(
+      token,
+      { title: input.title, body: input.body, data },
+      profile.pushPlatform,
+      'EXPO',
+    );
+    if (!result.ok) {
+      logger.warn(`[Push] Customer OTP push to ${input.userId} on job ${input.jobId} not delivered.`);
+    }
+  }
+
   /** Turns the Pro's job alerts on or off. */
   async function setPushSettings(
     userId: string,
@@ -1214,6 +1277,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     registerPushToken,
     setPushSettings,
     sendChatPush,
+    sendCustomerPush,
     start,
     stop,
   };

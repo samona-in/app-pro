@@ -4,6 +4,7 @@ import {
   paginationSchema,
   jobListQuerySchema,
   transitionJobSchema,
+  verifyStartSchema,
   cancelJobSchema,
   acceptJobOfferSchema,
   rejectJobOfferSchema,
@@ -198,6 +199,28 @@ export function createJobsRouter(services: Services): Router {
           req.body.action,
           req.body.note,
           req.body.coordinates,
+        ),
+      );
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Verifies the pro's start-work claim using the one-time code the customer
+   * holds, advancing ARRIVED → IN_PROGRESS on success.
+   *
+   * The `/jobs` router rides the shared `write` limiter (routes.ts), and the
+   * service pairs a code with a per-identity brute-force lockout keyed by the
+   * job, so a wrong code cannot be sprayed even across many callers.
+   */
+  pro.post('/:id/verify', proOnly, validate(verifyStartSchema), async (req, res, next) => {
+    try {
+      res.json(
+        await services.jobs.verifyStart(
+          req.user!.id,
+          routeParamId(req.params.id),
+          req.body.code,
         ),
       );
     } catch (error) {

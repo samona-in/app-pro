@@ -73,4 +73,14 @@ export const JOB_DEFAULTS = {
    * before they may "Start Work". Tune later from field feedback.
    */
   arrivalRadiusMeters: 250,
+  /**
+   * The one-time start-work verification code a pro must enter (read from the
+   * customer) before the job may leave ARRIVED. One job, one code, no expiry.
+   */
+  startOtpLength: 4,
+  /**
+   * Wrong start-code entries allowed before the job's verify is locked out per
+   * identity (Redis-backed), matching the brute-force guard defaults.
+   */
+  startOtpMaxAttempts: 5,
 } as const;

@@ -312,6 +312,20 @@ model Job {
   cancelledAt DateTime? @map("cancelled_at")
   expiresAt   DateTime? @map("expires_at")
 
+  /// The one-time code the customer shares with the pro to start work.
+  /// Generated once when the pro swipes Start Work; null until then. Never
+  /// shipped to the pro's API view — only the customer, who reads it to the
+  /// pro (CLAUDE.md "Security": never trust a client-supplied code, and only
+  /// the party that can see it may enter it).
+  verificationOtp String? @map("verification_otp")
+  /// When `verificationOtp` was issued, so a repeat Start Work swipe cannot
+  /// mint a fresh code — one job, one code, one chance to start.
+  otpIssuedAt DateTime? @map("otp_issued_at")
+  /// Failed attempts to verify the start code, so a wrong code cannot be
+  /// sprayed indefinitely even across many callers (pairs with the per-identity
+  /// brute-force guard in `common/security/brute-force.ts`).
+  startOtpAttempts Int @default(0) @map("start_otp_attempts")
+
   statusHistory JobStatusHistory[]
   notifications Notification[]
   customerNotifications CustomerNotification[]

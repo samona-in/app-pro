@@ -1273,6 +1273,7 @@ describe('createJobsService.transitionJob', () => {
     status: JobStatus.TRAVELLING,
     latitude: 12.9756,
     longitude: 77.6099,
+    verificationOtp: null,
     customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
     pro: { userId: 'user-1', displayName: 'Pro', profile: { phone: null } },
   };
@@ -1287,7 +1288,7 @@ describe('createJobsService.transitionJob', () => {
           data: { status: JobStatus; completedAt?: Date; finalPayPaise?: number };
         }) => ({
           ...travellingRow,
-          status: args.data.status,
+          status: args.data.status ?? travellingRow.status,
           ...(args.data.completedAt ? { completedAt: args.data.completedAt } : {}),
           ...(args.data.finalPayPaise !== undefined
             ? { finalPayPaise: args.data.finalPayPaise }
@@ -1295,6 +1296,7 @@ describe('createJobsService.transitionJob', () => {
         }),
       );
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+    const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
 
     const prisma = {
       proProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'pro-1', userId: 'user-1' }) },
@@ -1316,10 +1318,18 @@ describe('createJobsService.transitionJob', () => {
       storage: storage as never,
       matching: {} as never,
       realtime: realtime as never,
-      notifications: { recordCustomerNotification } as never,
+      notifications: { recordCustomerNotification, sendCustomerPush } as never,
     } as never);
 
-    return { jobs, jobFindFirst, historyCreate, jobUpdate, realtime };
+    return {
+      jobs,
+      jobFindFirst,
+      historyCreate,
+      jobUpdate,
+      realtime,
+      sendCustomerPush,
+      recordCustomerNotification,
+    };
   }
 
   it('confirms arrival when the pro is within the arrival radius', async () => {
@@ -1363,18 +1373,47 @@ describe('createJobsService.transitionJob', () => {
     expect(ctx.jobUpdate).not.toHaveBeenCalled();
   });
 
-  it('starts work without coordinates because arrival is already verified', async () => {
+  it('issues a single start code on the Start Work swipe and stays ARRIVED until verified', async () => {
     const ctx = buildTransition();
     ctx.jobFindFirst.mockResolvedValue({ ...travellingRow, status: JobStatus.ARRIVED });
 
-    const result = await ctx.jobs.transitionJob('user-1', 'job-1', 'start');
+    await ctx.jobs.transitionJob('user-1', 'job-1', 'start');
 
+    // One update mints the code WITHOUT touching the status (the job only
+    // moves to IN_PROGRESS once the pro verifies it in a later step).
+    expect(ctx.jobUpdate).toHaveBeenCalledTimes(1);
     expect(ctx.jobUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: JobStatus.IN_PROGRESS }),
+        data: expect.objectContaining({
+          verificationOtp: expect.stringMatching(/^\d{4}$/),
+          otpIssuedAt: expect.any(Date),
+        }),
       }),
     );
-    expect(result.status).toBe(JobStatus.IN_PROGRESS);
+    expect(ctx.jobUpdate.mock.calls[0][0].data).not.toHaveProperty('status');
+    // The code is pushed to the customer and a notice is recorded — never
+    // returned to the pro's view (the pro view path sets it to null).
+    expect(ctx.sendCustomerPush).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'cust-user-1', jobId: 'job-1' }),
+    );
+    expect(ctx.recordCustomerNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ customerUserId: 'cust-user-1', kind: NotificationKind.JOB_STATUS }),
+    );
+  });
+
+  it('is a no-op on a repeat Start Work swipe — one job, one code, no re-send', async () => {
+    const ctx = buildTransition();
+    ctx.jobFindFirst.mockResolvedValue({
+      ...travellingRow,
+      status: JobStatus.ARRIVED,
+      verificationOtp: '1234',
+    });
+
+    const result = await ctx.jobs.transitionJob('user-1', 'job-1', 'start');
+
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
+    expect(ctx.sendCustomerPush).not.toHaveBeenCalled();
+    expect(result.status).toBe(JobStatus.ARRIVED);
   });
 
   it('stops work at COMPLETED, anchoring the price, without jumping to PAYMENT_PENDING', async () => {
@@ -1403,5 +1442,163 @@ describe('createJobsService.transitionJob', () => {
         data: expect.objectContaining({ toStatus: JobStatus.COMPLETED }),
       }),
     );
+  });
+});
+
+describe('createJobsService.verifyStart', () => {
+  /** An ARRIVED job the pro reached, with a start code already issued. */
+  const arrivedRow = {
+    ...jobRow,
+    proId: 'pro-1',
+    status: JobStatus.ARRIVED,
+    verificationOtp: '4821',
+    customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
+    pro: { userId: 'user-1', displayName: 'Pro', profile: { phone: null } },
+  };
+
+  function buildVerify() {
+    const jobFindFirst = jest.fn().mockResolvedValue(arrivedRow);
+    const historyCreate = jest.fn().mockResolvedValue({});
+    const jobUpdate = jest
+      .fn()
+      .mockImplementation(
+        async (args: {
+          data: {
+            status?: JobStatus;
+            verificationOtp?: string | null;
+            startOtpAttempts?: number | { increment: number };
+          };
+        }) => ({
+          ...arrivedRow,
+          status: args.data.status ?? arrivedRow.status,
+          verificationOtp: args.data.verificationOtp ?? arrivedRow.verificationOtp,
+          startOtpAttempts:
+            typeof args.data.startOtpAttempts === 'number'
+              ? args.data.startOtpAttempts
+              : args.data.startOtpAttempts?.increment ?? 0,
+        }),
+      );
+    const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+    const jobUpdateNoTx = jest.fn().mockResolvedValue(undefined);
+
+    const prisma = {
+      proProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'pro-1', userId: 'user-1' }) },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          job: { findFirst: jobFindFirst, update: jobUpdate },
+          jobStatusHistory: { create: historyCreate },
+        }),
+      ),
+      // The pre-transaction read in verifyStart uses prisma.job directly.
+      job: { findFirst: jest.fn().mockResolvedValue(arrivedRow), update: jobUpdateNoTx },
+    };
+
+    const realtime = { emitToUser: jest.fn(), emitToUsers: jest.fn() };
+    const storage = {
+      jobImagePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`),
+    };
+    const reset = jest.fn().mockResolvedValue(undefined);
+    const recordFailure = jest.fn().mockResolvedValue({ locked: false, retryAfterSeconds: 0 });
+    const check = jest.fn().mockResolvedValue({ locked: false, retryAfterSeconds: 0, attemptsRemaining: 5 });
+    const startOtpGuard = { check, recordFailure, reset };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: storage as never,
+      matching: {} as never,
+      realtime: realtime as never,
+      notifications: { recordCustomerNotification } as never,
+      startOtpGuard: startOtpGuard as never,
+    } as never);
+
+    return {
+      jobs,
+      prisma,
+      jobFindFirst,
+      historyCreate,
+      jobUpdate,
+      jobUpdateNoTx,
+      realtime,
+      recordCustomerNotification,
+      startOtpGuard,
+    };
+  }
+
+  it('advances ARRIVED → IN_PROGRESS when the pro enters the customer code', async () => {
+    const ctx = buildVerify();
+
+    const result = await ctx.jobs.verifyStart('user-1', 'job-1', '4821');
+
+    expect(ctx.jobUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: JobStatus.IN_PROGRESS, verificationOtp: null }),
+      }),
+    );
+    expect(ctx.historyCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ toStatus: JobStatus.IN_PROGRESS }),
+      }),
+    );
+    expect(result.status).toBe(JobStatus.IN_PROGRESS);
+    expect(ctx.startOtpGuard.reset).toHaveBeenCalledWith('job:job-1');
+    expect(ctx.recordCustomerNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Work started' }),
+    );
+  });
+
+  it('rejects a wrong code, counts the failure, and leaves the job ARRIVED', async () => {
+    const ctx = buildVerify();
+
+    await expect(ctx.jobs.verifyStart('user-1', 'job-1', '0000')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 400,
+    });
+
+    expect(ctx.startOtpGuard.recordFailure).toHaveBeenCalledWith('job:job-1');
+    expect(ctx.jobUpdateNoTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ startOtpAttempts: { increment: 1 } }),
+      }),
+    );
+    // No status change in the write transaction.
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when no code has been issued yet', async () => {
+    const ctx = buildVerify();
+    ctx.prisma?.job.findFirst.mockResolvedValue({ ...arrivedRow, verificationOtp: null });
+
+    await expect(ctx.jobs.verifyStart('user-1', 'job-1', '4821')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 400,
+      message: expect.stringContaining('No verification code has been issued yet'),
+    });
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
+  });
+
+  it('refuses verification once the job has left ARRIVED', async () => {
+    const ctx = buildVerify();
+    ctx.prisma?.job.findFirst.mockResolvedValue({ ...arrivedRow, status: JobStatus.IN_PROGRESS });
+
+    await expect(ctx.jobs.verifyStart('user-1', 'job-1', '4821')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 409,
+    });
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
+  });
+
+  it('locks out further attempts once the per-identity guard is tripped', async () => {
+    const ctx = buildVerify();
+    ctx.startOtpGuard.check.mockResolvedValue({
+      locked: true,
+      retryAfterSeconds: 900,
+      attemptsRemaining: 0,
+    });
+
+    await expect(ctx.jobs.verifyStart('user-1', 'job-1', '4821')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 429,
+    });
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
   });
 });

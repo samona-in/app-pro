@@ -168,6 +168,12 @@ export interface JobDetail extends Job {
   distanceKm: number | null;
   /** Derived travel time from the viewing pro, minutes. Null unless filled. */
   estimatedEtaMinutes: number | null;
+  /**
+   * The one-time start-work code. Present **only** in the customer's read, once
+   * it has been issued (after the pro swipes Start Work). Always null for the
+   * pro view — the pro must ask the customer for it, never read it from the API.
+   */
+  verificationOtp: string | null;
   /** The customer who placed the job; shared with the pro once assigned. */
   customer: JobCustomerSummary | null;
   /** The assigned professional, shared back to the customer. */
