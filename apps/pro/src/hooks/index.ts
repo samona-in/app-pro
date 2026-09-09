@@ -9,6 +9,7 @@ export { useUploadSelfie } from './use-selfie';
 export {
   useAcceptJob,
   useCancelJob,
+  useCollectCash,
   useJobHistory,
   useProJobs,
   useToggleAvailability,

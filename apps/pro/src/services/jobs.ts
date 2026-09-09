@@ -62,6 +62,12 @@ export const jobsApi = {
   verify: (jobId: string, code: string) =>
     api.post<JobDetail>(`/jobs/${jobId}/verify`, { action: 'start', code }),
 
+  /**
+   * Marks a completed job as settled in cash on the doorstep (PAID). Idempotent
+   * server-side — a double-tap on "Collected cash" is a harmless no-op.
+   */
+  collectCash: (jobId: string) => api.post<JobDetail>(`/jobs/${jobId}/collect-cash`, {}),
+
   setAvailability: (patch: AvailabilityPatchInput) =>
     api.post<ProProfile>('/pros/availability', patch),
 };

@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { JobStatus } from '@samona/types';
 import { EmptyState } from '@/components/feedback';
@@ -25,6 +26,8 @@ function statusLabel(status: JobStatus): string {
     case 'ARRIVED':
     case 'IN_PROGRESS':
       return 'Active';
+    case 'COMPLETED':
+      return 'Collect payment';
     case 'PAYMENT_PENDING':
     case 'PAID':
       return 'Completed';
@@ -34,6 +37,18 @@ function statusLabel(status: JobStatus): string {
       return 'Expired';
     default:
       return 'Requested';
+  }
+}
+
+/** What a history row does when tapped, based on where that job is today. */
+function openJob(job: { id: string; status: JobStatus }) {
+  if (job.status === 'COMPLETED' || job.status === 'PAYMENT_PENDING') {
+    // The pro's doorstep settlement screen.
+    router.push({ pathname: '/job/[id]/pay', params: { id: job.id } });
+    return;
+  }
+  if (['ACCEPTED', 'TRAVELLING', 'ARRIVED', 'IN_PROGRESS'].includes(job.status)) {
+    router.push({ pathname: '/job/[id]/active', params: { id: job.id } });
   }
 }
 
@@ -69,7 +84,7 @@ export default function Jobs() {
               {index > 0 ? <Divider /> : null}
               <Pressable
                 accessibilityRole="button"
-                onPress={() => {}}
+                onPress={() => openJob(job)}
                 className="active:bg-surface-muted"
               >
                 <View className="flex-row items-center gap-3 px-4 py-4">

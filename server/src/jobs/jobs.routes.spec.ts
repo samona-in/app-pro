@@ -59,6 +59,7 @@ function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> 
     listForCustomer: jest.fn().mockResolvedValue([job]),
     getForCustomer: jest.fn().mockResolvedValue(job),
     payForCustomer: jest.fn().mockResolvedValue(job),
+    collectCashForPro: jest.fn().mockResolvedValue(job),
     cancelJob: jest.fn().mockResolvedValue(job),
     listAvailableJobs: jest.fn().mockResolvedValue([job]),
     listProJobs: jest.fn().mockResolvedValue([job]),
@@ -269,5 +270,32 @@ describe('jobs routes', () => {
       .expect(204);
 
     expect(services.jobs.declineJob).toHaveBeenCalledWith('user-1', 'job-1');
+  });
+
+  it('PRO can mark a completed job as cash-collected', async () => {
+    const proUser = { ...activeUser, appType: 'pro' as const };
+    const services = buildServices({
+      auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
+      jobs: jobsService({ collectCashForPro: jest.fn().mockResolvedValue({ ...job, status: 'PAID' }) }),
+    });
+
+    const response = await request(appWith(services))
+      .post('/jobs/job-1/collect-cash')
+      .set('authorization', 'Bearer good.token')
+      .expect(200);
+
+    expect(response.body.status).toBe('PAID');
+    expect(services.jobs.collectCashForPro).toHaveBeenCalledWith('user-1', 'job-1');
+  });
+
+  it('CUSTOMER cannot collect cash for a job', async () => {
+    const services = buildServices({ jobs: jobsService({ collectCashForPro: jest.fn() }) });
+
+    await request(appWith(services))
+      .post('/jobs/job-1/collect-cash')
+      .set('authorization', 'Bearer good.token')
+      .expect(403);
+
+    expect(services.jobs.collectCashForPro).not.toHaveBeenCalled();
   });
 });

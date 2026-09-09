@@ -492,6 +492,89 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
+   * A pro settles a completed job in cash on the doorstep: COMPLETED (or
+   * PAYMENT_PENDING) → PAID.
+   *
+   * Cash needs no payment provider, so this is the pro's terminal step — the
+   * one they reach from the "Collected cash" screen after completing. The
+   * status passes through PAYMENT_PENDING on the way so the audit timeline is
+   * the same shape the customer's online settle would have produced. Exactly
+   * once: a repeat call on an already-PAID job is a harmless no-op returning
+   * the job unchanged.
+   */
+  async function collectCashForPro(proUserId: string, jobId: string): Promise<JobDetail> {
+    const pro = await findProByUserId(proUserId);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.job.findFirst({
+        where: { id: jobId, proId: pro.id },
+        include: jobDetailInclude,
+      });
+      if (!row) throw notFound('That job could not be found.');
+      if (row.status === JobStatus.PAID) return row;
+      const isPending = row.status === JobStatus.PAYMENT_PENDING;
+      if (!isPending && !canTransition(row.status, JobStatus.PAYMENT_PENDING)) {
+        throw conflict(`Cash can only be collected once the work is done (state: ${row.status}).`);
+      }
+
+      // Walk the same steps the online settle takes, so history reads
+      // identically for cash and card. A job already sitting in
+      // PAYMENT_PENDING skips the first row.
+      if (!isPending) {
+        await tx.jobStatusHistory.create({
+          data: {
+            jobId: row.id,
+            fromStatus: row.status,
+            toStatus: JobStatus.PAYMENT_PENDING,
+            changedById: proUserId,
+          },
+        });
+      }
+      await tx.jobStatusHistory.create({
+        data: {
+          jobId: row.id,
+          fromStatus: JobStatus.PAYMENT_PENDING,
+          toStatus: JobStatus.PAID,
+          changedById: proUserId,
+        },
+      });
+
+      await tx.job.update({
+        where: { id: row.id },
+        data: { status: JobStatus.PAID },
+      });
+      await tx.proProfile.update({
+        where: { id: pro.id },
+        data: { completedJobs: { increment: 1 } },
+      });
+
+      return tx.job.findFirstOrThrow({ where: { id: row.id }, include: jobDetailInclude });
+    });
+
+    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
+    realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
+    realtime.emitToUser(
+      updated.customer.userId,
+      REALTIME_EVENTS.JOB_STATUS,
+      toJobDetail(updated as unknown as JobDetailRow, 'customer', storage),
+    );
+
+    recordCustomerNotice(notifications, {
+      customerId: updated.customerId,
+      customerUserId: updated.customer.userId,
+      jobId: updated.id,
+      kind: NotificationKind.PAYMENT,
+      title:
+        updated.finalPayPaise !== null
+          ? `Payment received · ${formatPaise(updated.finalPayPaise)}`
+          : 'Payment received',
+      body: `${updated.service.name} · collected in cash`,
+      route: `/booking/${updated.id}`,
+    });
+    return proDetail;
+  }
+
+  /**
    * Cancels a job. Applies to its customer or its assigned pro.
    *
    * The actor is resolved from the verified token; the job is scoped to their
@@ -1540,6 +1623,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     listForCustomer,
     getForCustomer,
     payForCustomer,
+    collectCashForPro,
     cancelJob,
     listProJobs,
     listAvailableJobs,

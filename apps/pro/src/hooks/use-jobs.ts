@@ -99,3 +99,17 @@ export function useVerifyStart() {
     },
   });
 }
+
+/**
+ * Settles a completed job in cash on the doorstep. The server walks the job to
+ * PAID (idempotent once paid), so a double-tap on "Collected cash" is safe.
+ */
+export function useCollectCash() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => jobsApi.collectCash(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    },
+  });
+}

@@ -207,6 +207,20 @@ export function createJobsRouter(services: Services): Router {
   });
 
   /**
+   * The pro settles a completed job in cash on the doorstep: COMPLETED (or
+   * PAYMENT_PENDING) → PAID. The service walks the same two status steps the
+   * online settle takes and is idempotent once PAID. Rides the shared `write`
+   * limiter mounted on `/jobs` in routes.ts.
+   */
+  pro.post('/:id/collect-cash', proOnly, async (req, res, next) => {
+    try {
+      res.json(await services.jobs.collectCashForPro(req.user!.id, routeParamId(req.params.id)));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
    * Verifies the pro's start-work claim using the one-time code the customer
    * holds, advancing ARRIVED → IN_PROGRESS on success.
    *

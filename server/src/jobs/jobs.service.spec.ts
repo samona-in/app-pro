@@ -1602,3 +1602,159 @@ describe('createJobsService.verifyStart', () => {
     expect(ctx.jobUpdate).not.toHaveBeenCalled();
   });
 });
+
+describe('createJobsService.collectCashForPro', () => {
+  /** A completed job the pro finished, with the price anchored. */
+  const completedRow = {
+    ...jobRow,
+    proId: 'pro-1',
+    status: JobStatus.COMPLETED,
+    finalPayPaise: 15_000,
+    verificationOtp: null,
+    customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
+    pro: { userId: 'user-1', displayName: 'Pro', profile: { phone: null } },
+  };
+
+  function buildCollect() {
+    let row = completedRow;
+    const jobFindFirst = jest.fn().mockImplementation(async () => row);
+    const historyCreate = jest.fn().mockResolvedValue({});
+    const jobUpdate = jest
+      .fn()
+      .mockImplementation(async (args: { data: { status: JobStatus } }) => {
+        row = { ...row, status: args.data.status };
+        return row;
+      });
+    const proProfileUpdate = jest.fn().mockResolvedValue({ id: 'pro-1' });
+    const jobFindFirstOrThrow = jest.fn().mockImplementation(async () => row);
+    const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+
+    const prisma = {
+      proProfile: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'pro-1', userId: 'user-1' }),
+        update: proProfileUpdate,
+      },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          job: { findFirst: jobFindFirst, update: jobUpdate, findFirstOrThrow: jobFindFirstOrThrow },
+          jobStatusHistory: { create: historyCreate },
+          proProfile: { update: proProfileUpdate },
+        }),
+      ),
+    };
+
+    const realtime = { emitToUser: jest.fn(), emitToUsers: jest.fn() };
+    const storage = {
+      jobImagePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`),
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: storage as never,
+      matching: {} as never,
+      realtime: realtime as never,
+      notifications: { recordCustomerNotification } as never,
+    } as never);
+
+    return {
+      jobs,
+      setRow: (next: typeof completedRow | { status: JobStatus; [k: string]: unknown }) => {
+        row = { ...completedRow, ...next } as typeof completedRow;
+      },
+      jobFindFirst,
+      historyCreate,
+      jobUpdate,
+      proProfileUpdate,
+      jobFindFirstOrThrow,
+      realtime,
+      recordCustomerNotification,
+    };
+  }
+
+  it('settles a completed job through PAYMENT_PENDING to PAID', async () => {
+    const ctx = buildCollect();
+
+    const result = await ctx.jobs.collectCashForPro('user-1', 'job-1');
+
+    expect(result).toMatchObject({ id: 'job-1', status: JobStatus.PAID });
+    // The two audit rows the online settle would have produced.
+    expect(ctx.historyCreate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromStatus: JobStatus.COMPLETED,
+          toStatus: JobStatus.PAYMENT_PENDING,
+          changedById: 'user-1',
+        }),
+      }),
+    );
+    expect(ctx.historyCreate).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromStatus: JobStatus.PAYMENT_PENDING,
+          toStatus: JobStatus.PAID,
+          changedById: 'user-1',
+        }),
+      }),
+    );
+    expect(ctx.jobUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: JobStatus.PAID } }),
+    );
+    expect(ctx.proProfileUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { completedJobs: { increment: 1 } } }),
+    );
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(2);
+    expect(ctx.recordCustomerNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: NotificationKind.PAYMENT,
+        title: 'Payment received · ₹150',
+      }),
+    );
+  });
+
+  it('accepts a job already sitting in PAYMENT_PENDING', async () => {
+    const ctx = buildCollect();
+    ctx.setRow({ status: JobStatus.PAYMENT_PENDING });
+
+    const result = await ctx.jobs.collectCashForPro('user-1', 'job-1');
+
+    expect(result).toMatchObject({ status: JobStatus.PAID });
+    // Only the PAYMENT_PENDING → PAID row (no COMPLETED → PAYMENT_PENDING, which
+    // the job already passed).
+    expect(ctx.historyCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('is a no-op once the job is already paid', async () => {
+    const ctx = buildCollect();
+    ctx.setRow({ status: JobStatus.PAID });
+
+    const result = await ctx.jobs.collectCashForPro('user-1', 'job-1');
+
+    expect(result).toMatchObject({ status: JobStatus.PAID });
+    expect(ctx.historyCreate).not.toHaveBeenCalled();
+    expect(ctx.proProfileUpdate).not.toHaveBeenCalled();
+  });
+
+  it('refuses to collect cash before the work is done', async () => {
+    const ctx = buildCollect();
+    ctx.setRow({ status: JobStatus.IN_PROGRESS });
+
+    await expect(ctx.jobs.collectCashForPro('user-1', 'job-1')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 409,
+    });
+    expect(ctx.historyCreate).not.toHaveBeenCalled();
+  });
+
+  it('404s when the job belongs to another pro', async () => {
+    const ctx = buildCollect();
+    ctx.jobFindFirst.mockResolvedValue(null);
+
+    await expect(ctx.jobs.collectCashForPro('user-1', 'job-1')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 404,
+    });
+    expect(ctx.historyCreate).not.toHaveBeenCalled();
+  });
+});
