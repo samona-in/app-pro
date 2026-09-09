@@ -31,13 +31,16 @@ function currentStepIndex(job: JobDetail): number {
   return index === -1 ? 0 : index;
 }
 
-/** Statuses the customer may still cancel: before work is underway and after completion. */
+/**
+ * Statuses the customer may still cancel: only before the professional starts
+ * the work. Once the job is in progress there is no turning back — the last
+ * chance is after arrival, when the pro has seen the job and can hand it back.
+ */
 const CANCELLABLE: JobStatus[] = [
   JobStatus.REQUESTED,
   JobStatus.ACCEPTED,
   JobStatus.TRAVELLING,
   JobStatus.ARRIVED,
-  JobStatus.PAYMENT_PENDING,
 ];
 
 function canCancel(status: JobStatus): boolean {
@@ -291,13 +294,6 @@ export default function BookingDetail() {
               professional; they'll confirm the collection on their side.
             </Text>
           </View>
-          <Button
-            label="Cancel booking"
-            variant="ghost"
-            size="md"
-            loading={cancelling}
-            onPress={() => void requestCancel()}
-          />
         </View>
       ) : canCancel(job.status) ? (
         <View className="mt-8 gap-3 pb-4">

@@ -1758,3 +1758,145 @@ describe('createJobsService.collectCashForPro', () => {
     expect(ctx.historyCreate).not.toHaveBeenCalled();
   });
 });
+
+describe('createJobsService.cancelJob', () => {
+  /** An arrived job with both sides assigned — the last stage a job may be cancelled. */
+  const arrivedRow = {
+    ...jobRow,
+    proId: 'pro-1',
+    status: JobStatus.ARRIVED,
+    finalPayPaise: 15_000,
+    verificationOtp: '1234',
+    customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
+    pro: { id: 'pro-1', userId: 'user-1', displayName: 'Pro', rating: null, profile: { phone: null } },
+  };
+
+  function buildCancel() {
+    let row = arrivedRow;
+    const jobFindUnique = jest.fn().mockImplementation(async () => row);
+    const historyCreate = jest.fn().mockResolvedValue({});
+    const jobUpdate = jest
+      .fn()
+      .mockImplementation(async (args: { data: { status: JobStatus; cancelledAt: Date } }) => {
+        row = { ...row, ...args.data };
+        return row;
+      });
+    const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
+    const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
+
+    const prisma = {
+      job: { findUnique: jobFindUnique, update: jobUpdate },
+      jobStatusHistory: { create: historyCreate },
+      proProfile: { findUnique: jest.fn().mockResolvedValue({ isOnline: false }) },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({ job: { update: jobUpdate }, jobStatusHistory: { create: historyCreate } }),
+      ),
+    };
+
+    const realtime = { emitToUser: jest.fn(), emitToUsers: jest.fn() };
+    const storage = {
+      jobImagePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`),
+    };
+    const notifications = {
+      recordCustomerNotification,
+      resolveJobAlerts,
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage: storage as never,
+      matching: {} as never,
+      realtime: realtime as never,
+      notifications: notifications as never,
+    } as never);
+
+    return {
+      jobs,
+      setRow: (next: { status: JobStatus; [k: string]: unknown }) => {
+        row = { ...arrivedRow, ...next } as typeof arrivedRow;
+      },
+      jobFindUnique,
+      historyCreate,
+      jobUpdate,
+      realtime,
+      recordCustomerNotification,
+      resolveJobAlerts,
+    };
+  }
+
+  it('lets the customer cancel at ARRIVED', async () => {
+    const ctx = buildCancel();
+
+    const result = await ctx.jobs.cancelJob('cust-user-1', 'job-1');
+
+    expect(result).toMatchObject({
+      detail: expect.objectContaining({ status: JobStatus.CANCELLED }),
+      customerUserId: 'cust-user-1',
+      proUserId: 'user-1',
+    });
+    expect(ctx.historyCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromStatus: JobStatus.ARRIVED,
+          toStatus: JobStatus.CANCELLED,
+          changedById: 'cust-user-1',
+        }),
+      }),
+    );
+    expect(ctx.jobUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: JobStatus.CANCELLED }),
+      }),
+    );
+    // Both sides were told in realtime.
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(2);
+    // The customer cancelling is their own act — no customer notice.
+    expect(ctx.recordCustomerNotification).not.toHaveBeenCalled();
+  });
+
+  it('lets the pro cancel at ARRIVED and tells the customer', async () => {
+    const ctx = buildCancel();
+
+    const result = await ctx.jobs.cancelJob('user-1', 'job-1');
+
+    expect(result).toMatchObject({ detail: expect.objectContaining({ status: JobStatus.CANCELLED }) });
+    expect(ctx.recordCustomerNotification).toHaveBeenCalled();
+    expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'CANCELLED');
+  });
+
+  it('blocks cancellation once the work has started, for both sides', async () => {
+    for (const status of [JobStatus.IN_PROGRESS, JobStatus.PAYMENT_PENDING]) {
+      for (const actor of ['cust-user-1', 'user-1']) {
+        const ctx = buildCancel();
+        ctx.setRow({ status });
+
+        await expect(ctx.jobs.cancelJob(actor, 'job-1')).rejects.toMatchObject({
+          name: 'HttpError',
+          status: 409,
+        });
+        expect(ctx.historyCreate).not.toHaveBeenCalled();
+        expect(ctx.jobUpdate).not.toHaveBeenCalled();
+      }
+    }
+  });
+
+  it('404s when the job does not exist', async () => {
+    const ctx = buildCancel();
+    ctx.jobFindUnique.mockResolvedValue(null);
+
+    await expect(ctx.jobs.cancelJob('cust-user-1', 'job-1')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 404,
+    });
+  });
+
+  it('403s when the caller is not part of the job', async () => {
+    const ctx = buildCancel();
+
+    await expect(ctx.jobs.cancelJob('stranger-user', 'job-1')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 403,
+    });
+    expect(ctx.historyCreate).not.toHaveBeenCalled();
+  });
+});

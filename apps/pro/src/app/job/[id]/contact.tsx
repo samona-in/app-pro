@@ -2,24 +2,25 @@ import type { ReactNode } from 'react';
 import { Alert, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { JobStatus, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { Card, Screen, Text } from '@/components/ui';
-import { useUnreadMessages } from '@/hooks';
+import { useCancelJob, useProJobs, useSubmitGuard, useUnreadMessages } from '@/hooks';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 /**
- * Job actions — opened from the trip screen's call+message contact button.
- *
- * Two routes to manage the active job:
- *   - Contact customer: jump straight into the job chat.
- *   - Cancel my job: back out of an accepted / in-flight job.
- *
- * Cancellation is not yet wired to a live flow, so that row surfaces a
- * placeholder for now, tinted destructive so the intent is clear before the
- * real cancel path lands.
+ * The statuses a pro may still back out of. Cancel is only an option up to
+ * ARRIVED — the moment the pro has seen the work on site. Once the job starts
+ * (IN_PROGRESS) and through completion, collection and payout it is locked.
+ * The server enforces the same rule; this is just what the screen surfaces.
  */
+const CANCELLABLE: readonly Status[] = [
+  JobStatus.ACCEPTED,
+  JobStatus.TRAVELLING,
+  JobStatus.ARRIVED,
+];
 
 function ActionRow({
   icon,
@@ -42,11 +43,7 @@ function ActionRow({
       accessibilityLabel={label}
       className="min-h-[56px] flex-row items-center px-4 active:opacity-60"
       onPress={() => {
-        if (onPress) {
-          onPress();
-          return;
-        }
-        Alert.alert(label, destructive ? 'Cancelling a job will be available soon.' : undefined);
+        if (onPress) onPress();
       }}
     >
       <Ionicons name={icon} size={20} color={tint} />
@@ -62,6 +59,46 @@ function ActionRow({
 export default function JobActionsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const unread = useUnreadMessages();
+  const { data: jobs } = useProJobs();
+  const cancel = useCancelJob();
+
+  // Reads the live status from the same list the job screens use, so the row
+  // disappears the moment the job starts (or completes). Unknown job — e.g.
+  // the payment screen reached directly — means no cancel, which is the safe
+  // default: never surface a cancel the server would reject.
+  const job = (jobs ?? []).find((item) => item.id === id);
+  const cancellable = job !== undefined && CANCELLABLE.includes(job.status);
+
+  const { run: requestCancel } = useSubmitGuard(() => {
+    Alert.alert(
+      'Cancel this job?',
+      job?.locationLabel
+        ? 'The job will be cancelled for the customer. You can only cancel before you start the work.'
+        : 'The job will be cancelled for the customer.',
+      [
+        { text: 'Keep the job', style: 'cancel' },
+        {
+          text: 'Cancel job',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                await cancel.mutateAsync({ jobId: id });
+                // Drop the modal and land on Home: the server has freed the
+                // pro, and the job screens will no longer show this job.
+                router.replace('/home');
+              } catch (error) {
+                Alert.alert(
+                  'Could not cancel this job',
+                  error instanceof Error ? error.message : 'Please try again.',
+                );
+              }
+            })();
+          },
+        },
+      ],
+    );
+  });
 
   return (
     <Screen scrollable>
@@ -77,12 +114,21 @@ export default function JobActionsScreen() {
         />
       </Card>
 
-      <Text variant="label" className="mt-6">
-        Cancel
-      </Text>
-      <Card className="mt-2" padded={false}>
-        <ActionRow icon="close-circle-outline" label="Cancel my job" destructive />
-      </Card>
+      {cancellable ? (
+        <>
+          <Text variant="label" className="mt-6">
+            Cancel
+          </Text>
+          <Card className="mt-2" padded={false}>
+            <ActionRow
+              icon="close-circle-outline"
+              label="Cancel my job"
+              destructive
+              onPress={() => void requestCancel()}
+            />
+          </Card>
+        </>
+      ) : null}
     </Screen>
   );
 }

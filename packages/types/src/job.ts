@@ -39,9 +39,13 @@ export const JOB_STATUS_TRANSITIONS: Readonly<Record<JobStatus, readonly JobStat
   ACCEPTED: [JobStatus.TRAVELLING, JobStatus.CANCELLED],
   TRAVELLING: [JobStatus.ARRIVED, JobStatus.CANCELLED],
   ARRIVED: [JobStatus.IN_PROGRESS, JobStatus.CANCELLED],
-  IN_PROGRESS: [JobStatus.COMPLETED, JobStatus.CANCELLED],
+  // Once the pro has started the work there is no turning back: cancellation
+  // is only allowed up to and including ARRIVED, when the pro has seen the job
+  // and can still hand it back. From IN_PROGRESS the job must run to
+  // completion and collection.
+  IN_PROGRESS: [JobStatus.COMPLETED],
   COMPLETED: [JobStatus.PAYMENT_PENDING],
-  PAYMENT_PENDING: [JobStatus.PAID, JobStatus.CANCELLED],
+  PAYMENT_PENDING: [JobStatus.PAID],
   PAID: [],
   CANCELLED: [],
   EXPIRED: [],
