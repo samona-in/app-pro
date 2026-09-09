@@ -1,27 +1,33 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Alert, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { JobStatus } from '@samona/types';
 import { EmptyState, LoadingState } from '@/components/feedback';
-import { CallMessageButton } from '@/components/jobs';
-import { Button, Divider, Screen, Text } from '@/components/ui';
+import { CallMessageButton, CollectCashSheet } from '@/components/jobs';
+import { Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
 import { useCollectCash, useProJobs, useUnreadMessages } from '@/hooks';
 import { color } from '@/theme';
 import { formatInr } from '@/utils/format';
 
 /**
- * Cash settlement, the pro's terminal screen after finishing the work: COMPLETED
- * (or PAYMENT_PENDING) → PAID. The pro collects the money on the doorstep and
- * taps "Collected cash" to close the job. The server walks the same status
- * steps the customer's online settle would have taken and is idempotent once
- * paid, so a double-tap is harmless.
+ * Cash settlement — the pro's resting screen once the work is done and until
+ * the money is confirmed collected (COMPLETED / PAYMENT_PENDING → PAID). The
+ * pro stays here across both pending states; only their own swipe — "Collect
+ * cash" — releases it, through a locked-in payment sheet, to the availability
+ * home. The server walks the same status steps the customer's online settle
+ * would have taken and is idempotent once paid.
  */
 export default function CollectCashScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: jobs, isPending, isFetching, refetch } = useProJobs();
   const unread = useUnreadMessages();
   const collect = useCollectCash();
+
+  // Docks the payment sheet. It is presented by the swipe, and the pro may not
+  // leave the payment screen until it settles — the sheet re-presents itself
+  // if dismissed mid-processing, and navigates home on its own after success.
+  const [collectOpen, setCollectOpen] = useState(false);
 
   const job = useMemo(() => (jobs ?? []).find((item) => item.id === id), [id, jobs]);
 
@@ -55,22 +61,25 @@ export default function CollectCashScreen() {
   }
 
   // Only a job pending settlement belongs here. Anything already paid,
-  // cancelled or expired returns to the availability home.
-  if (job.status !== JobStatus.COMPLETED && job.status !== JobStatus.PAYMENT_PENDING) {
+  // cancelled or expired returns to the availability home — unless the payment
+  // sheet is up, in which case the sheet owns the exit (success beat → home).
+  if (
+    !collectOpen &&
+    job.status !== JobStatus.COMPLETED &&
+    job.status !== JobStatus.PAYMENT_PENDING
+  ) {
     return <Redirect href="/home" />;
   }
 
   const amountPaise = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
   const customerName = job.customer?.displayName ?? 'Customer';
 
-  function onCollectCash() {
-    void collect
-      .mutateAsync(id)
-      .then(() => router.replace('/home'))
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : 'Please try again.';
-        Alert.alert('Could not record the payment', message);
-      });
+  function onSwipeCollectCash() {
+    setCollectOpen(true);
+    void collect.mutateAsync(id).catch(() => {
+      // Failure stays in the sheet (it owns the error + retry UI); closing it
+      // hands back to the swipe.
+    });
   }
 
   return (
@@ -102,7 +111,7 @@ export default function CollectCashScreen() {
               {formatInr(amountPaise)}
             </Text>
             <Text variant="footnote" className="mt-2 text-center">
-              Collect this amount from {customerName} in cash, then confirm to
+              Collect this amount from {customerName} in cash, then swipe to
               close the job.
             </Text>
           </View>
@@ -121,18 +130,28 @@ export default function CollectCashScreen() {
 
             <Divider spaced />
 
-            <Button
-              label="Collected cash"
-              size="lg"
+            {/* The one action that closes a cash settlement. Disabled while the
+                sheet is up — the sheet owns the exit from that point. */}
+            <SwipeToConfirm
+              label="Collect cash"
+              disabled={collectOpen}
               loading={collect.isPending}
-              leading={
-                <Ionicons name="wallet-outline" size={20} color={color['brand-contrast']} />
-              }
-              onPress={onCollectCash}
+              onConfirm={onSwipeCollectCash}
             />
           </View>
         </View>
       </Screen>
+
+      <CollectCashSheet
+        visible={collectOpen}
+        amountPaise={amountPaise}
+        isPending={collect.isPending}
+        settled={collect.isSuccess}
+        errorMessage={collect.isError ? collect.error?.message : undefined}
+        onRetry={() => void collect.mutateAsync(id).catch(() => {})}
+        onDone={() => router.replace('/home')}
+        onClose={() => setCollectOpen(false)}
+      />
     </>
   );
 }
