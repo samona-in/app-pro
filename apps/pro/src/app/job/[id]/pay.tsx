@@ -84,6 +84,7 @@ export default function CollectCashScreen() {
         options={{
           headerShown: true,
           title: 'Payment',
+          headerBackVisible: false,
           headerBackTitle: 'Back',
           headerTintColor: color['text-primary'],
           headerTitleStyle: { fontSize: 16, color: color['text-primary'] },

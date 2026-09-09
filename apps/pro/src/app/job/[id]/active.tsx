@@ -379,6 +379,7 @@ export default function ActiveJobScreen() {
           options={{
             headerShown: true,
             title: 'Your job details',
+            headerBackVisible: false,
             headerBackTitle: 'Back',
             headerTintColor: color['text-primary'],
             headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
@@ -418,6 +419,7 @@ export default function ActiveJobScreen() {
         options={{
           headerShown: true,
           title: 'Go To the Working Spot',
+          headerBackVisible: false,
           headerBackTitle: 'Back',
           headerTintColor: color['text-primary'],
           headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
