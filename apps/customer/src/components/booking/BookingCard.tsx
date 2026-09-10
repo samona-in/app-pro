@@ -63,8 +63,8 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
           <Text variant="bodyStrong" numberOfLines={1}>
             {job.service.name}
           </Text>
-          <Text variant="caption" numberOfLines={1} className="mt-0.5 text-text-secondary">
-            {dateLabel}
+          <Text variant="footnote" numberOfLines={1} className="mt-0.5 text-text-secondary">
+            {bookingStatusLabel(job.status)} · {dateLabel}
           </Text>
           <Text variant="caption" numberOfLines={1} className="mt-0.5 text-text-muted">
             {job.description}
