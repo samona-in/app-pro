@@ -34,15 +34,35 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       accessibilityLabel={`${service.name}, ${mark.label}`}
       accessibilityHint={isRejected ? 'Shows the rejection reason' : undefined}
       onPress={isRejected ? showReason : undefined}
-      className="w-20 rounded-xl border border-border bg-surface-muted p-1.5 active:opacity-70"
+      className="w-24 rounded-xl border border-border bg-surface-muted p-1.5 active:opacity-70"
     >
-      <View className="items-end">
+      <View className="h-3.5 items-end">
         <Ionicons name={mark.name} size={14} color={mark.tint} />
       </View>
       <View className="mt-1 items-center px-0.5">
         {icon ? <Ionicons name={icon} size={18} color={color['text-primary']} /> : null}
         <Text variant="caption" numberOfLines={2} className="mt-1 text-center">
           {service.name}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+/** Placeholder tile for adding a service; linked up later. */
+function AddServiceTile() {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Add service"
+      onPress={() => undefined}
+      className="w-24 items-center rounded-xl border border-dashed border-border bg-surface-muted p-1.5 active:opacity-70"
+    >
+      <View className="h-3.5" />
+      <View className="mt-1 items-center px-0.5">
+        <Ionicons name="add" size={20} color={color['text-secondary']} />
+        <Text variant="caption" numberOfLines={2} className="mt-1 text-center text-text-secondary">
+          Add service
         </Text>
       </View>
     </Pressable>
@@ -64,7 +84,20 @@ export function ServicesVerificationCard() {
 
   return (
     <View className="mt-6">
-      <Text variant="title">Your services</Text>
+      <View className="flex-row items-center justify-between">
+        <Text variant="title">Your services</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Manage services"
+          onPress={() => undefined}
+          className="flex-row items-center"
+        >
+          <Text variant="caption" className="text-brand">
+            Manage
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={color.brand} />
+        </Pressable>
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -74,6 +107,7 @@ export function ServicesVerificationCard() {
         {services.map((service) => (
           <ServiceTile key={service.id} service={service} />
         ))}
+        <AddServiceTile />
       </ScrollView>
     </View>
   );
