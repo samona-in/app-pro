@@ -12,6 +12,8 @@ import { Screen } from '@/components/ui';
 import { useServiceCategories, useSession } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
 
+import vijayawadaImage from '@/assets/images/vijayawada1.png';
+
 export default function Home() {
   const { customerProfile } = useSession();
   const categories = useServiceCategories();
@@ -69,6 +71,15 @@ export default function Home() {
             onSelect={handleSelectService}
           />
         )}
+      </View>
+
+      <View className="mt-5 overflow-hidden rounded-2xl">
+        <Image
+          source={vijayawadaImage}
+          contentFit="cover"
+          accessibilityLabel="Vijayawada"
+          className="h-44 w-full"
+        />
       </View>
     </Screen>
   );
