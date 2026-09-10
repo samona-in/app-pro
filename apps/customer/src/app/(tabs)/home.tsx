@@ -45,7 +45,7 @@ export default function Home() {
   }
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable edges={[]}>
       <StatusBar style="dark" />
       <HomeHeader
         locationLabel={customerProfile?.locationLabel ?? undefined}
@@ -55,7 +55,7 @@ export default function Home() {
         <SearchBar onPress={() => router.push('/bookings')} />
       </HomeHeader>
 
-      <View className="mt-5">
+      <View className="mt-5 flex-1">
         {categories.isPending ? (
           <LoadingState message="Loading services" size="inline" />
         ) : categories.isError ? (
@@ -73,14 +73,15 @@ export default function Home() {
         )}
       </View>
 
-      <View className="mt-8 overflow-hidden rounded-2xl" style={{ width: '100%' }}>
-        <Image
-          source={vijayawadaImage}
-          contentFit="cover"
-          accessibilityLabel="Vijayawada"
-          style={{ width: '100%', aspectRatio: 1.5 }}
-        />
-      </View>
+      <Image
+        source={vijayawadaImage}
+        contentFit="cover"
+        accessibilityLabel="Vijayawada"
+        style={{
+          width: '100%',
+          aspectRatio: 1.5,
+        }}
+      />
     </Screen>
   );
 }
