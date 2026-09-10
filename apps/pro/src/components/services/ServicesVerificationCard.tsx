@@ -34,7 +34,7 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       accessibilityLabel={`${service.name}, ${mark.label}`}
       accessibilityHint={isRejected ? 'Shows the rejection reason' : undefined}
       onPress={isRejected ? showReason : undefined}
-      className="min-h-[72px] w-24 justify-center rounded-lg border border-border bg-surface-muted p-1.5 active:opacity-70"
+      className="min-h-[72px] w-24 justify-center rounded-lg border border-border p-1.5 active:opacity-70"
     >
       <View className="items-center px-0.5">
         {icon ? <Ionicons name={icon} size={18} color={color['text-primary']} /> : null}
@@ -58,7 +58,7 @@ function AddServiceTile() {
       accessibilityRole="button"
       accessibilityLabel="Add service"
       onPress={() => undefined}
-      className="min-h-[72px] w-24 items-center justify-center rounded-lg border border-dashed border-border bg-surface-muted p-1.5 active:opacity-70"
+      className="min-h-[72px] w-24 items-center justify-center rounded-lg border border-dashed border-border p-1.5 active:opacity-70"
     >
       <View className="mt-1 items-center px-0.5">
         <Ionicons name="add" size={20} color={color['text-secondary']} />
