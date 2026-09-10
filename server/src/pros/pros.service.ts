@@ -4,6 +4,7 @@ import {
   type ExperienceLevel,
   type Gender,
   type ProProfile,
+  type ProServiceStatus,
 } from '@samona/types';
 import type { OnboardingPatchInput, AvailabilityPatchInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
@@ -38,15 +39,29 @@ const proProfileSelect = {
   isVerified: true,
   rating: true,
   completedJobs: true,
-  services: { select: { serviceId: true } },
+  services: {
+    select: {
+      serviceId: true,
+      status: true,
+      rejectionReason: true,
+      service: { select: { slug: true, name: true, icon: true } },
+    },
+  },
   skills: { select: { skillId: true } },
 } as const;
 
+type ProServiceRow = {
+  serviceId: string;
+  status: ProServiceStatus;
+  rejectionReason: string | null;
+  service: { slug: string; name: string; icon: string | null };
+};
+
 type ProProfileRow = {
-  services: { serviceId: string }[];
+  services: ProServiceRow[];
   skills: { skillId: string }[];
   selfiePhotoPath: string | null;
-} & Omit<ProProfile, 'serviceIds' | 'skillIds' | 'hasSelfie' | 'selfiePhotoUrl'>;
+} & Omit<ProProfile, 'serviceIds' | 'skillIds' | 'hasSelfie' | 'selfiePhotoUrl' | 'proServices'>;
 
 function toProProfile(row: ProProfileRow, storage: StorageService): ProProfile {
   const { services, skills, selfiePhotoPath, ...rest } = row;
@@ -56,6 +71,14 @@ function toProProfile(row: ProProfileRow, storage: StorageService): ProProfile {
     selfiePhotoUrl: selfiePhotoPath ? storage.selfiePublicUrl(selfiePhotoPath) : null,
     serviceIds: services.map((s) => s.serviceId),
     skillIds: skills.map((s) => s.skillId),
+    proServices: services.map((s) => ({
+      id: s.serviceId,
+      slug: s.service.slug,
+      name: s.service.name,
+      icon: s.service.icon,
+      status: s.status,
+      rejectionReason: s.rejectionReason,
+    })),
   };
 }
 

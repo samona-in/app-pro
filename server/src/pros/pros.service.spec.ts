@@ -27,7 +27,14 @@ const baseRow = {
   isVerified: false,
   rating: null,
   completedJobs: 0,
-  services: [{ serviceId: 'svc-1' }],
+  services: [
+    {
+      serviceId: 'svc-1',
+      status: 'PENDING',
+      rejectionReason: null,
+      service: { slug: 'plumbing', name: 'Plumbing', icon: 'wrench' },
+    },
+  ],
   skills: [{ skillId: 'skl-1' }],
 };
 
@@ -53,6 +60,16 @@ const base: ProProfile = {
     'https://project.supabase.co/storage/v1/object/public/pro-selfies/pros/user-1/selfie.jpg',
   serviceIds: ['svc-1'],
   skillIds: ['skl-1'],
+  proServices: [
+    {
+      id: 'svc-1',
+      slug: 'plumbing',
+      name: 'Plumbing',
+      icon: 'wrench',
+      status: 'PENDING',
+      rejectionReason: null,
+    },
+  ],
 };
 
 describe('isProProfileComplete', () => {

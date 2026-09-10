@@ -24,6 +24,31 @@ export const ExperienceLevel = {
 
 export type ExperienceLevel = (typeof ExperienceLevel)[keyof typeof ExperienceLevel];
 
+/**
+ * How a pro's selected service is verified. Mirrors `ProServiceStatus` in the
+ * Prisma schema — keep the two in sync.
+ *
+ * Newly selected services start `PENDING`; an admin flips them to `ACCEPTED` or
+ * `REJECTED` (with a reason). The pro app only ever reads this.
+ */
+export const ProServiceStatus = {
+  PENDING: 'PENDING',
+  ACCEPTED: 'ACCEPTED',
+  REJECTED: 'REJECTED',
+} as const;
+
+export type ProServiceStatus = (typeof ProServiceStatus)[keyof typeof ProServiceStatus];
+
+/** A service a pro selected, with its verification outcome. */
+export interface ProServiceVerification {
+  id: string;
+  slug: string;
+  name: string;
+  icon: string | null;
+  status: ProServiceStatus;
+  rejectionReason: string | null;
+}
+
 export const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
   { value: ExperienceLevel.UNDER_1_YEAR, label: 'Less than 1 year' },
   { value: ExperienceLevel.ONE_TO_THREE, label: '1–3 years' },
@@ -74,6 +99,12 @@ export interface ProProfile {
   selfiePhotoUrl: string | null;
   serviceIds: string[];
   skillIds: string[];
+  /**
+   * The pro's selected services with their verification status. `serviceIds`
+   * above stays as the onboarding/matching source; this carries the display
+   * metadata (name, icon) plus the admin-set verification outcome.
+   */
+  proServices: ProServiceVerification[];
 }
 
 /**

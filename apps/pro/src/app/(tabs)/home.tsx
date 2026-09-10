@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { ServicesVerificationCard } from '@/components/services/ServicesVerificationCard';
 import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
 import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { useProJobs, useProProfile, useDeviceReadiness, useSubmitGuard } from '@/hooks';
@@ -312,6 +313,8 @@ export default function Home() {
       <View className="mt-6">
         <AvailabilityCard />
       </View>
+
+      <ServicesVerificationCard />
 
       <ReadinessBanner />
 
