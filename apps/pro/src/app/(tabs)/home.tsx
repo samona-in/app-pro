@@ -230,23 +230,6 @@ function ReadinessBanner() {
 }
 
 /** Prompt shown when an offline pro tries to act on a job. */
-function OfflineGate() {
-  return (
-    <Card className="mt-8 items-center px-6 py-8">
-      <Text variant="titleLg" className="text-center">
-        Go online to see jobs
-      </Text>
-      <Text variant="body" className="mt-2 text-center text-text-secondary">
-        When you're online and your live location is on, job requests arrive here in real time for
-        you to accept or decline.
-      </Text>
-      <Text variant="footnote" className="mt-4 text-center text-text-muted">
-        Toggle availability above to go online.
-      </Text>
-    </Card>
-  );
-}
-
 export default function Home() {
   const { data: jobs, isPending } = useProJobs();
   // Money owed wins: a completed but unpaid job (or one awaiting payment) has
@@ -291,8 +274,6 @@ export default function Home() {
     return <Redirect href={`/job/${activeJob.id}/active`} />;
   }
 
-  const isOnline = checkIsOnline();
-
   return (
     <Screen scrollable>
       <View className="flex-row items-center justify-between pt-2">
@@ -320,18 +301,6 @@ export default function Home() {
       <ServicesVerificationCard />
 
       <ReadinessBanner />
-
-      {isOnline ? (
-        <View className="mt-8">
-          <Text variant="title">Job requests</Text>
-          <Text variant="footnote" className="mt-1 text-text-secondary">
-            A new request will appear here the moment it lands. You have a short window to accept
-            it.
-          </Text>
-        </View>
-      ) : (
-        <OfflineGate />
-      )}
     </Screen>
   );
 }
