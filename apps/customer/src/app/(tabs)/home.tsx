@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { View, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -14,7 +14,10 @@ import { useBookingDraft } from '@/stores/booking';
 
 import vijayawadaImage from '@/assets/images/vijayawada1.png';
 
+const BANNER_ASPECT_RATIO = 2.5;
+
 export default function Home() {
+  const { width } = useWindowDimensions();
   const { customerProfile } = useSession();
   const categories = useServiceCategories();
   const bookingDraft = useBookingDraft();
@@ -44,8 +47,44 @@ export default function Home() {
     router.push(`/booking/new/${service.slug}/place`);
   }
 
+  const contentWidth = width - 40;
+  const bannerHeight = Math.round(contentWidth / BANNER_ASPECT_RATIO);
+
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen
+      scrollable
+      edges={['bottom']}
+      contentClassName="pb-[224]"
+      footer={
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            alignItems: 'center',
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            paddingTop: 8,
+            shadowColor: '#000',
+            shadowOpacity: 0.1,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: -4 },
+            elevation: 8,
+          }}
+        >
+          <Image
+            source={vijayawadaImage}
+            contentFit="cover"
+            accessibilityLabel="Vijayawada"
+            style={{
+              width: contentWidth,
+              height: bannerHeight,
+              borderRadius: 16,
+            }}
+          />
+        </View>
+      }
+    >
       <StatusBar style="dark" />
       <HomeHeader
         locationLabel={customerProfile?.locationLabel ?? undefined}
@@ -71,15 +110,6 @@ export default function Home() {
             onSelect={handleSelectService}
           />
         )}
-      </View>
-
-      <View className="mt-5 overflow-hidden rounded-2xl">
-        <Image
-          source={vijayawadaImage}
-          contentFit="cover"
-          style={{ width: '100%', aspectRatio: 2.5 }}
-          accessibilityLabel="Vijayawada"
-        />
       </View>
     </Screen>
   );
