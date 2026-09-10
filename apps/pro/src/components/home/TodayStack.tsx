@@ -27,7 +27,7 @@ export function TodayStack() {
         </Pressable>
       </View>
       <View className="mt-3 flex-row gap-3">
-        <Card className="flex-1">
+        <Card className="flex-1 bg-surface-muted">
           <Ionicons name="cash-outline" size={18} color={color['text-secondary']} />
           <Text variant="label" className="mt-1 text-text-muted">
             Earnings
@@ -36,7 +36,7 @@ export function TodayStack() {
             ₹0
           </Text>
         </Card>
-        <Card className="flex-1">
+        <Card className="flex-1 bg-surface-muted">
           <Ionicons name="checkmark-done-outline" size={18} color={color['text-secondary']} />
           <Text variant="label" className="mt-1 text-text-muted">
             Jobs completed
