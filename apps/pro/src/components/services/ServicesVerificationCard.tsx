@@ -42,7 +42,7 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
           <Text variant="caption" numberOfLines={2} className="text-center">
             {service.name}
           </Text>
-          <View className="ml-0.5">
+          <View className="ml-1">
             <Ionicons name={mark.name} size={13} color={mark.tint} />
           </View>
         </View>
