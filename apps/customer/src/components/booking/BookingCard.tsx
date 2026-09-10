@@ -72,8 +72,8 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
         </View>
       </View>
 
-      {/* Thin divider between list rows, full width. */}
-      <View className="my-3 h-px bg-border" />
+      {/* Thin divider between list rows, bleeding to the screen edges. */}
+      <View className="my-3 -mx-5 h-px bg-border" />
     </Pressable>
   );
 }
