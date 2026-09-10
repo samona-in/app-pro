@@ -7,7 +7,7 @@ import { Screen, Text } from '@/components/ui';
 import { useBookings } from '@/hooks';
 import { cn } from '@/utils/cn';
 
-const FILTERS = ['Active', 'Upcoming', 'Completed', 'Cancelled'] as const;
+const FILTERS = ['All', 'Active', 'Upcoming', 'Completed', 'Cancelled'] as const;
 type Filter = (typeof FILTERS)[number];
 
 const ACTIVE: readonly JobStatus[] = [
@@ -26,7 +26,7 @@ const COMPLETED: readonly JobStatus[] = [JobStatus.COMPLETED, JobStatus.PAID];
 
 const CANCELLED: readonly JobStatus[] = [JobStatus.CANCELLED, JobStatus.EXPIRED];
 
-const FILTER_STATUSES: Record<Filter, readonly JobStatus[]> = {
+const FILTER_STATUSES: Record<Exclude<Filter, 'All'>, readonly JobStatus[]> = {
   Active: ACTIVE,
   Upcoming: UPCOMING,
   Completed: COMPLETED,
@@ -34,11 +34,12 @@ const FILTER_STATUSES: Record<Filter, readonly JobStatus[]> = {
 };
 
 function matchesFilter(job: Job, filter: Filter): boolean {
+  if (filter === 'All') return true;
   return FILTER_STATUSES[filter].includes(job.status);
 }
 
 export default function Bookings() {
-  const [filter, setFilter] = useState<Filter>('Active');
+  const [filter, setFilter] = useState<Filter>('All');
   const bookings = useBookings();
 
   const visible = useMemo(
@@ -68,7 +69,7 @@ export default function Bookings() {
                 accessibilityState={{ selected: isSelected }}
                 onPress={() => setFilter(item)}
                 className={cn(
-                  'flex-shrink-0 items-center justify-center rounded-xl border px-5 py-2.5',
+                  'flex-shrink-0 items-center justify-center rounded-lg border px-5 py-2.5',
                   isSelected ? 'border-primary bg-primary' : 'border-border bg-surface-muted',
                 )}
               >
@@ -103,7 +104,9 @@ export default function Bookings() {
         ) : visible.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
-            title={`No ${filter.toLowerCase()} bookings`}
+            title={
+              filter === 'All' ? 'No bookings' : `No ${filter.toLowerCase()} bookings`
+            }
             message="Bookings you make will show up here, with everything you need to track your service."
           />
         ) : (
