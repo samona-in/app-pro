@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
-import { StatusBar } from 'expo-status-bar';
 import type { ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
@@ -15,22 +14,13 @@ import { useBookingDraft } from '@/stores/booking';
 import vijayawadaImage from '@/assets/images/vijayawada1.png';
 
 const BANNER_ASPECT_RATIO = 2.5;
-const SHADOW_AT_SCROLL = 4;
 
-function FooterBanner({ scrolled }: { scrolled: boolean }) {
+function FooterBanner() {
   return (
-    <View style={{ width: '100%', paddingHorizontal: 20, paddingTop: 8 }}>
+    <View style={{ width: '100%', paddingHorizontal: 20, paddingTop: 16 }}>
       <View
         className="overflow-hidden rounded-2xl"
-        style={{
-          width: '100%',
-          aspectRatio: BANNER_ASPECT_RATIO,
-          shadowColor: '#000',
-          shadowOpacity: scrolled ? 0.1 : 0,
-          shadowRadius: 10,
-          shadowOffset: { width: 0, height: -4 },
-          elevation: scrolled ? 8 : 0,
-        }}
+        style={{ width: '100%', aspectRatio: BANNER_ASPECT_RATIO }}
       >
         <Image
           source={vijayawadaImage}
@@ -48,7 +38,6 @@ export default function Home() {
   const categories = useServiceCategories();
   const bookingDraft = useBookingDraft();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
-  const [scrolled, setScrolled] = useState(false);
 
   // The tab stays mounted behind the booking flow, so a picked service would
   // still look selected when the customer navigates back. Clear it on focus.
@@ -68,20 +57,15 @@ export default function Home() {
     if (urls.length > 0) void Image.prefetch(urls);
   }, [categories.data]);
 
-  // The banner sits in its own fixed-height row below the scroll area, so the
-  // grid clears it naturally without offset hacks.
+  // The banner is a normal in-flow row below the scroll area, so it stays
+  // pinned to the bottom of the screen while the catalogue scrolls above it.
   return (
     <Screen edges={['bottom']}>
-      <StatusBar style="dark" />
       <ScrollView
         className="flex-1"
         contentContainerClassName="px-5 pb-6"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        onScroll={(event) => {
-          setScrolled(event.nativeEvent.contentOffset.y > SHADOW_AT_SCROLL);
-        }}
-        scrollEventThrottle={16}
       >
         <HomeHeader
           locationLabel={customerProfile?.locationLabel ?? undefined}
@@ -110,7 +94,7 @@ export default function Home() {
         </View>
       </ScrollView>
 
-      <FooterBanner scrolled={scrolled} />
+      <FooterBanner />
     </Screen>
   );
 
