@@ -122,8 +122,8 @@ export default function CollectCashScreen() {
           </View>
 
           {/* Who and what — quick confirmation against the open job. */}
-          <View className="border-t border-border px-5 pb-2 pt-4">
-            <View className="flex-row items-center gap-3">
+          <View className="border-t border-border pt-4">
+            <View className="flex-row items-center gap-3 px-5">
               <Ionicons name="person-circle-outline" size={22} color={color['text-secondary']} />
               <View className="flex-1">
                 <Text variant="bodyStrong">{customerName}</Text>
