@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { JobStatus, type Job } from '@samona/types';
 import { BookingCard } from '@/components/booking';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
@@ -54,30 +54,35 @@ export default function Bookings() {
         <Text variant="titleLg">Bookings</Text>
       </View>
 
-      <View className="mt-4 flex-row rounded-lg bg-surface-muted p-1">
-        {FILTERS.map((item) => {
-          const isSelected = item === filter;
-          return (
-            <Pressable
-              key={item}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isSelected }}
-              onPress={() => setFilter(item)}
-              className={cn(
-                'min-h-[40px] flex-1 items-center justify-center rounded-md',
-                isSelected && 'bg-surface',
-              )}
-            >
-              <Text
-                variant="footnote"
-                className={cn('font-semibold', isSelected && 'text-text-primary')}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4">
+        <View className="flex-row gap-2">
+          {FILTERS.map((item) => {
+            const isSelected = item === filter;
+            return (
+              <Pressable
+                key={item}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                onPress={() => setFilter(item)}
+                className={cn(
+                  'min-h-[40px] items-center justify-center rounded-full border px-4 py-2',
+                  isSelected ? 'border-primary bg-primary' : 'border-border bg-surface-muted',
+                )}
               >
-                {item}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+                <Text
+                  variant="footnote"
+                  className={cn(
+                    'font-semibold',
+                    isSelected ? 'text-primary-foreground' : 'text-text-secondary',
+                  )}
+                >
+                  {item}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
 
       <View className="mt-5 flex-1">
         {bookings.isPending ? (
