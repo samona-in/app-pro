@@ -1,4 +1,4 @@
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
 import { useProProfile } from '@/hooks';
@@ -34,7 +34,7 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       accessibilityLabel={`${service.name}, ${mark.label}`}
       accessibilityHint={isRejected ? 'Shows the rejection reason' : undefined}
       onPress={isRejected ? showReason : undefined}
-      className="grow basis-1/4 rounded-xl border border-border bg-surface-muted p-1.5 active:opacity-70"
+      className="w-20 rounded-xl border border-border bg-surface-muted p-1.5 active:opacity-70"
     >
       <View className="items-end">
         <Ionicons name={mark.name} size={14} color={mark.tint} />
@@ -50,7 +50,7 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
 }
 
 /**
- * The pro's selected services as a compact 4-column grid.
+ * The pro's selected services as a compact horizontally scrollable row.
  *
  * Each card shows just the service icon and name, with a status mark in the
  * corner: green tick when SAMONA accepted it, amber clock while pending, red
@@ -65,11 +65,16 @@ export function ServicesVerificationCard() {
   return (
     <View className="mt-6">
       <Text variant="title">Your services</Text>
-      <View className="mt-3 flex-row flex-wrap gap-1.5">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="mt-3"
+        contentContainerClassName="gap-1.5"
+      >
         {services.map((service) => (
           <ServiceTile key={service.id} service={service} />
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
