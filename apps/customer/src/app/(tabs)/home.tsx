@@ -77,8 +77,8 @@ export default function Home() {
         <Image
           source={vijayawadaImage}
           contentFit="cover"
+          style={{ width: '100%', aspectRatio: 2.5 }}
           accessibilityLabel="Vijayawada"
-          className="h-44 w-full"
         />
       </View>
     </Screen>
