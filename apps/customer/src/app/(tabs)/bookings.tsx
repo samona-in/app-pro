@@ -90,13 +90,13 @@ export default function Bookings() {
         </View>
       </ScrollView>
 
-      <View className="mt-5 flex-1">
+      <View className="mt-5">
         {bookings.isPending ? (
-          <View className="flex-1 justify-center">
+          <View className="items-center py-10">
             <LoadingState message="Loading bookings" size="inline" />
           </View>
         ) : bookings.isError ? (
-          <View className="flex-1 justify-center">
+          <View className="items-center py-10">
             <ErrorState
               title="Couldn't load bookings"
               message="Check your connection and try again."
