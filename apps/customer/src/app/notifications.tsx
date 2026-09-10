@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { NotificationRow } from '@/components/notifications';
-import { Screen } from '@/components/ui';
+import { Screen, Text } from '@/components/ui';
 import { useCustomerNotifications } from '@/hooks';
 
 /**
@@ -14,6 +14,9 @@ export default function Notifications() {
 
   return (
     <Screen scrollable edges={['bottom']}>
+      <View className="pt-2">
+        <Text variant="titleLg">Notifications</Text>
+      </View>
       {notices.isPending ? (
         <View className="mt-10">
           <LoadingState message="Loading notifications" />
@@ -27,7 +30,7 @@ export default function Notifications() {
           />
         </View>
       ) : (notices.data?.length ?? 0) > 0 ? (
-        <View className="mt-4 gap-3">
+        <View className="mt-4">
           {(notices.data ?? []).map((notice) => (
             <NotificationRow key={notice.id} notice={notice} />
           ))}

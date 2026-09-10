@@ -3,9 +3,10 @@ import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { CustomerNotification, NotificationKind } from '@samona/types';
-import { Card, Text } from '@/components/ui';
+import { Text } from '@/components/ui';
 import { useMarkNotificationRead } from '@/hooks';
 import { color } from '@/theme';
+import { cn } from '@/utils/cn';
 import { formatRelativeTime } from '@/utils/format';
 
 type Ionicon = keyof typeof Ionicons.glyphMap;
@@ -23,12 +24,11 @@ export interface NotificationRowProps {
 }
 
 /**
- * One notification in the customer's Notifications screen — styled like the
- * Pro app's NotificationCard. An unread row shows a brand-tinted chip and
- * marks itself read on tap; the row then opens the related booking when the
- * notice carries a route. The read state is optimistic in the list cache and
- * reconciled by REST + the `notification:unread` echo (see
- * `useMarkNotificationRead`).
+ * One notification in the customer's Notifications screen — a borderless, flat
+ * list row (no card). An unread row shows a brand-tinted icon and marks itself
+ * read on tap; the row then opens the related booking when the notice carries a
+ * route. The read state is optimistic in the list cache and reconciled by
+ * REST + the `notification:unread` echo (see `useMarkNotificationRead`).
  */
 export function NotificationRow({ notice }: NotificationRowProps) {
   const markRead = useMarkNotificationRead();
@@ -46,13 +46,13 @@ export function NotificationRow({ notice }: NotificationRowProps) {
       accessibilityLabel={`${notice.title}. ${notice.body}`}
       accessibilityHint={notice.route ? 'Opens the related booking.' : undefined}
       onPress={handlePress}
-      className="active:opacity-60"
+      className={cn('bg-background py-2 active:opacity-60')}
     >
-      <Card className="flex-row items-center gap-3" padded={false}>
-        <View className="p-2 pr-0">
+      <View className="flex-row items-center">
+        <View className="mr-3.5 flex h-12 w-12 items-center justify-center rounded-xl bg-surface-muted">
           <Ionicons name={icon} size={22} color={unread ? tint : color['text-muted']} />
         </View>
-        <View className="min-w-0 flex-1 py-3 pr-4">
+        <View className="min-w-0 flex-1 py-1">
           <View className="flex-row items-center justify-between gap-2">
             <Text variant="bodyStrong" numberOfLines={1} className="min-w-0 flex-1">
               {notice.title}
@@ -65,7 +65,10 @@ export function NotificationRow({ notice }: NotificationRowProps) {
             {notice.body}
           </Text>
         </View>
-      </Card>
+      </View>
+
+      {/* Thin divider between list rows, bleeding to the screen edges. */}
+      <View className="my-2 -mx-5 h-px bg-border" />
     </Pressable>
   );
 }
