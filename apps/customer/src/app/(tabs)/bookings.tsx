@@ -54,8 +54,13 @@ export default function Bookings() {
         <Text variant="titleLg">Bookings</Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4">
-        <View className="flex-row gap-2">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="mt-4"
+        contentContainerClassName="items-start"
+      >
+        <View className="flex-row gap-3">
           {FILTERS.map((item) => {
             const isSelected = item === filter;
             return (
@@ -65,7 +70,7 @@ export default function Bookings() {
                 accessibilityState={{ selected: isSelected }}
                 onPress={() => setFilter(item)}
                 className={cn(
-                  'min-h-[40px] items-center justify-center rounded-full border px-4 py-2',
+                  'flex-shrink-0 items-center justify-center rounded-xl border px-5 py-2.5',
                   isSelected ? 'border-primary bg-primary' : 'border-border bg-surface-muted',
                 )}
               >
