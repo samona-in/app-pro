@@ -40,7 +40,7 @@ export function ServiceImage({ uri, className, accessibilityLabel }: ServiceImag
           contentFit="cover"
           cachePolicy="memory-disk"
           onError={(event) => console.warn('[ServiceImage] failed to load:', uri, event.error)}
-          className="h-full w-full"
+          style={{ width: '100%', height: '100%' }}
         />
       ) : null}
     </View>
