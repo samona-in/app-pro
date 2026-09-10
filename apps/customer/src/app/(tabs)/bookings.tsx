@@ -58,7 +58,7 @@ export default function Bookings() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="mt-4"
+        className="mt-4 flex-grow-0"
         contentContainerClassName="items-start"
       >
         <View className="flex-row gap-3">
