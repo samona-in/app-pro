@@ -36,14 +36,16 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       onPress={isRejected ? showReason : undefined}
       className="w-24 rounded-xl border border-border bg-surface-muted p-1.5 active:opacity-70"
     >
-      <View className="h-3.5 items-end">
-        <Ionicons name={mark.name} size={14} color={mark.tint} />
-      </View>
-      <View className="mt-1 items-center px-0.5">
+      <View className="items-center px-0.5">
         {icon ? <Ionicons name={icon} size={18} color={color['text-primary']} /> : null}
-        <Text variant="caption" numberOfLines={2} className="mt-1 text-center">
-          {service.name}
-        </Text>
+        <View className="mt-1 flex-row items-center justify-center">
+          <Text variant="caption" numberOfLines={2} className="text-center">
+            {service.name}
+          </Text>
+          <View className="ml-0.5">
+            <Ionicons name={mark.name} size={13} color={mark.tint} />
+          </View>
+        </View>
       </View>
     </Pressable>
   );
@@ -58,7 +60,6 @@ function AddServiceTile() {
       onPress={() => undefined}
       className="w-24 items-center rounded-xl border border-dashed border-border bg-surface-muted p-1.5 active:opacity-70"
     >
-      <View className="h-3.5" />
       <View className="mt-1 items-center px-0.5">
         <Ionicons name="add" size={20} color={color['text-secondary']} />
         <Text variant="caption" numberOfLines={2} className="mt-1 text-center text-text-secondary">
@@ -72,9 +73,10 @@ function AddServiceTile() {
 /**
  * The pro's selected services as a compact horizontally scrollable row.
  *
- * Each card shows just the service icon and name, with a status mark in the
- * corner: green tick when SAMONA accepted it, amber clock while pending, red
- * cross when rejected. Tapping a rejected service reveals its reason.
+ * Each card shows just the service icon and name, with a status mark right
+ * after the name: green tick when SAMONA accepted it, amber clock while
+ * pending, red cross when rejected. Tapping a rejected service reveals its
+ * reason.
  */
 export function ServicesVerificationCard() {
   const { data: profile } = useProProfile();
