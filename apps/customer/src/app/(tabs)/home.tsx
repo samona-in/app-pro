@@ -12,6 +12,8 @@ import { Screen } from '@/components/ui';
 import { useServiceCategories, useSession } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
 
+import vijayawadaImage from '@/assets/images/vijayawada1.png';
+
 export default function Home() {
   const { customerProfile } = useSession();
   const categories = useServiceCategories();
@@ -43,7 +45,7 @@ export default function Home() {
   }
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable edges={[]}>
       <StatusBar style="dark" />
       <HomeHeader
         locationLabel={customerProfile?.locationLabel ?? undefined}
@@ -53,7 +55,7 @@ export default function Home() {
         <SearchBar onPress={() => router.push('/bookings')} />
       </HomeHeader>
 
-      <View className="mt-5">
+      <View className="mt-5 flex-1">
         {categories.isPending ? (
           <LoadingState message="Loading services" size="inline" />
         ) : categories.isError ? (
@@ -70,6 +72,16 @@ export default function Home() {
           />
         )}
       </View>
+
+      <Image
+        source={vijayawadaImage}
+        contentFit="cover"
+        accessibilityLabel="Vijayawada"
+        style={{
+          width: '100%',
+          aspectRatio: 1.5,
+        }}
+      />
     </Screen>
   );
 }
