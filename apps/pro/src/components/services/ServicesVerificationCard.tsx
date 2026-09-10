@@ -38,13 +38,15 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
     >
       <View className="h-16 w-16 items-center justify-center rounded-lg bg-surface-muted">
         {icon ? <Ionicons name={icon} size={28} color={color['text-secondary']} /> : null}
-        <View className="absolute -right-1.5 -top-1.5 h-4 w-4 items-center justify-center rounded-full border border-border bg-surface">
-          <Ionicons name={mark.name} size={10} color={mark.tint} />
+      </View>
+      <View className="mt-1.5 flex-row items-center justify-center">
+        <Text variant="caption" numberOfLines={2} className="text-center text-text-secondary">
+          {service.name}
+        </Text>
+        <View className="ml-1">
+          <Ionicons name={mark.name} size={12} color={mark.tint} />
         </View>
       </View>
-      <Text variant="caption" numberOfLines={2} className="mt-1.5 text-center text-text-secondary">
-        {service.name}
-      </Text>
     </Pressable>
   );
 }
@@ -73,9 +75,9 @@ function AddServiceTile() {
  * the home services grid in the customer app: a light icon tile with the
  * service name beneath.
  *
- * Each tile carries a corner badge with the verification status — green tick
- * when SAMONA accepted it, amber clock while pending, red cross when rejected.
- * Tapping a rejected service reveals its reason.
+ * Each tile shows the service name with a status mark right after it — green
+ * tick when SAMONA accepted it, amber clock while pending, red cross when
+ * rejected. Tapping a rejected service reveals its reason.
  */
 export function ServicesVerificationCard() {
   const { data: profile } = useProProfile();
