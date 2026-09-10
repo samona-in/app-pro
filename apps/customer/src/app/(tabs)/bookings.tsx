@@ -107,7 +107,7 @@ export default function Bookings() {
             message="Bookings you make will show up here, with everything you need to track your service."
           />
         ) : (
-          <View className="gap-3">
+          <View>
             {visible.map((job) => (
               <BookingCard key={job.id} job={job} />
             ))}

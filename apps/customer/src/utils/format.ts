@@ -23,3 +23,12 @@ export function formatRelativeTime(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
 }
+
+/** A booking date as in the list UI, e.g. "Sep 10, 2026". */
+export function formatBookingDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-IN', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
