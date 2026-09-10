@@ -106,7 +106,7 @@ export function ServicesVerificationCard() {
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mt-3"
-        contentContainerClassName="gap-3"
+        contentContainerClassName="pr-4"
       >
         {services.map((service) => (
           <ServiceTile key={service.id} service={service} />
