@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ServiceImage } from '@/components/services/ServiceImage';
 import { Text } from '@/components/ui';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
@@ -9,6 +10,8 @@ export interface SelectableCardProps {
   selected: boolean;
   onToggle: () => void;
   icon?: React.ComponentProps<typeof Ionicons>['name'];
+  /** Service image thumbnail, rendered instead of `icon` when set. */
+  imageUri?: string | null;
   /** Renders a radio affordance instead of a checkbox. */
   single?: boolean;
 }
@@ -22,6 +25,7 @@ export function SelectableCard({
   selected,
   onToggle,
   icon,
+  imageUri,
   single = false,
 }: SelectableCardProps) {
   return (
@@ -35,7 +39,9 @@ export function SelectableCard({
         selected ? 'border-brand bg-brand' : 'border-border bg-surface',
       )}
     >
-      {icon ? (
+      {imageUri ? (
+        <ServiceImage uri={imageUri} accessibilityLabel={label} className="h-7 w-7 rounded" />
+      ) : icon ? (
         <Ionicons
           name={icon}
           size={20}
@@ -45,7 +51,7 @@ export function SelectableCard({
 
       <Text
         variant={selected ? 'bodyStrong' : 'body'}
-        className={cn('flex-1', icon && 'ml-3', selected && 'text-white')}
+        className={cn('flex-1', (icon || imageUri) && 'ml-3', selected && 'text-white')}
       >
         {label}
       </Text>

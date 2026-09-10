@@ -1,12 +1,11 @@
 import { Image, View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { PlaceType, JOB_DESCRIPTION_MIN } from '@samona/types';
 import { BookingStep } from '@/components/booking';
+import { ServiceImage } from '@/components/home/ServiceImage';
 import { Card, Divider, Text } from '@/components/ui';
 import { useCreateBooking } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
-import { color } from '@/theme';
 import { formatRupees } from '@/utils/format';
 
 function SummaryRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -66,17 +65,11 @@ export default function BookingReview() {
     >
       <Card>
         <View className="flex-row items-center">
-          <View className="h-11 w-11 items-center justify-center rounded-lg bg-surface-muted">
-            <Ionicons
-              name={
-                (draft.service?.icon ?? 'construct-outline') as React.ComponentProps<
-                  typeof Ionicons
-                >['name']
-              }
-              size={22}
-              color={color['text-secondary']}
-            />
-          </View>
+          <ServiceImage
+            uri={draft.service?.icon}
+            accessibilityLabel={draft.service?.name}
+            className="h-11 w-11 rounded-lg"
+          />
           <View className="ml-3 flex-1">
             <Text variant="title">{draft.service?.name ?? '—'}</Text>
             <Text variant="caption">{draft.customSkill || draft.skill?.name || '—'}</Text>

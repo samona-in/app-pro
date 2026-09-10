@@ -54,7 +54,7 @@ export default function OnboardingServices() {
             <SelectableCard
               key={service.id}
               label={service.name}
-              icon={(service.icon ?? undefined) as never}
+              imageUri={service.icon}
               selected={selected.includes(service.id)}
               onToggle={() => toggle(service.id)}
             />

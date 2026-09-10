@@ -1,13 +1,12 @@
-import { Pressable, View, type PressableProps } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Pressable, type PressableProps } from 'react-native';
 import type { ServiceOption } from '@samona/types';
+import { ServiceImage } from './ServiceImage';
 import { Text } from '@/components/ui';
-import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 
 export interface ServiceCardProps extends Omit<PressableProps, 'style'> {
   service: ServiceOption;
-  /** When true, the icon tile renders with a dark filled background. */
+  /** When true, the label renders emphasized in the primary color. */
   active?: boolean;
   className?: string;
 }
@@ -15,8 +14,8 @@ export interface ServiceCardProps extends Omit<PressableProps, 'style'> {
 /**
  * One category tile in the home services grid (3-up).
  *
- * A light, rounded icon tile with the category name beneath, drawn from the
- * backend catalogue's Ionicons name when one is present.
+ * A light, rounded image tile with the category name beneath, drawn from the
+ * backend catalogue's image URL when one is present.
  */
 export function ServiceCard({
   service,
@@ -25,10 +24,6 @@ export function ServiceCard({
   className,
   ...rest
 }: ServiceCardProps) {
-  const iconName = (service.icon ?? 'grid-outline') as React.ComponentProps<
-    typeof Ionicons
-  >['name'];
-
   return (
     <Pressable
       accessibilityRole="button"
@@ -38,18 +33,11 @@ export function ServiceCard({
       className={cn('items-center', className)}
       {...rest}
     >
-      <View
-        className={cn(
-          'h-16 w-16 items-center justify-center rounded-lg',
-          active ? 'bg-brand' : 'bg-surface-muted',
-        )}
-      >
-        <Ionicons
-          name={iconName}
-          size={28}
-          color={active ? color['brand-contrast'] : color['text-secondary']}
-        />
-      </View>
+      <ServiceImage
+        uri={service.icon}
+        accessibilityLabel={service.name}
+        className="h-16 w-16 rounded-lg"
+      />
       <Text
         variant="caption"
         className={cn(

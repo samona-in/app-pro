@@ -1,11 +1,10 @@
 import { Pressable, View, type PressableProps } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { type Job, type JobStatus } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
+import { ServiceImage } from '@/components/home/ServiceImage';
 import { Badge, Text } from '@/components/ui';
 import { useUnreadMessages } from '@/hooks';
-import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import { formatRupees } from '@/utils/format';
 
@@ -42,9 +41,6 @@ export interface BookingCardProps extends Omit<PressableProps, 'style'> {
  * One booking in the customer's list. Tapping it opens the booking detail.
  */
 export function BookingCard({ job, className, ...rest }: BookingCardProps) {
-  const iconName = (job.service.icon ?? 'construct-outline') as React.ComponentProps<
-    typeof Ionicons
-  >['name'];
   const unread = useUnreadMessages();
 
   return (
@@ -56,9 +52,11 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
       {...rest}
     >
       <View className="relative flex-row items-center rounded-xl border border-border bg-surface p-4">
-        <View className="h-12 w-12 items-center justify-center rounded-lg bg-surface-muted">
-          <Ionicons name={iconName} size={24} color={color['text-secondary']} />
-        </View>
+        <ServiceImage
+          uri={job.service.icon}
+          accessibilityLabel={job.service.name}
+          className="h-12 w-12 rounded-lg"
+        />
 
         <View className="ml-3 flex-1">
           <View className="flex-row items-center justify-between">

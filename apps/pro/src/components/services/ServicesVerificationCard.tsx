@@ -4,6 +4,7 @@ import { Text } from '@/components/ui';
 import { useProProfile } from '@/hooks';
 import { color } from '@/theme';
 import { ProServiceStatus, type ProServiceVerification } from '@samona/types';
+import { ServiceImage } from './ServiceImage';
 
 const STATUS_MARK: Record<
   ProServiceStatus,
@@ -17,8 +18,6 @@ const STATUS_MARK: Record<
 function ServiceTile({ service }: { service: ProServiceVerification }) {
   const mark = STATUS_MARK[service.status];
   const isRejected = service.status === ProServiceStatus.REJECTED;
-  const icon = (service.icon ?? undefined) as
-    React.ComponentProps<typeof Ionicons>['name'] | undefined;
 
   function showReason() {
     const reason = service.rejectionReason?.trim();
@@ -36,9 +35,11 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       onPress={isRejected ? showReason : undefined}
       className="w-24 items-center active:opacity-70"
     >
-      <View className="h-16 w-16 items-center justify-center rounded-lg bg-surface-muted">
-        {icon ? <Ionicons name={icon} size={28} color={color['text-secondary']} /> : null}
-      </View>
+      <ServiceImage
+        uri={service.icon}
+        accessibilityLabel={service.name}
+        className="h-16 w-16 rounded-lg"
+      />
       <View className="mt-1.5 flex-row items-center justify-center">
         <Text variant="caption" numberOfLines={2} className="text-center text-text-secondary">
           {service.name}
@@ -72,7 +73,7 @@ function AddServiceTile() {
 
 /**
  * The pro's selected services as a horizontally scrollable row, styled like
- * the home services grid in the customer app: a light icon tile with the
+ * the home services grid in the customer app: a rounded image tile with the
  * service name beneath.
  *
  * Each tile shows the service name with a status mark right after it — green
