@@ -100,6 +100,24 @@ export function createNotificationsRouter(services: Services): Router {
   });
 
   /**
+   * Marks every one of the customer's notices as read. Opening the
+   * Notifications screen calls this once, so the bell pill resets without
+   * the customer having to open each row. Idempotent. Scoped entirely to the
+   * caller's own profile.
+   *
+   * Declared before `/:notificationId/read` so the literal path is never
+   * captured as a notification id.
+   */
+  router.post('/read-all', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
+    try {
+      await services.notifications.markAllCustomerNotificationsRead(req.user!.id);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
    * Acknowledges one of the customer's notices as read. Idempotent: a second
    * tap is still a 204. The row is scoped to the caller's own profile in the
    * service, never trusted from the path.

@@ -94,3 +94,36 @@ export function useMarkNotificationRead() {
     },
   });
 }
+
+/**
+ * Marks every notice read in one call (fires when the Notifications screen
+ * opens). Optimistic so the feed and the bell pill settle instantly; the
+ * list is refetched from the source of truth afterwards.
+ */
+export function useMarkAllNotificationsRead() {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  const userId = user?.id;
+  const unreadKey = useMemo(() => queryKeys.notifications.unread(userId ?? ''), [userId]);
+
+  return useMutation({
+    mutationFn: () => notificationsApi.readAll(),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.notifications.list });
+      const prev = queryClient.getQueryData<CustomerNotification[]>(queryKeys.notifications.list);
+      queryClient.setQueryData<CustomerNotification[]>(queryKeys.notifications.list, (old) =>
+        (old ?? []).map((notice) =>
+          notice.readAt ? notice : { ...notice, readAt: new Date().toISOString() },
+        ),
+      );
+      return { prev };
+    },
+    onError: (_error, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(queryKeys.notifications.list, ctx.prev);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.list });
+      if (userId) void queryClient.invalidateQueries({ queryKey: unreadKey });
+    },
+  });
+}

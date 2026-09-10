@@ -857,6 +857,19 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     }
   }
 
+  /**
+   * Marks every one of the caller's unread notices as read at once. Opening
+   * the Notifications screen resets the whole feed (and the bell pill); the
+   * rows themselves no longer need to be tapped one by one.
+   */
+  async function markAllCustomerNotificationsRead(customerUserId: string): Promise<void> {
+    await prisma.customerNotification.updateMany({
+      where: { customer: { userId: customerUserId }, readAt: null },
+      data: { readAt: new Date() },
+    });
+    await emitUnreadForCustomer(customerUserId);
+  }
+
   /** Recomputes the customer's unread count and pushes it over their socket. */
   async function emitUnreadForCustomer(customerUserId: string): Promise<void> {
     const unreadCount = await countUnreadForCustomer(customerUserId);
@@ -1286,6 +1299,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     listForCustomer,
     countUnreadForCustomer,
     markCustomerNotificationRead,
+    markAllCustomerNotificationsRead,
     registerPushToken,
     setPushSettings,
     sendChatPush,

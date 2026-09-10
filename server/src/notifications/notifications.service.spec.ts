@@ -739,6 +739,31 @@ describe('createNotificationsService customer notices', () => {
     });
   });
 
+  it('marks every unread notice read and pushes the fresh count', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 3 });
+    const count = jest.fn().mockResolvedValue(0);
+    const prisma = {
+      customerProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1' }) },
+      customerNotification: { create: jest.fn(), count, findMany: jest.fn(), updateMany },
+    };
+    const emitToUser = jest.fn();
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+      realtime: { emitToUser } as never,
+    });
+
+    await expect(service.markAllCustomerNotificationsRead('user-1')).resolves.toBeUndefined();
+
+    expect(prisma.customerNotification.updateMany).toHaveBeenCalledWith({
+      where: { customer: { userId: 'user-1' }, readAt: null },
+      data: { readAt: expect.any(Date) },
+    });
+    expect(emitToUser).toHaveBeenCalledWith('user-1', REALTIME_EVENTS.NOTIFICATION_UNREAD, {
+      unreadCount: 0,
+    });
+  });
+
   it('returns an empty list and a zero count for an account with no profile', async () => {
     const customerProfileFindUnique = jest.fn().mockResolvedValue(null);
     const prisma = {

@@ -10,7 +10,7 @@ type Ionicon = keyof typeof Ionicons.glyphMap;
 
 /** Maps a notification kind to a leading icon and its tint. */
 const KIND_ICON: Record<NotificationKind, { icon: Ionicon; tint: string }> = {
-  JOB_ALERT: { icon: 'notifications', tint: color.brand },
+  JOB_ALERT: { icon: 'briefcase-outline', tint: color.brand },
   JOB_STATUS: { icon: 'construct-outline', tint: color.info },
   PAYMENT: { icon: 'wallet-outline', tint: color.success },
   SYSTEM: { icon: 'shield-checkmark-outline', tint: color['text-muted'] },
@@ -21,7 +21,13 @@ const KIND_ICON: Record<NotificationKind, { icon: Ionicon; tint: string }> = {
  * row — the leading icon flashes while the job is open and a `repeats` chip
  * (when it paged more than once) hints how insistent the alert was.
  */
-export function NotificationCard({ notification, className }: { notification: AppNotification; className?: string }) {
+export function NotificationCard({
+  notification,
+  className,
+}: {
+  notification: AppNotification;
+  className?: string;
+}) {
   const { icon, tint } = KIND_ICON[notification.kind];
   const open = notification.resolvedAt === null;
 

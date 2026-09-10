@@ -131,4 +131,7 @@ export const notificationsApi = {
   /** Acknowledges one notice as read; idempotent server-side. */
   markRead: (notificationId: string) =>
     api.post<undefined>(`/notifications/${notificationId}/read`),
+
+  /** Marks every notice as read (called once when the Notifications opens). */
+  readAll: () => api.post<undefined>('/notifications/read-all'),
 };
