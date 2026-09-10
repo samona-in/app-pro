@@ -34,7 +34,7 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       accessibilityLabel={`${service.name}, ${mark.label}`}
       accessibilityHint={isRejected ? 'Shows the rejection reason' : undefined}
       onPress={isRejected ? showReason : undefined}
-      className="grow basis-1/4 rounded-xl border border-border bg-surface p-2 active:opacity-70"
+      className="grow basis-1/4 rounded-xl border border-border bg-surface-muted p-2 active:opacity-70"
     >
       <View className="items-end">
         <Ionicons name={mark.name} size={18} color={mark.tint} />
