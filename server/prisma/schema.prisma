@@ -226,14 +226,26 @@ model Skill {
   @@map("skills")
 }
 
+/// A service a pro selected, plus its verification outcome.
+///
+/// Every service starts in `PENDING`. An admin reviews it offline and flips the
+/// status directly in the database (there is no admin panel yet); the pro app
+/// only reads this. `REJECTED` carries the reason the pro is shown.
 model ProService {
   proProfileId String @map("pro_profile_id") @db.Uuid
   serviceId    String @map("service_id") @db.Uuid
 
+  status          ProServiceStatus @default(PENDING)
+  rejectionReason String?          @map("rejection_reason")
+
   proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
   service    Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@id([proProfileId, serviceId])
+  @@index([status])
   @@map("pro_services")
 }
 
@@ -561,6 +573,14 @@ enum OnboardingStatus {
   NOT_STARTED
   IN_PROGRESS
   COMPLETED
+}
+
+/// How a pro's selected service is verified. Mirrored by `ProServiceStatus` in
+/// `@samona/types` — keep the two in sync.
+enum ProServiceStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 enum ExperienceLevel {
