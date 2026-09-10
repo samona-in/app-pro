@@ -6,38 +6,25 @@ import { ServiceImage } from '@/components/home/ServiceImage';
 import { Text } from '@/components/ui';
 import { useUnreadMessages } from '@/hooks';
 import { cn } from '@/utils/cn';
-import { formatBookingDate, formatRupees } from '@/utils/format';
+import { formatBookingDate } from '@/utils/format';
 
-type StatusTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
-
-const STATUS_PRESENTATION: Record<JobStatus, { label: string; tone: StatusTone }> = {
-  REQUESTED: { label: 'Requested', tone: 'info' },
-  OFFERED: { label: 'Offered', tone: 'info' },
-  ACCEPTED: { label: 'Accepted', tone: 'success' },
-  TRAVELLING: { label: 'On the way', tone: 'info' },
-  ARRIVED: { label: 'Arrived', tone: 'info' },
-  IN_PROGRESS: { label: 'In progress', tone: 'info' },
-  COMPLETED: { label: 'Completed', tone: 'success' },
-  PAYMENT_PENDING: { label: 'Payment pending', tone: 'warning' },
-  PAID: { label: 'Paid', tone: 'success' },
-  CANCELLED: { label: 'Cancelled', tone: 'neutral' },
-  EXPIRED: { label: 'Expired', tone: 'neutral' },
+const STATUS_PRESENTATION: Record<JobStatus, { label: string }> = {
+  REQUESTED: { label: 'Requested' },
+  OFFERED: { label: 'Offered' },
+  ACCEPTED: { label: 'Accepted' },
+  TRAVELLING: { label: 'On the way' },
+  ARRIVED: { label: 'Arrived' },
+  IN_PROGRESS: { label: 'In progress' },
+  COMPLETED: { label: 'Completed' },
+  PAYMENT_PENDING: { label: 'Payment pending' },
+  PAID: { label: 'Paid' },
+  CANCELLED: { label: 'Cancelled' },
+  EXPIRED: { label: 'Expired' },
 };
 
-const TONE_TEXT: Record<StatusTone, string> = {
-  neutral: 'text-text-secondary',
-  success: 'text-success',
-  warning: 'text-warning',
-  danger: 'text-danger',
-  info: 'text-info',
-};
-
+/** Human label for a job status, shared with the booking detail screen. */
 export function bookingStatusLabel(status: JobStatus): string {
   return STATUS_PRESENTATION[status]?.label ?? 'Unknown';
-}
-
-function statusTone(status: JobStatus): StatusTone {
-  return STATUS_PRESENTATION[status]?.tone ?? 'neutral';
 }
 
 export interface BookingCardProps extends Omit<PressableProps, 'style'> {
@@ -76,22 +63,12 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
           <Text variant="bodyStrong" numberOfLines={1}>
             {job.service.name}
           </Text>
-          <Text
-            variant="caption"
-            numberOfLines={1}
-            className={cn('mt-0.5 font-medium', TONE_TEXT[statusTone(job.status)])}
-          >
-            {bookingStatusLabel(job.status)} • {dateLabel}
+          <Text variant="caption" numberOfLines={1} className="mt-0.5 text-text-secondary">
+            {dateLabel}
           </Text>
           <Text variant="caption" numberOfLines={1} className="mt-0.5 text-text-muted">
             {job.description}
           </Text>
-          <View className="mt-1 flex-row items-center justify-between">
-            <Text variant="footnote">{formatRupees(job.basePayPaise)}</Text>
-            <Text variant="caption" className="text-text-muted">
-              {placeLabel(job)}
-            </Text>
-          </View>
         </View>
       </View>
 
@@ -99,9 +76,4 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
       <View className="my-3 ml-[62px] h-px bg-border" />
     </Pressable>
   );
-}
-
-function placeLabel(job: Job): string {
-  if (job.placeType === 'OTHER') return job.placeDescription ?? 'Other';
-  return job.placeType.charAt(0) + job.placeType.slice(1).toLowerCase();
 }
