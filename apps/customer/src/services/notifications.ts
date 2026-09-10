@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import type { CustomerNotification, CustomerNotificationUnread } from '@samona/types';
-import type { RegisterPushTokenInput } from '@samona/validation';
+import type { DeleteNotificationsInput, RegisterPushTokenInput } from '@samona/validation';
 import { api } from './api';
 import { env } from '@/env';
 
@@ -134,4 +134,10 @@ export const notificationsApi = {
 
   /** Marks every notice as read (called once when the Notifications opens). */
   readAll: () => api.post<undefined>('/notifications/read-all'),
+
+  /** Permanently deletes the selected notices from the caller's own inbox. */
+  delete: (notificationIds: string[]) =>
+    api.post<undefined>('/notifications/delete', {
+      notificationIds,
+    } satisfies DeleteNotificationsInput),
 };

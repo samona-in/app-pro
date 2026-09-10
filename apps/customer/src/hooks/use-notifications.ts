@@ -127,3 +127,36 @@ export function useMarkAllNotificationsRead() {
     },
   });
 }
+
+/**
+ * Permanently deletes the selected notices in one call (the multi-select trash
+ * button). Optimistic so the rows leave the feed instantly; the list and the
+ * bell pill are refetched from the source of truth afterwards. The server only
+ * ever deletes the caller's own rows, so pruning the cache by id is safe.
+ */
+export function useDeleteNotifications() {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  const userId = user?.id;
+  const unreadKey = useMemo(() => queryKeys.notifications.unread(userId ?? ''), [userId]);
+
+  return useMutation({
+    mutationFn: (notificationIds: string[]) => notificationsApi.delete(notificationIds),
+    onMutate: async (notificationIds) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.notifications.list });
+      const prev = queryClient.getQueryData<CustomerNotification[]>(queryKeys.notifications.list);
+      const removed = new Set(notificationIds);
+      queryClient.setQueryData<CustomerNotification[]>(queryKeys.notifications.list, (old) =>
+        (old ?? []).filter((notice) => !removed.has(notice.id)),
+      );
+      return { prev };
+    },
+    onError: (_error, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(queryKeys.notifications.list, ctx.prev);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.list });
+      if (userId) void queryClient.invalidateQueries({ queryKey: unreadKey });
+    },
+  });
+}
