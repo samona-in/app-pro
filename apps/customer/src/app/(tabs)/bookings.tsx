@@ -50,7 +50,7 @@ export default function Bookings() {
   );
 
   return (
-    <Screen>
+    <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
         <Text variant="titleLg">Bookings</Text>
       </View>
