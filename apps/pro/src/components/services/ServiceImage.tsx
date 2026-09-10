@@ -1,4 +1,5 @@
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
+import { Image } from 'expo-image';
 import { cn } from '@/utils/cn';
 
 /** True when a stored `services.icon` value is an image URL, not a legacy name. */
@@ -21,9 +22,11 @@ export interface ServiceImageProps {
 /**
  * Renders a service's image into a rounded muted tile.
  *
- * The catalogue's `icon` column now holds image URLs. When the stored value is
- * null or a leftover legacy Ionicons name the tile stays empty, so nothing ever
- * flashes a broken image.
+ * The catalogue's `icon` column now holds image URLs. `expo-image` keeps
+ * fetched images in memory and on disk, so a tile still renders instantly when
+ * the pro returns to the screen, and shows a muted tile while loading. When the
+ * stored value is null or a leftover legacy Ionicons name the tile stays empty,
+ * so nothing ever flashes a broken image.
  */
 export function ServiceImage({ uri, className, accessibilityLabel }: ServiceImageProps) {
   const hasImage = uri != null && isImageUrl(uri);
@@ -32,9 +35,11 @@ export function ServiceImage({ uri, className, accessibilityLabel }: ServiceImag
     <View className={cn('overflow-hidden bg-surface-muted', className)}>
       {hasImage ? (
         <Image
-          source={{ uri }}
+          source={uri}
           accessibilityLabel={accessibilityLabel}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={120}
           className="h-full w-full"
         />
       ) : null}
