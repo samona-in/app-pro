@@ -19,7 +19,7 @@ export function TodayStack() {
           <Text variant="label" className="mt-1 text-text-muted">
             Earnings
           </Text>
-          <Text variant="metric" className="mt-1">
+          <Text variant="title" className="mt-1">
             ₹0
           </Text>
         </Card>
@@ -28,7 +28,7 @@ export function TodayStack() {
           <Text variant="label" className="mt-1 text-text-muted">
             Jobs completed
           </Text>
-          <Text variant="metric" className="mt-1">
+          <Text variant="title" className="mt-1">
             0
           </Text>
         </Card>
