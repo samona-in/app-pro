@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import type { ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
@@ -15,6 +15,14 @@ export default function Home() {
   const categories = useServiceCategories();
   const bookingDraft = useBookingDraft();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
+
+  // The tab stays mounted behind the booking flow, so a picked service would
+  // still look selected when the customer navigates back. Clear it on focus.
+  useFocusEffect(
+    useCallback(() => {
+      setActiveSlug(null);
+    }, []),
+  );
 
   function handleSelectService(service: ServiceOption) {
     setActiveSlug(service.slug);
