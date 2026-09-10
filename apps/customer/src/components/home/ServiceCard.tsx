@@ -6,7 +6,7 @@ import { cn } from '@/utils/cn';
 
 export interface ServiceCardProps extends Omit<PressableProps, 'style'> {
   service: ServiceOption;
-  /** When true, the image tile renders with a brand border. */
+  /** When true, the label renders emphasized in the primary color. */
   active?: boolean;
   className?: string;
 }
@@ -36,7 +36,7 @@ export function ServiceCard({
       <ServiceImage
         uri={service.icon}
         accessibilityLabel={service.name}
-        className={cn('h-16 w-16 rounded-lg', active && 'border border-brand')}
+        className="h-16 w-16 rounded-lg"
       />
       <Text
         variant="caption"
