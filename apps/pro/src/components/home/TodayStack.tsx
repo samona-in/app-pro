@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Text } from '@/components/ui';
 import { color } from '@/theme';
@@ -12,7 +12,20 @@ import { color } from '@/theme';
 export function TodayStack() {
   return (
     <View className="mt-6">
-      <Text variant="title">Today</Text>
+      <View className="flex-row items-center justify-between">
+        <Text variant="title">Today</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="View earnings details"
+          onPress={() => undefined}
+          className="flex-row items-center"
+        >
+          <Text variant="caption" className="text-brand">
+            View details
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={color.brand} />
+        </Pressable>
+      </View>
       <View className="mt-3 flex-row gap-3">
         <Card className="flex-1">
           <Ionicons name="cash-outline" size={18} color={color['text-secondary']} />
