@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
 import type { ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
@@ -12,26 +13,6 @@ import { useServiceCategories, useSession } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
 
 import vijayawadaImage from '@/assets/images/vijayawada1.png';
-
-const BANNER_ASPECT_RATIO = 2.5;
-
-function FooterBanner() {
-  return (
-    <View style={{ width: '100%', paddingHorizontal: 20, paddingTop: 16 }}>
-      <View
-        className="overflow-hidden rounded-2xl"
-        style={{ width: '100%', aspectRatio: BANNER_ASPECT_RATIO }}
-      >
-        <Image
-          source={vijayawadaImage}
-          contentFit="cover"
-          accessibilityLabel="Vijayawada"
-          style={{ width: '100%', height: '100%' }}
-        />
-      </View>
-    </View>
-  );
-}
 
 export default function Home() {
   const { customerProfile } = useSession();
@@ -57,50 +38,49 @@ export default function Home() {
     if (urls.length > 0) void Image.prefetch(urls);
   }, [categories.data]);
 
-  // The banner is a normal in-flow row below the scroll area, so it stays
-  // pinned to the bottom of the screen while the catalogue scrolls above it.
-  return (
-    <Screen edges={['bottom']}>
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="px-5 pb-6"
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <HomeHeader
-          locationLabel={customerProfile?.locationLabel ?? undefined}
-          onPress={() => router.push('/location-picker')}
-          trailing={<NotificationBell />}
-        >
-          <SearchBar onPress={() => router.push('/bookings')} />
-        </HomeHeader>
-
-        <View className="mt-5">
-          {categories.isPending ? (
-            <LoadingState message="Loading services" size="inline" />
-          ) : categories.isError ? (
-            <ErrorState
-              title="Couldn't load services"
-              message="Check your connection and try again."
-              onRetry={() => void categories.refetch()}
-            />
-          ) : (
-            <ServiceGrid
-              services={categories.data ?? []}
-              activeSlug={activeSlug ?? undefined}
-              onSelect={handleSelectService}
-            />
-          )}
-        </View>
-      </ScrollView>
-
-      <FooterBanner />
-    </Screen>
-  );
-
   function handleSelectService(service: ServiceOption) {
     setActiveSlug(service.slug);
     bookingDraft.start(service);
     router.push(`/booking/new/${service.slug}/place`);
   }
+
+  return (
+    <Screen scrollable edges={['bottom']}>
+      <StatusBar style="dark" />
+      <HomeHeader
+        locationLabel={customerProfile?.locationLabel ?? undefined}
+        onPress={() => router.push('/location-picker')}
+        trailing={<NotificationBell />}
+      >
+        <SearchBar onPress={() => router.push('/bookings')} />
+      </HomeHeader>
+
+      <View className="mt-5">
+        {categories.isPending ? (
+          <LoadingState message="Loading services" size="inline" />
+        ) : categories.isError ? (
+          <ErrorState
+            title="Couldn't load services"
+            message="Check your connection and try again."
+            onRetry={() => void categories.refetch()}
+          />
+        ) : (
+          <ServiceGrid
+            services={categories.data ?? []}
+            activeSlug={activeSlug ?? undefined}
+            onSelect={handleSelectService}
+          />
+        )}
+      </View>
+
+      <View className="mt-8 overflow-hidden rounded-2xl" style={{ width: '100%' }}>
+        <Image
+          source={vijayawadaImage}
+          contentFit="cover"
+          accessibilityLabel="Vijayawada"
+          style={{ width: '100%', aspectRatio: 1.5 }}
+        />
+      </View>
+    </Screen>
+  );
 }
