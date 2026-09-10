@@ -38,12 +38,17 @@ export default function Notifications() {
 
   // Mark everything read the moment the inbox opens. Fired once per screen
   // instance (a defence against inviting double taps under StrictMode), and
-  // only when the server actually reports unread rows.
+  // only when the server actually reports unread rows. Deferred past the first
+  // frame so the optimistic cache update (setQueryData/invalidate) never lands
+  // while the screen is still mounting, which Android warns about.
   useEffect(() => {
     if (markAllAttempted.current) return;
     if (!unread.isFetched || (unread.data?.unreadCount ?? 0) === 0) return;
     markAllAttempted.current = true;
-    markAllRead.mutate();
+    const frame = requestAnimationFrame(() => {
+      markAllRead.mutate();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [markAllRead, unread.data?.unreadCount, unread.isFetched]);
 
   /** Only rows the caller still owns are ever deleted, so selections stay valid. */
