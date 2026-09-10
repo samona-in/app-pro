@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { isSettlementPendingStatus } from '@samona/types';
+import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { CallMessageButton, CollectCashSheet } from '@/components/jobs';
 import { Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
@@ -78,6 +78,15 @@ export default function CollectCashScreen() {
     });
   }
 
+  // Only after the money is confirmed collected does the pro move on — straight
+  // to an already-accepted job waiting in the queue, or home when there is none.
+  // Home itself re-routes to that job once refetched, so a momentarily stale
+  // list can never strand the pro on the home screen.
+  function onPaymentDone() {
+    const next = (jobs ?? []).find((job) => isActiveJobStatus(job.status));
+    router.replace(next ? `/job/${next.id}/active` : '/home');
+  }
+
   return (
     <>
       <Stack.Screen
@@ -108,14 +117,13 @@ export default function CollectCashScreen() {
               {formatInr(amountPaise)}
             </Text>
             <Text variant="footnote" className="mt-2 text-center">
-              Collect this amount from {customerName} in cash, then swipe to
-              close the job.
+              Collect this amount from {customerName} in cash, then swipe to close the job.
             </Text>
           </View>
 
           {/* Who and what — quick confirmation against the open job. */}
-          <View className="border-t border-border px-5 pb-2 pt-4">
-            <View className="flex-row items-center gap-3">
+          <View className="border-t border-border pt-4">
+            <View className="flex-row items-center gap-3 px-5">
               <Ionicons name="person-circle-outline" size={22} color={color['text-secondary']} />
               <View className="flex-1">
                 <Text variant="bodyStrong">{customerName}</Text>
@@ -146,7 +154,7 @@ export default function CollectCashScreen() {
         settled={collect.isSuccess}
         errorMessage={collect.isError ? collect.error?.message : undefined}
         onRetry={() => void collect.mutateAsync(id).catch(() => {})}
-        onDone={() => router.replace('/home')}
+        onDone={onPaymentDone}
         onClose={() => setCollectOpen(false)}
       />
     </>

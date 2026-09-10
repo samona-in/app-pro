@@ -12,17 +12,17 @@ import {
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { JobStatus, isActiveJobStatus, isSettlementPendingStatus, type JobStatus as Status } from '@samona/types';
+import {
+  JobStatus,
+  isActiveJobStatus,
+  isSettlementPendingStatus,
+  type JobStatus as Status,
+} from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { CallMessageButton, JobDetailsContent, VerifyStartSheet } from '@/components/jobs';
 import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
-import {
-  useProJobs,
-  useSubmitGuard,
-  useTransitionJob,
-  useUnreadMessages,
-} from '@/hooks';
+import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr } from '@/utils/format';
@@ -313,6 +313,18 @@ export default function ActiveJobScreen() {
     );
   }
 
+  // Money owed wins even mid-flow: if a *different* completed-but-unpaid job
+  // is waiting on the pro's "Collect cash" swipe, it holds this screen — the
+  // pro must never be on a fresh job's trip while cash from a finished job is
+  // still outstanding. Guards direct pushes (a deeper deep link, a stale
+  // navigation) that bypass the job-alert route's own settlement check.
+  const settlementHolding = (jobs ?? []).find(
+    (item) => isSettlementPendingStatus(item.status) && item.id !== id,
+  );
+  if (settlementHolding) {
+    return <Redirect href={{ pathname: '/job/[id]/pay', params: { id: settlementHolding.id } }} />;
+  }
+
   // The pro stays on this screen through the whole job: on the way, arrived,
   // working and in progress. Once the job leaves the active working set it
   // hands off elsewhere — a completed job keeps the pro in the cash-settlement
@@ -404,11 +416,7 @@ export default function ActiveJobScreen() {
             }
           />
         </Screen>
-        <VerifyStartSheet
-          visible={verifyOpen}
-          jobId={id}
-          onClose={() => setVerifyOpen(false)}
-        />
+        <VerifyStartSheet visible={verifyOpen} jobId={id} onClose={() => setVerifyOpen(false)} />
       </>
     );
   }
@@ -556,11 +564,7 @@ export default function ActiveJobScreen() {
           </View>
         </View>
       </Screen>
-      <VerifyStartSheet
-        visible={verifyOpen}
-        jobId={id}
-        onClose={() => setVerifyOpen(false)}
-      />
+      <VerifyStartSheet visible={verifyOpen} jobId={id} onClose={() => setVerifyOpen(false)} />
     </>
   );
 }
