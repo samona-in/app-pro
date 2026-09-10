@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { EarnMoreBanner } from '@/components/home/EarnMoreBanner';
 import { TodayStack } from '@/components/home/TodayStack';
 import { ServicesVerificationCard } from '@/components/services/ServicesVerificationCard';
 import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
@@ -297,6 +298,8 @@ export default function Home() {
       </View>
 
       <TodayStack />
+
+      <EarnMoreBanner />
 
       <ServicesVerificationCard />
 
