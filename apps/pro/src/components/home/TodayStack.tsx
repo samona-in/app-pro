@@ -12,13 +12,11 @@ import { color } from '@/theme';
 export function TodayStack() {
   return (
     <View className="mt-6">
-      <Ionicons name="today-outline" size={20} color={color['text-secondary']} />
-      <Text variant="title" className="mt-1">
-        Today
-      </Text>
+      <Text variant="title">Today</Text>
       <View className="mt-3 flex-row gap-3">
         <Card className="flex-1">
-          <Text variant="label" className="text-text-muted">
+          <Ionicons name="cash-outline" size={18} color={color['text-secondary']} />
+          <Text variant="label" className="mt-1 text-text-muted">
             Earnings
           </Text>
           <Text variant="metric" className="mt-1">
@@ -26,7 +24,8 @@ export function TodayStack() {
           </Text>
         </Card>
         <Card className="flex-1">
-          <Text variant="label" className="text-text-muted">
+          <Ionicons name="checkmark-done-outline" size={18} color={color['text-secondary']} />
+          <Text variant="label" className="mt-1 text-text-muted">
             Jobs completed
           </Text>
           <Text variant="metric" className="mt-1">
