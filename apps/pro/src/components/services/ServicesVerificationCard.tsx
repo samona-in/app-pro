@@ -34,14 +34,17 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       accessibilityLabel={`${service.name}, ${mark.label}`}
       accessibilityHint={isRejected ? 'Shows the rejection reason' : undefined}
       onPress={isRejected ? showReason : undefined}
-      style={{ aspectRatio: 16 / 9 }}
-      className="grow basis-1/4 flex-row items-center rounded-lg border border-border bg-surface-muted px-1.5 active:opacity-70"
+      className="grow basis-1/4 rounded-xl border border-border bg-surface-muted p-1.5 active:opacity-70"
     >
-      {icon ? <Ionicons name={icon} size={18} color={color['text-primary']} /> : null}
-      <Text variant="caption" numberOfLines={1} className="ml-1.5 flex-1">
-        {service.name}
-      </Text>
-      <Ionicons name={mark.name} size={14} color={mark.tint} />
+      <View className="items-end">
+        <Ionicons name={mark.name} size={14} color={mark.tint} />
+      </View>
+      <View className="mt-1 items-center px-0.5">
+        {icon ? <Ionicons name={icon} size={18} color={color['text-primary']} /> : null}
+        <Text variant="caption" numberOfLines={2} className="mt-1 text-center">
+          {service.name}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -49,8 +52,8 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
 /**
  * The pro's selected services as a compact 4-column grid.
  *
- * Each 16:9 card shows the service icon, its name, and a status mark on the
- * right: green tick when SAMONA accepted it, amber clock while pending, red
+ * Each card shows just the service icon and name, with a status mark in the
+ * corner: green tick when SAMONA accepted it, amber clock while pending, red
  * cross when rejected. Tapping a rejected service reveals its reason.
  */
 export function ServicesVerificationCard() {
@@ -62,7 +65,7 @@ export function ServicesVerificationCard() {
   return (
     <View className="mt-6">
       <Text variant="title">Your services</Text>
-      <View className="mt-3 flex-row flex-wrap gap-2">
+      <View className="mt-3 flex-row flex-wrap gap-1.5">
         {services.map((service) => (
           <ServiceTile key={service.id} service={service} />
         ))}
