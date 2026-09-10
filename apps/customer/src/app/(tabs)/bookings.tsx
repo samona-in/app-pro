@@ -7,7 +7,7 @@ import { Screen, Text } from '@/components/ui';
 import { useBookings } from '@/hooks';
 import { cn } from '@/utils/cn';
 
-const FILTERS = ['Active', 'Upcoming', 'Completed', 'In Warranty', 'Cancelled'] as const;
+const FILTERS = ['Active', 'Upcoming', 'Completed', 'Cancelled'] as const;
 type Filter = (typeof FILTERS)[number];
 
 const ACTIVE: readonly JobStatus[] = [
@@ -24,15 +24,12 @@ const UPCOMING: readonly JobStatus[] = [JobStatus.REQUESTED, JobStatus.OFFERED, 
 
 const COMPLETED: readonly JobStatus[] = [JobStatus.COMPLETED, JobStatus.PAID];
 
-const IN_WARRANTY: readonly JobStatus[] = [JobStatus.COMPLETED, JobStatus.PAID];
-
 const CANCELLED: readonly JobStatus[] = [JobStatus.CANCELLED, JobStatus.EXPIRED];
 
 const FILTER_STATUSES: Record<Filter, readonly JobStatus[]> = {
   Active: ACTIVE,
   Upcoming: UPCOMING,
   Completed: COMPLETED,
-  'In Warranty': IN_WARRANTY,
   Cancelled: CANCELLED,
 };
 
