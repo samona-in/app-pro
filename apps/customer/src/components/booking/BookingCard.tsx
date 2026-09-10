@@ -45,7 +45,7 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
       accessibilityRole="button"
       accessibilityLabel={`${job.service.name} booking`}
       onPress={() => router.push(`/booking/${job.id}`)}
-      className={cn('bg-background py-5 active:opacity-70', className)}
+      className={cn('bg-background py-3 active:opacity-70', className)}
       {...rest}
     >
       <View className="flex-row items-start">
@@ -73,7 +73,7 @@ export function BookingCard({ job, className, ...rest }: BookingCardProps) {
       </View>
 
       {/* Thin divider between list rows, bleeding to the screen edges. */}
-      <View className="my-3 -mx-5 h-px bg-border" />
+      <View className="my-2 -mx-5 h-px bg-border" />
     </Pressable>
   );
 }
