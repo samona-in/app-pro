@@ -47,9 +47,11 @@
     "react-native-gesture-handler": "~2.32.0",
     "react-native-keyboard-controller": "1.21.9",
     "react-native-nitro-modules": "^0.37.0",
+    "react-native-pager-view": "8.0.2",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
+    "react-native-tab-view": "^4.3.2",
     "react-native-web": "~0.21.0",
     "socket.io-client": "^4.8.3",
     "zustand": "^5.0.15"

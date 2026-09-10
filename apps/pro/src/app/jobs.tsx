@@ -1,12 +1,12 @@
 import { Pressable, View } from 'react-native';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { JobStatus } from '@samona/types';
 import { isSettlementPendingStatus } from '@samona/types';
-import { EmptyState } from '@/components/feedback';
+import { EmptyState, LoadingState } from '@/components/feedback';
 import { Card, Divider, Screen, Text } from '@/components/ui';
 import { JobStatusBadge } from '@/components/jobs';
-import { useJobHistory } from '@/hooks';
+import { useJobHistory, useSession } from '@/hooks';
 import { isOnline as checkIsOnline } from '@/services/online-status';
 import { color } from '@/theme';
 import { formatInr } from '@/utils/format';
@@ -54,8 +54,27 @@ function openJob(job: { id: string; status: JobStatus }) {
 }
 
 export default function Jobs() {
+  // Lives outside the (tabs) navigator (it is reachable by deep link), so it
+  // must enforce the same signed-in/onboarding gates the tabs layout applies.
+  const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
   const { data: jobs, isPending } = useJobHistory();
   const isOnline = checkIsOnline();
+
+  if (isLoading) {
+    return (
+      <Screen>
+        <LoadingState message="Loading past jobs" />
+      </Screen>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/welcome" />;
+  }
+
+  if (!isOnboardingComplete) {
+    return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
+  }
 
   return (
     <Screen>
@@ -76,7 +95,11 @@ export default function Jobs() {
         </View>
       ) : isPending ? (
         <View className="mt-2 flex-1">
-          <EmptyState icon="briefcase-outline" title="Loading your jobs" message="Fetching your job history…" />
+          <EmptyState
+            icon="briefcase-outline"
+            title="Loading your jobs"
+            message="Fetching your job history…"
+          />
         </View>
       ) : (jobs?.length ?? 0) > 0 ? (
         <Card padded={false} className="mt-4 overflow-hidden">

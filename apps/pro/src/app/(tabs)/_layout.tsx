@@ -1,9 +1,13 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect } from 'expo-router';
+import { TopTabs } from 'expo-router/js-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import type { ColorValue } from 'react-native';
+import { Pressable, View, type ColorValue, type TextStyle, type ViewStyle } from 'react-native';
 import { useEffect } from 'react';
+import { Screen, Text } from '@/components/ui';
+import type { MaterialTopTabNavigationOptions } from 'expo-router/js-top-tabs';
+import type { TabNavigationState } from 'expo-router/build/react-navigation/native';
+import type { ParamListBase } from 'expo-router/build/react-navigation/native';
 import { LoadingState } from '@/components/feedback';
-import { Screen } from '@/components/ui';
 import { useRealtimeSync, useSession, useUnreadMessages } from '@/hooks';
 import { initializeJobAlertService, stopJobAlertService } from '@/services/foreground-service';
 import { jobNotificationService } from '@/services/job-notifications';
@@ -22,6 +26,62 @@ function tabIcon(outline: IoniconName, filled: IoniconName) {
   return function TabBarIcon({ color: tint, focused }: TabBarIconProps) {
     return <Ionicons name={focused ? filled : outline} size={24} color={tint} />;
   };
+}
+
+const TAB_BAR_STYLE: ViewStyle = {
+  backgroundColor: color.surface,
+  borderTopColor: color.border,
+  height: 88,
+  paddingTop: 8,
+};
+const TAB_LABEL_STYLE: TextStyle = { fontSize: 11, fontWeight: '600' };
+
+/**
+ * Bottom-positioned bar for the swipeable tab pager. Pager and bar stay in
+ * sync because both drive the same navigator state: swiping dispatches a
+ * navigate action, and pressing a tab does the same. Replaces the material
+ * top-aligned bar, so the swipeable tabs keep the app's existing bottom bar.
+ */
+interface SwipeableTabBarProps {
+  state: TabNavigationState<ParamListBase>;
+  descriptors: Record<string, { options: MaterialTopTabNavigationOptions }>;
+  navigation: { navigate: (routeName: string) => void };
+}
+
+function SwipeableTabBar({ state, descriptors, navigation }: SwipeableTabBarProps) {
+  return (
+    <View style={TAB_BAR_STYLE} className="flex-row items-start border-t px-1">
+      {state.routes.map((route, index) => {
+        const descriptor = descriptors[route.key];
+        if (!descriptor) return null;
+        const { options } = descriptor;
+        const active = options.tabBarActiveTintColor ?? color.brand;
+        const inactive = options.tabBarInactiveTintColor ?? color['text-muted'];
+        const isFocused = state.index === index;
+        const tint = isFocused ? active : inactive;
+        const label =
+          (typeof options.tabBarLabel === 'string' ? options.tabBarLabel : undefined) ??
+          options.title ??
+          route.name;
+
+        return (
+          <Pressable
+            key={route.key}
+            accessibilityRole="tab"
+            accessibilityState={isFocused ? { selected: true } : undefined}
+            onPress={() => navigation.navigate(route.name)}
+            className="flex-1 items-center"
+            style={({ pressed }) => pressed && { opacity: 0.6 }}
+          >
+            {options.tabBarIcon?.({ focused: isFocused, color: tint })}
+            <Text style={[TAB_LABEL_STYLE, { color: tint }]} className="mt-0.5">
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
 export default function TabsLayout() {
@@ -76,34 +136,28 @@ export default function TabsLayout() {
   }
 
   return (
-    <Tabs
+    <TopTabs
+      tabBar={SwipeableTabBar}
+      tabBarPosition="bottom"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: color.brand,
         tabBarInactiveTintColor: color['text-muted'],
-        tabBarStyle: {
-          backgroundColor: color.surface,
-          borderTopColor: color.border,
-          height: 88,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         sceneStyle: { backgroundColor: color.background },
       }}
     >
-      <Tabs.Screen
+      <TopTabs.Screen
         name="home"
         options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
       />
-      <Tabs.Screen name="jobs" options={{ href: null }} />
-      <Tabs.Screen
+      <TopTabs.Screen
         name="earnings"
         options={{ title: 'Earnings', tabBarIcon: tabIcon('wallet-outline', 'wallet') }}
       />
-      <Tabs.Screen
+      <TopTabs.Screen
         name="profile"
         options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
       />
-    </Tabs>
+    </TopTabs>
   );
 }
