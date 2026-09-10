@@ -34,19 +34,17 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       accessibilityLabel={`${service.name}, ${mark.label}`}
       accessibilityHint={isRejected ? 'Shows the rejection reason' : undefined}
       onPress={isRejected ? showReason : undefined}
-      className="min-h-[72px] w-24 justify-center rounded-lg border border-border p-1.5 active:opacity-70"
+      className="w-24 items-center active:opacity-70"
     >
-      <View className="items-center px-0.5">
-        {icon ? <Ionicons name={icon} size={18} color={color['text-primary']} /> : null}
-        <View className="mt-1 flex-row items-center justify-center">
-          <Text variant="caption" numberOfLines={2} className="text-center">
-            {service.name}
-          </Text>
-          <View className="ml-1">
-            <Ionicons name={mark.name} size={12} color={mark.tint} />
-          </View>
+      <View className="h-16 w-16 items-center justify-center rounded-lg bg-surface-muted">
+        {icon ? <Ionicons name={icon} size={28} color={color['text-secondary']} /> : null}
+        <View className="absolute -right-1.5 -top-1.5 h-4 w-4 items-center justify-center rounded-full border border-border bg-surface">
+          <Ionicons name={mark.name} size={10} color={mark.tint} />
         </View>
       </View>
+      <Text variant="caption" numberOfLines={2} className="mt-1.5 text-center text-text-secondary">
+        {service.name}
+      </Text>
     </Pressable>
   );
 }
@@ -58,25 +56,26 @@ function AddServiceTile() {
       accessibilityRole="button"
       accessibilityLabel="Add service"
       onPress={() => undefined}
-      className="min-h-[72px] w-24 items-center justify-center rounded-lg border border-dashed border-border p-1.5 active:opacity-70"
+      className="w-24 items-center active:opacity-70"
     >
-      <View className="mt-1 items-center px-0.5">
-        <Ionicons name="add" size={20} color={color['text-secondary']} />
-        <Text variant="caption" numberOfLines={2} className="mt-1 text-center text-text-secondary">
-          Add service
-        </Text>
+      <View className="h-16 w-16 items-center justify-center rounded-lg border border-dashed border-border bg-surface-muted">
+        <Ionicons name="add" size={28} color={color['text-secondary']} />
       </View>
+      <Text variant="caption" numberOfLines={2} className="mt-1.5 text-center text-text-secondary">
+        Add service
+      </Text>
     </Pressable>
   );
 }
 
 /**
- * The pro's selected services as a compact horizontally scrollable row.
+ * The pro's selected services as a horizontally scrollable row, styled like
+ * the home services grid in the customer app: a light icon tile with the
+ * service name beneath.
  *
- * Each card shows just the service icon and name, with a status mark right
- * after the name: green tick when SAMONA accepted it, amber clock while
- * pending, red cross when rejected. Tapping a rejected service reveals its
- * reason.
+ * Each tile carries a corner badge with the verification status — green tick
+ * when SAMONA accepted it, amber clock while pending, red cross when rejected.
+ * Tapping a rejected service reveals its reason.
  */
 export function ServicesVerificationCard() {
   const { data: profile } = useProProfile();
@@ -104,7 +103,7 @@ export function ServicesVerificationCard() {
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mt-3"
-        contentContainerClassName="gap-1.5"
+        contentContainerClassName="gap-3"
       >
         {services.map((service) => (
           <ServiceTile key={service.id} service={service} />
