@@ -3,6 +3,7 @@ import {
   registerPushTokenSchema,
   pushSettingsSchema,
   notificationListQuerySchema,
+  deleteNotificationsSchema,
 } from '@samona/validation';
 import type { Services } from '../context';
 import { createRequireAuth, requireRole, routeParamId, validate } from '../common';
@@ -116,6 +117,34 @@ export function createNotificationsRouter(services: Services): Router {
       next(error);
     }
   });
+
+  /**
+   * Permanently deletes the selected notices from the caller's own inbox.
+   *
+   * The ids come from a validated, bounded array and are only ever used inside
+   * a `where` scoped to the caller's own profile — nothing here can reach
+   * another account's rows (CLAUDE.md "Security"). Deleting is idempotent: an
+   * id that no longer exists is skipped, and an empty account is still a 204.
+   *
+   * Declared before `/:notificationId/read` so the literal path is never
+   * captured as a notification id.
+   */
+  router.post(
+    '/delete',
+    requireRole('CUSTOMER', 'ADMIN'),
+    validate(deleteNotificationsSchema),
+    async (req, res, next) => {
+      try {
+        await services.notifications.deleteCustomerNotifications(
+          req.user!.id,
+          req.body.notificationIds,
+        );
+        res.status(204).send();
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   /**
    * Acknowledges one of the customer's notices as read. Idempotent: a second
