@@ -66,11 +66,6 @@ export default function SavedAddresses() {
           data={rows}
           keyExtractor={(item) => item.id}
           contentContainerClassName="px-5 pb-6"
-          ListHeaderComponent={
-            <Text variant="footnote" className="mb-2 mt-3 text-text-secondary">
-              The default address is highlighted; choose a new default any time.
-            </Text>
-          }
           renderItem={({ item }) => (
             <AddressListItem
               icon={item.label}
