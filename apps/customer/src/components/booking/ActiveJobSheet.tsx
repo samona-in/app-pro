@@ -94,13 +94,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: TOP_RADIUS,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -6 },
-    elevation: 12,
   },
-  /** The collapsed hint card: solid white so it reads as its own surface. */
+  /** The collapsed hint card: solid white, shadow cast only above (no bottom bleed). */
   handle: {
     height: HINT_HEIGHT,
     backgroundColor: color.surface,
@@ -108,11 +103,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: TOP_RADIUS,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -6 },
-    elevation: 14,
+    boxShadow: '0px -16px 12px rgba(15, 23, 42, 0.12)',
   },
   content: { backgroundColor: color.surface },
 });
