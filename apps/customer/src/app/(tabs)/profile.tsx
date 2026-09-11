@@ -104,8 +104,11 @@ export default function Profile() {
     );
   }
 
-  async function onSignOut() {
-    await signOut();
+  function onSignOut() {
+    Alert.alert('Sign out?', 'Are you sure you want to sign out of your account?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => void signOut() },
+    ]);
   }
 
   return (
