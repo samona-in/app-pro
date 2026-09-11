@@ -60,6 +60,21 @@ export function isTerminalStatus(status: JobStatus): boolean {
 }
 
 /**
+ * Statuses where the job conversation is closed: the work is settled (PAID) or
+ * over before it finished (CANCELLED, EXPIRED). New messages are rejected by
+ * the server and chat entry points are hidden, but the thread stays readable.
+ */
+export const CHAT_CLOSED_STATUSES: readonly JobStatus[] = [
+  JobStatus.PAID,
+  JobStatus.CANCELLED,
+  JobStatus.EXPIRED,
+];
+
+export function isChatClosed(status: JobStatus): boolean {
+  return (CHAT_CLOSED_STATUSES as readonly JobStatus[]).includes(status);
+}
+
+/**
  * Where the customer needs the work done.
  *
  * Mirrors `PlaceType` in the Prisma schema. OTHER records a free-text

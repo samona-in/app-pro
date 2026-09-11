@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Alert, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { JobStatus, type JobStatus as Status } from '@samona/types';
+import { JobStatus, isChatClosed, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { Card, Screen, Text } from '@/components/ui';
 import { useCancelJob, useProJobs, useSubmitGuard, useUnreadMessages } from '@/hooks';
@@ -68,6 +68,9 @@ export default function JobActionsScreen() {
   // default: never surface a cancel the server would reject.
   const job = (jobs ?? []).find((item) => item.id === id);
   const cancellable = job !== undefined && CANCELLABLE.includes(job.status);
+  // A paid, cancelled or expired job's conversation is frozen: the server does
+  // not accept new messages, so the entry is hidden rather than dead-ended.
+  const chatOpen = job === undefined || !isChatClosed(job.status);
 
   const { run: requestCancel } = useSubmitGuard(() => {
     Alert.alert(
@@ -102,17 +105,21 @@ export default function JobActionsScreen() {
 
   return (
     <Screen scrollable>
-      <Text variant="label" className="mt-2">
-        Contact
-      </Text>
-      <Card className="mt-2" padded={false}>
-        <ActionRow
-          icon="chatbubble-ellipses-outline"
-          label="Contact customer"
-          badge={<UnreadBadge count={unread.countFor(id)} className="mr-2" />}
-          onPress={() => router.replace({ pathname: '/job/[id]/chat', params: { id } })}
-        />
-      </Card>
+      {chatOpen ? (
+        <>
+          <Text variant="label" className="mt-2">
+            Contact
+          </Text>
+          <Card className="mt-2" padded={false}>
+            <ActionRow
+              icon="chatbubble-ellipses-outline"
+              label="Contact customer"
+              badge={<UnreadBadge count={unread.countFor(id)} className="mr-2" />}
+              onPress={() => router.replace({ pathname: '/job/[id]/chat', params: { id } })}
+            />
+          </Card>
+        </>
+      ) : null}
 
       {cancellable ? (
         <>

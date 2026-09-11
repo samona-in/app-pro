@@ -4,8 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
-import type { ChatMessage } from '@samona/types';
-import { ChatFooter, MessageBubble, QuickChatPresets } from '@/components/chat';
+import { isChatClosed, type ChatMessage } from '@samona/types';
+import {
+  ChatFooter,
+  ConversationClosed,
+  MessageBubble,
+  QuickChatPresets,
+} from '@/components/chat';
 import { LoadingState } from '@/components/feedback';
 import { useBooking, useMessages, useSession } from '@/hooks';
 import { color } from '@/theme';
@@ -54,6 +59,9 @@ export default function BookingChatScreen() {
 
   const proName = useMemo(() => job?.pro?.displayName ?? 'Professional', [job]);
   const phone = job?.pro?.phone;
+  // Once the job is paid, cancelled or expired the conversation is frozen —
+  // history stays readable but nobody can send (the server enforces the same).
+  const closed = job ? isChatClosed(job.status) : false;
 
   // Mine vs theirs is decided by the surface's role, not by id — the same
   // account can be both sides of a job (same phone on two apps), and then the
@@ -101,17 +109,21 @@ export default function BookingChatScreen() {
                   <ActivityIndicator size="small" color={color['text-muted']} />
                 </View>
               ) : null}
-              <QuickChatPresets onSelect={setDraft} />
+              {!closed ? <QuickChatPresets onSelect={setDraft} /> : null}
             </>
           }
         />
 
-        <ChatFooter
-          draft={draft}
-          onChangeDraft={setDraft}
-          onSend={(content) => chat.send(content)}
-          disabled={!id || !job?.pro}
-        />
+        {closed ? (
+          <ConversationClosed />
+        ) : (
+          <ChatFooter
+            draft={draft}
+            onChangeDraft={setDraft}
+            onSend={(content) => chat.send(content)}
+            disabled={!id || !job?.pro}
+          />
+        )}
       </KeyboardStickyView>
     </View>
   );
