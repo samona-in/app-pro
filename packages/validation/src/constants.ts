@@ -7,6 +7,9 @@ export const EXPERIENCE_LEVELS = [
   'TEN_PLUS',
 ] as const;
 
+/** Mirrors `AddressLabel` in `@samona/types` and the Prisma enum. */
+export const ADDRESS_LABELS = ['HOME', 'WORK', 'OTHER'] as const;
+
 /** Mirrors `Gender` in `@samona/types` and the Prisma enum. */
 export const GENDER_VALUES = ['MALE', 'FEMALE', 'OTHER'] as const;
 
