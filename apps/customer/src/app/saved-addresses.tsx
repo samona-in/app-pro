@@ -2,7 +2,7 @@ import { FlatList, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { AddressListItem } from '@/components/address/AddressListItem';
-import { Button, Text } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { useSavedAddresses } from '@/hooks';
 import { color } from '@/theme';
@@ -11,9 +11,8 @@ import { savedAddressSecondary } from '@/utils/address';
 /**
  * Manage the customer's saved addresses (Profile → Manage addresses).
  *
- * Each row shows the label and address, with the default highlighted. The
- * active location shown under the Home pin lives separately on the customer
- * profile and is not the same as the default here.
+ * Each row shows the label and address. The active location shown under the
+ * Home pin lives separately on the customer profile.
  */
 export default function SavedAddresses() {
   const { data, isPending, isError, refetch } = useSavedAddresses();
@@ -48,15 +47,6 @@ export default function SavedAddresses() {
               icon={item.label}
               title={item.addressLine1}
               subtitle={savedAddressSecondary(item)}
-              trailing={
-                item.isDefault ? (
-                  <View className="rounded-full bg-success-surface px-2.5 py-1">
-                    <Text variant="caption" className="text-success">
-                      Default
-                    </Text>
-                  </View>
-                ) : undefined
-              }
             />
           )}
           ListFooterComponent={
