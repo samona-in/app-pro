@@ -20,7 +20,7 @@ import BottomSheet, {
   type BottomSheetHandleProps,
 } from '@gorhom/bottom-sheet';
 import type { JobDetail } from '@samona/types';
-import { Text } from '@/components/ui';
+import { Avatar, Text } from '@/components/ui';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { useActiveOrders } from '@/hooks';
 import { color } from '@/theme';
@@ -144,11 +144,19 @@ function HintHandle({ job, hasMore, extraCount }: HintHandleProps) {
           onPress={onPress}
           className="flex-1 flex-row items-center"
         >
-          <ServiceImage
-            uri={job.service.icon}
-            accessibilityLabel={job.service.name}
-            className="h-11 w-11 rounded-xl"
-          />
+          {job.pro ? (
+            <Avatar
+              name={job.pro.displayName ?? 'Professional'}
+              uri={job.pro.photoUrl}
+              size="md"
+            />
+          ) : (
+            <ServiceImage
+              uri={job.service.icon}
+              accessibilityLabel={job.service.name}
+              className="h-11 w-11 rounded-xl"
+            />
+          )}
           <View className="ml-3 flex-1 pr-2">
             <View className="flex-row items-center">
               {copy.finding ? <FindingSpinner /> : null}
@@ -216,7 +224,15 @@ function OrderRow({ job }: { job: JobDetail }) {
       onPress={openJob}
       className="flex-row items-center rounded-xl border border-border p-3"
     >
-      <ServiceImage uri={job.service.icon} accessibilityLabel={job.service.name} className="h-10 w-10 rounded-xl" />
+      {job.pro ? (
+        <Avatar name={job.pro.displayName ?? 'Professional'} uri={job.pro.photoUrl} size="md" />
+      ) : (
+        <ServiceImage
+          uri={job.service.icon}
+          accessibilityLabel={job.service.name}
+          className="h-10 w-10 rounded-xl"
+        />
+      )}
       <View className="ml-3 flex-1 pr-2">
         <View className="flex-row items-center">
           {copy.finding ? <FindingSpinner /> : null}
