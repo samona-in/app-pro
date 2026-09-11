@@ -149,6 +149,8 @@ type JobRow = {
   basePayPaise: number;
   agreedPayPaise: number | null;
   finalPayPaise: number | null;
+  acceptedAt: Date | null;
+  completedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   service: Job['service'];
@@ -222,6 +224,8 @@ function toJobDetail(
   const assigned = row.status !== JobStatus.REQUESTED && row.status !== JobStatus.OFFERED;
   return {
     ...toJobDto(row, storage),
+    acceptedAt: row.acceptedAt ? iso(row.acceptedAt) : null,
+    completedAt: row.completedAt ? iso(row.completedAt) : null,
     distanceKm: null,
     estimatedEtaMinutes: null,
     // The start-work code is customer-only by design: it is never shipped to
@@ -846,6 +850,8 @@ export function createJobsService(deps: JobsServiceDeps) {
       const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
       results.push({
         ...toJobDto(row.job as unknown as JobRow, storage),
+        acceptedAt: row.job.acceptedAt ? iso(row.job.acceptedAt) : null,
+        completedAt: row.job.completedAt ? iso(row.job.completedAt) : null,
         distanceKm: km,
         estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
         verificationOtp: null,

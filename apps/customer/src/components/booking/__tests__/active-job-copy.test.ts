@@ -31,6 +31,8 @@ function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     verificationOtp: null,
     customer: null,
     pro: null,
+    acceptedAt: null,
+    completedAt: null,
     ...overrides,
   };
 }

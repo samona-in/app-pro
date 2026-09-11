@@ -206,6 +206,10 @@ export interface JobDetail extends Job {
     /** The pro's profile photo (their verified selfie), when one exists. */
     photoUrl: string | null;
   } | null;
+  /** When the professional accepted the job; null until accepted. */
+  acceptedAt: string | null;
+  /** When the work was completed; null until it reaches a completed state. */
+  completedAt: string | null;
 }
 
 /**
