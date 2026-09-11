@@ -15,7 +15,7 @@ const STATUS_PRESENTATION: Record<JobStatus, { label: string }> = {
   TRAVELLING: { label: 'On the way' },
   ARRIVED: { label: 'Arrived' },
   IN_PROGRESS: { label: 'In progress' },
-  COMPLETED: { label: 'Completed' },
+  COMPLETED: { label: 'Payment pending' },
   PAYMENT_PENDING: { label: 'Payment pending' },
   PAID: { label: 'Paid' },
   CANCELLED: { label: 'Cancelled' },

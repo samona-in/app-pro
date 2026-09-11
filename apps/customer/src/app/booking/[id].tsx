@@ -1,35 +1,21 @@
+import type { ComponentProps } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { JobStatus, type JobDetail } from '@samona/types';
+import { JobStatus } from '@samona/types';
 import { bookingStatusLabel } from '@/components/booking';
 import { UnreadBadge } from '@/components/chat';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { Avatar, Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
-import {
-  useBooking,
-  useCancelBooking,
-  useSubmitGuard,
-  useUnreadMessages,
-} from '@/hooks';
+import { Avatar, Button, Screen, Text } from '@/components/ui';
+import { useBooking, useCancelBooking, useSubmitGuard, useUnreadMessages } from '@/hooks';
 import { color } from '@/theme';
-import { formatRupees } from '@/utils/format';
-
-const TIMELINE: { status: JobStatus; label: string }[] = [
-  { status: JobStatus.REQUESTED, label: 'Requested' },
-  { status: JobStatus.ACCEPTED, label: 'Professional accepted' },
-  { status: JobStatus.TRAVELLING, label: 'On the way' },
-  { status: JobStatus.ARRIVED, label: 'Arrived' },
-  { status: JobStatus.IN_PROGRESS, label: 'Work in progress' },
-  { status: JobStatus.COMPLETED, label: 'Completed' },
-  { status: JobStatus.PAYMENT_PENDING, label: 'Awaiting payment' },
-  { status: JobStatus.PAID, label: 'Paid' },
-];
-
-function currentStepIndex(job: JobDetail): number {
-  const index = TIMELINE.findIndex((step) => step.status === job.status);
-  return index === -1 ? 0 : index;
-}
+import {
+  formatBookingDate,
+  formatChatTime,
+  formatClockTime,
+  formatJobDate,
+  formatRupees,
+} from '@/utils/format';
 
 /**
  * Statuses the customer may still cancel: only before the professional starts
@@ -46,6 +32,59 @@ const CANCELLABLE: JobStatus[] = [
 function canCancel(status: JobStatus): boolean {
   return CANCELLABLE.includes(status);
 }
+
+/** Icon and background colour for each booking status. */
+type IoniconsName = ComponentProps<typeof Ionicons>['name'];
+
+const STATUS_ICON: Record<JobStatus, { icon: IoniconsName; surface: string; tint: string }> = {
+  REQUESTED: { icon: 'time-outline', surface: 'bg-info-surface', tint: color.info },
+  OFFERED: { icon: 'time-outline', surface: 'bg-info-surface', tint: color.info },
+  ACCEPTED: {
+    icon: 'checkmark-circle-outline',
+    surface: 'bg-info-surface',
+    tint: color.info,
+  },
+  TRAVELLING: {
+    icon: 'navigate-outline',
+    surface: 'bg-info-surface',
+    tint: color.info,
+  },
+  ARRIVED: {
+    icon: 'location-outline',
+    surface: 'bg-info-surface',
+    tint: color.info,
+  },
+  IN_PROGRESS: {
+    icon: 'construct-outline',
+    surface: 'bg-info-surface',
+    tint: color.info,
+  },
+  COMPLETED: {
+    icon: 'cash-outline',
+    surface: 'bg-warning-surface',
+    tint: color.warning,
+  },
+  PAYMENT_PENDING: {
+    icon: 'cash-outline',
+    surface: 'bg-warning-surface',
+    tint: color.warning,
+  },
+  PAID: {
+    icon: 'checkmark-circle-outline',
+    surface: 'bg-success-surface',
+    tint: color.success,
+  },
+  CANCELLED: {
+    icon: 'close-circle-outline',
+    surface: 'bg-danger-surface',
+    tint: color.danger,
+  },
+  EXPIRED: {
+    icon: 'time-outline',
+    surface: 'bg-surface-muted',
+    tint: color['text-secondary'],
+  },
+};
 
 /**
  * Compound "call + message" contact button in the native header. A chat-bubble
@@ -71,6 +110,10 @@ function CallMessageButton({ jobId, unread }: { jobId: string; unread: number })
       <UnreadBadge count={unread} className="absolute -right-1 -top-1" />
     </Pressable>
   );
+}
+
+function formatCreatedAt(iso: string): string {
+  return `${formatBookingDate(iso)} · ${formatChatTime(iso)}`;
 }
 
 export default function BookingDetail() {
@@ -126,163 +169,184 @@ export default function BookingDetail() {
   }
 
   const isTerminal = ([JobStatus.CANCELLED, JobStatus.EXPIRED] as JobStatus[]).includes(job.status);
-  const step = currentStepIndex(job);
+  const isInProgress = job.status === JobStatus.IN_PROGRESS;
+  const isPaid = job.status === JobStatus.PAID;
+  const showTiming =
+    (isInProgress || isPaid || job.completedAt !== null) && job.acceptedAt !== null;
   const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  const paidLabel = job.status === JobStatus.PAID ? 'Amount paid' : 'Amount';
+  const paidLabel = isPaid ? 'Amount paid' : 'Amount';
+  const statusVisual = STATUS_ICON[job.status] ?? STATUS_ICON[JobStatus.REQUESTED];
 
   return (
     <Screen scrollable edges={['top', 'bottom']} className="bg-background">
-      {job.pro ? (
-        <Stack.Screen
-          options={{
-            headerRight: () => (
-              <CallMessageButton jobId={job.id} unread={unread.countFor(job.id)} />
-            ),
-          }}
-        />
-      ) : null}
+      <Stack.Screen
+        options={{
+          headerTitle: () => (
+            <View>
+              <Text variant="bodyStrong" numberOfLines={1}>
+                {job.service.name}
+              </Text>
+              <Text variant="caption" className="text-text-secondary">
+                {formatCreatedAt(job.createdAt)}
+              </Text>
+            </View>
+          ),
+          headerRight: job.pro
+            ? () => <CallMessageButton jobId={job.id} unread={unread.countFor(job.id)} />
+            : undefined,
+        }}
+      />
 
-      <View className="pt-4">
-        <Badge label={bookingStatusLabel(job.status)} tone="info" withDot />
-        <Text variant="titleLg" className="mt-3">
-          {job.service.name}
-        </Text>
-        <Text variant="footnote" className="mt-1">
-          {job.customSkill ?? job.skill.name} · placed {formatDate(job.createdAt)}
+      <View className="pt-4 flex-row items-center gap-3">
+        <View
+          className={`h-11 w-11 items-center justify-center rounded-xl ${statusVisual.surface}`}
+        >
+          <Ionicons name={statusVisual.icon} size={22} color={statusVisual.tint} />
+        </View>
+        <Text variant="bodyLg" className="font-semibold">
+          {bookingStatusLabel(job.status)}
         </Text>
       </View>
 
-      <Card className="mt-6">
-        <Text variant="label">Professional</Text>
-        <View className="mt-1 flex-row items-center">
-          {job.pro ? (
-            <Avatar
-              name={job.pro.displayName ?? 'Professional assigned'}
-              uri={job.pro.photoUrl}
-              size="md"
-            />
-          ) : (
-            <Ionicons
-              name="search-outline"
-              size={18}
-              color={color['text-secondary']}
-            />
-          )}
-          <Text variant="bodyLg" className="ml-2">
+      {job.status === JobStatus.ARRIVED && job.verificationOtp ? (
+        <View className="mt-4 flex-row items-center gap-3">
+          <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
+            <Ionicons name="shield-checkmark-outline" size={22} color={color.brand} />
+          </View>
+          <View className="flex-1">
+            <Text variant="bodyStrong" className="text-brand">
+              Verification code
+            </Text>
+          </View>
+          <Text
+            variant="title"
+            className="font-semibold"
+            style={{ color: color.brand, letterSpacing: 4 }}
+          >
+            {job.verificationOtp}
+          </Text>
+        </View>
+      ) : null}
+
+      <View className="my-2 -mx-5 h-px bg-border" />
+
+      <View className="py-4 flex-row items-center gap-3">
+        {job.pro ? (
+          <Avatar name={job.pro.displayName ?? 'Professional'} uri={job.pro.photoUrl} size="md" />
+        ) : (
+          <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted">
+            <Ionicons name="search-outline" size={18} color={color['text-secondary']} />
+          </View>
+        )}
+        <View className="flex-1">
+          <Text variant="bodyLg" className="font-semibold">
             {job.pro
               ? (job.pro.displayName ?? 'Professional assigned')
               : 'Looking for a professional'}
           </Text>
+          <Text variant="footnote" className="mt-0.5 text-text-secondary">
+            {job.pro
+              ? job.pro.rating !== null
+                ? `Rated ${job.pro.rating.toFixed(1)}`
+                : 'Professional on this job'
+              : 'We notify you when someone accepts'}
+          </Text>
         </View>
-        <Text variant="footnote" className="mt-1">
-          {job.pro
-            ? job.pro.rating !== null
-              ? `Rated ${job.pro.rating.toFixed(1)} · ${job.pro.displayName ?? 'your pro'} is on this job`
-              : 'A professional is on this job.'
-            : 'We notify you the moment someone accepts your request.'}
-        </Text>
-        <Divider spaced />
+      </View>
 
-        <Text variant="label">Where</Text>
-        <Text variant="bodyLg" className="mt-1">
-          {job.placeType === 'OTHER' ? (job.placeDescription ?? 'Other') : humanize(job.placeType)}
-        </Text>
-        <Divider spaced />
+      <View className="my-2 -mx-5 h-px bg-border" />
 
+      <View className="py-4">
         <View className="flex-row items-center justify-between">
           <Text variant="label">{paidLabel}</Text>
-          <Text variant="title">{formatRupees(amount)}</Text>
+          <Text variant="title" className="text-text-primary">
+            {formatRupees(amount)}
+          </Text>
         </View>
-        <Text variant="footnote" className="mt-1">
+        <Text variant="footnote" className="mt-1 text-text-secondary">
           {job.agreedPayPaise || job.finalPayPaise
             ? 'The amount agreed with your professional.'
             : 'The guaranteed amount offered. The final price is agreed with the professional before payment.'}
         </Text>
-      </Card>
+      </View>
 
-      <Card className="mt-4">
+      {showTiming ? (
+        <>
+          <View className="my-2 -mx-5 h-px bg-border" />
+          <View className="py-4 flex-row items-start gap-3">
+            <View className="mt-0.5 h-11 w-11 items-center justify-center rounded-full bg-surface-muted">
+              <Ionicons name="time-outline" size={20} color={color['text-secondary']} />
+            </View>
+            <View className="flex-1">
+              <Text variant="bodyStrong">
+                {formatJobDate((job.completedAt ?? job.acceptedAt) as string)}
+              </Text>
+              <View className="mt-1 flex-row items-center gap-4">
+                <Text variant="footnote" className="text-text-secondary">
+                  started {formatClockTime(job.acceptedAt as string)}
+                </Text>
+                {isPaid ? (
+                  <Text variant="footnote" className="text-text-secondary">
+                    completed {formatClockTime(job.completedAt as string)}
+                  </Text>
+                ) : isInProgress ? (
+                  <Text variant="footnote" style={{ color: color.info }}>
+                    In progress
+                  </Text>
+                ) : (
+                  <Text variant="footnote" style={{ color: color.warning }}>
+                    Payment pending
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
+        </>
+      ) : null}
+
+      <View className="my-2 -mx-5 h-px bg-border" />
+
+      <View className="py-4 flex-row items-start gap-3">
+        <View className="mt-0.5 h-11 w-11 items-center justify-center rounded-full bg-surface-muted">
+          <Ionicons name="location-outline" size={20} color={color['text-secondary']} />
+        </View>
+        <View className="flex-1">
+          <Text variant="label">Where</Text>
+          <Text variant="body" className="mt-0.5" numberOfLines={2}>
+            {job.locationLabel}
+          </Text>
+        </View>
+      </View>
+
+      <View className="my-2 -mx-5 h-px bg-border" />
+
+      <View className="py-4">
         <Text variant="label">What's needed</Text>
         <Text variant="body" className="mt-1">
           {job.description}
         </Text>
-      </Card>
-
-      {job.status === JobStatus.ARRIVED && job.verificationOtp ? (
-        <Card className="mt-4 border-brand bg-brand-soft">
-          <View className="flex-row items-center gap-3">
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-surface">
-              <Ionicons name="shield-checkmark-outline" size={24} color={color.brand} />
-            </View>
-            <View className="flex-1">
-              <Text variant="bodyStrong" className="text-brand">
-                Your verification code
-              </Text>
-              <Text variant="footnote" className="mt-0.5 text-text-secondary">
-                Read this out to your professional so they can start work.
-              </Text>
-            </View>
-          </View>
-          <Text
-            variant="display"
-            className="mt-4 text-center"
-            style={{ color: color.brand, letterSpacing: 6 }}
-          >
-            {job.verificationOtp}
-          </Text>
-        </Card>
-      ) : null}
+      </View>
 
       {job.imageUrls.length > 0 ? (
-        <Card className="mt-4" padded={false}>
-          <View className="px-4 pb-3 pt-4">
+        <>
+          <View className="my-2 -mx-5 h-px bg-border" />
+          <View className="py-4">
             <Text variant="label">Reference photos</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="flex-row gap-2 mt-2"
+            >
+              {job.imageUrls.map((url) => (
+                <Image key={url} source={{ uri: url }} className="h-28 w-28 rounded-lg" />
+              ))}
+            </ScrollView>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="flex-row gap-2 px-4 pb-4"
-          >
-            {job.imageUrls.map((url) => (
-              <Image key={url} source={{ uri: url }} className="h-28 w-28 rounded-lg" />
-            ))}
-          </ScrollView>
-        </Card>
+        </>
       ) : null}
 
-      <Text variant="title" className="mt-8">
-        Progress
-      </Text>
-
-      <Card className="mt-3" padded={false}>
-        {TIMELINE.map((item, index) => {
-          const isDone = index <= step;
-          const isCurrent = item.status === job.status;
-          return (
-            <View key={item.status}>
-              {index > 0 ? <Divider /> : null}
-              <View className="flex-row items-center px-4 py-4">
-                <View
-                  className={
-                    isDone
-                      ? 'mr-3 h-2.5 w-2.5 rounded-full bg-success'
-                      : 'mr-3 h-2.5 w-2.5 rounded-full bg-border-strong'
-                  }
-                />
-                <Text
-                  variant={isDone ? 'bodyStrong' : 'body'}
-                  className={isDone ? undefined : 'text-text-secondary'}
-                >
-                  {item.label}
-                </Text>
-                {isCurrent ? <Badge label="Current" className="ml-2" /> : null}
-              </View>
-            </View>
-          );
-        })}
-      </Card>
-
       {isTerminal ? (
-        <View className="mt-6 rounded-xl border border-border bg-surface-muted p-4">
+        <View className="mt-4 rounded-xl border border-border bg-surface-muted p-4">
           <Text variant="body" className="text-center text-text-secondary">
             {job.status === JobStatus.CANCELLED
               ? 'This booking was cancelled.'
@@ -292,19 +356,17 @@ export default function BookingDetail() {
       ) : null}
 
       {job.status === JobStatus.PAYMENT_PENDING ? (
-        <View className="mt-8 gap-3 pb-4">
-          <View className="rounded-xl border border-brand bg-brand-soft p-4">
-            <Text variant="bodyStrong" className="text-brand">
-              Pay your professional in cash
-            </Text>
-            <Text variant="footnote" className="mt-0.5 text-text-secondary">
-              SAMONA takes cash only today. Settle the agreed amount with your
-              professional; they'll confirm the collection on their side.
-            </Text>
-          </View>
+        <View className="mt-4 rounded-xl border border-brand bg-brand-soft p-4">
+          <Text variant="bodyStrong" className="text-brand">
+            Pay your professional in cash
+          </Text>
+          <Text variant="footnote" className="mt-0.5 text-text-secondary">
+            SAMONA takes cash only today. Settle the agreed amount with your professional; they'll
+            confirm the collection on their side.
+          </Text>
         </View>
       ) : canCancel(job.status) ? (
-        <View className="mt-8 gap-3 pb-4">
+        <View className="mt-6 pb-4">
           <Button
             label="Cancel booking"
             variant="ghost"
@@ -316,16 +378,4 @@ export default function BookingDetail() {
       ) : null}
     </Screen>
   );
-}
-
-function humanize(value: string): string {
-  return value.charAt(0) + value.slice(1).toLowerCase();
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 }
