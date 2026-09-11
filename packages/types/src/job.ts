@@ -203,6 +203,8 @@ export interface JobDetail extends Job {
     rating: number | null;
     /** Contact number, shared once the job is accepted so the customer can call. */
     phone: string | null;
+    /** The pro's profile photo (their verified selfie), when one exists. */
+    photoUrl: string | null;
   } | null;
 }
 

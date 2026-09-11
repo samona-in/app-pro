@@ -40,6 +40,7 @@ const pro = {
   displayName: 'Ravi Kumar',
   rating: 4.8,
   phone: '+919000000000',
+  photoUrl: null,
 };
 
 describe('isActiveOrder', () => {
