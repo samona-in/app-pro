@@ -108,6 +108,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: TOP_RADIUS,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 14,
   },
   content: { backgroundColor: color.surface },
 });
