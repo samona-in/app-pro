@@ -12,7 +12,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 const SETTINGS_ROWS: { icon: IoniconName; label: string; onPress?: () => void }[] = [
   {
     icon: 'location-outline',
-    label: 'Saved addresses',
+    label: 'Manage addresses',
     onPress: () => router.push('/saved-addresses'),
   },
   { icon: 'card-outline', label: 'Payment methods', onPress: () => router.push('/payment-methods') },
