@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useWindowDimensions } from 'react-native';
-import { router, useSegments } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { openURL } from 'expo-linking';
 import * as Haptics from 'expo-haptics';
@@ -24,7 +25,6 @@ import { JobStatus, type JobDetail } from '@samona/types';
 import { Avatar, Badge, Button, Text, type BadgeTone } from '@/components/ui';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { useActiveJob } from '@/hooks';
-import { CUSTOM_TAB_BAR_HEIGHT } from '@/constants';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import { formatRupees } from '@/utils/format';
@@ -36,8 +36,8 @@ import {
 } from './active-job-copy';
 
 /** The collapsed hint strip. Stays tall enough for a 44pt touch row. */
-const HINT_HEIGHT = 96;
-/** How far the expanded sheet rises above the tab bar, as a share of the scene. */
+const HINT_HEIGHT = 76;
+/** How far the expanded sheet rises, as a share of the screen. */
 const EXPANDED_SCENE_RATIO = 0.62;
 /** Corner radius of the sheet's top edge, matching the theme's premium feel. */
 const TOP_RADIUS = 24;
@@ -78,13 +78,13 @@ function FindingSpinner() {
 }
 
 const styles = StyleSheet.create({
-  /** Anchors the sheet to the scene area, directly above the tab bar. */
+  /** Full-screen anchor so the sheet presents at the true bottom of the screen. */
   overlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: CUSTOM_TAB_BAR_HEIGHT,
+    bottom: 0,
   },
   background: {
     flex: 1,
@@ -94,13 +94,12 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 12,
   },
   content: { backgroundColor: color.surface },
-  contentContainer: { paddingBottom: 24 },
 });
 
 function SheetBackground() {
@@ -118,8 +117,10 @@ interface HintHandleProps extends BottomSheetHandleProps {
  * expands the sheet.
  */
 function HintHandle({ job, expanded, animatedIndex }: HintHandleProps) {
+  const { bottom } = useSafeAreaInsets();
   const { snapToIndex } = useBottomSheet();
   const copy = jobStatusHint(job);
+  const height = HINT_HEIGHT + bottom;
 
   const chevronStyle = useAnimatedStyle(() => ({
     transform: [
@@ -133,7 +134,7 @@ function HintHandle({ job, expanded, animatedIndex }: HintHandleProps) {
       accessibilityLabel={`${job.service.name} — ${copy.subtitle}`}
       accessibilityHint="Expands to show more booking details"
       onPress={() => snapToIndex(expanded ? 0 : 1)}
-      style={{ height: HINT_HEIGHT }}
+      style={{ height, paddingBottom: bottom }}
       className="justify-center"
     >
       <View className="items-center pb-1.5">
@@ -171,19 +172,17 @@ function HintHandle({ job, expanded, animatedIndex }: HintHandleProps) {
 }
 
 /**
- * The customer's live active-order sheet on the Home tab.
+ * The customer's live active-order sheet, docked at the bottom of the screen.
  *
- * Collapsed by default it is a compact status hint; dragging or tapping it
- * springs open to the job's current state, the assigned professional and the
- * fast actions (call, chat, view). It lives in the scene area above the tab
- * bar and never covers it. Everything un-mounts when there is no active order.
+ * It floats above every route (root layout). Collapsed it is a compact status
+ * hint; dragging or tapping it springs open to the job's current state, the
+ * assigned professional and the fast actions (call, chat, view). Everything
+ * un-mounts when there is no active order.
  */
 export function ActiveJobHint() {
-  const segments = useSegments();
-  const onHome = segments[segments.length - 1] === 'home';
   const activeJob = useActiveJob();
 
-  if (!onHome || !activeJob) return null;
+  if (!activeJob) return null;
 
   return (
     <View pointerEvents="box-none" style={styles.overlay}>
@@ -194,15 +193,19 @@ export function ActiveJobHint() {
 
 function ActiveJobSheet({ job }: { job: JobDetail }) {
   const { height: windowHeight } = useWindowDimensions();
-  const sceneHeight = Math.max(0, windowHeight - CUSTOM_TAB_BAR_HEIGHT);
+  const { bottom } = useSafeAreaInsets();
+  const handleHeight = HINT_HEIGHT + bottom;
 
-  const snapPoints = useMemo(() => {
-    const expanded = Math.min(
-      Math.round(sceneHeight * EXPANDED_SCENE_RATIO),
-      Math.max(HINT_HEIGHT + 8, sceneHeight - 120),
-    );
-    return [HINT_HEIGHT, Math.max(HINT_HEIGHT + 8, expanded)] as number[];
-  }, [sceneHeight]);
+  const snapPoints = useMemo(
+    () => {
+      const expanded = Math.min(
+        Math.round(windowHeight * EXPANDED_SCENE_RATIO),
+        Math.max(handleHeight + 8, windowHeight - 160),
+      );
+      return [handleHeight, Math.max(handleHeight + 8, expanded)] as number[];
+    },
+    [windowHeight, handleHeight],
+  );
 
   const springConfig = useBottomSheetSpringConfigs({
     damping: 22,
@@ -269,7 +272,7 @@ function ActiveJobSheet({ job }: { job: JobDetail }) {
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
         style={styles.content}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottom + 24 }}
       >
         <View className="flex-row items-start justify-between pt-1">
           <View className="flex-1 pr-3">

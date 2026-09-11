@@ -3,7 +3,6 @@ import { TopTabs } from 'expo-router/js-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, View, type ColorValue, type TextStyle, type ViewStyle } from 'react-native';
 import { Screen, Text } from '@/components/ui';
-import { ActiveJobHint } from '@/components/booking/ActiveJobSheet';
 import type { MaterialTopTabNavigationOptions } from 'expo-router/js-top-tabs';
 import type { TabNavigationState } from 'expo-router/build/react-navigation/native';
 import type { ParamListBase } from 'expo-router/build/react-navigation/native';
@@ -124,33 +123,28 @@ export default function TabsLayout() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: color.background }}>
-      <TopTabs
-        tabBar={SwipeableTabBar}
-        tabBarPosition="bottom"
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: color.brand,
-          tabBarInactiveTintColor: color['text-muted'],
-          sceneStyle: { backgroundColor: color.background },
-        }}
-      >
-        <TopTabs.Screen
-          name="home"
-          options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
-        />
-        <TopTabs.Screen
-          name="bookings"
-          options={{ title: 'Bookings', tabBarIcon: bookingsTabIcon(unread.total) }}
-        />
-        <TopTabs.Screen
-          name="profile"
-          options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
-        />
-      </TopTabs>
-
-      {/* Active-order hint, docked above the tab bar while one is live on Home. */}
-      <ActiveJobHint />
-    </View>
+    <TopTabs
+      tabBar={SwipeableTabBar}
+      tabBarPosition="bottom"
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: color.brand,
+        tabBarInactiveTintColor: color['text-muted'],
+        sceneStyle: { backgroundColor: color.background },
+      }}
+    >
+      <TopTabs.Screen
+        name="home"
+        options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
+      />
+      <TopTabs.Screen
+        name="bookings"
+        options={{ title: 'Bookings', tabBarIcon: bookingsTabIcon(unread.total) }}
+      />
+      <TopTabs.Screen
+        name="profile"
+        options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
+      />
+    </TopTabs>
   );
 }
