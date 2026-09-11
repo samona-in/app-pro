@@ -100,6 +100,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -6 },
     elevation: 12,
   },
+  /** The collapsed hint card: solid white so it reads as its own surface. */
+  handle: {
+    height: HINT_HEIGHT,
+    backgroundColor: color.surface,
+    borderTopLeftRadius: TOP_RADIUS,
+    borderTopRightRadius: TOP_RADIUS,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.border,
+  },
   content: { backgroundColor: color.surface },
 });
 
@@ -133,7 +142,7 @@ function HintHandle({ job, expanded, animatedIndex }: HintHandleProps) {
   );
 
   return (
-    <View style={{ height: HINT_HEIGHT }} className="justify-center">
+    <View style={styles.handle} className="justify-center overflow-hidden">
       <View className="items-center pb-1">
         <View className="h-1 w-9 rounded-full bg-border-strong" />
       </View>
