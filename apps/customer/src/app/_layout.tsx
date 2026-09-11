@@ -88,7 +88,7 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               presentation: 'modal',
-              title: 'Saved addresses',
+              title: 'Manage addresses',
               headerBackTitle: 'Back',
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },
