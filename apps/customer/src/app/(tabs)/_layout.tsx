@@ -3,12 +3,14 @@ import { TopTabs } from 'expo-router/js-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, View, type ColorValue, type TextStyle, type ViewStyle } from 'react-native';
 import { Screen, Text } from '@/components/ui';
+import { ActiveJobHint } from '@/components/booking/ActiveJobSheet';
 import type { MaterialTopTabNavigationOptions } from 'expo-router/js-top-tabs';
 import type { TabNavigationState } from 'expo-router/build/react-navigation/native';
 import type { ParamListBase } from 'expo-router/build/react-navigation/native';
 import { UnreadBadge } from '@/components/chat';
 import { LoadingState } from '@/components/feedback';
 import { useRealtimeSync, useSession, useUnreadMessages } from '@/hooks';
+import { CUSTOM_TAB_BAR_HEIGHT } from '@/constants';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -40,7 +42,7 @@ function bookingsTabIcon(unread: number) {
 const TAB_BAR_STYLE: ViewStyle = {
   backgroundColor: color.surface,
   borderTopColor: color.border,
-  height: 88,
+  height: CUSTOM_TAB_BAR_HEIGHT,
   paddingTop: 8,
 };
 const TAB_LABEL_STYLE: TextStyle = { fontSize: 11, fontWeight: '600' };
@@ -122,28 +124,33 @@ export default function TabsLayout() {
   }
 
   return (
-    <TopTabs
-      tabBar={SwipeableTabBar}
-      tabBarPosition="bottom"
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: color.brand,
-        tabBarInactiveTintColor: color['text-muted'],
-        sceneStyle: { backgroundColor: color.background },
-      }}
-    >
-      <TopTabs.Screen
-        name="home"
-        options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
-      />
-      <TopTabs.Screen
-        name="bookings"
-        options={{ title: 'Bookings', tabBarIcon: bookingsTabIcon(unread.total) }}
-      />
-      <TopTabs.Screen
-        name="profile"
-        options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
-      />
-    </TopTabs>
+    <View style={{ flex: 1, backgroundColor: color.background }}>
+      <TopTabs
+        tabBar={SwipeableTabBar}
+        tabBarPosition="bottom"
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: color.brand,
+          tabBarInactiveTintColor: color['text-muted'],
+          sceneStyle: { backgroundColor: color.background },
+        }}
+      >
+        <TopTabs.Screen
+          name="home"
+          options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
+        />
+        <TopTabs.Screen
+          name="bookings"
+          options={{ title: 'Bookings', tabBarIcon: bookingsTabIcon(unread.total) }}
+        />
+        <TopTabs.Screen
+          name="profile"
+          options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
+        />
+      </TopTabs>
+
+      {/* Active-order hint, docked above the tab bar while one is live on Home. */}
+      <ActiveJobHint />
+    </View>
   );
 }
