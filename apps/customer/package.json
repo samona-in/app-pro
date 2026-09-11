@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
+    "@gorhom/bottom-sheet": "^5.2.14",
     "@maplibre/maplibre-react-native": "^11.3.7",
     "@samona/api-client": "*",
     "@samona/config": "*",
