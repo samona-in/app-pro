@@ -2,6 +2,7 @@ export { useRealtimeSync } from './use-realtime';
 export { useActiveJob, useActiveOrders } from './use-active-job';
 export { useServices } from './use-services';
 export { useCustomerProfile, useSaveOnboardingStep } from './use-onboarding';
+export { useUploadAvatar } from './use-avatar';
 export {
   useBooking,
   useBookings,

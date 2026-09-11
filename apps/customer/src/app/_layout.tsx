@@ -52,6 +52,28 @@ export default function RootLayout() {
               headerStyle: { backgroundColor: color.surface },
             }}
           />
+          <Stack.Screen
+            name="payment-methods"
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: 'Payment methods',
+              headerBackTitle: 'Back',
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+            }}
+          />
+          <Stack.Screen
+            name="help-support"
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: 'Help & support',
+              headerBackTitle: 'Back',
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+            }}
+          />
         </Stack>
       </KeyboardProvider>
     </AppProviders>
