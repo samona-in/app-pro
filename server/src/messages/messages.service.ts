@@ -1,5 +1,7 @@
 import {
   type ChatMessage,
+  isChatClosed,
+  type JobStatus,
   type MessagePage,
   type MessageReceiptUpdate,
   type MessageUnreadSummary,
@@ -78,6 +80,8 @@ type ResolvedThread = {
   otherProfileId: string;
   /** Which side the actor is on, so headers/pushes address the right name. */
   actorIsCustomer: boolean;
+  /** The job's current status — what the conversation is still open for. */
+  status: JobStatus;
   customer: { userId: string; displayName: string | null; phone: string | null };
   pro: { userId: string; displayName: string | null; phone: string | null };
 };
@@ -100,6 +104,7 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     const job = await prisma.job.findUnique({
       where: { id: jobId },
       select: {
+        status: true,
         proId: true,
         pro: {
           select: {
@@ -154,6 +159,7 @@ export function createMessagesService(deps: MessagesServiceDeps) {
       thisProfileId: actorProfileId,
       otherProfileId: actorIsCustomer ? proUserId : customerUserId,
       actorIsCustomer,
+      status: job.status,
       customer: {
         userId: customerUserId,
         displayName: job.customer.displayName,
@@ -270,6 +276,9 @@ export function createMessagesService(deps: MessagesServiceDeps) {
    * (`senderRole`) and the other party is nudged over the socket and (when
    * their device holds a push token) alerted. The persisted DTO is returned for
    * optimistic reconciliation on the sender's side.
+   *
+   * A closed job (PAID / CANCELLED / EXPIRED) rejects new messages — history
+   * stays readable, the conversation is just frozen.
    */
   async function send(
     actorProfileId: string,
@@ -277,6 +286,9 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     appType: AppType | null,
   ): Promise<ChatMessage> {
     const thread = await resolveThread(actorProfileId, input.jobId, appType);
+    if (isChatClosed(thread.status)) {
+      throw badRequest('This conversation is closed; you can no longer send messages.');
+    }
     const senderRole: UserRole = thread.actorIsCustomer ? UserRole.CUSTOMER : UserRole.PRO;
 
     const created = await prisma.message.create({

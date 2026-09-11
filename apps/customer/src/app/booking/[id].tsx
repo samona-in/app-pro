@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { JobStatus } from '@samona/types';
+import { isChatClosed, JobStatus } from '@samona/types';
 import { bookingStatusLabel } from '@/components/booking';
 import { UnreadBadge } from '@/components/chat';
 import { ErrorState, LoadingState } from '@/components/feedback';
@@ -191,7 +191,7 @@ export default function BookingDetail() {
               </Text>
             </View>
           ),
-          headerRight: job.pro
+          headerRight: job.pro && !isChatClosed(job.status)
             ? () => <CallMessageButton jobId={job.id} unread={unread.countFor(job.id)} />
             : undefined,
         }}
