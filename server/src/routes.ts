@@ -12,6 +12,7 @@ import { createServicesRouter } from './services/services.routes';
 import { createJobsRouter } from './jobs/jobs.routes';
 import { createMessagesRouter } from './messages/messages.routes';
 import { createLocationsRouter } from './locations/locations.routes';
+import { createAddressesRouter } from './addresses/addresses.routes';
 import { createEarningsRouter } from './earnings/earnings.routes';
 import { createNotificationsRouter } from './notifications/notifications.routes';
 import { createReviewsRouter } from './reviews/reviews.routes';
@@ -58,6 +59,10 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
 
   // High-frequency telemetry gets its own, larger budget.
   router.use('/locations', limiters.location, createLocationsRouter(services));
+
+  // Customer-owned saved addresses: labelled Home/Work/Other places reused at
+  // booking time. Write-tier like the customer profile it belongs to.
+  router.use('/addresses', limiters.write, createAddressesRouter(services));
 
   // Job-scoped chat. Rides the write limiter like jobs; the auth middleware is
   // per-route inside the router rather than baked into the sub-router so the
