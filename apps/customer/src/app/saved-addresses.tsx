@@ -1,18 +1,17 @@
 import { FlatList, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { AddressListItem } from '@/components/address/AddressListItem';
-import { Button } from '@/components/ui';
+import { Button, Text } from '@/components/ui';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { useSavedAddresses } from '@/hooks';
 import { color } from '@/theme';
-import { savedAddressSecondary } from '@/utils/address';
+import { ADDRESS_LABEL_NAMES, savedAddressSecondary } from '@/utils/address';
 
 /**
  * Manage the customer's saved addresses (Profile → Manage addresses).
  *
- * Each row shows the label and address. The active location shown under the
- * Home pin lives separately on the customer profile.
+ * Flat, borderless rows styled like the bookings list. The active location
+ * shown under the Home pin lives separately on the customer profile.
  */
 export default function SavedAddresses() {
   const { data, isPending, isError, refetch } = useSavedAddresses();
@@ -43,11 +42,24 @@ export default function SavedAddresses() {
           keyExtractor={(item) => item.id}
           contentContainerClassName="px-5 pb-6"
           renderItem={({ item }) => (
-            <AddressListItem
-              icon={item.label}
-              title={item.addressLine1}
-              subtitle={savedAddressSecondary(item)}
-            />
+            <View className="bg-background py-3">
+              <View className="flex-row items-start">
+                <View className="flex-1">
+                  <Text variant="bodyStrong" numberOfLines={1}>
+                    {item.addressLine1}
+                  </Text>
+                  <Text variant="footnote" numberOfLines={1} className="mt-0.5 text-text-secondary">
+                    {ADDRESS_LABEL_NAMES[item.label]}
+                  </Text>
+                  {savedAddressSecondary(item) ? (
+                    <Text variant="caption" numberOfLines={1} className="mt-0.5 text-text-muted">
+                      {savedAddressSecondary(item)}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              <View className="my-2 -mx-5 h-px bg-border" />
+            </View>
           )}
           ListFooterComponent={
             <Button
