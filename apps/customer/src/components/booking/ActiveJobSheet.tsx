@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { openURL } from 'expo-linking';
@@ -35,9 +34,9 @@ import {
   jobStatusHint,
 } from './active-job-copy';
 
-/** The collapsed hint strip. Stays tall enough for a 44pt touch row. */
-const HINT_HEIGHT = 76;
-/** How far the expanded sheet rises, as a share of the screen. */
+/** The collapsed hint strip. Compact: grab handle + one 44pt touch row. */
+const HINT_HEIGHT = 72;
+/** How far the expanded sheet rises, as a share of the scene above the bar. */
 const EXPANDED_SCENE_RATIO = 0.62;
 /** Corner radius of the sheet's top edge, matching the theme's premium feel. */
 const TOP_RADIUS = 24;
@@ -78,13 +77,15 @@ function FindingSpinner() {
 }
 
 const styles = StyleSheet.create({
-  /** Full-screen anchor so the sheet presents at the true bottom of the screen. */
+  /**
+   * Anchors the sheet to the scene above the bottom tab bar. The `bottom`
+   * inset is supplied by the tabs layout: measured tab-bar height + gap.
+   */
   overlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
   },
   background: {
     flex: 1,
@@ -112,15 +113,13 @@ interface HintHandleProps extends BottomSheetHandleProps {
 }
 
 /**
- * The collapsed hint: grab bar, service tile, one-line status copy and a
- * chevron that flips as the sheet opens. Tapping it (or dragging it up)
- * expands the sheet.
+ * The collapsed hint: drag handle, service tile, status headline + short
+ * description and a chevron that flips as the sheet opens. Tapping the hint
+ * opens the booking details; the chevron (or dragging up) expands the sheet.
  */
 function HintHandle({ job, expanded, animatedIndex }: HintHandleProps) {
-  const { bottom } = useSafeAreaInsets();
   const { snapToIndex } = useBottomSheet();
   const copy = jobStatusHint(job);
-  const height = HINT_HEIGHT + bottom;
 
   const chevronStyle = useAnimatedStyle(() => ({
     transform: [
@@ -128,83 +127,98 @@ function HintHandle({ job, expanded, animatedIndex }: HintHandleProps) {
     ],
   }));
 
+  const toggle = useCallback(
+    () => snapToIndex(expanded ? 0 : 1),
+    [expanded, snapToIndex],
+  );
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${job.service.name} — ${copy.subtitle}`}
-      accessibilityHint="Expands to show more booking details"
-      onPress={() => snapToIndex(expanded ? 0 : 1)}
-      style={{ height, paddingBottom: bottom }}
-      className="justify-center"
-    >
-      <View className="items-center pb-1.5">
+    <View style={{ height: HINT_HEIGHT }} className="justify-center">
+      <View className="items-center pb-1">
         <View className="h-1 w-9 rounded-full bg-border-strong" />
       </View>
       <View className="flex-row items-center px-4">
-        <ServiceImage
-          uri={job.service.icon}
-          accessibilityLabel={job.service.name}
-          className="h-11 w-11 rounded-xl"
-        />
-        <View className="ml-3 flex-1">
-          <Text variant="bodyStrong" numberOfLines={1}>
-            {job.service.name}
-          </Text>
-          <View className="mt-0.5 flex-row items-center">
-            {copy.finding ? <FindingSpinner /> : null}
-            <Text
-              variant="footnote"
-              numberOfLines={1}
-              className={cn('shrink text-text-secondary', copy.finding && 'ml-1.5')}
-            >
-              {copy.subtitle}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${copy.title} — ${copy.description}`}
+          accessibilityHint="Opens the details of this booking"
+          onPress={() => router.push(`/booking/${job.id}`)}
+          className="flex-1 flex-row items-center"
+        >
+          <ServiceImage
+            uri={job.service.icon}
+            accessibilityLabel={job.service.name}
+            className="h-11 w-11 rounded-xl"
+          />
+          <View className="ml-3 flex-1 pr-2">
+            <View className="flex-row items-center">
+              {copy.finding ? <FindingSpinner /> : null}
+              <Text
+                variant="bodyStrong"
+                numberOfLines={1}
+                className={cn('shrink', copy.finding && 'ml-1.5')}
+              >
+                {copy.title}
+              </Text>
+            </View>
+            <Text variant="caption" numberOfLines={1} className="mt-0.5 text-text-secondary">
+              {copy.description}
             </Text>
           </View>
-        </View>
-        <View className="ml-2 h-8 w-8 items-center justify-center rounded-full bg-surface-muted">
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? 'Collapse booking details' : 'Expand booking details'}
+          accessibilityHint="Shows more booking details"
+          onPress={toggle}
+          hitSlop={8}
+          className="ml-2 h-8 w-8 items-center justify-center rounded-full bg-surface-muted"
+        >
           <Animated.View style={chevronStyle}>
             <Ionicons name="chevron-up" size={16} color={color['text-secondary']} />
           </Animated.View>
-        </View>
+        </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
 /**
- * The customer's live active-order sheet, docked at the bottom of the screen.
+ * The customer's live active-order sheet, docked directly above the bottom
+ * tab bar so the bar stays visible and clickable.
  *
- * It floats above every route (root layout). Collapsed it is a compact status
- * hint; dragging or tapping it springs open to the job's current state, the
- * assigned professional and the fast actions (call, chat, view). Everything
- * un-mounts when there is no active order.
+ * `bottomOffset` is the measured tab-bar height plus the safe-area gap and is
+ * provided by `(tabs)/_layout.tsx`. Collapsed it is a compact status hint;
+ * the chevron or a drag springs it open to the job's state, the assigned
+ * professional and the fast actions (call, chat, view). Tapping the hint
+ * opens the booking details. Everything un-mounts when there is no active
+ * order.
  */
-export function ActiveJobHint() {
+export function ActiveJobHint({ bottomOffset }: { bottomOffset: number }) {
   const activeJob = useActiveJob();
 
   if (!activeJob) return null;
 
   return (
-    <View pointerEvents="box-none" style={styles.overlay}>
-      <ActiveJobSheet key={activeJob.id} job={activeJob} />
+    <View pointerEvents="box-none" style={[styles.overlay, { bottom: bottomOffset }]}>
+      <ActiveJobSheet key={activeJob.id} job={activeJob} bottomOffset={bottomOffset} />
     </View>
   );
 }
 
-function ActiveJobSheet({ job }: { job: JobDetail }) {
+function ActiveJobSheet({ job, bottomOffset }: { job: JobDetail; bottomOffset: number }) {
   const { height: windowHeight } = useWindowDimensions();
-  const { bottom } = useSafeAreaInsets();
-  const handleHeight = HINT_HEIGHT + bottom;
+  const sceneHeight = Math.max(0, windowHeight - bottomOffset);
 
   const snapPoints = useMemo(
     () => {
       const expanded = Math.min(
-        Math.round(windowHeight * EXPANDED_SCENE_RATIO),
-        Math.max(handleHeight + 8, windowHeight - 160),
+        Math.round(sceneHeight * EXPANDED_SCENE_RATIO),
+        Math.max(HINT_HEIGHT + 8, sceneHeight - 120),
       );
-      return [handleHeight, Math.max(handleHeight + 8, expanded)] as number[];
+      return [HINT_HEIGHT, Math.max(HINT_HEIGHT + 8, expanded)] as number[];
     },
-    [windowHeight, handleHeight],
+    [sceneHeight],
   );
 
   const springConfig = useBottomSheetSpringConfigs({
@@ -272,7 +286,7 @@ function ActiveJobSheet({ job }: { job: JobDetail }) {
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
         style={styles.content}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: bottom + 24 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
       >
         <View className="flex-row items-start justify-between pt-1">
           <View className="flex-1 pr-3">

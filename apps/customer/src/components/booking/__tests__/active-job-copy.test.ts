@@ -85,13 +85,14 @@ describe('activeJobStageIndex', () => {
 describe('jobStatusHint', () => {
   it('says it is still finding a professional while unassigned', () => {
     const hint = jobStatusHint(makeJob({ status: JobStatus.REQUESTED }));
-    expect(hint.subtitle).toBe('Finding a professional…');
+    expect(hint.title).toBe('Finding the best professional…');
+    expect(hint.description).toBe("We've notified nearby pros. You'll be updated soon.");
     expect(hint.finding).toBe(true);
   });
 
   it('announces the assignment once accepted', () => {
     const hint = jobStatusHint(makeJob({ status: JobStatus.ACCEPTED, proId: pro.proId, pro }));
-    expect(hint.subtitle).toBe('Professional assigned');
+    expect(hint.title).toBe('Professional assigned');
     expect(hint.finding).toBe(false);
   });
 
@@ -99,12 +100,13 @@ describe('jobStatusHint', () => {
     const withoutEta = jobStatusHint(
       makeJob({ status: JobStatus.TRAVELLING, proId: pro.proId, pro, estimatedEtaMinutes: null }),
     );
-    expect(withoutEta.subtitle).toBe('Ravi Kumar is on the way');
+    expect(withoutEta.title).toBe('Ravi Kumar is on the way');
+    expect(withoutEta.description).toBe('Heading to your location now.');
 
     const withEta = jobStatusHint(
       makeJob({ status: JobStatus.TRAVELLING, proId: pro.proId, pro, estimatedEtaMinutes: 12 }),
     );
-    expect(withEta.subtitle).toBe('Ravi Kumar is on the way · ~12 min');
+    expect(withEta.title).toBe('Ravi Kumar is on the way · ~12 min');
   });
 
   it('falls back to a generic copy when the pro name is missing', () => {
@@ -115,14 +117,14 @@ describe('jobStatusHint', () => {
         pro: { ...pro, displayName: null },
       }),
     );
-    expect(hint.subtitle).toBe('Professional is on the way');
+    expect(hint.title).toBe('Your professional is on the way');
   });
 
   it('covers arrival and in-progress states', () => {
-    expect(jobStatusHint(makeJob({ status: JobStatus.ARRIVED })).subtitle).toBe(
-      'Professional has arrived',
+    expect(jobStatusHint(makeJob({ status: JobStatus.ARRIVED })).title).toBe(
+      'Your professional has arrived',
     );
-    expect(jobStatusHint(makeJob({ status: JobStatus.IN_PROGRESS })).subtitle).toBe(
+    expect(jobStatusHint(makeJob({ status: JobStatus.IN_PROGRESS })).title).toBe(
       'Service in progress',
     );
   });
@@ -130,7 +132,9 @@ describe('jobStatusHint', () => {
   it('groups completed and payment-pending under one settlement copy', () => {
     const completed = jobStatusHint(makeJob({ status: JobStatus.COMPLETED }));
     const pending = jobStatusHint(makeJob({ status: JobStatus.PAYMENT_PENDING }));
-    expect(completed.subtitle).toBe('Service completed • Payment pending');
-    expect(pending.subtitle).toBe(completed.subtitle);
+    expect(completed.title).toBe('Service completed');
+    expect(completed.description).toBe('Payment settlement is in progress.');
+    expect(pending.title).toBe(completed.title);
+    expect(pending.description).toBe(completed.description);
   });
 });

@@ -4,7 +4,6 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { AppProviders } from '@/providers';
-import { ActiveJobHint } from '@/components/booking/ActiveJobSheet';
 import { color } from '@/theme';
 
 export default function RootLayout() {
@@ -54,9 +53,6 @@ export default function RootLayout() {
             }}
           />
         </Stack>
-
-        {/* Live active-order sheet, docked at the bottom of every screen. */}
-        <ActiveJobHint />
       </KeyboardProvider>
     </AppProviders>
   );

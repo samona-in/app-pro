@@ -39,8 +39,10 @@ export function activeJobStageIndex(status: JobStatus): number {
 }
 
 export interface JobHintCopy {
-  /** Compact one-line status copy for the collapsed hint. */
-  subtitle: string;
+  /** Primary line of the collapsed hint, e.g. the current job status. */
+  title: string;
+  /** Short secondary line that elaborates on the status. */
+  description: string;
   /** Matching is still running — show the small animated indicator. */
   finding: boolean;
   /** The current stage label for the expanded progress row. */
@@ -60,23 +62,26 @@ export function jobStatusHint(job: JobDetail): JobHintCopy {
     case JobStatus.REQUESTED:
     case JobStatus.OFFERED:
       return {
-        subtitle: 'Finding a professional…',
+        title: 'Finding the best professional…',
+        description: "We've notified nearby pros. You'll be updated soon.",
         finding: true,
         stageLabel: 'Request sent',
       };
 
     case JobStatus.ACCEPTED:
       return {
-        subtitle: 'Professional assigned',
+        title: 'Professional assigned',
+        description: 'Your professional is preparing to head your way.',
         finding: false,
         stageLabel: 'Professional assigned',
       };
 
     case JobStatus.TRAVELLING: {
-      const base = proName ? `${proName} is on the way` : 'Professional is on the way';
+      const base = proName ? `${proName} is on the way` : 'Your professional is on the way';
       const eta = job.estimatedEtaMinutes;
       return {
-        subtitle: eta !== null ? `${base} · ~${eta} min` : base,
+        title: eta !== null ? `${base} · ~${eta} min` : base,
+        description: 'Heading to your location now.',
         finding: false,
         stageLabel: 'On the way',
       };
@@ -84,14 +89,16 @@ export function jobStatusHint(job: JobDetail): JobHintCopy {
 
     case JobStatus.ARRIVED:
       return {
-        subtitle: 'Professional has arrived',
+        title: 'Your professional has arrived',
+        description: 'Waiting for you at the location.',
         finding: false,
         stageLabel: 'Arrived',
       };
 
     case JobStatus.IN_PROGRESS:
       return {
-        subtitle: 'Service in progress',
+        title: 'Service in progress',
+        description: 'Your professional is working on it.',
         finding: false,
         stageLabel: 'In progress',
       };
@@ -99,14 +106,16 @@ export function jobStatusHint(job: JobDetail): JobHintCopy {
     case JobStatus.COMPLETED:
     case JobStatus.PAYMENT_PENDING:
       return {
-        subtitle: 'Service completed • Payment pending',
+        title: 'Service completed',
+        description: 'Payment settlement is in progress.',
         finding: false,
         stageLabel: 'Payment pending',
       };
 
     default:
       return {
-        subtitle: 'Service active',
+        title: 'Service active',
+        description: 'Your booking is live.',
         finding: false,
         stageLabel: 'Active',
       };

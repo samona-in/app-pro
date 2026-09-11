@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Redirect } from 'expo-router';
 import { TopTabs } from 'expo-router/js-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +10,8 @@ import type { ParamListBase } from 'expo-router/build/react-navigation/native';
 import { UnreadBadge } from '@/components/chat';
 import { LoadingState } from '@/components/feedback';
 import { useRealtimeSync, useSession, useUnreadMessages } from '@/hooks';
-import { CUSTOM_TAB_BAR_HEIGHT } from '@/constants';
+import { ActiveJobHint } from '@/components/booking/ActiveJobSheet';
+import { ACTIVE_SHEET_GAP, CUSTOM_TAB_BAR_HEIGHT } from '@/constants';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -56,11 +58,17 @@ interface SwipeableTabBarProps {
   state: TabNavigationState<ParamListBase>;
   descriptors: Record<string, { options: MaterialTopTabNavigationOptions }>;
   navigation: { navigate: (routeName: string) => void };
+  /** Reports the rendered bar height so overlays can dock above it. */
+  onHeight?: (height: number) => void;
 }
 
-function SwipeableTabBar({ state, descriptors, navigation }: SwipeableTabBarProps) {
+function SwipeableTabBar({ state, descriptors, navigation, onHeight }: SwipeableTabBarProps) {
   return (
-    <View style={TAB_BAR_STYLE} className="flex-row items-start border-t px-1">
+    <View
+      style={TAB_BAR_STYLE}
+      className="flex-row items-start border-t px-1"
+      onLayout={(e) => onHeight?.(Math.round(e.nativeEvent.layout.height))}
+    >
       {state.routes.map((route, index) => {
         const descriptor = descriptors[route.key];
         if (!descriptor) return null;
@@ -106,6 +114,10 @@ export default function TabsLayout() {
   // the moment the count changes on the socket (CLAUDE.md "Realtime").
   const unread = useUnreadMessages();
 
+  // Actual on-screen tab-bar height, so the active-order hint always docks to
+  // the bar's real top edge on any device (iOS home indicator, Android nav bar).
+  const [tabBarHeight, setTabBarHeight] = useState(CUSTOM_TAB_BAR_HEIGHT);
+
   if (isLoading) {
     return (
       <Screen edges={['top', 'bottom']}>
@@ -123,28 +135,33 @@ export default function TabsLayout() {
   }
 
   return (
-    <TopTabs
-      tabBar={SwipeableTabBar}
-      tabBarPosition="bottom"
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: color.brand,
-        tabBarInactiveTintColor: color['text-muted'],
-        sceneStyle: { backgroundColor: color.background },
-      }}
-    >
-      <TopTabs.Screen
-        name="home"
-        options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
-      />
-      <TopTabs.Screen
-        name="bookings"
-        options={{ title: 'Bookings', tabBarIcon: bookingsTabIcon(unread.total) }}
-      />
-      <TopTabs.Screen
-        name="profile"
-        options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
-      />
-    </TopTabs>
+    <View style={{ flex: 1 }}>
+      <TopTabs
+        tabBar={(props: SwipeableTabBarProps) => <SwipeableTabBar {...props} onHeight={setTabBarHeight} />}
+        tabBarPosition="bottom"
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: color.brand,
+          tabBarInactiveTintColor: color['text-muted'],
+          sceneStyle: { backgroundColor: color.background },
+        }}
+      >
+        <TopTabs.Screen
+          name="home"
+          options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
+        />
+        <TopTabs.Screen
+          name="bookings"
+          options={{ title: 'Bookings', tabBarIcon: bookingsTabIcon(unread.total) }}
+        />
+        <TopTabs.Screen
+          name="profile"
+          options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
+        />
+      </TopTabs>
+
+      {/* Active-order hint, docked above the tab bar with a small gap. */}
+      <ActiveJobHint bottomOffset={tabBarHeight + ACTIVE_SHEET_GAP} />
+    </View>
   );
 }
