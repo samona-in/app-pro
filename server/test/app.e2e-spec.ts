@@ -23,6 +23,8 @@ const config: AppConfig = {
   supabaseSecretKey: null,
   corsOrigins: [],
   googleMapsApiKey: null,
+  geocodingBaseUrl: 'https://photon.komoot.io',
+  geocodingTimeoutMs: 8_000,
   expoAccessToken: null,
   jobAlertRepeatMs: 60_000,
   jobAlertMaxRepeats: 20,

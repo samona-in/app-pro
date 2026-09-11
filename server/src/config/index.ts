@@ -64,6 +64,21 @@ const envSchema = z.object({
   GOOGLE_MAPS_API_KEY: optional(z.string()),
 
   /**
+   * Base URL of the OSM-compatible geocoder the `/locations` proxy calls.
+   * Photon (keyless, OSM data) is the default; self-host it in production
+   * rather than depending on the shared public instance.
+   */
+  GEOCODING_BASE_URL: z
+    .url({ message: 'GEOCODING_BASE_URL must be a valid URL.' })
+    .default('https://photon.komoot.io'),
+
+  /**
+   * Per-request timeout for geocoder calls, in ms. A hung provider surfaces as
+   * a 502 instead of stalling a request forever.
+   */
+  GEOCODING_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(8_000),
+
+  /**
    * Expo push service access token. Optional: when unset the server still
    * records notification rows but does not reach Expo's servers (useful in
    * local dev). Get one at https://expo.dev/settings/access-tokens.
@@ -163,6 +178,10 @@ export interface AppConfig {
   supabaseSecretKey: string | null;
   corsOrigins: string[];
   googleMapsApiKey: string | null;
+  /** Base URL of the OSM-compatible geocoder used by `/locations`. */
+  geocodingBaseUrl: string;
+  /** Per-request geocoder timeout, in ms. */
+  geocodingTimeoutMs: number;
   /** Expo push service access token; null disables outbound pushes. */
   expoAccessToken: string | null;
   /** Repeating job-alert cadence, in ms. */
@@ -238,6 +257,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       .map((origin) => origin.trim())
       .filter(Boolean),
     googleMapsApiKey: env.GOOGLE_MAPS_API_KEY ?? null,
+    geocodingBaseUrl: env.GEOCODING_BASE_URL,
+    geocodingTimeoutMs: env.GEOCODING_TIMEOUT_MS,
     expoAccessToken: env.EXPO_ACCESS_TOKEN ?? null,
     jobAlertRepeatMs: env.JOB_ALERT_REPEAT_MS,
     jobAlertMaxRepeats: env.JOB_ALERT_MAX_REPEATS,
