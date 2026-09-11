@@ -154,12 +154,12 @@ export default function BookingDetail() {
 
       <Card className="mt-6">
         <Text variant="label">Professional</Text>
-        <View className="mt-2 flex-row items-center">
+        <View className="mt-1 flex-row items-center">
           {job.pro ? (
             <Avatar
               name={job.pro.displayName ?? 'Professional assigned'}
               uri={job.pro.photoUrl}
-              size="lg"
+              size="md"
             />
           ) : (
             <Ionicons
@@ -168,13 +168,11 @@ export default function BookingDetail() {
               color={color['text-secondary']}
             />
           )}
-          <View className="ml-3 flex-1">
-            <Text variant="bodyStrong" numberOfLines={1}>
-              {job.pro
-                ? (job.pro.displayName ?? 'Professional assigned')
-                : 'Looking for a professional'}
-            </Text>
-          </View>
+          <Text variant="bodyLg" className="ml-2">
+            {job.pro
+              ? (job.pro.displayName ?? 'Professional assigned')
+              : 'Looking for a professional'}
+          </Text>
         </View>
         <Text variant="footnote" className="mt-1">
           {job.pro

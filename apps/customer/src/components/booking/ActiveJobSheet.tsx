@@ -27,8 +27,8 @@ import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import { jobStatusHint } from './active-job-copy';
 
-/** The collapsed hint strip. Compact: grab handle + one touch row. */
-const HINT_HEIGHT = 86;
+/** The collapsed hint strip. Compact: grab handle + one 44pt touch row. */
+const HINT_HEIGHT = 72;
 /** How far the expanded sheet rises, as a share of the scene above the bar. */
 const EXPANDED_SCENE_RATIO = 0.62;
 /** Corner radius of the sheet's top edge, matching the theme's premium feel. */
@@ -148,13 +148,13 @@ function HintHandle({ job, hasMore, extraCount }: HintHandleProps) {
             <Avatar
               name={job.pro.displayName ?? 'Professional'}
               uri={job.pro.photoUrl}
-              size="lg"
+              size="md"
             />
           ) : (
             <ServiceImage
               uri={job.service.icon}
               accessibilityLabel={job.service.name}
-              className="h-12 w-12 rounded-xl"
+              className="h-11 w-11 rounded-xl"
             />
           )}
           <View className="ml-3 flex-1 pr-2">
@@ -225,12 +225,12 @@ function OrderRow({ job }: { job: JobDetail }) {
       className="flex-row items-center rounded-xl border border-border p-3"
     >
       {job.pro ? (
-        <Avatar name={job.pro.displayName ?? 'Professional'} uri={job.pro.photoUrl} size="lg" />
+        <Avatar name={job.pro.displayName ?? 'Professional'} uri={job.pro.photoUrl} size="md" />
       ) : (
         <ServiceImage
           uri={job.service.icon}
           accessibilityLabel={job.service.name}
-          className="h-12 w-12 rounded-xl"
+          className="h-10 w-10 rounded-xl"
         />
       )}
       <View className="ml-3 flex-1 pr-2">
