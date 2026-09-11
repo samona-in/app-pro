@@ -83,5 +83,37 @@ export function createFilesRouter(services: Services): Router {
     }
   });
 
+  /**
+   * Step 1 (avatar): a one-time URL the customer streams their profile photo
+   * to. The deterministic path is scoped under the caller's own id, so a retake
+   * replaces the previous avatar through the same URL.
+   */
+  router.post('/avatar/upload-url', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
+    try {
+      const { path, uploadUrl } = await services.storage.createAvatarUpload(req.user!.id);
+      res.json({ path, uploadUrl });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Step 3 (avatar): confirm the PUT finished and record the public URL.
+   *
+   * Existence is probed against the bucket before anything is written, so the
+   * profile can never point at an object that was never uploaded.
+   */
+  router.post('/avatar/complete', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
+    try {
+      if (!(await services.storage.avatarExists(req.user!.id))) {
+        throw conflict('The photo has not reached storage yet. Try again.');
+      }
+      const avatarUrl = services.storage.avatarPublicUrl(services.storage.avatarPath(req.user!.id));
+      res.json(await services.customers.applyOnboardingPatch(req.user!.id, { avatarUrl }));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   return router;
 }

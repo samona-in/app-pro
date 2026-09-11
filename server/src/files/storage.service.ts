@@ -20,6 +20,12 @@ export const SELFIE_CONTENT_TYPE = 'image/jpeg';
 /** The public-read bucket holding job reference photos. */
 export const JOB_IMAGES_BUCKET = 'job-images';
 
+/** The public-read bucket holding customer profile avatars. */
+export const AVATARS_BUCKET = 'avatars';
+
+/** Mirrors the bucket's `file_size_limit` — reject before the bytes move. */
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
 /**
  * The storage path for an account's selfie.
  *
@@ -41,6 +47,18 @@ function selfiePathFor(userId: string): string {
  */
 function jobImagePathFor(customerUserId: string): string {
   return `jobs/${customerUserId}/${randomUUID()}.jpg`;
+}
+
+/**
+ * An account's avatar storage path.
+ *
+ * Deterministic — every replace writes through the same path, so a retake
+ * overwrites the previous photo instead of leaving orphaned objects behind and
+ * the signed upload URL stays valid for as long as the account exists. The
+ * path is derived from the verified user id, never from the request body.
+ */
+function avatarPathFor(userId: string): string {
+  return `customers/${userId}/avatar.jpg`;
 }
 
 /**
@@ -160,6 +178,47 @@ export function createStorageService(deps: StorageServiceDeps) {
     return `${supabaseUrl}/storage/v1/object/public/${JOB_IMAGES_BUCKET}/${path}`;
   }
 
+  /**
+   * Mints a signed URL the caller PUTs the avatar bytes to directly.
+   *
+   * `upsert` lets an avatar replace itself through the deterministic path —
+   * retakes overwrite rather than failing or accumulating objects.
+   */
+  async function createAvatarUpload(userId: string): Promise<{ path: string; uploadUrl: string }> {
+    const path = avatarPathFor(userId);
+    const { data, error } = await requireAdmin()
+      .storage.from(AVATARS_BUCKET)
+      .createSignedUploadUrl(path, { upsert: true });
+
+    if (error || !data) {
+      throw createHttpError(502, ApiErrorCode.INTERNAL, 'Could not start the photo upload.', {
+        cause: error,
+      });
+    }
+
+    return { path, uploadUrl: data.signedUrl };
+  }
+
+  /**
+   * Whether the account's avatar is actually in the bucket.
+   *
+   * The same public-read HEAD probe as the selfie: proves the exact URL we will
+   * record resolves to bytes before the profile ever points at it.
+   */
+  async function avatarExists(userId: string): Promise<boolean> {
+    try {
+      const response = await fetch(avatarPublicUrl(avatarPathFor(userId)), { method: 'HEAD' });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The public read URL for a stored avatar. */
+  function avatarPublicUrl(path: string): string {
+    return `${supabaseUrl}/storage/v1/object/public/${AVATARS_BUCKET}/${path}`;
+  }
+
   return {
     createSelfieUpload,
     selfieExists,
@@ -168,6 +227,10 @@ export function createStorageService(deps: StorageServiceDeps) {
     createJobImageUpload,
     jobImageExists,
     jobImagePublicUrl,
+    createAvatarUpload,
+    avatarExists,
+    avatarPublicUrl,
+    avatarPath: avatarPathFor,
   };
 }
 
