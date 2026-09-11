@@ -183,12 +183,49 @@ model CustomerProfile {
 
   jobs          Job[]
   notifications CustomerNotification[]
+  savedAddresses SavedAddress[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([onboardingStatus])
   @@map("customer_profiles")
+}
+
+/// A customer's saved address — Home, Work or Other — reused at booking.
+///
+/// Distinct from the customer profile's single active location: the profile
+/// holds *where the customer is right now* (matching fallback), while these
+/// rows are the customer's permanent, labelled places. One customer may keep
+/// several; at most one is the default.
+model SavedAddress {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  customer CustomerProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  /// Home, Work or Other — the human label shown across the app.
+  label AddressLabel
+
+  addressLine1 String @map("address_line1")
+  addressLine2 String? @map("address_line2")
+  landmark     String?
+  locality     String?
+  city         String?
+  state        String?
+  postalCode   String? @map("postal_code")
+
+  latitude  Float
+  longitude Float
+
+  /// At most one default per customer; enforced by the service, not the schema.
+  isDefault Boolean @default(false) @map("is_default")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("saved_addresses")
 }
 
 /// The service catalogue a professional selects from (onboarding step 3).
@@ -595,6 +632,14 @@ enum ExperienceLevel {
 enum Gender {
   MALE
   FEMALE
+  OTHER
+}
+
+/// Where a saved address points to. Mirrored by `AddressLabel` in `@samona/types`
+/// — keep the two in sync.
+enum AddressLabel {
+  HOME
+  WORK
   OTHER
 }
 
