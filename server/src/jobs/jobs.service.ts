@@ -133,6 +133,7 @@ const jobDetailInclude = {
       userId: true,
       displayName: true,
       rating: true,
+      selfiePhotoPath: true,
       profile: { select: { phone: true } },
     },
   },
@@ -176,6 +177,7 @@ type JobDetailRow = JobRow & {
     displayName: string | null;
     rating: number | null;
     profile: { phone: string | null };
+    selfiePhotoPath: string | null;
   } | null;
 };
 
@@ -246,6 +248,10 @@ function toJobDetail(
             displayName: row.pro.displayName,
             rating: row.pro.rating,
             phone: row.pro.profile.phone,
+            // The pro's verified selfie is their requester-facing face photo.
+            photoUrl: row.pro.selfiePhotoPath
+              ? storage.selfiePublicUrl(row.pro.selfiePhotoPath)
+              : null,
           }
         : null,
   };

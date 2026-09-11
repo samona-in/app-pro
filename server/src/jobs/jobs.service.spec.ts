@@ -33,6 +33,7 @@ function buildJobs() {
   const storage = {
     jobImageExists: jest.fn().mockResolvedValue(true),
     jobImagePublicUrl: jest.fn().mockImplementation((path: string) => `https://cdn/${path}`),
+    selfiePublicUrl: jest.fn().mockImplementation((path: string) => `https://cdn/${path}`),
   };
 
   const matching = {
@@ -294,6 +295,58 @@ describe('createJobsService.getForCustomer', () => {
       name: 'HttpError',
       status: 404,
     });
+  });
+
+  it('shares the assigned pro with a photo URL drawn from their selfie', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.job.findFirst.mockResolvedValue({
+      ...jobRow,
+      status: JobStatus.TRAVELLING,
+      proId: 'pro-1',
+      verificationOtp: null,
+      customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
+      pro: {
+        id: 'pro-1',
+        userId: 'user-1',
+        displayName: 'Ravi',
+        rating: 4.8,
+        selfiePhotoPath: 'pros/user-1/selfie.jpg',
+        profile: { phone: '+910000000000' },
+      },
+    });
+
+    const job = await ctx.jobs.getForCustomer('user-1', 'job-1');
+
+    expect(job.pro).toMatchObject({
+      proId: 'pro-1',
+      displayName: 'Ravi',
+      rating: 4.8,
+      phone: '+910000000000',
+      photoUrl: 'https://cdn/pros/user-1/selfie.jpg',
+    });
+  });
+
+  it('leaves the pro photo null when the assigned pro has no selfie', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.job.findFirst.mockResolvedValue({
+      ...jobRow,
+      status: JobStatus.ACCEPTED,
+      proId: 'pro-1',
+      verificationOtp: null,
+      customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
+      pro: {
+        id: 'pro-1',
+        userId: 'user-1',
+        displayName: 'Ravi',
+        rating: null,
+        selfiePhotoPath: null,
+        profile: { phone: null },
+      },
+    });
+
+    const job = await ctx.jobs.getForCustomer('user-1', 'job-1');
+
+    expect(job.pro).toMatchObject({ photoUrl: null });
   });
 });
 

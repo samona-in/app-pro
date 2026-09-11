@@ -5,7 +5,7 @@ import { JobStatus, type JobDetail } from '@samona/types';
 import { bookingStatusLabel } from '@/components/booking';
 import { UnreadBadge } from '@/components/chat';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
+import { Avatar, Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import {
   useBooking,
   useCancelBooking,
@@ -155,11 +155,19 @@ export default function BookingDetail() {
       <Card className="mt-6">
         <Text variant="label">Professional</Text>
         <View className="mt-1 flex-row items-center">
-          <Ionicons
-            name={job.pro ? 'person' : 'search-outline'}
-            size={18}
-            color={color['text-secondary']}
-          />
+          {job.pro ? (
+            <Avatar
+              name={job.pro.displayName ?? 'Professional assigned'}
+              uri={job.pro.photoUrl}
+              size="md"
+            />
+          ) : (
+            <Ionicons
+              name="search-outline"
+              size={18}
+              color={color['text-secondary']}
+            />
+          )}
           <Text variant="bodyLg" className="ml-2">
             {job.pro
               ? (job.pro.displayName ?? 'Professional assigned')

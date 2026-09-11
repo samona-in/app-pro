@@ -1,5 +1,5 @@
 export { useRealtimeSync } from './use-realtime';
-export { useActiveJob } from './use-active-job';
+export { useActiveJob, useActiveOrders } from './use-active-job';
 export { useServices } from './use-services';
 export { useCustomerProfile, useSaveOnboardingStep } from './use-onboarding';
 export {
