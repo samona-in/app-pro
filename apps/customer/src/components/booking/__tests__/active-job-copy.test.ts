@@ -1,7 +1,6 @@
 import { JobStatus, type JobDetail } from '@samona/types';
 import {
   ACTIVE_ORDER_STATUSES,
-  activeJobStageIndex,
   isActiveOrder,
   jobStatusHint,
 } from '../active-job-copy';
@@ -11,8 +10,8 @@ function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     id: 'job-1',
     customerId: 'customer-1',
     proId: null,
-    service: { id: 'svc-1', slug: 'plumbing', name: 'Plumbing', icon: null },
-    skill: { id: 'skill-1', slug: 'other', name: 'Leak repair' },
+    service: { id: 'svc-1', slug: 'electrician', name: 'Electrician', icon: null },
+    skill: { id: 'skill-1', slug: 'other', name: 'Wiring' },
     customSkill: null,
     status: JobStatus.REQUESTED,
     placeType: 'RESIDENCE',
@@ -20,7 +19,7 @@ function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     locationLabel: 'Benz Circle, Vijayawada',
     latitude: 16.51,
     longitude: 80.61,
-    description: 'A leaking tap under the kitchen sink.',
+    description: 'A flickering light in the hall.',
     imageUrls: [],
     basePayPaise: 50000,
     agreedPayPaise: null,
@@ -67,49 +66,45 @@ describe('isActiveOrder', () => {
   });
 });
 
-describe('activeJobStageIndex', () => {
-  it('maps each stage to a 0-based index', () => {
-    expect(activeJobStageIndex(JobStatus.REQUESTED)).toBe(0);
-    expect(activeJobStageIndex(JobStatus.ACCEPTED)).toBe(1);
-    expect(activeJobStageIndex(JobStatus.TRAVELLING)).toBe(2);
-    expect(activeJobStageIndex(JobStatus.ARRIVED)).toBe(3);
-    expect(activeJobStageIndex(JobStatus.IN_PROGRESS)).toBe(4);
-  });
-
-  it('counts settlement statuses as fully progressed', () => {
-    expect(activeJobStageIndex(JobStatus.COMPLETED)).toBe(5);
-    expect(activeJobStageIndex(JobStatus.PAYMENT_PENDING)).toBe(5);
-  });
-});
-
 describe('jobStatusHint', () => {
-  it('says it is still finding a professional while unassigned', () => {
+  it('shows the service and Searching while unassigned', () => {
     const hint = jobStatusHint(makeJob({ status: JobStatus.REQUESTED }));
-    expect(hint.title).toBe('Finding the best professional…');
-    expect(hint.description).toBe("We've notified nearby pros. You'll be updated soon.");
+    expect(hint.title).toBe('Electrician');
+    expect(hint.stage).toBe('Searching');
     expect(hint.finding).toBe(true);
+
+    expect(jobStatusHint(makeJob({ status: JobStatus.OFFERED })).finding).toBe(true);
   });
 
-  it('announces the assignment once accepted', () => {
+  it('shows pro name • service with the Started stage once accepted', () => {
     const hint = jobStatusHint(makeJob({ status: JobStatus.ACCEPTED, proId: pro.proId, pro }));
-    expect(hint.title).toBe('Professional assigned');
+    expect(hint.title).toBe('Ravi Kumar • Electrician');
+    expect(hint.stage).toBe('Started');
     expect(hint.finding).toBe(false);
   });
 
-  it('names the pro on the way and adds the ETA when the API provides it', () => {
-    const withoutEta = jobStatusHint(
-      makeJob({ status: JobStatus.TRAVELLING, proId: pro.proId, pro, estimatedEtaMinutes: null }),
+  it('assigns a short stage word for the journey states', () => {
+    expect(
+      jobStatusHint(makeJob({ status: JobStatus.TRAVELLING, proId: pro.proId, pro })).stage,
+    ).toBe('Arriving');
+    expect(jobStatusHint(makeJob({ status: JobStatus.ARRIVED, proId: pro.proId, pro })).stage).toBe(
+      'Arrived',
     );
-    expect(withoutEta.title).toBe('Ravi Kumar is on the way');
-    expect(withoutEta.description).toBe('Heading to your location now.');
-
-    const withEta = jobStatusHint(
-      makeJob({ status: JobStatus.TRAVELLING, proId: pro.proId, pro, estimatedEtaMinutes: 12 }),
-    );
-    expect(withEta.title).toBe('Ravi Kumar is on the way · ~12 min');
+    expect(
+      jobStatusHint(makeJob({ status: JobStatus.IN_PROGRESS, proId: pro.proId, pro })).stage,
+    ).toBe('Work in progress');
   });
 
-  it('falls back to a generic copy when the pro name is missing', () => {
+  it('groups settlement statuses under Payment pending', () => {
+    expect(
+      jobStatusHint(makeJob({ status: JobStatus.COMPLETED, proId: pro.proId, pro })).stage,
+    ).toBe('Payment pending');
+    expect(
+      jobStatusHint(makeJob({ status: JobStatus.PAYMENT_PENDING, proId: pro.proId, pro })).stage,
+    ).toBe('Payment pending');
+  });
+
+  it('falls back to a generic pro label when the name is missing', () => {
     const hint = jobStatusHint(
       makeJob({
         status: JobStatus.TRAVELLING,
@@ -117,24 +112,6 @@ describe('jobStatusHint', () => {
         pro: { ...pro, displayName: null },
       }),
     );
-    expect(hint.title).toBe('Your professional is on the way');
-  });
-
-  it('covers arrival and in-progress states', () => {
-    expect(jobStatusHint(makeJob({ status: JobStatus.ARRIVED })).title).toBe(
-      'Your professional has arrived',
-    );
-    expect(jobStatusHint(makeJob({ status: JobStatus.IN_PROGRESS })).title).toBe(
-      'Service in progress',
-    );
-  });
-
-  it('groups completed and payment-pending under one settlement copy', () => {
-    const completed = jobStatusHint(makeJob({ status: JobStatus.COMPLETED }));
-    const pending = jobStatusHint(makeJob({ status: JobStatus.PAYMENT_PENDING }));
-    expect(completed.title).toBe('Service completed');
-    expect(completed.description).toBe('Payment settlement is in progress.');
-    expect(pending.title).toBe(completed.title);
-    expect(pending.description).toBe(completed.description);
+    expect(hint.title).toBe('Professional • Electrician');
   });
 });
