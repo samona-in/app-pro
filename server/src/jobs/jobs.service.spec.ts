@@ -310,7 +310,8 @@ describe('createJobsService.getForCustomer', () => {
         userId: 'user-1',
         displayName: 'Ravi',
         rating: 4.8,
-        profile: { phone: '+910000000000', selfiePhotoPath: 'pros/user-1/selfie.jpg' },
+        selfiePhotoPath: 'pros/user-1/selfie.jpg',
+        profile: { phone: '+910000000000' },
       },
     });
 
@@ -338,7 +339,8 @@ describe('createJobsService.getForCustomer', () => {
         userId: 'user-1',
         displayName: 'Ravi',
         rating: null,
-        profile: { phone: null, selfiePhotoPath: null },
+        selfiePhotoPath: null,
+        profile: { phone: null },
       },
     });
 
