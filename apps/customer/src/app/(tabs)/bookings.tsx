@@ -17,12 +17,13 @@ const ACTIVE: readonly JobStatus[] = [
   JobStatus.TRAVELLING,
   JobStatus.ARRIVED,
   JobStatus.IN_PROGRESS,
+  JobStatus.COMPLETED,
   JobStatus.PAYMENT_PENDING,
 ];
 
 const UPCOMING: readonly JobStatus[] = [JobStatus.REQUESTED, JobStatus.OFFERED, JobStatus.ACCEPTED];
 
-const COMPLETED: readonly JobStatus[] = [JobStatus.COMPLETED, JobStatus.PAID];
+const COMPLETED: readonly JobStatus[] = [JobStatus.PAID];
 
 const CANCELLED: readonly JobStatus[] = [JobStatus.CANCELLED, JobStatus.EXPIRED];
 
@@ -104,9 +105,7 @@ export default function Bookings() {
         ) : visible.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
-            title={
-              filter === 'All' ? 'No bookings' : `No ${filter.toLowerCase()} bookings`
-            }
+            title={filter === 'All' ? 'No bookings' : `No ${filter.toLowerCase()} bookings`}
             message="Bookings you make will show up here, with everything you need to track your service."
           />
         ) : (

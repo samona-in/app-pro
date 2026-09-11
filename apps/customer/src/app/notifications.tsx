@@ -141,9 +141,11 @@ export default function Notifications() {
     }
   }, [confirmDelete, navigation, selectedCount, selectionMode]);
 
+  const loading = notices.isPending || (notices.isFetching && data.length === 0);
+
   return (
     <Screen scrollable edges={['bottom']}>
-      {notices.isPending ? (
+      {loading ? (
         <View className="mt-10">
           <LoadingState message="Loading notifications" />
         </View>

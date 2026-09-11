@@ -32,3 +32,22 @@ export function formatBookingDate(iso: string): string {
     year: 'numeric',
   });
 }
+
+/** A job day with weekday, as in a completed booking, e.g. "Fri, 24 July 2026". */
+export function formatJobDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+/** A clock time with leading zero and lowercase meridian, e.g. "09:23 am". */
+export function formatClockTime(iso: string): string {
+  const date = new Date(iso);
+  const hours = date.getHours() % 12 || 12;
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const meridian = date.getHours() >= 12 ? 'pm' : 'am';
+  return `${hours.toString().padStart(2, '0')}:${minutes} ${meridian}`;
+}
