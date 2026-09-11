@@ -177,13 +177,16 @@ export default function AddressConfirm() {
                     className={cn(
                       'min-h-[44px] flex-1 items-center justify-center rounded-full border',
                       selected
-                        ? 'border-brand bg-brand-muted'
+                        ? 'border-brand bg-brand'
                         : 'border-border bg-background',
                     )}
                   >
                     <Text
                       variant="body"
-                      className={selected ? 'font-semibold text-brand' : 'text-text-secondary'}
+                      className={cn(
+                        'font-semibold',
+                        selected ? 'text-white' : 'text-text-secondary',
+                      )}
                     >
                       {ADDRESS_LABEL_NAMES[choice]}
                     </Text>
