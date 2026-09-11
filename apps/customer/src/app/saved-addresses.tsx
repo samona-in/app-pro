@@ -1,45 +1,22 @@
-import { Alert, FlatList, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import type { SavedAddress } from '@samona/types';
 import { AddressListItem } from '@/components/address/AddressListItem';
-import { Button, IconButton, Text } from '@/components/ui';
+import { Button, Text } from '@/components/ui';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
-import {
-  useDeleteSavedAddress,
-  useSavedAddresses,
-  useUpdateSavedAddress,
-} from '@/hooks';
+import { useSavedAddresses } from '@/hooks';
 import { color } from '@/theme';
 import { savedAddressSecondary } from '@/utils/address';
 
 /**
- * Manage the customer's saved addresses (Profile → Saved addresses).
+ * Manage the customer's saved addresses (Profile → Manage addresses).
  *
- * Each row shows the label and address; the check marks an address as the
- * default (the one shown under the Home pin is the active profile location,
- * which lives separately on the customer profile). Deleting the default lets
- * the server promote the earliest remaining address.
+ * Each row shows the label and address, with the default highlighted. The
+ * active location shown under the Home pin lives separately on the customer
+ * profile and is not the same as the default here.
  */
 export default function SavedAddresses() {
   const { data, isPending, isError, refetch } = useSavedAddresses();
-  const update = useUpdateSavedAddress();
-  const remove = useDeleteSavedAddress();
-
-  function makeDefault(item: SavedAddress) {
-    update.mutate({ id: item.id, input: { isDefault: true } });
-  }
-
-  function confirmDelete(item: SavedAddress) {
-    Alert.alert('Delete address?', `${item.addressLine1} will be removed from your saved addresses.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => remove.mutate(item.id),
-      },
-    ]);
-  }
 
   const rows = data ?? [];
 
@@ -72,30 +49,13 @@ export default function SavedAddresses() {
               title={item.addressLine1}
               subtitle={savedAddressSecondary(item)}
               trailing={
-                <View className="flex-row items-center">
-                  {item.isDefault ? (
-                    <View className="mr-2 rounded-full bg-success-surface px-2.5 py-1">
-                      <Text variant="caption" className="text-success">
-                        Default
-                      </Text>
-                    </View>
-                  ) : (
-                    <IconButton
-                      name="checkmark-circle-outline"
-                      accessibilityLabel={`Make ${item.addressLine1} the default address`}
-                      tint={color['text-muted']}
-                      onPress={() => makeDefault(item)}
-                      className="mr-1"
-                    />
-                  )}
-                  <IconButton
-                    name="trash-outline"
-                    accessibilityLabel={`Delete ${item.addressLine1}`}
-                    haptic
-                    tint={color.danger}
-                    onPress={() => confirmDelete(item)}
-                  />
-                </View>
+                item.isDefault ? (
+                  <View className="rounded-full bg-success-surface px-2.5 py-1">
+                    <Text variant="caption" className="text-success">
+                      Default
+                    </Text>
+                  </View>
+                ) : undefined
               }
             />
           )}
