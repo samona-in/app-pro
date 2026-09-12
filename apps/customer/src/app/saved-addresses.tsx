@@ -15,7 +15,7 @@ import {
   LoadingState,
 } from '@/components/feedback';
 import { EditSavedAddressSheet } from '@/components/address/EditSavedAddressSheet';
-import { SavedAddressMenu } from '@/components/address/SavedAddressMenu';
+import { AddressRowMenu } from '@/components/address/AddressRowMenu';
 
 import {
   useDeleteSavedAddress,
@@ -172,7 +172,8 @@ export default function SavedAddresses() {
                   ) : null}
                 </View>
 
-                <SavedAddressMenu
+                <AddressRowMenu
+                  addressName={item.name}
                   onEdit={() => handleEditAddress(item)}
                   onDelete={() => handleDelete(item)}
                 />
