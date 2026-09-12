@@ -19,6 +19,7 @@ const activeUser = {
 
 const saved: SavedAddress = {
   id: 'uuid-address-1',
+  name: 'Aveen’s home',
   label: AddressLabel.HOME,
   addressLine1: '7-4A, Benz Circle',
   addressLine2: '',
@@ -77,6 +78,7 @@ describe('addresses routes', () => {
       .post('/addresses')
       .set('authorization', 'Bearer good.token')
       .send({
+        name: 'Aveen’s home',
         label: 'HOME',
         addressLine1: '7-4A, Benz Circle',
         city: 'Vijayawada',

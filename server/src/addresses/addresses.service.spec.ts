@@ -5,6 +5,7 @@ import { createAddressesService, ADDRESS_LIMIT } from './addresses.service';
 function addressRow(overrides: Partial<SavedAddress> = {}): SavedAddress {
   return {
     id: 'uuid-address-1',
+    name: 'Aveen’s home',
     label: AddressLabel.HOME,
     addressLine1: '7-4A, Benz Circle',
     addressLine2: '',
@@ -94,6 +95,7 @@ describe('createAddressesService', () => {
     });
 
     const created = await service.create('user-1', {
+      name: 'Aveen’s home',
       label: AddressLabel.HOME,
       addressLine1: '7-4A, Benz Circle',
       city: 'Vijayawada',
@@ -102,7 +104,7 @@ describe('createAddressesService', () => {
 
     expect(client.savedAddress.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ userId: 'user-1', isDefault: true }),
+        data: expect.objectContaining({ userId: 'user-1', name: 'Aveen’s home', isDefault: true }),
       }),
     );
     expect(client.savedAddress.updateMany).not.toHaveBeenCalled();
@@ -116,6 +118,7 @@ describe('createAddressesService', () => {
     });
 
     await service.create('user-1', {
+      name: 'The office',
       label: AddressLabel.WORK,
       addressLine1: 'Tower A, MG Road',
       coordinates: { latitude: 78.5, longitude: 17.4 },
@@ -136,6 +139,7 @@ describe('createAddressesService', () => {
 
     await expect(
       service.create('user-1', {
+        name: 'Misc',
         label: AddressLabel.OTHER,
         addressLine1: 'Some address',
         coordinates: { latitude: 1, longitude: 2 },
@@ -149,6 +153,26 @@ describe('createAddressesService', () => {
     await expect(
       service.update('user-1', 'uuid-other', { isDefault: true }),
     ).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('updates the saved address name', async () => {
+    const { service, client } = buildService({
+      findFirst: jest.fn().mockResolvedValue(prismaRow({ id: 'uuid-address-1' })),
+      update: jest.fn().mockResolvedValue(
+        prismaRow({ id: 'uuid-address-1', name: 'Benz Circle crib' }),
+      ),
+    });
+
+    const updated = await service.update('user-1', 'uuid-address-1', {
+      name: 'Benz Circle crib',
+    });
+
+    expect(client.savedAddress.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ name: 'Benz Circle crib' }),
+      }),
+    );
+    expect(updated.name).toBe('Benz Circle crib');
   });
 
   it('promotes a default only on the caller’s own rows', async () => {

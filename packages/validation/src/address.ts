@@ -11,6 +11,8 @@ export const addressLabelSchema = z.enum(ADDRESS_LABELS);
 const optionalLine = (max: number) => z.string().trim().max(max).optional();
 
 export const savedAddressCreateSchema = z.object({
+  /** The customer's own name for this address, e.g. "Aveen's flat". */
+  name: z.string().trim().min(1, 'Name is required.').max(40),
   label: addressLabelSchema,
   addressLine1: z.string().trim().min(1, 'Address is required.').max(160),
   addressLine2: optionalLine(160),
@@ -28,6 +30,7 @@ export type SavedAddressCreateInput = z.infer<typeof savedAddressCreateSchema>;
 
 export const savedAddressUpdateSchema = z
   .object({
+    name: z.string().trim().min(1, 'Name is required.').max(40).optional(),
     label: addressLabelSchema.optional(),
     addressLine1: z.string().trim().min(1, 'Address is required.').max(160).optional(),
     addressLine2: optionalLine(160),

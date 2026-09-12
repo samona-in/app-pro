@@ -38,9 +38,11 @@ export interface AddressSuggestion {
   longitude: number;
 }
 
-/** A saved address owned by a customer (label + details + coordinates). */
+/** A saved address owned by a customer (name + label + details + coordinates). */
 export interface SavedAddress {
   id: string;
+  /** The customer's own name for this address (shown as the row's primary line). */
+  name: string;
   label: AddressLabel;
   addressLine1: string;
   addressLine2: string | null;

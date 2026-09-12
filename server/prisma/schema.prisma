@@ -204,6 +204,9 @@ model SavedAddress {
 
   customer CustomerProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
+  /// The customer's own name for this address (free text), shown in lists.
+  name String
+
   /// Home, Work or Other — the human label shown across the app.
   label AddressLabel
 

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import type { AddressLabel, AddressSuggestion, SelectedAddress } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,8 @@ import {
   type PickedLocation,
   type ResolveAddressFn,
 } from '@/components/location';
-import { Button, Text } from '@/components/ui';
+import { SaveAsLabelPicker } from '@/components/address/SaveAsLabelPicker';
+import { Button, Input, Text } from '@/components/ui';
 import {
   useCreateSavedAddress,
   useSaveOnboardingStep,
@@ -16,16 +17,11 @@ import {
 import { geocodingApi } from '@/services/geocoding';
 import { useAddressStore } from '@/stores/addresses';
 import { color } from '@/theme';
-import { cn } from '@/utils/cn';
 import {
-  ADDRESS_LABEL_NAMES,
   fallbackLocationLabel,
   selectedToSuggestion,
   suggestionToSelected,
 } from '@/utils/address';
-
-/** The three "Save as" choices; Home starts selected. */
-const LABEL_CHOICES: AddressLabel[] = ['HOME', 'WORK', 'OTHER'];
 
 /**
  * Confirms the address the customer just searched for.
@@ -50,7 +46,9 @@ export default function AddressConfirm() {
     pending ? selectedToSuggestion(pending) : null,
   );
   const [label, setLabel] = useState<AddressLabel>('HOME');
+  const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const resolveAddress: ResolveAddressFn = useCallback(async (point) => {
     try {
@@ -72,6 +70,13 @@ export default function AddressConfirm() {
   async function onConfirm() {
     if (!coords || busy) return;
     setError(null);
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setNameError('Please add a name for this address.');
+      return;
+    }
+    setNameError(null);
 
     const suggestion: AddressSuggestion = place ?? {
       formattedAddress: fallbackLocationLabel(coords.latitude, coords.longitude),
@@ -95,6 +100,7 @@ export default function AddressConfirm() {
 
       try {
         await createSaved.mutateAsync({
+          name: trimmedName,
           label,
           addressLine1: selected.formattedAddress,
           addressLine2: undefined,
@@ -162,38 +168,24 @@ export default function AddressConfirm() {
             </Text>
 
             <Text variant="label" className="mb-2 mt-4">
+              Name
+            </Text>
+            <Input
+              value={name}
+              onChangeText={(text) => {
+                setName(text);
+                if (nameError) setNameError(null);
+              }}
+              error={nameError ?? undefined}
+              placeholder="e.g. Mum's house"
+              autoCapitalize="words"
+              accessibilityLabel="Saved address name"
+            />
+
+            <Text variant="label" className="mb-2 mt-4">
               Save as
             </Text>
-            <View className="flex-row gap-2">
-              {LABEL_CHOICES.map((choice) => {
-                const selected = label === choice;
-                return (
-                  <Pressable
-                    key={choice}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Save as ${ADDRESS_LABEL_NAMES[choice]}`}
-                    accessibilityState={{ selected }}
-                    onPress={() => setLabel(choice)}
-                    className={cn(
-                      'min-h-[44px] flex-1 items-center justify-center rounded-full border',
-                      selected
-                        ? 'border-brand bg-brand'
-                        : 'border-border bg-background',
-                    )}
-                  >
-                    <Text
-                      variant="body"
-                      className={cn(
-                        'font-semibold',
-                        selected ? 'text-white' : 'text-text-secondary',
-                      )}
-                    >
-                      {ADDRESS_LABEL_NAMES[choice]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <SaveAsLabelPicker value={label} onChange={setLabel} />
 
             {error ? (
               <Text variant="caption" className="mt-2 text-danger">

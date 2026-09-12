@@ -13,6 +13,7 @@ export const ADDRESS_LIMIT = 10;
 /** Columns a saved address is read back with. */
 const savedAddressSelect = {
   id: true,
+  name: true,
   label: true,
   addressLine1: true,
   addressLine2: true,
@@ -82,6 +83,7 @@ export function createAddressesService(deps: AddressesServiceDeps) {
       return tx.savedAddress.create({
         data: {
           userId,
+          name: input.name,
           label: input.label as AddressLabel,
           addressLine1: input.addressLine1,
           addressLine2: input.addressLine2 ?? null,
@@ -125,6 +127,7 @@ export function createAddressesService(deps: AddressesServiceDeps) {
       return tx.savedAddress.update({
         where: { id },
         data: {
+          ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.label !== undefined ? { label: input.label as AddressLabel } : {}),
           ...(input.addressLine1 !== undefined ? { addressLine1: input.addressLine1 } : {}),
           ...(input.addressLine2 !== undefined ? { addressLine2: input.addressLine2 } : {}),
