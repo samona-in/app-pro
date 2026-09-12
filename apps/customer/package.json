@@ -17,6 +17,7 @@
     "doctor": "expo-doctor"
   },
   "dependencies": {
+    "@expo/ui": "~57.0.17",
     "@expo/vector-icons": "^15.1.1",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@maplibre/maplibre-react-native": "^11.3.7",

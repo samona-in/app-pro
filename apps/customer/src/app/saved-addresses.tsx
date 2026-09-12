@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import {
   Alert,
   FlatList,
-  Pressable,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -16,6 +15,7 @@ import {
   LoadingState,
 } from '@/components/feedback';
 import { EditSavedAddressSheet } from '@/components/address/EditSavedAddressSheet';
+import { SavedAddressMenu } from '@/components/address/SavedAddressMenu';
 
 import {
   useDeleteSavedAddress,
@@ -99,28 +99,6 @@ export default function SavedAddresses() {
     [],
   );
 
-  /**
-   * The three-dot menu for a saved row: Edit or Delete, as a native alert.
-   */
-  const handleMenu = useCallback(
-    (address: SavedAddress) => {
-      Alert.alert(
-        address.name,
-        address.addressLine1,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Edit address', onPress: () => handleEditAddress(address) },
-          {
-            text: 'Delete address',
-            style: 'destructive',
-            onPress: () => handleDelete(address),
-          },
-        ],
-      );
-    },
-    [handleDelete, handleEditAddress],
-  );
-
   if (isPending) {
     return (
       <View className="flex-1">
@@ -194,19 +172,10 @@ export default function SavedAddresses() {
                   ) : null}
                 </View>
 
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`More actions for ${item.name}`}
-                  hitSlop={8}
-                  onPress={() => handleMenu(item)}
-                  className="p-3 active:opacity-60"
-                >
-                  <Ionicons
-                    name="ellipsis-vertical"
-                    size={20}
-                    color={color['text-secondary']}
-                  />
-                </Pressable>
+                <SavedAddressMenu
+                  onEdit={() => handleEditAddress(item)}
+                  onDelete={() => handleDelete(item)}
+                />
               </View>
 
               <View className="-mx-5 h-px bg-border" />
