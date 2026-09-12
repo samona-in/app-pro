@@ -16,7 +16,6 @@ import {
   LoadingState,
 } from '@/components/feedback';
 import { EditSavedAddressSheet } from '@/components/address/EditSavedAddressSheet';
-import { SavedAddressActionsSheet } from '@/components/address/SavedAddressActionsSheet';
 
 import {
   useDeleteSavedAddress,
@@ -47,14 +46,11 @@ export default function SavedAddresses() {
 
   const rows = data ?? [];
 
-  const [menuFor, setMenuFor] =
-    useState<SavedAddress | null>(null);
-
   const [editFor, setEditFor] =
     useState<SavedAddress | null>(null);
 
   /**
-   * Delete saved address.
+   * Delete saved address, asking for confirmation first.
    */
   const handleDelete = useCallback(
     (address: SavedAddress) => {
@@ -98,10 +94,31 @@ export default function SavedAddresses() {
    */
   const handleEditAddress = useCallback(
     (address: SavedAddress) => {
-      setMenuFor(null);
       setEditFor(address);
     },
     [],
+  );
+
+  /**
+   * The three-dot menu for a saved row: Edit or Delete, as a native alert.
+   */
+  const handleMenu = useCallback(
+    (address: SavedAddress) => {
+      Alert.alert(
+        address.name,
+        address.addressLine1,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Edit address', onPress: () => handleEditAddress(address) },
+          {
+            text: 'Delete address',
+            style: 'destructive',
+            onPress: () => handleDelete(address),
+          },
+        ],
+      );
+    },
+    [handleDelete, handleEditAddress],
   );
 
   if (isPending) {
@@ -181,7 +198,7 @@ export default function SavedAddresses() {
                   accessibilityRole="button"
                   accessibilityLabel={`More actions for ${item.name}`}
                   hitSlop={8}
-                  onPress={() => setMenuFor(item)}
+                  onPress={() => handleMenu(item)}
                   className="p-3 active:opacity-60"
                 >
                   <Ionicons
@@ -212,20 +229,6 @@ export default function SavedAddresses() {
           />
         }
       />
-
-      {menuFor ? (
-        <SavedAddressActionsSheet
-          address={menuFor}
-          onEdit={() => handleEditAddress(menuFor)}
-          onDelete={() => {
-            const address = menuFor;
-
-            setMenuFor(null);
-            handleDelete(address);
-          }}
-          onClose={() => setMenuFor(null)}
-        />
-      ) : null}
 
       {editFor ? (
         <EditSavedAddressSheet
