@@ -14,7 +14,12 @@ import { createServicesService, type ServicesService } from './services/services
 import { createJobsService, type JobsService } from './jobs/jobs.service';
 import { createMatchingService, type MatchingService } from './matching/matching.service';
 import { createMessagesService, type MessagesService } from './messages/messages.service';
-import { createLocationsService, type LocationsService } from './locations/locations.service';
+import {
+  createLocationsService,
+  type LocationsService,
+} from './locations/locations.service';
+import { createPhotonGeocoder } from './locations/geocoding';
+import { createAddressesService, type AddressesService } from './addresses/addresses.service';
 import { createEarningsService, type EarningsService } from './earnings/earnings.service';
 import {
   createNotificationsService,
@@ -43,6 +48,7 @@ export interface Services {
   messages: MessagesService;
   matching: MatchingService;
   locations: LocationsService;
+  addresses: AddressesService;
   earnings: EarningsService;
   notifications: NotificationsService;
   reviews: ReviewsService;
@@ -109,7 +115,17 @@ export function createServices(
     jobs,
     messages,
     matching,
-    locations: createLocationsService(deps),
+    locations: createLocationsService({
+      prisma,
+      // Replaceable OSM-backed geocoder. Swap the factory here and both new
+      // endpoints follow without touching routes or the app (CLAUDE.md
+      // "Realtime" analogy; the provider contract lives in locations/geocoding).
+      geocoding: createPhotonGeocoder({
+        baseUrl: config.geocodingBaseUrl,
+        timeoutMs: config.geocodingTimeoutMs,
+      }),
+    }),
+    addresses: createAddressesService({ prisma }),
     earnings: createEarningsService(deps),
     notifications,
     reviews: createReviewsService(deps),

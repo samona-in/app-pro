@@ -16,6 +16,7 @@ import {
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import type { AddressSuggestion } from '@samona/types';
 import { Text } from '@/components/ui';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
@@ -29,13 +30,25 @@ export interface PickedLocation {
   latitude: number;
   longitude: number;
   label: string | null;
+  /** Structured place resolved for the spot; null when unavailable. */
+  place?: AddressSuggestion | null;
 }
+
+export type ResolveAddressFn = (point: Coordinates) => Promise<AddressSuggestion | null>;
 
 export interface LocationMapPickerProps {
   /** Anchor the camera is centred on when the map first mounts. */
   value?: Coordinates | null;
-  /** Reports the settled selection (coords and a short area label). */
+  /// Reports the settled selection (coords and a described place).
   onChange?: (picked: PickedLocation) => void;
+  /**
+   * Replaces the built-in (Apple/Google-backed) reverse geocoder.
+   *
+   * The new address flow must stay OSM-only, so it injects a resolver that
+   * calls our server proxy instead. When absent, the picker falls back to the
+   * platform geocoder for the legacy onboarding screen.
+   */
+  resolveAddress?: ResolveAddressFn;
   className?: string;
   style?: StyleProp<ViewStyle>;
 }
@@ -60,6 +73,30 @@ function formatAreaLabel(place: Location.LocationGeocodedAddress): string | null
   return line ? line.slice(0, 120) : null;
 }
 
+/** Lifts a platform geocode result up to the provider-agnostic suggestion shape. */
+function suggestionFromDevicePlace(
+  place: Location.LocationGeocodedAddress,
+  coordinates: Coordinates,
+): AddressSuggestion {
+  return {
+    formattedAddress: formatAreaLabel(place) ?? coordinatesToLabel(coordinates),
+    mainLabel: place.name ?? place.street ?? place.district ?? place.city ?? '',
+    secondary: [place.street, place.city ?? place.region, place.postalCode]
+      .filter((part): part is string => Boolean(part))
+      .join(', ') || null,
+    locality: place.subregion ?? place.district ?? null,
+    city: place.city ?? null,
+    state: place.region ?? null,
+    postalCode: place.postalCode ?? null,
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+  };
+}
+
+function coordinatesToLabel(coordinates: Coordinates): string {
+  return `${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}`;
+}
+
 /**
  * Reusable full-size map for picking a location, like a maps app.
  *
@@ -69,7 +106,13 @@ function formatAreaLabel(place: Location.LocationGeocodedAddress): string | null
  * seeds the initial camera, and every settle (pan or locate) reports the new
  * selection through `onChange` so the owner can persist it.
  */
-export function LocationMapPicker({ value, onChange, className, style }: LocationMapPickerProps) {
+export function LocationMapPicker({
+  value,
+  onChange,
+  resolveAddress,
+  className,
+  style,
+}: LocationMapPickerProps) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraRef | null>(null);
   const lookupIdRef = useRef(0);
@@ -78,24 +121,39 @@ export function LocationMapPicker({ value, onChange, className, style }: Locatio
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  const resolveLabel = useCallback(async (point: Coordinates) => {
-    const lookupId = ++lookupIdRef.current;
-    try {
-      const [place] = await Location.reverseGeocodeAsync(point);
-      if (lookupId === lookupIdRef.current) {
-        return place ? formatAreaLabel(place) : null;
+  const resolveLabel = useCallback(
+    async (point: Coordinates) => {
+      const lookupId = ++lookupIdRef.current;
+      if (resolveAddress) {
+        try {
+          const place = await resolveAddress(point);
+          return lookupId === lookupIdRef.current ? place : null;
+        } catch {
+          return null;
+        }
       }
-    } catch {
-      /* keep null when reverse geocoding fails */
-    }
-    return null;
-  }, []);
+      try {
+        const [place] = await Location.reverseGeocodeAsync(point);
+        if (lookupId === lookupIdRef.current) {
+          return place ? suggestionFromDevicePlace(place, point) : null;
+        }
+      } catch {
+        /* keep null when reverse geocoding fails */
+      }
+      return null;
+    },
+    [resolveAddress],
+  );
 
   function settleAt(lngLat: [number, number]) {
     const point = { latitude: lngLat[1], longitude: lngLat[0] };
     setPhase('resolving');
-    void resolveLabel(point).then((resolvedLabel) => {
-      onChange?.({ ...point, label: resolvedLabel });
+    void resolveLabel(point).then((place) => {
+      onChange?.({
+        ...point,
+        label: place?.formattedAddress ?? null,
+        place: place ?? null,
+      });
       setPhase((current) => (current === 'resolving' ? 'idle' : current));
     });
   }

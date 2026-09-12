@@ -10,6 +10,14 @@ export {
   useCreateBooking,
   useServiceSkills,
 } from './use-bookings';
+export {
+  useAddressSearch,
+  useCreateSavedAddress,
+  useDeleteSavedAddress,
+  useReverseGeocode,
+  useSavedAddresses,
+  useUpdateSavedAddress,
+} from './use-address';
 export { getAppHash, extractOtpCode, useOtpAutoFill } from './use-otp-autofill';
 export { usePhoneAuth } from './use-phone-auth';
 export { PHONE_HINT_DELAY_MS, usePhoneHint } from './use-phone-hint';

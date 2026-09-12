@@ -29,4 +29,16 @@ export const queryKeys = {
     /** Scoped by user so a signed-out cache is never served to another account. */
     unread: (userId: string) => ['messages', 'unread', userId] as const,
   },
+  /** Address geocoding through the server proxy. */
+  geocode: {
+    all: ['geocode'] as const,
+    search: (query: string) => ['geocode', 'search', query] as const,
+    reverse: (latitude: number, longitude: number) =>
+      ['geocode', 'reverse', latitude, longitude] as const,
+  },
+  /** The customer's saved addresses. */
+  addresses: {
+    all: ['addresses'] as const,
+    list: ['addresses', 'list'] as const,
+  },
 } as const;

@@ -63,12 +63,32 @@ export default function RootLayout() {
               headerStyle: { backgroundColor: color.surface },
             }}
           />
-          <Stack.Screen
-            name="help-support"
-            options={{
+          <Stack.Screen name="help-support" options={{
               headerShown: true,
               presentation: 'modal',
               title: 'Help & support',
+              headerBackTitle: 'Back',
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+            }}
+          />
+          <Stack.Screen name="address-search" />
+          <Stack.Screen
+            name="address-confirm"
+            options={{
+              headerShown: true,
+              title: 'Confirm address',
+              headerBackTitle: 'Back',
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+            }}
+          />
+          <Stack.Screen
+            name="saved-addresses"
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: 'Manage addresses',
               headerBackTitle: 'Back',
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },

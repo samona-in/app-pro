@@ -1,7 +1,11 @@
+import type { AddressSuggestion } from '@samona/types';
 import type { PrismaClient } from '../database/prisma';
+import { withGeocodingGuard, type GeocodingProvider } from './geocoding';
 
 export interface LocationsServiceDeps {
   prisma: PrismaClient;
+  /** Replaceable OSM-backed geocoder (Photon by default). */
+  geocoding: GeocodingProvider;
 }
 
 /**
@@ -10,14 +14,25 @@ export interface LocationsServiceDeps {
  * Location capture, geocoding and proximity queries. Backs nearby-job
  * matching and live job tracking.
  *
- * Scaffold only — no behaviour is implemented yet. Methods go on the returned
- * object and read their dependencies from the enclosing scope.
+ * The geocoding surface is deliberately thin: search and reverse-geocode both
+ * delegate to the injected provider, wrapped so an unhealthy provider surfaces
+ * as a clean 502 rather than an unexpected-error 500.
  */
 export function createLocationsService(deps: LocationsServiceDeps) {
-  // Captured for the methods this service will expose.
-  void deps;
+  void deps.prisma;
 
-  return {};
+  async function searchAddresses(query: string, limit: number): Promise<AddressSuggestion[]> {
+    return withGeocodingGuard('search', () => deps.geocoding.search(query, limit));
+  }
+
+  async function reverseGeocode(
+    latitude: number,
+    longitude: number,
+  ): Promise<AddressSuggestion | null> {
+    return withGeocodingGuard('reverse', () => deps.geocoding.reverse(latitude, longitude));
+  }
+
+  return { searchAddresses, reverseGeocode };
 }
 
 export type LocationsService = ReturnType<typeof createLocationsService>;

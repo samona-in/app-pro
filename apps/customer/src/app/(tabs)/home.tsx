@@ -49,7 +49,7 @@ export default function Home() {
       <StatusBar style="dark" />
       <HomeHeader
         locationLabel={customerProfile?.locationLabel ?? undefined}
-        onPress={() => router.push('/location-picker')}
+        onPress={() => router.push('/address-search')}
         trailing={<NotificationBell />}
       >
         <SearchBar onPress={() => router.push('/bookings')} />
