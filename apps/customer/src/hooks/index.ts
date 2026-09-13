@@ -36,3 +36,4 @@ export {
 export { useUnreadMessages } from './use-unread-messages';
 export { usePushNavigation } from './use-push-navigation';
 export { useServiceSearch } from './use-service-search';
+export { useTypedPlaceholder } from './use-typed-placeholder';
