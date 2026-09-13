@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,34 +12,48 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ServiceOption, SkillWithService } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ServiceCard } from '@/components/home/ServiceCard';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { IconButton, Input, Text } from '@/components/ui';
-import { useServiceSearch } from '@/hooks';
+import { useServiceCategories, useServiceSearch } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
+import { type RecentSearchItem, useSearchStore } from '@/stores/search';
 import { color } from '@/theme';
 
 export default function Search() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
+
   const draft = useBookingDraft();
   const search = useServiceSearch(query);
+  const categories = useServiceCategories();
+
+  const recents = useSearchStore((state) => state.recents);
+  const addRecent = useSearchStore((state) => state.addRecent);
+  const hydrateSearch = useSearchStore((state) => state.hydrate);
+
+  useEffect(() => {
+    void hydrateSearch();
+  }, [hydrateSearch]);
 
   const trimmed = query.trim();
-  const services = search.data?.services ?? [];
-  const skills = search.data?.skills ?? [];
-  const hasResults = services.length > 0 || skills.length > 0;
+  const resultServices = search.data?.services ?? [];
+  const resultSkills = search.data?.skills ?? [];
+  const hasResults = resultServices.length > 0 || resultSkills.length > 0;
 
   function handleSelectService(service: ServiceOption) {
+    addRecent({ type: 'service', service });
     draft.start(service);
     router.push(`/booking/new/${service.slug}/place`);
   }
 
   function handleSelectSkill(skill: SkillWithService) {
+    addRecent({ type: 'skill', skill });
     const parentService: ServiceOption = {
       id: skill.service.id,
       slug: skill.service.slug,
       name: skill.service.name,
-      icon: null,
+      icon: skill.service.icon,
     };
     draft.start(parentService);
     // Pre-select the skill so the skill screen is pre-populated after /place.
@@ -57,6 +72,7 @@ export default function Search() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: color.background, paddingTop: insets.top }}
     >
+      {/* ── Search bar ────────────────────────────────────────────────────── */}
       <View className="flex-row items-center gap-1 px-2 pb-3">
         <IconButton name="arrow-back" accessibilityLabel="Go back" onPress={() => router.back()} />
         <View className="flex-1">
@@ -74,17 +90,22 @@ export default function Search() {
         </View>
       </View>
 
+      {/* ── Content ───────────────────────────────────────────────────────── */}
       <ScrollView
         keyboardShouldPersistTaps="handled"
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
       >
         {trimmed.length < 2 ? (
-          <View className="px-5 py-8">
-            <Text variant="body" className="text-text-secondary">
-              Search for a service like "Plumbing", or a skill like "Leak repair".
-            </Text>
-          </View>
+          <EmptyState
+            recents={recents}
+            allServices={categories.data ?? []}
+            onSelectService={handleSelectService}
+            onSelectRecent={(item) => {
+              if (item.type === 'service') handleSelectService(item.service);
+              else handleSelectSkill(item.skill);
+            }}
+          />
         ) : search.isPending ? (
           <View className="items-center px-5 py-8">
             <ActivityIndicator size="small" color={color.brand} />
@@ -102,70 +123,186 @@ export default function Search() {
             </Text>
           </View>
         ) : (
-          <>
-            {services.length > 0 ? (
-              <View className="mb-2 px-5">
-                <Text variant="label" className="mb-1 mt-2">
-                  Services
-                </Text>
-                {services.map((service) => (
-                  <Pressable
-                    key={service.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={service.name}
-                    onPress={() => handleSelectService(service)}
-                    className="flex-row items-center py-3 active:opacity-70"
-                  >
-                    <ServiceImage
-                      uri={service.icon}
-                      accessibilityLabel={service.name}
-                      className="h-12 w-12 rounded-xl"
-                    />
-                    <View className="ml-3 flex-1">
-                      <Text variant="bodyStrong">{service.name}</Text>
-                      <Text variant="caption" className="text-text-secondary">
-                        View all skills
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={color['text-secondary']} />
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-
-            {skills.length > 0 ? (
-              <View className="px-5">
-                {services.length > 0 ? <View className="my-1 h-px bg-border" /> : null}
-                <Text variant="label" className="mb-1 mt-2">
-                  Skills
-                </Text>
-                {skills.map((skill) => (
-                  <Pressable
-                    key={skill.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={skill.name}
-                    onPress={() => handleSelectSkill(skill)}
-                    className="flex-row items-center py-3 active:opacity-70"
-                  >
-                    <ServiceImage
-                      uri={skill.service.icon}
-                      accessibilityLabel={skill.service.name}
-                      className="h-12 w-12 rounded-xl"
-                    />
-                    <View className="ml-3 flex-1">
-                      <Text variant="bodyStrong">{skill.name}</Text>
-                      <Text variant="caption" className="text-text-secondary">
-                        {skill.service.name}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={color['text-secondary']} />
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-          </>
+          <SearchResults
+            services={resultServices}
+            skills={resultSkills}
+            onSelectService={handleSelectService}
+            onSelectSkill={handleSelectSkill}
+          />
         )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+// ── Sub-components ─────────────────────────────────────────────────────────
+
+interface EmptyStateProps {
+  recents: RecentSearchItem[];
+  allServices: ServiceOption[];
+  onSelectService: (s: ServiceOption) => void;
+  onSelectRecent: (item: RecentSearchItem) => void;
+}
+
+function EmptyState({ recents, allServices, onSelectService, onSelectRecent }: EmptyStateProps) {
+  return (
+    <>
+      {/* Recently searched */}
+      {recents.length > 0 ? (
+        <View className="mb-2">
+          <Text variant="label" className="mb-1 px-5 pt-2">
+            Recent
+          </Text>
+          {recents.map((item) => (
+            <RecentRow key={itemKey(item)} item={item} onPress={() => onSelectRecent(item)} />
+          ))}
+        </View>
+      ) : null}
+
+      {/* All services — horizontal strip */}
+      {allServices.length > 0 ? (
+        <View>
+          {recents.length > 0 ? <View className="mx-5 my-2 h-px bg-border" /> : null}
+          <Text variant="label" className="mb-3 px-5 pt-2">
+            Services
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}
+          >
+            {allServices.map((service) => (
+              <ServiceCard
+                key={service.id}
+                service={service}
+                onPress={() => onSelectService(service)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* Shown only when there is absolutely nothing to display */}
+      {recents.length === 0 && allServices.length === 0 ? (
+        <View className="px-5 py-8">
+          <Text variant="body" className="text-text-secondary">
+            Search for a service like "Plumbing", or a skill like "Leak repair".
+          </Text>
+        </View>
+      ) : null}
+    </>
+  );
+}
+
+interface RecentRowProps {
+  item: RecentSearchItem;
+  onPress: () => void;
+}
+
+function RecentRow({ item, onPress }: RecentRowProps) {
+  const imageUri = item.type === 'service' ? item.service.icon : item.skill.service.icon;
+  const imageLabel = item.type === 'service' ? item.service.name : item.skill.service.name;
+  const title = item.type === 'service' ? item.service.name : item.skill.name;
+  const subtitle = item.type === 'service' ? 'View all skills' : item.skill.service.name;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      className="flex-row items-center px-5 py-3 active:opacity-70"
+    >
+      <ServiceImage uri={imageUri} accessibilityLabel={imageLabel} className="h-12 w-12 rounded-xl" />
+      <View className="ml-3 flex-1">
+        <Text variant="bodyStrong">{title}</Text>
+        <Text variant="caption" className="text-text-secondary">
+          {subtitle}
+        </Text>
+      </View>
+      <Ionicons name="time-outline" size={18} color={color['text-secondary']} />
+    </Pressable>
+  );
+}
+
+interface SearchResultsProps {
+  services: ServiceOption[];
+  skills: SkillWithService[];
+  onSelectService: (s: ServiceOption) => void;
+  onSelectSkill: (s: SkillWithService) => void;
+}
+
+function SearchResults({ services, skills, onSelectService, onSelectSkill }: SearchResultsProps) {
+  return (
+    <>
+      {services.length > 0 ? (
+        <View className="mb-2 px-5">
+          <Text variant="label" className="mb-1 mt-2">
+            Services
+          </Text>
+          {services.map((service) => (
+            <ResultRow
+              key={service.id}
+              imageUri={service.icon}
+              imageLabel={service.name}
+              title={service.name}
+              subtitle="View all skills"
+              onPress={() => onSelectService(service)}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {skills.length > 0 ? (
+        <View className="px-5">
+          {services.length > 0 ? <View className="my-1 h-px bg-border" /> : null}
+          <Text variant="label" className="mb-1 mt-2">
+            Skills
+          </Text>
+          {skills.map((skill) => (
+            <ResultRow
+              key={skill.id}
+              imageUri={skill.service.icon}
+              imageLabel={skill.service.name}
+              title={skill.name}
+              subtitle={skill.service.name}
+              onPress={() => onSelectSkill(skill)}
+            />
+          ))}
+        </View>
+      ) : null}
+    </>
+  );
+}
+
+interface ResultRowProps {
+  imageUri: string | null;
+  imageLabel: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}
+
+function ResultRow({ imageUri, imageLabel, title, subtitle, onPress }: ResultRowProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      className="flex-row items-center py-3 active:opacity-70"
+    >
+      <ServiceImage uri={imageUri} accessibilityLabel={imageLabel} className="h-12 w-12 rounded-xl" />
+      <View className="ml-3 flex-1">
+        <Text variant="bodyStrong">{title}</Text>
+        <Text variant="caption" className="text-text-secondary">
+          {subtitle}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={color['text-secondary']} />
+    </Pressable>
+  );
+}
+
+function itemKey(item: RecentSearchItem): string {
+  return item.type === 'service' ? `service:${item.service.id}` : `skill:${item.skill.id}`;
 }
