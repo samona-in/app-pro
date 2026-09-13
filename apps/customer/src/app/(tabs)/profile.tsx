@@ -15,7 +15,11 @@ const SETTINGS_ROWS: { icon: IoniconName; label: string; onPress?: () => void }[
     label: 'Manage addresses',
     onPress: () => router.push('/saved-addresses'),
   },
-  { icon: 'card-outline', label: 'Payment methods', onPress: () => router.push('/payment-methods') },
+  {
+    icon: 'card-outline',
+    label: 'Payment methods',
+    onPress: () => router.push('/payment-methods'),
+  },
   {
     icon: 'notifications-outline',
     label: 'Notification settings',
@@ -66,19 +70,16 @@ export default function Profile() {
   const { data: profile } = useCustomerProfile();
   const uploadAvatar = useUploadAvatar();
   const [uploadSource, setUploadSource] = useState<string | null>(null);
-  const [avatarVersion, setAvatarVersion] = useState(0);
 
   const displayName = profile?.displayName ?? user?.fullName ?? 'SAMONA Customer';
   const avatarUrl = profile?.avatarUrl ?? user?.avatarUrl;
   const uploading = uploadSource !== null || uploadAvatar.isPending;
 
-  // Preview the freshly picked photo while it uploads; afterwards the stored
-  // URL is cache-busted so a replace renders immediately instead of showing
-  // the stale object.
+  // Preview the freshly picked photo while it uploads; each upload records a
+  // brand-new object URL server-side, so afterwards the stored URL replaced
+  // the preview without any cache-busting.
   function shownAvatarUri(): string | null {
-    if (uploadSource) return uploadSource;
-    if (avatarVersion > 0 && avatarUrl) return `${avatarUrl}?v=${avatarVersion}`;
-    return avatarUrl ?? null;
+    return uploadSource ?? avatarUrl ?? null;
   }
 
   async function pickAvatar() {
@@ -98,7 +99,6 @@ export default function Profile() {
       {
         onSuccess: () => {
           setUploadSource(null);
-          setAvatarVersion((version) => version + 1);
         },
         onError: () => {
           setUploadSource(null);

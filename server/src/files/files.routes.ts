@@ -1,7 +1,11 @@
 import { Router } from 'express';
-import { selfieCompleteSchema, selfieUploadStartSchema } from '@samona/validation';
+import {
+  avatarCompleteSchema,
+  selfieCompleteSchema,
+  selfieUploadStartSchema,
+} from '@samona/validation';
 import type { Services } from '../context';
-import { conflict } from '../common/errors';
+import { badRequest, conflict } from '../common/errors';
 import { createRequireAuth, requireRole, validate } from '../common';
 
 /**
@@ -100,20 +104,40 @@ export function createFilesRouter(services: Services): Router {
   /**
    * Step 3 (avatar): confirm the PUT finished and record the public URL.
    *
-   * Existence is probed against the bucket before anything is written, so the
-   * profile can never point at an object that was never uploaded.
+   * The body carries the object path the API minted in step 1. It must sit
+   * under the caller's own id (never trusted from the client) and must exist
+   * in the bucket before anything is written, so the profile can never point
+   * at an object that was never uploaded. Replaces never reuse a URL — each
+   * confirm records a fresh one, and the superseded object is deleted so
+   * retakes do not accumulate orphans.
    */
-  router.post('/avatar/complete', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
-    try {
-      if (!(await services.storage.avatarExists(req.user!.id))) {
-        throw conflict('The photo has not reached storage yet. Try again.');
+  router.post(
+    '/avatar/complete',
+    requireRole('CUSTOMER', 'ADMIN'),
+    validate(avatarCompleteSchema),
+    async (req, res, next) => {
+      try {
+        const { path } = req.body;
+        if (!path.startsWith(services.storage.avatarScope(req.user!.id))) {
+          throw badRequest('That photo is not valid.');
+        }
+        if (!(await services.storage.avatarExists(path))) {
+          throw conflict('The photo has not reached storage yet. Try again.');
+        }
+
+        const previous = await services.customers.findByUserId(req.user!.id);
+        const avatarUrl = services.storage.avatarPublicUrl(path);
+        const updated = await services.customers.applyOnboardingPatch(req.user!.id, {
+          avatarUrl,
+        });
+
+        await services.storage.removeAvatar(previous?.avatarUrl);
+        res.json(updated);
+      } catch (error) {
+        next(error);
       }
-      const avatarUrl = services.storage.avatarPublicUrl(services.storage.avatarPath(req.user!.id));
-      res.json(await services.customers.applyOnboardingPatch(req.user!.id, { avatarUrl }));
-    } catch (error) {
-      next(error);
-    }
-  });
+    },
+  );
 
   return router;
 }
