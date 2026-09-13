@@ -4,7 +4,7 @@ import { Text } from './Text';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'success' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'success' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 const variantStyles: Record<ButtonVariant, { container: string; labelColor: string }> = {
@@ -14,6 +14,7 @@ const variantStyles: Record<ButtonVariant, { container: string; labelColor: stri
     labelColor: color['text-primary'],
   },
   ghost: { container: 'bg-transparent', labelColor: color['text-primary'] },
+  outline: { container: 'bg-transparent border border-brand', labelColor: color.brand },
   success: { container: 'bg-success', labelColor: color['text-inverse'] },
   danger: { container: 'bg-danger', labelColor: color['text-inverse'] },
 };

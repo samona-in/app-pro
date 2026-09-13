@@ -63,8 +63,11 @@ export default function AddressSearch() {
         coordinates: { latitude: selected.latitude, longitude: selected.longitude },
         locationLabel: selected.formattedAddress,
       });
-      addRecent(selected);
+      // Navigate before state updates: calling addRecent first causes Android to
+      // try inserting a view into a list that is simultaneously being unmounted
+      // ("addViewAt: failed to insert view into parent at index N").
       router.back();
+      addRecent(selected);
     } catch {
       setQuickError('Could not set your location. Please try again.');
     }

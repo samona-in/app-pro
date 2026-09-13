@@ -96,29 +96,26 @@ export default function AddressConfirm() {
         coordinates: { latitude: selected.latitude, longitude: selected.longitude },
         locationLabel: selected.formattedAddress,
       });
+
+      // Navigate before any state updates so Android does not try to mutate
+      // native views (including the MapLibre map) while they are being torn down.
+      router.dismissAll();
       addRecent(selected);
 
-      try {
-        await createSaved.mutateAsync({
-          name: trimmedName,
-          label,
-          addressLine1: selected.formattedAddress,
-          addressLine2: undefined,
-          landmark: undefined,
-          locality: selected.locality ?? undefined,
-          city: selected.city ?? undefined,
-          state: selected.state ?? undefined,
-          postalCode: selected.postalCode ?? undefined,
-          coordinates: { latitude: selected.latitude, longitude: selected.longitude },
-        });
-      } catch {
-        Alert.alert(
-          'Location set',
-          'We could not add this address to your saved list, but it is now your location.',
-        );
-      }
-
-      router.dismissAll();
+      // Best-effort: save to the address book. The location is already set above,
+      // so a failure here is silent — the user can add the address manually later.
+      createSaved.mutateAsync({
+        name: trimmedName,
+        label,
+        addressLine1: selected.formattedAddress,
+        addressLine2: undefined,
+        landmark: undefined,
+        locality: selected.locality ?? undefined,
+        city: selected.city ?? undefined,
+        state: selected.state ?? undefined,
+        postalCode: selected.postalCode ?? undefined,
+        coordinates: { latitude: selected.latitude, longitude: selected.longitude },
+      }).catch(() => {});
     } catch {
       setError('Could not update your location. Please try again.');
     }

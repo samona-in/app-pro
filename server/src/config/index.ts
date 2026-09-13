@@ -79,6 +79,17 @@ const envSchema = z.object({
   GEOCODING_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(8_000),
 
   /**
+   * OSM Nominatim-compatible fallback geocoder. When different from
+   * `GEOCODING_BASE_URL`, requests the primary provider cannot serve fail over
+   * to this one, so a down Photon instance does not break address lookup.
+   * Defaults to the shared Nominatim instance; set it equal to
+   * `GEOCODING_BASE_URL` to disable failover.
+   */
+  GEOCODING_FALLBACK_URL: z
+    .url({ message: 'GEOCODING_FALLBACK_URL must be a valid URL.' })
+    .default('https://nominatim.openstreetmap.org'),
+
+  /**
    * Expo push service access token. Optional: when unset the server still
    * records notification rows but does not reach Expo's servers (useful in
    * local dev). Get one at https://expo.dev/settings/access-tokens.
@@ -119,7 +130,12 @@ const envSchema = z.object({
    * How long an unaccepted (REQUESTED) job stays open before the sweep flips it
    * to EXPIRED. A job nobody accepts should not wait forever. Defaults to 30m.
    */
-  JOB_EXPIRE_TTL_MS: z.coerce.number().int().min(60_000).max(86_400_000).default(30 * 60_000),
+  JOB_EXPIRE_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(86_400_000)
+    .default(30 * 60_000),
 
   /**
    * How often the auto-expiry sweep scans for REQUESTED jobs older than the TTL.
@@ -152,7 +168,9 @@ const envSchema = z.object({
    * native overlay cannot call the API directly and falls back to opening the
    * app. Generate with `openssl rand -hex 32`. Never commit a real value.
    */
-  JOB_OFFER_SECRET: optional(z.string().min(16, 'JOB_OFFER_SECRET must be at least 16 characters.')),
+  JOB_OFFER_SECRET: optional(
+    z.string().min(16, 'JOB_OFFER_SECRET must be at least 16 characters.'),
+  ),
 
   /**
    * How long a minted job-offer token stays redeemable, in ms. A little longer
@@ -182,6 +200,8 @@ export interface AppConfig {
   geocodingBaseUrl: string;
   /** Per-request geocoder timeout, in ms. */
   geocodingTimeoutMs: number;
+  /** Nominatim-compatible fallback geocoder; null disables failover. */
+  geocodingFallbackUrl: string | null;
   /** Expo push service access token; null disables outbound pushes. */
   expoAccessToken: string | null;
   /** Repeating job-alert cadence, in ms. */
@@ -259,6 +279,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     googleMapsApiKey: env.GOOGLE_MAPS_API_KEY ?? null,
     geocodingBaseUrl: env.GEOCODING_BASE_URL,
     geocodingTimeoutMs: env.GEOCODING_TIMEOUT_MS,
+    geocodingFallbackUrl: env.GEOCODING_FALLBACK_URL ?? null,
     expoAccessToken: env.EXPO_ACCESS_TOKEN ?? null,
     jobAlertRepeatMs: env.JOB_ALERT_REPEAT_MS,
     jobAlertMaxRepeats: env.JOB_ALERT_MAX_REPEATS,

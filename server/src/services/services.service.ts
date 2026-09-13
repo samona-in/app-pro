@@ -1,5 +1,5 @@
 import type { PrismaClient } from '../database/prisma';
-import type { ServiceOption, SkillOption } from '@samona/types';
+import type { ServiceOption, ServiceSearchResult, SkillOption } from '@samona/types';
 
 export interface ServicesServiceDeps {
   prisma: PrismaClient;
@@ -45,7 +45,41 @@ export function createServicesService(deps: ServicesServiceDeps) {
     return skills;
   }
 
-  return { listActive, listSkillsForService };
+  /**
+   * Full-text catalogue search across service names and skill names.
+   *
+   * Returns both matching services and matching skills (with their parent
+   * service embedded). The client renders two sections from the single
+   * response so one round-trip covers both result types.
+   */
+  async function searchServices(query: string): Promise<ServiceSearchResult> {
+    const [services, skills] = await Promise.all([
+      deps.prisma.service.findMany({
+        where: { isActive: true, name: { contains: query, mode: 'insensitive' } },
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, slug: true, name: true, icon: true },
+      }),
+      deps.prisma.skill.findMany({
+        where: {
+          isActive: true,
+          name: { contains: query, mode: 'insensitive' },
+          service: { isActive: true },
+        },
+        orderBy: { sortOrder: 'asc' },
+        select: {
+          id: true,
+          serviceId: true,
+          slug: true,
+          name: true,
+          service: { select: { id: true, slug: true, name: true, icon: true } },
+        },
+      }),
+    ]);
+
+    return { services, skills };
+  }
+
+  return { listActive, listSkillsForService, searchServices };
 }
 
 export type ServicesService = ReturnType<typeof createServicesService>;

@@ -69,7 +69,7 @@ export const useAddressStore = create<AddressState>((set, get) => ({
   addRecent: (address) => {
     const next = [address, ...get().recents.filter((r) => recentKey(r) !== recentKey(address))]
       .slice(0, RECENTS_MAX);
-    set({ recents: next, pending: null });
+    set({ recents: next });
     void secureStorage.setItem(RECENTS_KEY, JSON.stringify(next));
   },
 }));

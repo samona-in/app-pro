@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -36,6 +36,14 @@ export interface PickedLocation {
 
 export type ResolveAddressFn = (point: Coordinates) => Promise<AddressSuggestion | null>;
 
+/** A request to move the camera back to a coordinate, e.g. on "refocus". */
+export interface MapFocusRequest {
+  /** Bump this to request a fresh ease-to; any new value re-triggers. */
+  nonce: number;
+  /** The [lng, lat] center to glide back to. */
+  center: [number, number];
+}
+
 export interface LocationMapPickerProps {
   /** Anchor the camera is centred on when the map first mounts. */
   value?: Coordinates | null;
@@ -49,6 +57,10 @@ export interface LocationMapPickerProps {
    * platform geocoder for the legacy onboarding screen.
    */
   resolveAddress?: ResolveAddressFn;
+  /** Centre marker style: a small dot (default) or a large location pin. */
+  centerPin?: 'dot' | 'marker';
+  /** When a new request arrives, ease the camera to its center. */
+  focus?: MapFocusRequest | null;
   className?: string;
   style?: StyleProp<ViewStyle>;
 }
@@ -58,6 +70,9 @@ const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 const DEFAULT_CENTER: [number, number] = [77.209, 28.6139]; // [lng, lat] — India-first default
 const DEFAULT_ZOOM = 12.5;
+
+/** Half of the marker's 54px box, so the needle tip sits on the exact center. */
+const MARKER_OFFSET = 27;
 
 /** Composes a short human-readable area label; null when nothing is usable. */
 function formatAreaLabel(place: Location.LocationGeocodedAddress): string | null {
@@ -81,9 +96,10 @@ function suggestionFromDevicePlace(
   return {
     formattedAddress: formatAreaLabel(place) ?? coordinatesToLabel(coordinates),
     mainLabel: place.name ?? place.street ?? place.district ?? place.city ?? '',
-    secondary: [place.street, place.city ?? place.region, place.postalCode]
-      .filter((part): part is string => Boolean(part))
-      .join(', ') || null,
+    secondary:
+      [place.street, place.city ?? place.region, place.postalCode]
+        .filter((part): part is string => Boolean(part))
+        .join(', ') || null,
     locality: place.subregion ?? place.district ?? null,
     city: place.city ?? null,
     state: place.region ?? null,
@@ -110,6 +126,8 @@ export function LocationMapPicker({
   value,
   onChange,
   resolveAddress,
+  centerPin = 'dot',
+  focus = null,
   className,
   style,
 }: LocationMapPickerProps) {
@@ -120,6 +138,15 @@ export function LocationMapPicker({
   const [phase, setPhase] = useState<'idle' | 'moving' | 'resolving'>('idle');
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focus) return;
+    cameraRef.current?.easeTo({
+      center: focus.center,
+      zoom: DEFAULT_ZOOM,
+      duration: 450,
+    });
+  }, [focus]);
 
   const resolveLabel = useCallback(
     async (point: Coordinates) => {
@@ -220,16 +247,31 @@ export function LocationMapPicker({
       </MapLibreMap>
 
       <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
-        <View
-          className="h-5 w-5 rounded-full border-[3px] border-surface bg-brand"
-          style={{
-            elevation: 6,
-            shadowColor: '#000',
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            shadowOffset: { width: 0, height: 2 },
-          }}
-        />
+        {centerPin === 'marker' ? (
+          <View
+            style={{
+              transform: [{ translateY: -MARKER_OFFSET }],
+              elevation: 6,
+              shadowColor: '#000',
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+              shadowOffset: { width: 0, height: 2 },
+            }}
+          >
+            <Ionicons name="location" size={54} color={color.brand} />
+          </View>
+        ) : (
+          <View
+            className="h-5 w-5 rounded-full border-[3px] border-surface bg-brand"
+            style={{
+              elevation: 6,
+              shadowColor: '#000',
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+              shadowOffset: { width: 0, height: 2 },
+            }}
+          />
+        )}
       </View>
 
       {/* Locate me (Google-Maps style) */}
