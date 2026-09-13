@@ -73,7 +73,7 @@ export interface SkillOption {
 
 /** A skill with its parent service, returned by catalogue search. */
 export interface SkillWithService extends SkillOption {
-  service: Pick<ServiceOption, 'id' | 'slug' | 'name'>;
+  service: Pick<ServiceOption, 'id' | 'slug' | 'name' | 'icon'>;
 }
 
 /** Combined result for a catalogue search: matching services and skills. */

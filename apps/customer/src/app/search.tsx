@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ServiceOption, SkillWithService } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ServiceImage } from '@/components/home/ServiceImage';
 import { IconButton, Input, Text } from '@/components/ui';
 import { useServiceSearch } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
@@ -115,12 +116,11 @@ export default function Search() {
                     onPress={() => handleSelectService(service)}
                     className="flex-row items-center py-3 active:opacity-70"
                   >
-                    <View
-                      className="h-10 w-10 items-center justify-center rounded-full"
-                      style={{ backgroundColor: color['surface-muted'] }}
-                    >
-                      <Ionicons name="grid-outline" size={20} color={color.brand} />
-                    </View>
+                    <ServiceImage
+                      uri={service.icon}
+                      accessibilityLabel={service.name}
+                      className="h-12 w-12 rounded-xl"
+                    />
                     <View className="ml-3 flex-1">
                       <Text variant="bodyStrong">{service.name}</Text>
                       <Text variant="caption" className="text-text-secondary">
@@ -147,12 +147,11 @@ export default function Search() {
                     onPress={() => handleSelectSkill(skill)}
                     className="flex-row items-center py-3 active:opacity-70"
                   >
-                    <View
-                      className="h-10 w-10 items-center justify-center rounded-full"
-                      style={{ backgroundColor: color['surface-muted'] }}
-                    >
-                      <Ionicons name="construct-outline" size={20} color={color.brand} />
-                    </View>
+                    <ServiceImage
+                      uri={skill.service.icon}
+                      accessibilityLabel={skill.service.name}
+                      className="h-12 w-12 rounded-xl"
+                    />
                     <View className="ml-3 flex-1">
                       <Text variant="bodyStrong">{skill.name}</Text>
                       <Text variant="caption" className="text-text-secondary">

@@ -71,7 +71,7 @@ export function createServicesService(deps: ServicesServiceDeps) {
           serviceId: true,
           slug: true,
           name: true,
-          service: { select: { id: true, slug: true, name: true } },
+          service: { select: { id: true, slug: true, name: true, icon: true } },
         },
       }),
     ]);
