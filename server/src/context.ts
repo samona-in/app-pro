@@ -14,11 +14,12 @@ import { createServicesService, type ServicesService } from './services/services
 import { createJobsService, type JobsService } from './jobs/jobs.service';
 import { createMatchingService, type MatchingService } from './matching/matching.service';
 import { createMessagesService, type MessagesService } from './messages/messages.service';
+import { createLocationsService, type LocationsService } from './locations/locations.service';
 import {
-  createLocationsService,
-  type LocationsService,
-} from './locations/locations.service';
-import { createPhotonGeocoder } from './locations/geocoding';
+  createFailoverGeocoder,
+  createNominatimGeocoder,
+  createPhotonGeocoder,
+} from './locations/geocoding';
 import { createAddressesService, type AddressesService } from './addresses/addresses.service';
 import { createEarningsService, type EarningsService } from './earnings/earnings.service';
 import {
@@ -117,13 +118,31 @@ export function createServices(
     matching,
     locations: createLocationsService({
       prisma,
-      // Replaceable OSM-backed geocoder. Swap the factory here and both new
-      // endpoints follow without touching routes or the app (CLAUDE.md
-      // "Realtime" analogy; the provider contract lives in locations/geocoding).
-      geocoding: createPhotonGeocoder({
-        baseUrl: config.geocodingBaseUrl,
-        timeoutMs: config.geocodingTimeoutMs,
-      }),
+      // Replaceable OSM-backed geocoder. Primary is Photon; requests fail over
+      // to the Nominatim-compatible fallback when Photon is down. The fallback
+      // is skipped when it points at the same instance as the primary.
+      // Swapping the factories here keeps both endpoints working without
+      // touching routes or the app (the provider contract lives in
+      // locations/geocoding).
+      geocoding: createFailoverGeocoder([
+        // Nominatim (via Fastly CDN) is tried first — it is reliably reachable
+        // from most networks. Photon's shared public instance (photon.komoot.io)
+        // occasionally refuses connections; keeping it as a secondary means a
+        // self-hosted Photon in production still gets used whenever Nominatim is
+        // unavailable, without breaking development when Photon is unreachable.
+        ...(config.geocodingFallbackUrl && config.geocodingFallbackUrl !== config.geocodingBaseUrl
+          ? [
+              createNominatimGeocoder({
+                baseUrl: config.geocodingFallbackUrl,
+                timeoutMs: config.geocodingTimeoutMs,
+              }),
+            ]
+          : []),
+        createPhotonGeocoder({
+          baseUrl: config.geocodingBaseUrl,
+          timeoutMs: config.geocodingTimeoutMs,
+        }),
+      ]),
     }),
     addresses: createAddressesService({ prisma }),
     earnings: createEarningsService(deps),

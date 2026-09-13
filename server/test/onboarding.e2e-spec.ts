@@ -26,6 +26,7 @@ const config: AppConfig = {
   googleMapsApiKey: null,
   geocodingBaseUrl: 'https://photon.komoot.io',
   geocodingTimeoutMs: 8_000,
+  geocodingFallbackUrl: null,
   expoAccessToken: null,
   jobAlertRepeatMs: 60_000,
   jobAlertMaxRepeats: 20,
