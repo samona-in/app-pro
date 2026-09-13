@@ -89,6 +89,13 @@ export interface ProProfile {
   onboardingStatus: OnboardingStatus;
   displayName: string | null;
   gender: Gender | null;
+  /**
+   * The pro's public profile photo, chosen once during onboarding. Lives on
+   * the surface profile rather than the shared identity row, so a person who
+   * is both a customer and a professional keeps an independent image for each
+   * surface. The pro cannot change it later.
+   */
+  avatarUrl: string | null;
   bio: string | null;
   experienceLevel: ExperienceLevel | null;
   serviceRadiusKm: number;

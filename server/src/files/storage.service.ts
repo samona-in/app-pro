@@ -21,11 +21,23 @@ export const SELFIE_CONTENT_TYPE = 'image/jpeg';
 /** The public-read bucket holding job reference photos. */
 export const JOB_IMAGES_BUCKET = 'job-images';
 
-/** The public-read bucket holding customer profile avatars. */
+/** The public-read bucket holding per-surface profile avatars. */
 export const AVATARS_BUCKET = 'avatars';
 
 /** Mirrors the bucket's `file_size_limit` — reject before the bytes move. */
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * The surface an avatar belongs to. A person who is both a customer and a
+ * professional keeps an independent profile photo for each surface, so avatar
+ * objects are scoped under that surface's own folder.
+ */
+export type AvatarSurface = 'customer' | 'pro';
+
+/** The surface's plural folder prefix, e.g. `customers` or `pros`. */
+function avatarFolderFor(surface: AvatarSurface): string {
+  return surface === 'pro' ? 'pros' : 'customers';
+}
 
 /**
  * The storage path for an account's selfie.
@@ -51,14 +63,15 @@ function jobImagePathFor(customerUserId: string): string {
 }
 
 /**
- * The folder scope one account's avatars live under.
+ * The folder scope one account's avatars live under, for a given surface.
  *
- * Every avatar object sits below `customers/{userId}/` so the ownership check
- * in the routes is a prefix comparison against the verified user id — the
- * client never chooses where its bytes land.
+ * Every avatar object sits below `{surface}s/{userId}/` so the ownership check
+ * in the routes is a prefix comparison against the verified user id and the
+ * surface chosen by the `X-App-Type` header — the client never chooses where
+ * its bytes land.
  */
-function avatarScopeFor(userId: string): string {
-  return `customers/${userId}/`;
+function avatarScopeFor(surface: AvatarSurface, userId: string): string {
+  return `${avatarFolderFor(surface)}/${userId}/`;
 }
 
 /**
@@ -68,12 +81,12 @@ function avatarScopeFor(userId: string): string {
  * under the caches between the app, the OS and any CDN in front of the bucket,
  * so a retake gets a brand-new URL and no stale-cache layer can ever serve
  * yesterday's bytes (CLAUDE.md "UI"). The path is derived from the verified
- * user id plus a server-minted token, never from the request body. The
- * superseded object is deleted when the replace is confirmed, so retakes do
- * not accumulate orphans.
+ * user id, the caller's surface and a server-minted token, never from the
+ * request body. The superseded object is deleted when the replace is
+ * confirmed, so retakes do not accumulate orphans.
  */
-function avatarPathFor(userId: string): string {
-  return `${avatarScopeFor(userId)}avatar-${randomUUID()}.jpg`;
+function avatarPathFor(surface: AvatarSurface, userId: string): string {
+  return `${avatarScopeFor(surface, userId)}avatar-${randomUUID()}.jpg`;
 }
 
 /**
@@ -200,8 +213,11 @@ export function createStorageService(deps: StorageServiceDeps) {
    * an object that has never been fetched before — a fresh network read rather
    * than a cached one. `upsert` keeps a retry of the same ticket harmless.
    */
-  async function createAvatarUpload(userId: string): Promise<{ path: string; uploadUrl: string }> {
-    const path = avatarPathFor(userId);
+  async function createAvatarUpload(
+    surface: AvatarSurface,
+    userId: string,
+  ): Promise<{ path: string; uploadUrl: string }> {
+    const path = avatarPathFor(surface, userId);
     const { data, error } = await requireAdmin()
       .storage.from(AVATARS_BUCKET)
       .createSignedUploadUrl(path, { upsert: true });

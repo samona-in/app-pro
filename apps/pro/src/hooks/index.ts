@@ -6,6 +6,7 @@ export { useSeededState } from './use-seeded-state';
 export { useSession, type SessionResponse } from './use-session';
 export { useSubmitGuard } from './use-submit-guard';
 export { useUploadSelfie } from './use-selfie';
+export { useUploadAvatar } from './use-avatar';
 export {
   useAcceptJob,
   useCancelJob,

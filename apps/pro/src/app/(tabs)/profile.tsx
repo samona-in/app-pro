@@ -3,7 +3,7 @@ import { Pressable, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
-import { useDeviceReadiness, useSession } from '@/hooks';
+import { useDeviceReadiness, useProProfile, useSession } from '@/hooks';
 import { requestOverlayPermission } from '@/services/overlay-alert';
 import { color } from '@/theme';
 
@@ -70,6 +70,7 @@ function OverlayPermissionRow() {
 
 export default function Profile() {
   const { user, signOut } = useSession();
+  const { data: proProfile } = useProProfile();
 
   /**
    * Supabase clears the persisted session; the tabs layout guard observes the
@@ -87,7 +88,11 @@ export default function Profile() {
       </View>
 
       <Card className="mt-4 flex-row items-center">
-        <Avatar name={user?.fullName ?? 'SAMONA Pro'} uri={user?.avatarUrl} size="lg" />
+        <Avatar
+          name={user?.fullName ?? 'SAMONA Pro'}
+          uri={proProfile?.avatarUrl ?? null}
+          size="lg"
+        />
         <View className="ml-4 flex-1">
           <Text variant="title">{user?.fullName ?? 'SAMONA Pro'}</Text>
           <Text variant="footnote" className="mt-0.5">

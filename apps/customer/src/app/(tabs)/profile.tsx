@@ -72,7 +72,7 @@ export default function Profile() {
   const [uploadSource, setUploadSource] = useState<string | null>(null);
 
   const displayName = profile?.displayName ?? user?.fullName ?? 'SAMONA Customer';
-  const avatarUrl = profile?.avatarUrl ?? user?.avatarUrl;
+  const avatarUrl = profile?.avatarUrl ?? null;
   const uploading = uploadSource !== null || uploadAvatar.isPending;
 
   // Preview the freshly picked photo while it uploads; each upload records a

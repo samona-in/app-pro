@@ -26,7 +26,6 @@ const profileRow = {
   phone: token.phone,
   email: null,
   fullName: null,
-  avatarUrl: null,
   isActive: true,
   createdAt: new Date(),
 };
