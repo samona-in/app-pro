@@ -1,20 +1,42 @@
-import { useCallback, useMemo, useState } from 'react';
-import { View } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
+import { useCallback, useState } from 'react';
+import { Modal, ScrollView, View, useWindowDimensions } from 'react-native';
+import { useKeyboardHandler } from 'react-native-keyboard-controller';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { AddressLabel, AddressSuggestion, SavedAddress } from '@samona/types';
+
+import type {
+  AddressLabel,
+  AddressSuggestion,
+  SavedAddress,
+} from '@samona/types';
+
 import {
   LocationMapPicker,
   type MapFocusRequest,
   type PickedLocation,
   type ResolveAddressFn,
 } from '@/components/location';
-import { Button, Divider, IconButton, Input, Text } from '@/components/ui';
+
+import {
+  Button,
+  Divider,
+  IconButton,
+  Input,
+  Text,
+} from '@/components/ui';
+
 import { useUpdateSavedAddress } from '@/hooks';
 import { geocodingApi } from '@/services/geocoding';
-import { color, elevation } from '@/theme';
-import { fallbackLocationLabel, savedAddressToSuggestion } from '@/utils/address';
+import { color } from '@/theme';
+import {
+  fallbackLocationLabel,
+  savedAddressToSuggestion,
+} from '@/utils/address';
+
 import { SaveAsLabelPicker } from './SaveAsLabelPicker';
 
 interface EditSavedAddressSheetProps {
@@ -22,76 +44,133 @@ interface EditSavedAddressSheetProps {
   onClose: () => void;
 }
 
-/**
- * Edits one saved address in a sheet: a map up top (drag to move the pin),
- * the address line, the customer's own name and the Home/Work/Other label in
- * the body, and an "Update address" button pinned to the footer.
- *
- * Mounted only while an address is being edited, so it animates and seeds its
- * state fresh from `address` on every open.
- */
-export function EditSavedAddressSheet({ address, onClose }: EditSavedAddressSheetProps) {
+export function EditSavedAddressSheet({
+  address,
+  onClose,
+}: EditSavedAddressSheetProps) {
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
+
   const updateSaved = useUpdateSavedAddress();
 
   const [coords, setCoords] = useState({
     latitude: address.latitude,
     longitude: address.longitude,
   });
-  const [place, setPlace] = useState<AddressSuggestion | null>(savedAddressToSuggestion(address));
+
+  const [place, setPlace] = useState<AddressSuggestion | null>(
+    savedAddressToSuggestion(address),
+  );
+
   const [name, setName] = useState(address.name);
   const [label, setLabel] = useState<AddressLabel>(address.label);
+
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
+
   const [mapFocus, setMapFocus] = useState<MapFocusRequest | null>(null);
 
-  const snapPoints = useMemo(() => ['92%'], []);
+  // ── Keyboard-driven layout ───────────────────────────────────────────────
+  //
+  // Strategy: instead of transforming the footer (KeyboardStickyView uses
+  // translateY which doesn't affect layout and causes content to drift behind
+  // the map), we animate two things:
+  //
+  //   1. animatedMapHeight   — map shrinks when keyboard opens, giving the
+  //                            form more visible vertical space.
+  //   2. animatedOuterPadding — outer container gains paddingBottom equal to
+  //                            the keyboard height, naturally pushing the
+  //                            footer above the keyboard without any transform.
 
-  const resolveAddress: ResolveAddressFn = useCallback(async (point) => {
-    try {
-      return await geocodingApi.reverse(point.latitude, point.longitude);
-    } catch {
-      return null;
-    }
-  }, []);
+  const normalMapHeight = Math.min(screenHeight * 0.4, 340);
+  const keyboardMapHeight = Math.min(screenHeight * 0.16, 130);
+
+  const animatedMapHeight = useSharedValue(normalMapHeight);
+  const animatedOuterPadding = useSharedValue(0);
+
+  useKeyboardHandler(
+    {
+      onStart: (event) => {
+        'worklet';
+        const duration = event.duration > 0 ? event.duration : 250;
+        const isOpening = event.height > 0;
+
+        animatedMapHeight.value = withTiming(
+          isOpening ? keyboardMapHeight : normalMapHeight,
+          { duration },
+        );
+
+        animatedOuterPadding.value = withTiming(
+          isOpening ? event.height : 0,
+          { duration },
+        );
+      },
+
+      onEnd: (event) => {
+        'worklet';
+        // Safety restore in case onStart's closing branch was missed.
+        if (event.height === 0) {
+          animatedMapHeight.value = withTiming(normalMapHeight, { duration: 250 });
+          animatedOuterPadding.value = withTiming(0, { duration: 250 });
+        }
+      },
+    },
+    [keyboardMapHeight, normalMapHeight],
+  );
+
+  const mapAnimatedStyle = useAnimatedStyle(() => ({
+    height: animatedMapHeight.value,
+  }));
+
+  const outerAnimatedStyle = useAnimatedStyle(() => ({
+    paddingBottom: animatedOuterPadding.value,
+  }));
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+
+  const resolveAddress: ResolveAddressFn = useCallback(
+    async (point) => {
+      try {
+        return await geocodingApi.reverse(point.latitude, point.longitude);
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
 
   const handleChange = useCallback((picked: PickedLocation) => {
     setCoords({ latitude: picked.latitude, longitude: picked.longitude });
     setPlace(picked.place ?? null);
   }, []);
 
-  const handleClose = useCallback(
-    (index: number) => {
-      if (index === -1) onClose();
-    },
-    [onClose],
-  );
-
-  /**
-   * "Change" re-focuses the map on the current pin so the customer can fine
-   * tune the spot — dragging the map is what actually moves the pin.
-   */
   const handleChangePress = useCallback(() => {
     setMapFocus({
       nonce: Date.now(),
       center: [coords.longitude, coords.latitude],
     });
-  }, [coords.longitude, coords.latitude]);
+  }, [coords.latitude, coords.longitude]);
 
-  const locality = place?.mainLabel ?? fallbackLocationLabel(coords.latitude, coords.longitude);
+  const locality =
+    place?.mainLabel ??
+    fallbackLocationLabel(coords.latitude, coords.longitude);
 
   const displayedAddress =
-    place?.formattedAddress ?? fallbackLocationLabel(coords.latitude, coords.longitude);
+    place?.formattedAddress ??
+    fallbackLocationLabel(coords.latitude, coords.longitude);
 
   async function handleUpdate() {
     if (updateSaved.isPending) return;
+
     setError(null);
 
     const trimmedName = name.trim();
+
     if (!trimmedName) {
       setNameError('Please add a name for this address.');
       return;
     }
+
     setNameError(null);
 
     const suggestion: AddressSuggestion = place ?? {
@@ -125,6 +204,7 @@ export function EditSavedAddressSheet({ address, onClose }: EditSavedAddressShee
           },
         },
       });
+
       onClose();
     } catch {
       setError('Could not update this address. Please try again.');
@@ -132,129 +212,219 @@ export function EditSavedAddressSheet({ address, onClose }: EditSavedAddressShee
   }
 
   return (
-    <BottomSheet
-      index={0}
-      snapPoints={snapPoints}
-      enableDynamicSizing={false}
-      enableContentPanningGesture={false}
-      enablePanDownToClose
-      keyboardBehavior="interactive"
-      android_keyboardInputMode="adjustResize"
-      backdropComponent={(props) => (
-        <BottomSheetBackdrop
-          {...props}
-          appearsOnIndex={0}
-          disappearsOnIndex={-1}
-          opacity={0.65}
-          pressBehavior="close"
-        />
-      )}
-      onChange={handleClose}
-      backgroundStyle={{ backgroundColor: color.surface }}
-      handleIndicatorStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.6)' }}
+    <Modal
+      visible
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={onClose}
     >
-      <BottomSheetView className="flex-1">
-        <View className="h-[46%] shrink-0 overflow-hidden rounded-t-2xl">
+      {/*
+       * Outer Animated.View carries the keyboard paddingBottom.
+       * When the keyboard opens by K px, paddingBottom = K, so the
+       * available height for children shrinks to (screenHeight - K).
+       * The footer — a plain View at the bottom of this flex container —
+       * naturally sits just above the keyboard with no transform needed.
+       */}
+      <Animated.View
+        style={[
+          { flex: 1, backgroundColor: color.surface },
+          outerAnimatedStyle,
+        ]}
+      >
+
+        {/* ============================== */}
+        {/* HEADER                        */}
+        {/* ============================== */}
+
+        <View
+          style={{
+            paddingTop: insets.top,
+            backgroundColor: color.surface,
+            borderBottomWidth: 1,
+            borderBottomColor: color.border,
+          }}
+        >
+          <View
+            style={{
+              height: 52,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 8,
+            }}
+          >
+            <IconButton
+              name="close"
+              accessibilityLabel="Close"
+              variant="plain"
+              onPress={onClose}
+            />
+
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text variant="bodyLg" className="font-semibold">
+                Edit Address
+              </Text>
+            </View>
+
+            {/* Mirror of close button — keeps title visually centred */}
+            <View style={{ width: 44 }} />
+          </View>
+        </View>
+
+        {/* ============================== */}
+        {/* MAP                           */}
+        {/* ============================== */}
+
+        <Animated.View style={[{ overflow: 'hidden' }, mapAnimatedStyle]}>
           <LocationMapPicker
             value={coords}
             onChange={handleChange}
             resolveAddress={resolveAddress}
             centerPin="marker"
             focus={mapFocus}
-            className="h-full"
+            style={{ flex: 1 }}
           />
 
+          {/* Hint pill — just below the centre pin */}
           <View
             pointerEvents="none"
-            className="absolute inset-x-0 items-center"
-            style={{ top: '58%' }}
+            style={{
+              position: 'absolute',
+              top: '62%',
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+            }}
           >
-            <View className="rounded-full bg-surface-inverse px-3 py-1.5">
-              <Text variant="caption" className="text-white">
+            <View
+              style={{
+                backgroundColor: color['surface-inverse'],
+                borderRadius: 999,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
+            >
+              <Text variant="caption" style={{ color: color.white }}>
                 Place the pin accurately on map
               </Text>
             </View>
           </View>
+        </Animated.View>
 
-          <View className="absolute right-4 top-4 z-10" style={elevation.md}>
-            <IconButton
-              name="close"
-              accessibilityLabel="Close"
-              variant="surface"
-              onPress={onClose}
-            />
-          </View>
-        </View>
+        {/* ============================== */}
+        {/* LOCATION ROW                  */}
+        {/* ============================== */}
 
-        <View className="z-10 -mt-5 min-h-0 flex-1 rounded-t-2xl bg-surface" style={elevation.md}>
-          <View className="mx-auto mt-3 h-1.5 w-10 rounded-full bg-border-strong" />
-
-          <View className="flex-row items-center justify-between gap-3 px-5 pt-4">
-            <Text variant="bodyLg" numberOfLines={1} className="flex-1 font-semibold">
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            paddingHorizontal: 20,
+            paddingTop: 14,
+            paddingBottom: 14,
+            backgroundColor: color['surface-muted'],
+          }}
+        >
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              variant="bodyLg"
+              numberOfLines={1}
+              className="font-semibold"
+            >
               {locality}
             </Text>
-            <Button
-              variant="outline"
-              size="sm"
-              fullWidth={false}
-              label="Change"
-              onPress={handleChangePress}
-            />
+
+            <Text
+              variant="footnote"
+              numberOfLines={2}
+              className="mt-0.5 text-text-muted"
+            >
+              {displayedAddress}
+            </Text>
           </View>
 
-          <Text variant="footnote" numberOfLines={2} className="px-5 pt-1 text-text-muted">
-            {displayedAddress}
+          <Button
+            variant="outline"
+            size="sm"
+            fullWidth={false}
+            label="Change"
+            onPress={handleChangePress}
+          />
+        </View>
+
+        <Divider />
+
+        {/* ============================== */}
+        {/* SCROLLABLE FORM               */}
+        {/* ============================== */}
+
+        {/*
+         * Plain ScrollView — the keyboard layout is fully handled by the
+         * outer container's animated paddingBottom and the map shrink above,
+         * so there is no need for KeyboardAwareScrollView here. Mixing it
+         * with the outer animation caused content to scroll behind the map.
+         */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 24 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Input
+            label="Name"
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              if (nameError) setNameError(null);
+            }}
+            error={nameError ?? undefined}
+            placeholder="e.g. Mum's house"
+            autoCapitalize="words"
+            accessibilityLabel="Saved address name"
+          />
+
+          <Text variant="label" className="mb-2 mt-6">
+            Save as
           </Text>
 
-          <Divider className="mt-4" />
+          <SaveAsLabelPicker value={label} onChange={setLabel} />
 
-          <KeyboardAwareScrollView
-            className="min-h-0 flex-1"
-            contentContainerClassName="px-5 py-4"
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            bottomOffset={16}
-          >
-            <Text variant="label" className="mb-2">
-              Name
+          {error ? (
+            <Text variant="caption" className="mt-4 text-danger">
+              {error}
             </Text>
-            <Input
-              value={name}
-              onChangeText={(text) => {
-                setName(text);
-                if (nameError) setNameError(null);
-              }}
-              error={nameError ?? undefined}
-              placeholder="e.g. Mum's house"
-              autoCapitalize="words"
-              accessibilityLabel="Saved address name"
-            />
+          ) : null}
+        </ScrollView>
 
-            <Text variant="label" className="mb-2 mt-4">
-              Save as
-            </Text>
-            <SaveAsLabelPicker value={label} onChange={setLabel} />
+        {/* ============================== */}
+        {/* FOOTER — always above keyboard */}
+        {/* ============================== */}
 
-            {error ? (
-              <Text variant="caption" className="mt-2 text-danger">
-                {error}
-              </Text>
-            ) : null}
-          </KeyboardAwareScrollView>
-
-          <View
-            className="shrink-0 border-t border-border bg-surface px-4 pt-3"
-            style={{ paddingBottom: insets.bottom + 12 }}
-          >
-            <Button
-              label="Update address"
-              size="lg"
-              loading={updateSaved.isPending}
-              onPress={() => void handleUpdate()}
-            />
-          </View>
+        {/*
+         * No transform. The animated paddingBottom on the outer container
+         * already positions this view just above the keyboard.
+         */}
+        <View
+          style={{
+            borderTopWidth: 1,
+            borderTopColor: color.border,
+            backgroundColor: color.surface,
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: Math.max(insets.bottom, 12),
+          }}
+        >
+          <Button
+            label="Update Address"
+            size="lg"
+            loading={updateSaved.isPending}
+            onPress={() => {
+              void handleUpdate();
+            }}
+          />
         </View>
-      </BottomSheetView>
-    </BottomSheet>
+
+      </Animated.View>
+    </Modal>
   );
 }
