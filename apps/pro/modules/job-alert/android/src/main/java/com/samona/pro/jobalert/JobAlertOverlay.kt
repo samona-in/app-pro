@@ -236,7 +236,8 @@ object JobAlertOverlay {
     acceptButton = accept
 
     // Decline is the round ring button: tapping it declines, and its border
-    // fills red as the offer window drains (see [RingButtonView]).    val decline =
+    // fills red as the offer window drains (see [RingButtonView]).
+    val decline =
       RingButtonView(context).apply {
         contentDescription = "${alert.serviceName.ifBlank { "job" }} — Decline"
         setOnClickListener {

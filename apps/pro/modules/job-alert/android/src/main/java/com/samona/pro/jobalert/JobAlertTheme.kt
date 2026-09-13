@@ -29,6 +29,12 @@ object JobAlertTheme {
   const val BORDER = 0xFFE2E8F0.toInt() // tokens.border (ink-200)
   const val BORDER_STRONG = 0xFFCBD5E1.toInt() // tokens.border-strong (ink-300)
 
+  // Cards. Native Android reads a single elevation float; we map the soft
+  // job-alert card lift from tokens.shadow (md: 0 4px 12px). Keeping the
+  // card on a hairline border + low elevation gives it presence on the lock
+  // screen without a heavy shadow.
+  const val CARD_ELEVATION = 8f
+
   // Brand — SAMONA blue, the primary action colour.
   const val BRAND = 0xFF054DFF.toInt() // tokens.brand (blue-600)
   const val BRAND_MUTED = 0xFF053FCC.toInt() // tokens.brand-muted (blue-700)
