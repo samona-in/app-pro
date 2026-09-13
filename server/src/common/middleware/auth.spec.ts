@@ -14,7 +14,6 @@ const activeUser = {
   phone: '+919876543210',
   email: null,
   fullName: null,
-  avatarUrl: null,
   isActive: true,
   createdAt: new Date(),
 };

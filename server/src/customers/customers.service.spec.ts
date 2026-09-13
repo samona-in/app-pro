@@ -84,9 +84,6 @@ describe('createCustomersService', () => {
         upsert: jest.fn(),
         update: jest.fn(),
       },
-      profile: {
-        update: jest.fn(),
-      },
       $transaction: jest.fn(),
     };
 
@@ -110,10 +107,7 @@ describe('createCustomersService', () => {
   it('ensureForUser creates an empty profile on first access', async () => {
     const { service, prisma } = buildService();
     const created = { ...base, onboardingStatus: OnboardingStatus.NOT_STARTED };
-    prisma.customerProfile.upsert.mockResolvedValue({
-      ...created,
-      profile: { avatarUrl: null },
-    });
+    prisma.customerProfile.upsert.mockResolvedValue(created);
 
     const result = await service.ensureForUser('user-1');
 
@@ -128,7 +122,7 @@ describe('createCustomersService', () => {
 
   it('applyOnboardingPatch writes displayName via transaction', async () => {
     const { service, prisma } = buildService();
-    const row = { ...base, profile: { avatarUrl: null } };
+    const row = base;
 
     prisma.customerProfile.upsert.mockResolvedValue(row);
     prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => {
@@ -138,7 +132,6 @@ describe('createCustomersService', () => {
     prisma.customerProfile.findUniqueOrThrow.mockResolvedValue({
       ...base,
       displayName: 'Priya Sharma',
-      profile: { avatarUrl: null },
     });
 
     const result = await service.applyOnboardingPatch('user-1', {
@@ -155,7 +148,7 @@ describe('createCustomersService', () => {
 
   it('recomputes status to COMPLETED when profile is complete', async () => {
     const { service, prisma } = buildService();
-    const row = { ...base, profile: { avatarUrl: null } };
+    const row = base;
 
     prisma.customerProfile.upsert.mockResolvedValue(row);
     prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => {
@@ -166,7 +159,6 @@ describe('createCustomersService', () => {
       ...base,
       displayName: 'Priya Sharma',
       locationLabel: 'MG Road, Hyderabad, Telangana 500001',
-      profile: { avatarUrl: null },
     });
 
     const result = await service.applyOnboardingPatch('user-1', {

@@ -50,6 +50,5 @@ export interface PublicUser {
   email: string | null;
   phone: string | null;
   fullName: string | null;
-  avatarUrl: string | null;
   createdAt: string;
 }

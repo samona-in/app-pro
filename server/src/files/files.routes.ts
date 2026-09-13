@@ -7,6 +7,8 @@ import {
 import type { Services } from '../context';
 import { badRequest, conflict } from '../common/errors';
 import { createRequireAuth, requireRole, validate } from '../common';
+import type { LocalUser } from '../auth/auth.service';
+import type { AvatarSurface } from './storage.service';
 
 /**
  * HTTP surface for the files domain, mounted at `/files`.
@@ -88,48 +90,56 @@ export function createFilesRouter(services: Services): Router {
   });
 
   /**
-   * Step 1 (avatar): a one-time URL the customer streams their profile photo
-   * to. The deterministic path is scoped under the caller's own id, so a retake
-   * replaces the previous avatar through the same URL.
+   * Step 1 (avatar): a one-time URL the caller streams their profile photo to.
+   * The deterministic path is scoped under the caller's own id and the surface
+   * they are on (`customers/` vs `pros/`), so a retake replaces the previous
+   * avatar through the same URL and each surface keeps its own image.
    */
-  router.post('/avatar/upload-url', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
-    try {
-      const { path, uploadUrl } = await services.storage.createAvatarUpload(req.user!.id);
-      res.json({ path, uploadUrl });
-    } catch (error) {
-      next(error);
-    }
-  });
+  router.post(
+    '/avatar/upload-url',
+    requireRole('PRO', 'CUSTOMER', 'ADMIN'),
+    async (req, res, next) => {
+      try {
+        const { path, uploadUrl } = await services.storage.createAvatarUpload(
+          avatarSurfaceFor(req.user!.appType),
+          req.user!.id,
+        );
+        res.json({ path, uploadUrl });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   /**
    * Step 3 (avatar): confirm the PUT finished and record the public URL.
    *
    * The body carries the object path the API minted in step 1. It must sit
-   * under the caller's own id (never trusted from the client) and must exist
-   * in the bucket before anything is written, so the profile can never point
-   * at an object that was never uploaded. Replaces never reuse a URL — each
-   * confirm records a fresh one, and the superseded object is deleted so
-   * retakes do not accumulate orphans.
+   * under the caller's own id and surface (never trusted from the client) and
+   * must exist in the bucket before anything is written, so the profile can
+   * never point at an object that was never uploaded. Replaces never reuse a
+   * URL — each confirm records a fresh one, and the superseded object is
+   * deleted so retakes do not accumulate orphans.
    */
   router.post(
     '/avatar/complete',
-    requireRole('CUSTOMER', 'ADMIN'),
+    requireRole('PRO', 'CUSTOMER', 'ADMIN'),
     validate(avatarCompleteSchema),
     async (req, res, next) => {
       try {
         const { path } = req.body;
-        if (!path.startsWith(services.storage.avatarScope(req.user!.id))) {
+        const surface = avatarSurfaceFor(req.user!.appType);
+        if (!path.startsWith(services.storage.avatarScope(surface, req.user!.id))) {
           throw badRequest('That photo is not valid.');
         }
         if (!(await services.storage.avatarExists(path))) {
           throw conflict('The photo has not reached storage yet. Try again.');
         }
 
-        const previous = await services.customers.findByUserId(req.user!.id);
         const avatarUrl = services.storage.avatarPublicUrl(path);
-        const updated = await services.customers.applyOnboardingPatch(req.user!.id, {
-          avatarUrl,
-        });
+        const profile = surface === 'pro' ? services.pros : services.customers;
+        const previous = await profile.findByUserId(req.user!.id);
+        const updated = await profile.applyOnboardingPatch(req.user!.id, { avatarUrl });
 
         await services.storage.removeAvatar(previous?.avatarUrl);
         res.json(updated);
@@ -140,4 +150,9 @@ export function createFilesRouter(services: Services): Router {
   );
 
   return router;
+}
+
+/** Maps the request's chosen surface to the avatar storage scope. */
+function avatarSurfaceFor(appType: LocalUser['appType']): AvatarSurface {
+  return appType === 'pro' ? 'pro' : 'customer';
 }

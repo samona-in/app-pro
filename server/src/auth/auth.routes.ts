@@ -44,7 +44,6 @@ function toPublicUser(user: LocalUser): PublicUser {
     email: user.email,
     phone: user.phone,
     fullName: user.fullName,
-    avatarUrl: user.avatarUrl,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -57,7 +56,6 @@ function profileToLocal(
     phone: string | null;
     email: string | null;
     fullName: string | null;
-    avatarUrl: string | null;
     isActive: boolean;
     createdAt: Date;
   },
@@ -69,7 +67,6 @@ function profileToLocal(
     phone: row.phone,
     email: row.email,
     fullName: row.fullName,
-    avatarUrl: row.avatarUrl,
     isActive: row.isActive,
     createdAt: row.createdAt,
     appType,

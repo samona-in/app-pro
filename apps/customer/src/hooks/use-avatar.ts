@@ -67,8 +67,6 @@ export function useUploadAvatar() {
     },
     onSuccess: (customerProfile) => {
       queryClient.setQueryData(queryKeys.customerProfile, customerProfile);
-      // The session carries `user.avatarUrl`; it just changed too.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });
 }

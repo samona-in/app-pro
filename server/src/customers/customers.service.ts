@@ -18,22 +18,16 @@ const customerProfileSelect = {
   onboardingStatus: true,
   displayName: true,
   gender: true,
+  avatarUrl: true,
   locationLabel: true,
   latitude: true,
   longitude: true,
-  profile: { select: { avatarUrl: true } },
 } as const;
 
-type CustomerProfileRow = {
-  profile: { avatarUrl: string | null };
-} & Omit<CustomerProfile, 'avatarUrl'>;
+type CustomerProfileRow = CustomerProfile;
 
 function toCustomerProfile(row: CustomerProfileRow): CustomerProfile {
-  const { profile, ...rest } = row;
-  return {
-    ...rest,
-    avatarUrl: profile.avatarUrl,
-  };
+  return row;
 }
 
 /**
@@ -91,18 +85,12 @@ export function createCustomersService(deps: CustomersServiceDeps) {
           ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
           ...(patch.gender !== undefined ? { gender: patch.gender as Gender } : {}),
           ...(patch.locationLabel !== undefined ? { locationLabel: patch.locationLabel } : {}),
+          ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
           ...(patch.coordinates !== undefined
             ? { latitude: patch.coordinates.latitude, longitude: patch.coordinates.longitude }
             : {}),
         },
       });
-
-      if (patch.avatarUrl !== undefined) {
-        await tx.profile.update({
-          where: { id: userId },
-          data: { avatarUrl: patch.avatarUrl },
-        });
-      }
 
       const row = await tx.customerProfile.findUniqueOrThrow({
         where: { userId },

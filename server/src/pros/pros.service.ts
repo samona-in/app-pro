@@ -27,6 +27,7 @@ const proProfileSelect = {
   onboardingStatus: true,
   displayName: true,
   gender: true,
+  avatarUrl: true,
   bio: true,
   experienceLevel: true,
   serviceRadiusKm: true,
@@ -186,6 +187,7 @@ export function createProsService(deps: ProsServiceDeps) {
         data: {
           ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
           ...(patch.gender !== undefined ? { gender: patch.gender as Gender } : {}),
+          ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
           ...(patch.bio !== undefined ? { bio: patch.bio } : {}),
           ...(patch.experienceLevel !== undefined
             ? { experienceLevel: patch.experienceLevel as ExperienceLevel }

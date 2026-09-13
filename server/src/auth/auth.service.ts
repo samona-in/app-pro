@@ -18,7 +18,6 @@ export interface LocalUser {
   phone: string | null;
   email: string | null;
   fullName: string | null;
-  avatarUrl: string | null;
   isActive: boolean;
   createdAt: Date;
 }
@@ -133,7 +132,6 @@ export function createAuthService(deps: AuthServiceDeps) {
     phone: string | null;
     email: string | null;
     fullName: string | null;
-    avatarUrl: string | null;
     isActive: boolean;
     createdAt: Date;
   }): LocalUser {
@@ -143,7 +141,6 @@ export function createAuthService(deps: AuthServiceDeps) {
       phone: row.phone,
       email: row.email,
       fullName: row.fullName,
-      avatarUrl: row.avatarUrl,
       isActive: row.isActive,
       createdAt: row.createdAt,
       appType: null,
