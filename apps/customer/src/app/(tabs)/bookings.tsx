@@ -49,8 +49,9 @@ export default function Bookings() {
   );
 
   return (
-    <Screen scrollable>
-      <View className="pt-2">
+    <Screen padded={false}>
+      {/* ── Sticky header: title + filter chips ───────────────────────── */}
+      <View className="px-5 pt-2">
         <Text variant="titleLg">Bookings</Text>
       </View>
 
@@ -58,7 +59,7 @@ export default function Bookings() {
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mt-4 flex-grow-0"
-        contentContainerClassName="items-start"
+        contentContainerStyle={{ paddingHorizontal: 20 }}
       >
         <View className="flex-row gap-3">
           {FILTERS.map((item) => {
@@ -89,7 +90,12 @@ export default function Bookings() {
         </View>
       </ScrollView>
 
-      <View className="mt-5">
+      {/* ── Scrollable booking list ────────────────────────────────────── */}
+      <ScrollView
+        className="mt-5 flex-1"
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      >
         {bookings.isPending ? (
           <View className="items-center py-10">
             <LoadingState message="Loading bookings" size="inline" />
@@ -115,7 +121,7 @@ export default function Bookings() {
             ))}
           </View>
         )}
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
