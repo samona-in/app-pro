@@ -20,7 +20,11 @@ const FALLBACK_AVATAR_CONTENT_TYPE = 'image/jpeg';
  * they never pass through the JSON-bodied API, so the pixel content stays with
  * the storage provider.
  */
-function putAvatarBytes(ticket: AvatarUploadTicket, localUri: string, contentType: string): Promise<void> {
+function putAvatarBytes(
+  ticket: AvatarUploadTicket,
+  localUri: string,
+  contentType: string,
+): Promise<void> {
   return fetch(localUri)
     .then((file) => file.blob())
     .then(
@@ -47,7 +51,9 @@ function putAvatarBytes(ticket: AvatarUploadTicket, localUri: string, contentTyp
  *
  * Order matters: request a ticket, stream the bytes, only then confirm — the
  * server refuses to record the avatar unless the object actually reached
- * storage. The returned profile replaces the cached one.
+ * storage. Each upload mints a brand-new object URL, so the recorded `avatarUrl`
+ * changes every time and no cache layer can serve a previously fetching image.
+ * The returned profile replaces the cached one.
  */
 export function useUploadAvatar() {
   const queryClient = useQueryClient();
@@ -57,7 +63,7 @@ export function useUploadAvatar() {
       const contentType = mimeType ?? FALLBACK_AVATAR_CONTENT_TYPE;
       const ticket = await api.post<AvatarUploadTicket>('/files/avatar/upload-url', {});
       await putAvatarBytes(ticket, localUri, contentType);
-      return api.post<CustomerProfile>('/files/avatar/complete', {});
+      return api.post<CustomerProfile>('/files/avatar/complete', { path: ticket.path });
     },
     onSuccess: (customerProfile) => {
       queryClient.setQueryData(queryKeys.customerProfile, customerProfile);

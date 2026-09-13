@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { ApiErrorCode } from '@samona/types';
 import { createHttpError } from '../common/errors';
+import { logger } from '../common/logger';
 
 export interface StorageServiceDeps {
   supabaseUrl: string;
@@ -50,15 +51,29 @@ function jobImagePathFor(customerUserId: string): string {
 }
 
 /**
- * An account's avatar storage path.
+ * The folder scope one account's avatars live under.
  *
- * Deterministic — every replace writes through the same path, so a retake
- * overwrites the previous photo instead of leaving orphaned objects behind and
- * the signed upload URL stays valid for as long as the account exists. The
- * path is derived from the verified user id, never from the request body.
+ * Every avatar object sits below `customers/{userId}/` so the ownership check
+ * in the routes is a prefix comparison against the verified user id — the
+ * client never chooses where its bytes land.
+ */
+function avatarScopeFor(userId: string): string {
+  return `customers/${userId}/`;
+}
+
+/**
+ * An avatar's storage path.
+ *
+ * Unique per upload on purpose. A public object URL never changes out from
+ * under the caches between the app, the OS and any CDN in front of the bucket,
+ * so a retake gets a brand-new URL and no stale-cache layer can ever serve
+ * yesterday's bytes (CLAUDE.md "UI"). The path is derived from the verified
+ * user id plus a server-minted token, never from the request body. The
+ * superseded object is deleted when the replace is confirmed, so retakes do
+ * not accumulate orphans.
  */
 function avatarPathFor(userId: string): string {
-  return `customers/${userId}/avatar.jpg`;
+  return `${avatarScopeFor(userId)}avatar-${randomUUID()}.jpg`;
 }
 
 /**
@@ -181,8 +196,9 @@ export function createStorageService(deps: StorageServiceDeps) {
   /**
    * Mints a signed URL the caller PUTs the avatar bytes to directly.
    *
-   * `upsert` lets an avatar replace itself through the deterministic path —
-   * retakes overwrite rather than failing or accumulating objects.
+   * The path is unique to this one upload, so every completed replace points at
+   * an object that has never been fetched before — a fresh network read rather
+   * than a cached one. `upsert` keeps a retry of the same ticket harmless.
    */
   async function createAvatarUpload(userId: string): Promise<{ path: string; uploadUrl: string }> {
     const path = avatarPathFor(userId);
@@ -200,23 +216,48 @@ export function createStorageService(deps: StorageServiceDeps) {
   }
 
   /**
-   * Whether the account's avatar is actually in the bucket.
+   * Whether a submitted avatar path points at an object that really reached
+   * storage.
    *
    * The same public-read HEAD probe as the selfie: proves the exact URL we will
    * record resolves to bytes before the profile ever points at it.
    */
-  async function avatarExists(userId: string): Promise<boolean> {
+  async function avatarExists(path: string): Promise<boolean> {
     try {
-      const response = await fetch(avatarPublicUrl(avatarPathFor(userId)), { method: 'HEAD' });
+      const response = await fetch(avatarPublicUrl(path), { method: 'HEAD' });
       return response.ok;
     } catch {
       return false;
     }
   }
 
-  /** The public read URL for a stored avatar. */
+  /**
+   * The public read URL for a stored avatar.
+   */
   function avatarPublicUrl(path: string): string {
     return `${supabaseUrl}/storage/v1/object/public/${AVATARS_BUCKET}/${path}`;
+  }
+
+  /**
+   * Deletes a superseded avatar object, extracting its storage path from the
+   * public URL the profile previously referenced.
+   *
+   * Best-effort: the replace is already recorded, so a failed delete is an
+   * orphaned object, not an integrity problem — but it is logged loudly, never
+   * swallowed (CLAUDE.md "Error Handling"). URLs outside this bucket are
+   * ignored so a stale or foreign value cannot make us remove something we do
+   * not own.
+   */
+  async function removeAvatar(previousPublicUrl: string | null | undefined): Promise<void> {
+    const prefix = `${supabaseUrl}/storage/v1/object/public/${AVATARS_BUCKET}/`;
+    if (!previousPublicUrl || !previousPublicUrl.startsWith(prefix)) return;
+
+    const { error } = await requireAdmin()
+      .storage.from(AVATARS_BUCKET)
+      .remove([previousPublicUrl.slice(prefix.length)]);
+    if (error) {
+      logger.error('Avatar cleanup failed; an orphaned object remains.', error);
+    }
   }
 
   return {
@@ -230,7 +271,8 @@ export function createStorageService(deps: StorageServiceDeps) {
     createAvatarUpload,
     avatarExists,
     avatarPublicUrl,
-    avatarPath: avatarPathFor,
+    avatarScope: avatarScopeFor,
+    removeAvatar,
   };
 }
 
