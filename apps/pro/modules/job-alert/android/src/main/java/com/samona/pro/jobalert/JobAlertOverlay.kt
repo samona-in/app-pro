@@ -143,8 +143,13 @@ object JobAlertOverlay {
       LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(20), dp(16), dp(20), dp(16))
-        background = gradient(dp(16).toFloat(), Color.rgb(30, 32, 36))
-        elevation = 12f
+        background =
+          gradient(dp(16).toFloat(), JobAlertTheme.SURFACE).apply {
+            // A hairline SAMONA-slate border keeps the card legible against the
+            // light background without needing a drop shadow on the lock screen.
+            setStroke(dp(1), JobAlertTheme.BORDER_STRONG)
+          }
+        elevation = JobAlertTheme.CARD_ELEVATION
       }
 
     // Row 1: service name (left) with the guaranteed amount right beside it.
@@ -156,7 +161,7 @@ object JobAlertOverlay {
     val service =
       TextView(context).apply {
         text = alert.serviceName.ifBlank { "New job" }
-        setTextColor(Color.WHITE)
+        setTextColor(JobAlertTheme.TEXT_PRIMARY)
         textSize = 22f
         typeface = android.graphics.Typeface.DEFAULT_BOLD
         layoutParams =
@@ -167,7 +172,7 @@ object JobAlertOverlay {
       serviceRow.addView(
         TextView(context).apply {
           text = amount
-          setTextColor(Color.rgb(173, 220, 190))
+          setTextColor(JobAlertTheme.SUCCESS)
           textSize = 20f
           typeface = android.graphics.Typeface.DEFAULT_BOLD
           setPadding(dp(12), 0, 0, 0)
@@ -182,7 +187,7 @@ object JobAlertOverlay {
       card.addView(
         TextView(context).apply {
           text = category
-          setTextColor(Color.rgb(156, 163, 175))
+          setTextColor(JobAlertTheme.TEXT_SECONDARY)
           textSize = 13f
           setPadding(0, dp(2), 0, 0)
         },
@@ -194,7 +199,7 @@ object JobAlertOverlay {
       card.addView(
         TextView(context).apply {
           text = distance
-          setTextColor(Color.rgb(226, 228, 232))
+          setTextColor(JobAlertTheme.TEXT_MUTED)
           textSize = 14f
           setPadding(0, dp(6), 0, 0)
         },
@@ -202,12 +207,12 @@ object JobAlertOverlay {
     }
 
     val address =
-      TextView(context).apply {
-        text = alert.address.ifBlank { "Customer location shared after acceptance" }
-        setTextColor(Color.rgb(226, 228, 232))
-        textSize = 15f
-        setPadding(0, dp(2), 0, 0)
-      }
+        TextView(context).apply {
+          text = alert.address.ifBlank { "Customer location shared after acceptance" }
+          setTextColor(JobAlertTheme.TEXT_SECONDARY)
+          textSize = 15f
+          setPadding(0, dp(2), 0, 0)
+        }
     card.addView(address)
 
     val deadline = alert.offerExpiresAtMillis() ?: alert.jobExpiryMillis()
@@ -227,7 +232,7 @@ object JobAlertOverlay {
     card.addView(actions)
 
     val accept =
-      actionButton(context, alert, "accept", "Accept", Color.rgb(34, 197, 94))
+      actionButton(context, alert, "accept", "Accept", JobAlertTheme.SUCCESS)
     acceptButton = accept
 
     // Decline is the round ring button: tapping it declines, and its border
@@ -317,9 +322,9 @@ object JobAlertOverlay {
         override fun run() {
           val remaining = deadlineMillis - System.currentTimeMillis()
           if (remaining <= 0) {
-            textView.text = "Offer expired"
-            textView.setTextColor(Color.rgb(229, 107, 111))
-            ringButton?.setProgress(1f)
+              textView.text = "Offer expired"
+              textView.setTextColor(JobAlertTheme.DANGER)
+              ringButton?.setProgress(1f)
             lockButtons()
             return
           }

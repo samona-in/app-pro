@@ -29,27 +29,27 @@ class RingButtonView(context: Context, attrs: AttributeSet? = null) : View(conte
   private val backgroundPaint =
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
-      color = Color.rgb(41, 43, 47)
+      color = JobAlertTheme.SURFACE
     }
   private val trackPaint =
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.STROKE
       strokeWidth = dp(3.5f)
-      color = Color.rgb(71, 74, 82)
+      color = JobAlertTheme.BORDER
     }
   private val ringPaint =
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.STROKE
       strokeWidth = dp(3.5f)
       strokeCap = Paint.Cap.ROUND
-      color = Color.rgb(229, 57, 53)
+      color = JobAlertTheme.DANGER
     }
   private val minusPaint =
     Paint(Paint.ANTI_ALIAS_FLAG).apply {
       style = Paint.Style.FILL
       strokeWidth = dp(3f)
       strokeCap = Paint.Cap.ROUND
-      color = Color.WHITE
+      color = JobAlertTheme.TEXT_PRIMARY
     }
 
   /**
