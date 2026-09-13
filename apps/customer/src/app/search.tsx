@@ -29,7 +29,7 @@ export default function Search() {
 
   function handleSelectService(service: ServiceOption) {
     draft.start(service);
-    router.push(`/booking/new/${service.slug}/skill`);
+    router.push(`/booking/new/${service.slug}/place`);
   }
 
   function handleSelectSkill(skill: SkillWithService) {
@@ -40,13 +40,15 @@ export default function Search() {
       icon: null,
     };
     draft.start(parentService);
+    // Pre-select the skill so the skill screen is pre-populated after /place.
+    // draft.start resets skill to null, so setSkill must come after.
     draft.setSkill({
       id: skill.id,
       serviceId: skill.serviceId,
       slug: skill.slug,
       name: skill.name,
     });
-    router.push(`/booking/new/${skill.service.slug}/skill`);
+    router.push(`/booking/new/${skill.service.slug}/place`);
   }
 
   return (
