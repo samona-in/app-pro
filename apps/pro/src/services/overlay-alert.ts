@@ -26,6 +26,7 @@ export interface PendingNativeJob {
   jobId: string;
   title: string;
   serviceName: string;
+  serviceCategory: string | null;
   address: string | null;
   distanceMeters: string | null;
   amountPaise: string | null;

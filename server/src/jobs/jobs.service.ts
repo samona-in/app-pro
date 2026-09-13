@@ -315,7 +315,7 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     const skill = await prisma.skill.findFirst({
       where: { slug: input.skillSlug, serviceId: service.id, isActive: true },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!skill) {
       throw badRequest('That job category does not belong to the chosen service.');
@@ -413,6 +413,7 @@ export function createJobsService(deps: JobsServiceDeps) {
           {
             jobId: created.id,
             serviceName: service.name,
+            serviceCategory: customSkill ?? skill.name,
             customSkill,
             description: input.description,
             basePayPaise: input.basePayPaise,
@@ -1469,6 +1470,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       void notifications.alertEligiblePros([{ proId: pro.id, distanceKm: km }], {
         jobId: job.id,
         serviceName: job.service.name,
+        serviceCategory: job.customSkill?.trim() || job.skill.name,
         customSkill: job.customSkill,
         description: job.description,
         basePayPaise: job.basePayPaise,

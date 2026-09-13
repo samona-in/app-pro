@@ -20,7 +20,7 @@ private val TERMINAL_JOB_DATA_TYPES = setOf("JOB_ACCEPTED", "JOB_CANCELLED", "JO
  * foreground, backgrounded or killed:
  *
  *  1. "display over other apps" granted → [JobAlertOverlay] banner + the
- *     native looping alarm (10 s). The overlay wakes a screen-off device and
+ *     native looping alarm (offer window, 90s by default). The overlay wakes a screen-off device and
  *     carries Accept/Reject, which redeem the single-use offer token directly
  *     over the API; no tray entry is posted, so the overlay and its ring are
  *     the entire presentation for this tier.
@@ -100,9 +100,11 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
       // notification permission. A full-screen intent would raise the same
       // route without the grant, so it is only the fallback where the overlay
       // permission is missing. Shown for any app state — backgrounded, killed
-      // and foreground alike.
-      JobAlertSound.start(this)
-      JobAlertOverlay.show(this, alert)
+      // and foreground alike. The ring, banner and countdown all run for the
+      // same window: the server-minted offer (`offerExpiresAt`, 90s by default).
+      val ringMs = alert.presentationDurationMs()
+      JobAlertSound.start(this, ringMs)
+      JobAlertOverlay.show(this, alert, ringMs)
       return
     }
     if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {

@@ -26,15 +26,11 @@ import android.widget.TextView
  * turns a screen-off device on itself (FLAG_TURN_SCREEN_ON). Accept/Decline
  * route through the [JobAlertActionReceiver]: with an offer token the receiver
  * redeems the job natively over the API; without one it records the choice and
- * hands the job to the app. The overlay auto-dismisses after [MAX_DISPLAY_MS]
- * to match the [JobAlertSound] ring; the request remains in [AlertStore] until
- * resolved or expired. A live "Expires in mm:ss" line counts down to the offer
- * expiry (or the job expiry when no token was sent), and the buttons lock once
- * it reaches zero.
+ * hands the job to the app. The overlay auto-dismisses after [durationMs] —
+ * the same server-minted offer window the ring and the "Expires in" countdown
+ * use — and the request remains in [AlertStore] until resolved or expired.
  */
 object JobAlertOverlay {
-  private const val MAX_DISPLAY_MS = 10_000L
-
   private val lock = Any()
 
   private var windowManager: WindowManager? = null
@@ -45,7 +41,7 @@ object JobAlertOverlay {
   private var tickRunnable: Runnable? = null
   private var countdownTextView: TextView? = null
   private var acceptButton: Button? = null
-  private var declineButton: Button? = null
+  private var ringButton: RingButtonView? = null
 
   /**
    * Shows the banner for [alert]. No-op without overlay permission. A second
@@ -55,10 +51,10 @@ object JobAlertOverlay {
    * throws off-thread. Push delivery ([JobAlertMessagingService]) runs on a
    * Firebase worker thread, so every entry point first hops to the main handler.
    */
-  fun show(context: Context, alert: IncomingJobAlert) {
+  fun show(context: Context, alert: IncomingJobAlert, durationMs: Long) {
     if (Looper.myLooper() != Looper.getMainLooper()) {
       val appContext = context.applicationContext
-      handler.post { show(appContext, alert) }
+      handler.post { show(appContext, alert, durationMs) }
       return
     }
     synchronized(lock) {
@@ -100,7 +96,7 @@ object JobAlertOverlay {
         hideAll()
       }
       dismissRunnable = runnable
-      handler.postDelayed(runnable, MAX_DISPLAY_MS)
+      handler.postDelayed(runnable, durationMs)
     }
   }
 
@@ -131,7 +127,7 @@ object JobAlertOverlay {
     tickRunnable = null
     countdownTextView = null
     acceptButton = null
-    declineButton = null
+    ringButton = null
     val view = overlayView ?: return
     overlayView = null
     overlayJobId = null
@@ -151,52 +147,75 @@ object JobAlertOverlay {
         elevation = 12f
       }
 
-    val title =
-      TextView(context).apply {
-        text = "Request received"
-        setTextColor(Color.rgb(163, 173, 190))
-        textSize = 13f
+    // Row 1: service name (left) with the guaranteed amount right beside it.
+    val serviceRow =
+      LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
       }
-    card.addView(title)
-
     val service =
       TextView(context).apply {
         text = alert.serviceName.ifBlank { "New job" }
         setTextColor(Color.WHITE)
         textSize = 22f
         typeface = android.graphics.Typeface.DEFAULT_BOLD
-        setPadding(0, dp(4), 0, 0)
+        layoutParams =
+          LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
       }
-    card.addView(service)
+    serviceRow.addView(service)
+    alert.amountLabel()?.let { amount ->
+      serviceRow.addView(
+        TextView(context).apply {
+          text = amount
+          setTextColor(Color.rgb(173, 220, 190))
+          textSize = 20f
+          typeface = android.graphics.Typeface.DEFAULT_BOLD
+          setPadding(dp(12), 0, 0, 0)
+        },
+      )
+    }
+    card.addView(serviceRow)
+
+    // The category within the service (e.g. "AC installation"), so the pro sees
+    // exactly what the customer asked for without a second lookup.
+    alert.categoryLabel()?.let { category ->
+      card.addView(
+        TextView(context).apply {
+          text = category
+          setTextColor(Color.rgb(156, 163, 175))
+          textSize = 13f
+          setPadding(0, dp(2), 0, 0)
+        },
+      )
+    }
+
+    // Distance sits directly above the location.
+    alert.distanceLabel()?.let { distance ->
+      card.addView(
+        TextView(context).apply {
+          text = distance
+          setTextColor(Color.rgb(226, 228, 232))
+          textSize = 14f
+          setPadding(0, dp(6), 0, 0)
+        },
+      )
+    }
 
     val address =
       TextView(context).apply {
         text = alert.address.ifBlank { "Customer location shared after acceptance" }
         setTextColor(Color.rgb(226, 228, 232))
         textSize = 15f
-        setPadding(0, dp(6), 0, 0)
+        setPadding(0, dp(2), 0, 0)
       }
     card.addView(address)
 
-    val meta = alert.metaLine()
-    if (meta.isNotBlank()) {
-      card.addView(
-        TextView(context).apply {
-          text = meta
-          setTextColor(Color.rgb(173, 220, 190))
-          textSize = 14f
-          setPadding(0, dp(4), 0, 0)
-        },
-      )
-    }
-
-    val deadline = alert.offerExpiresAtMillis() ?: jobExpiryMillis(alert.expiresAt)
+    val deadline = alert.offerExpiresAtMillis() ?: alert.jobExpiryMillis()
+    var countdown: TextView? = null
     if (deadline != null) {
-      val countdown =
+      countdown =
         TextView(context).apply { textSize = 13f; setPadding(0, dp(6), 0, 0) }
       card.addView(countdown)
-      countdownTextView = countdown
-      startCountdown(countdown, deadline)
     }
 
     val actions =
@@ -209,19 +228,33 @@ object JobAlertOverlay {
 
     val accept =
       actionButton(context, alert, "accept", "Accept", Color.rgb(34, 197, 94))
-    val decline =
-      actionButton(context, alert, "decline", "Decline", Color.rgb(71, 74, 82))
     acceptButton = accept
-    declineButton = decline
+
+    // Decline is the round ring button: tapping it declines, and its border
+    // fills red as the offer window drains (see [RingButtonView]).
+    val decline =
+      RingButtonView(context).apply {
+        contentDescription = "${alert.serviceName.ifBlank { "job" }} — Decline"
+        setOnClickListener {
+          val pending = pendingActionIntent(context, alert, "decline")
+          runCatching { pending.send() }
+        }
+      }
+    ringButton = decline
 
     actions.addView(
       decline,
-      LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(8) },
+      LinearLayout.LayoutParams(dp(52), dp(52)).apply { marginEnd = dp(12) },
     )
     actions.addView(
       accept,
-      LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginStart = dp(8) },
+      LinearLayout.LayoutParams(0, dp(52), 1f),
     )
+
+    if (countdown != null && deadline != null) {
+      countdownTextView = countdown
+      startCountdown(countdown, deadline)
+    }
 
     return card
   }
@@ -273,8 +306,12 @@ object JobAlertOverlay {
     )
   }
 
-  /** Ticks the "Expires in mm:ss" line once a second until the deadline. */
+  /**
+   * Ticks the "Expires in mm:ss" line once a second until the deadline, while
+   * the red ring fills in step — empty on arrival, fully red at expiry.
+   */
   private fun startCountdown(textView: TextView, deadlineMillis: Long) {
+    val totalMillis = (deadlineMillis - System.currentTimeMillis()).coerceAtLeast(1L)
     val runnable =
       object : Runnable {
         override fun run() {
@@ -282,10 +319,12 @@ object JobAlertOverlay {
           if (remaining <= 0) {
             textView.text = "Offer expired"
             textView.setTextColor(Color.rgb(229, 107, 111))
+            ringButton?.setProgress(1f)
             lockButtons()
             return
           }
           textView.text = "Expires in ${formatCountdown(remaining)}"
+          ringButton?.setProgress(1f - remaining.toFloat() / totalMillis)
           handler.removeCallbacks(this)
           handler.postDelayed(this, 500L)
         }
@@ -305,21 +344,10 @@ object JobAlertOverlay {
   /** Disables the tap targets once the offer can no longer be redeemed. */
   private fun lockButtons() {
     acceptButton?.alpha = 0.45f
-    declineButton?.alpha = 0.45f
+    ringButton?.alpha = 0.45f
     acceptButton?.setOnClickListener(null)
-    declineButton?.setOnClickListener(null)
+    ringButton?.setOnClickListener(null)
   }
-
-  /** Parses the job-level expiry (no offer token present) as millis. */
-  private fun jobExpiryMillis(raw: String?): Long? =
-    raw?.let { value ->
-      runCatching {
-        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
-          .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-          .parse(value)
-          ?.time
-      }.getOrNull()
-    }
 
   private fun gradient(cornerRadius: Float, color: Int): GradientDrawable =
     GradientDrawable().apply {

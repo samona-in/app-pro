@@ -21,6 +21,7 @@ data class IncomingJobAlert(
   val jobId: String,
   val title: String,
   val serviceName: String,
+  val serviceCategory: String,
   val address: String,
   val distanceMeters: String?,
   val amountPaise: String?,
@@ -32,29 +33,32 @@ data class IncomingJobAlert(
 ) {
   val hasOfferToken: Boolean get() = !jobOfferToken.isNullOrBlank()
 
+  /** "AC installation" — the category within the service, blank when absent. */
+  fun categoryLabel(): String? = serviceCategory.takeIf { it.isNotBlank() }
+
   /** Millis the offer stops being redeemable; null when the token is absent. */
-  fun offerExpiresAtMillis(): Long? =
-    offerExpiresAt?.let { raw ->
-      runCatching {
-        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
-          .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-          .parse(raw)
-          ?.time
-      }.getOrNull()
-    }
+  fun offerExpiresAtMillis(): Long? = parseIsoMillis(offerExpiresAt)
+
+  /** Job-level expiry (payload always sends one); the fallback when no offer token exists. */
+  fun jobExpiryMillis(): Long? = parseIsoMillis(expiresAt)
+
+  /**
+   * How long the native overlay and its ring should stay up: the remaining time
+   * until the offer stops being redeemable. Thus the presentation is exactly as
+   * long as the offer the server minted (JOB_OFFER_TTL_MS, 90s by default) —
+   * the same truth the "Expires in" countdown counts to — instead of an
+   * arbitrary fixed cap. Falls back to the job-level expiry, then to
+   * [DEFAULT_PRESENTATION_MS] when the payload carries no deadline at all, and
+   * clamps to [MAX_PRESENTATION_MS] so a corrupt deadline cannot ring forever.
+   */
+  fun presentationDurationMs(): Long {
+    val deadline = offerExpiresAtMillis() ?: jobExpiryMillis() ?: return DEFAULT_PRESENTATION_MS
+    return (deadline - System.currentTimeMillis()).coerceIn(0L, MAX_PRESENTATION_MS)
+  }
+
   val isExpired: Boolean
     get() {
-      // From `new Date().toISOString()` (e.g. 2026-09-06T12:34:56.789Z). Parsed
-      // with SimpleDateFormat, not java.time, which is unavailable below API 26.
-      val expiry =
-        expiresAt?.let { raw ->
-          runCatching {
-            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
-              .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
-              .parse(raw)
-              ?.time
-          }.getOrNull()
-        } ?: return false
+      val expiry = jobExpiryMillis() ?: return false
       return expiry < System.currentTimeMillis()
     }
 
@@ -84,6 +88,7 @@ data class IncomingJobAlert(
       put("jobId", jobId)
       put("title", title)
       put("serviceName", serviceName)
+      put("serviceCategory", serviceCategory)
       put("address", address)
       put("distanceMeters", distanceMeters ?: JSONObject.NULL)
       put("amountPaise", amountPaise ?: JSONObject.NULL)
@@ -100,6 +105,7 @@ data class IncomingJobAlert(
       "jobId" to jobId,
       "title" to title,
       "serviceName" to serviceName,
+      "serviceCategory" to serviceCategory,
       "address" to address,
       "distanceMeters" to distanceMeters,
       "amountPaise" to amountPaise,
@@ -111,11 +117,29 @@ data class IncomingJobAlert(
     )
 
   companion object {
+    // 90s: the server's JOB_OFFER_TTL_MS default, used when the payload carries
+    // no deadline to count down to.
+    private const val DEFAULT_PRESENTATION_MS = 90_000L
+    // The server's JOB_OFFER_TTL_MS ceiling; a sane upper bound on the ring.
+    private const val MAX_PRESENTATION_MS = 600_000L
+
+    // From `new Date().toISOString()` (e.g. 2026-09-06T12:34:56.789Z). Parsed
+    // with SimpleDateFormat, not java.time, which is unavailable below API 26.
+    private fun parseIsoMillis(raw: String?): Long? =
+      raw?.let { value ->
+        runCatching {
+          java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+            .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+            .parse(value)?.time
+        }.getOrNull()
+      }
+
     fun fromJson(json: JSONObject): IncomingJobAlert =
       IncomingJobAlert(
         jobId = json.getString("jobId"),
         title = json.optString("title"),
         serviceName = json.optString("serviceName"),
+        serviceCategory = json.optString("serviceCategory"),
         address = json.optString("address"),
         distanceMeters = json.optString("distanceMeters").nullable(),
         amountPaise = json.optString("amountPaise").nullable(),
@@ -131,6 +155,7 @@ data class IncomingJobAlert(
         jobId = jobId,
         title = data["title"].orEmpty(),
         serviceName = data["serviceName"].orEmpty(),
+        serviceCategory = data["serviceCategory"].orEmpty(),
         address = data["address"].orEmpty(),
         distanceMeters = data["distanceMeters"]?.nullable(),
         amountPaise = data["amountPaise"]?.nullable(),

@@ -124,13 +124,21 @@ object AlertNotifications {
   }
 
   private fun buildBody(alert: IncomingJobAlert): String {
+    val category = alert.categoryLabel()
+    val headline =
+      when {
+        category != null && alert.serviceName.isNotBlank() -> "${alert.serviceName} · $category"
+        category != null -> category
+        else -> alert.serviceName
+      }
     val meta = alert.metaLine()
-    return when {
-      meta.isNotBlank() && alert.address.isNotBlank() -> "${alert.address}\n$meta"
-      meta.isNotBlank() -> meta
-      alert.address.isNotBlank() -> alert.address
-      else -> DEFAULT_BODY
-    }
+    val lines =
+      buildList {
+        if (headline.isNotBlank()) add(headline)
+        if (alert.address.isNotBlank()) add(alert.address)
+        if (meta.isNotBlank()) add(meta)
+      }
+    return lines.joinToString("\n").ifBlank { DEFAULT_BODY }
   }
 
   /** Intent that opens the `job-alert/[id]` route on MainActivity. */
