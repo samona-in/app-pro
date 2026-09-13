@@ -52,7 +52,7 @@ export default function Home() {
         onPress={() => router.push('/address-search')}
         trailing={<NotificationBell />}
       >
-        <SearchBar onPress={() => router.push('/bookings')} />
+        <SearchBar onPress={() => router.push('/search')} />
       </HomeHeader>
 
       <View className="mt-5 flex-1">

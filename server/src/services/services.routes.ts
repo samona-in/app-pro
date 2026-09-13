@@ -27,6 +27,25 @@ export function createServicesRouter(services: Services): Router {
   });
 
   /**
+   * Catalogue search across service names and skill names.
+   *
+   * Registered before `/:slug/skills` so Express does not mistake "search"
+   * for a slug. Returns an empty result for a blank or missing `q`.
+   */
+  router.get('/search', requireAuth, async (req, res, next) => {
+    try {
+      const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+      if (!q) {
+        res.json({ services: [], skills: [] });
+        return;
+      }
+      res.json(await services.services.searchServices(q));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
    * The exact-need categories for one service (the booking flow's "what
    * exactly" step). An unknown slug simply returns an empty list rather than
    * leaking catalogue ids.

@@ -1,4 +1,4 @@
-import type { ServiceOption } from '@samona/types';
+import type { ServiceOption, ServiceSearchResult } from '@samona/types';
 import { api } from './api';
 
 /**
@@ -9,4 +9,6 @@ import { api } from './api';
  */
 export const catalogueApi = {
   listServices: () => api.get<ServiceOption[]>('/services'),
+  searchServices: (q: string) =>
+    api.get<ServiceSearchResult>(`/services/search?q=${encodeURIComponent(q)}`),
 };
