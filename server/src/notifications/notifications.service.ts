@@ -67,6 +67,11 @@ export type JobAlertInfoInput = {
   jobId: string;
   /** Display name of the requested service. */
   serviceName: string;
+  /**
+   * The requested category within the service — the chosen skill's name, or
+   * the free-text `customSkill` when the "Other" skill was picked.
+   */
+  serviceCategory: string;
   /** The free-text category when the skill is "other". */
   customSkill: string | null;
   /** Short description of the requested work. */
@@ -170,6 +175,7 @@ function jobAlertData(info: JobAlertInfo, config: AppConfig): Record<string, unk
     professionalId: info.professionalId,
     title: jobAlertTitle(info),
     serviceName: info.serviceName,
+    serviceCategory: info.serviceCategory,
     address: info.address,
     distanceMeters:
       info.distanceKm !== null && info.distanceKm !== undefined
@@ -1225,6 +1231,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
               longitude: true,
               locationLabel: true,
               service: { select: { name: true } },
+              skill: { select: { name: true } },
               customSkill: true,
               description: true,
               basePayPaise: true,
@@ -1277,6 +1284,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           {
             jobId: job.id,
             serviceName: job.service.name,
+            serviceCategory: job.customSkill?.trim() || job.skill.name,
             customSkill: job.customSkill,
             description: job.description,
             basePayPaise: job.basePayPaise,

@@ -97,6 +97,11 @@ export interface IncomingJobAlert {
   title: string;
   /** Display name of the requested service. */
   serviceName: string;
+  /**
+   * Display name of the requested category within the service — the chosen
+   * skill's name, or the free-text `customSkill` when "Other" was picked.
+   */
+  serviceCategory: string | null;
   /** Display label of the work location; null when unknown. */
   address: string | null;
   /** Straight-line distance from the recipient, metres; null when unknown. */

@@ -19,6 +19,7 @@ const OFFER_SECRET = 'shared-offer-secret-that-is-long-enough';
 const info = {
   jobId: 'job-1',
   serviceName: 'Electrical',
+  serviceCategory: 'Wiring & Repair',
   customSkill: null,
   description: 'Fix the switch near the door.',
   basePayPaise: 15_000,

@@ -13,15 +13,15 @@ import android.util.Log
  * The looping alarm that accompanies the [JobAlertOverlay].
  *
  * Plays the `job_alert` raw asset on a loop (falling back to the system alarm
- * sound when the asset is missing from a stale build), capped at [MAX_RING_MS]
- * and backed by a partial wake lock so the ring is not cut short when the
- * device sleeps. Exactly one ring at a time — a second NEW_JOB simply keeps the
- * current one. [stop] is idempotent and is also called when the alert is
- * dismissed from any path (overlay tap, terminal push, going offline).
+ * sound when the asset is missing from a stale build), capped at the caller-
+ * supplied [durationMs] — the same server-minted offer window the overlay
+ * counts down and dismisses to — and backed by a partial wake lock so the ring
+ * is not cut short when the device sleeps. Exactly one ring at a time — a
+ * second NEW_JOB simply keeps the current one. [stop] is idempotent and is also
+ * called when the alert is dismissed from any path (overlay tap, terminal push,
+ * going offline).
  */
 object JobAlertSound {
-  private const val MAX_RING_MS = 10_000L
-
   private val lock = Any()
 
   private var mediaPlayer: MediaPlayer? = null
@@ -29,7 +29,7 @@ object JobAlertSound {
   private val handler = Handler(Looper.getMainLooper())
   private var stopRunnable: Runnable? = null
 
-  fun start(context: Context) {
+  fun start(context: Context, durationMs: Long) {
     synchronized(lock) {
       if (mediaPlayer?.isPlaying == true) return
 
@@ -61,16 +61,16 @@ object JobAlertSound {
         wakeLock =
           pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$JOB_ALERT_TAG:Ring").apply {
             setReferenceCounted(false)
-            acquire(MAX_RING_MS)
+            acquire(durationMs)
           }
 
         val runnable = Runnable {
-          Log.i(JOB_ALERT_TAG, "Ring capped at $MAX_RING_MS ms")
+          Log.i(JOB_ALERT_TAG, "Ring capped at $durationMs ms")
           stop()
         }
         stopRunnable = runnable
-        handler.postDelayed(runnable, MAX_RING_MS)
-        Log.i(JOB_ALERT_TAG, "Started ringing (10s cap)")
+        handler.postDelayed(runnable, durationMs)
+        Log.i(JOB_ALERT_TAG, "Started ringing (${durationMs}ms cap)")
       }.onFailure { t ->
         Log.w(JOB_ALERT_TAG, "Failed to start ring", t)
         runCatching { player.release() }
