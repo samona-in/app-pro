@@ -64,8 +64,11 @@ object AlertNotifications {
    * jobId.hashCode(), matching the server's `tag`/`collapseKey`). With
    * [fullScreen] the notification tries to cover the screen (Android ≤13
    * automatically; the per-app role decides on 14+); otherwise it is still a
-   * MAX importance heads-up. The content intent opens the `job-alert/[id]`
-   * route, which raises the in-app ring.
+   * MAX importance heads-up.
+   *
+   * The content intent is count-aware: while several offers are pending it
+   * opens the combined `incoming-jobs` route (the single place that lists every
+   * offer), otherwise the `job-alert/[id]` route for the single request.
    */
   fun postAlert(context: Context, alert: IncomingJobAlert, fullScreen: Boolean) {
     if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
@@ -77,7 +80,7 @@ object AlertNotifications {
     val title = alert.title.ifBlank { DEFAULT_TITLE }
     val body = buildBody(alert)
 
-    val contentIntent = openJobPendingIntent(context, alert.jobId)
+    val contentIntent = pendingContentIntent(context, alert)
     val builder =
       NotificationCompat.Builder(context, CHANNEL_ID)
         .setSmallIcon(smallIcon(context))
@@ -139,6 +142,38 @@ object AlertNotifications {
         if (meta.isNotBlank()) add(meta)
       }
     return lines.joinToString("\n").ifBlank { DEFAULT_BODY }
+  }
+
+  /**
+   * Chooses where tapping a job alert lands: the combined `incoming-jobs` list
+   * when the pro has several offers pending at once, else the single
+   * `job-alert/[id]` route for this one request.
+   */
+  private fun pendingContentIntent(context: Context, alert: IncomingJobAlert): PendingIntent {
+    val pendingCount = AlertStore(context).loadJobs().size
+    return if (pendingCount > 1) {
+      openIncomingJobsPendingIntent(context)
+    } else {
+      openJobPendingIntent(context, alert.jobId)
+    }
+  }
+
+  /** Intent that opens the combined `incoming-jobs` route on MainActivity. */
+  private fun openIncomingJobsPendingIntent(context: Context): PendingIntent {
+    val intent =
+      Intent(Intent.ACTION_VIEW, Uri.parse(JOB_OFFERS_DEEP_LINK))
+        .setComponent(ComponentName(context.packageName, "${context.packageName}.MainActivity"))
+        .addFlags(
+          Intent.FLAG_ACTIVITY_NEW_TASK or
+            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+            Intent.FLAG_ACTIVITY_CLEAR_TOP,
+        )
+    return PendingIntent.getActivity(
+      context,
+      "incoming-jobs".hashCode(),
+      intent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
   }
 
   /** Intent that opens the `job-alert/[id]` route on MainActivity. */

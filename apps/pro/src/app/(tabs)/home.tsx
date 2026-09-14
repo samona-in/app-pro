@@ -8,6 +8,7 @@ import { ServicesVerificationCard } from '@/components/services/ServicesVerifica
 import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
 import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { useProJobs, useProProfile, useDeviceReadiness, useSubmitGuard } from '@/hooks';
+import { useIncomingOffersStore } from '@/stores';
 import {
   subscribeToOnlineStatus,
   isOnline as checkIsOnline,
@@ -229,6 +230,38 @@ function ReadinessBanner() {
   );
 }
 
+/**
+ * Shown while offers are pending but the pro closed the incoming-jobs screen:
+ * a quiet home entry back into the combined list so no request is ever trapped
+ * behind a dismissed screen.
+ */
+function IncomingRequestsCard() {
+  const count = useIncomingOffersStore((state) => Object.keys(state.offersById).length);
+  if (count === 0) return null;
+  return (
+    <Card className="mt-3 border border-brand-soft bg-brand-soft">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-3">
+          <Text variant="label" className="text-brand">
+            Incoming requests
+          </Text>
+          <Text variant="bodyStrong" className="mt-0.5">
+            {count === 1 ? '1 job is waiting for you' : `${count} jobs are waiting for you`}
+          </Text>
+        </View>
+        <Button
+          variant="primary"
+          size="sm"
+          label="Review"
+          fullWidth={false}
+          haptic={false}
+          onPress={() => router.push('/incoming-jobs')}
+        />
+      </View>
+    </Card>
+  );
+}
+
 /** Prompt shown when an offline pro tries to act on a job. */
 export default function Home() {
   const { data: jobs, isPending } = useProJobs();
@@ -295,6 +328,8 @@ export default function Home() {
       <View className="mt-6">
         <AvailabilityCard />
       </View>
+
+      <IncomingRequestsCard />
 
       <TodayStack />
 

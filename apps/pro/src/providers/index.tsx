@@ -7,6 +7,7 @@ import { QueryProvider } from './query-provider';
 // `use-session.ts`, which imports `./auth-provider`, and re-entry through the
 // barrel would form an import cycle with this file.
 import { usePushNavigation } from '@/hooks/use-push-navigation';
+import { IncomingOffersSync } from '@/hooks/use-incoming-offers';
 
 /**
  * Every app-wide provider, composed once and mounted by the root layout.
@@ -22,7 +23,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            {/* Feeds and prunes the live pending-offers collection for the whole app. */}
+            <IncomingOffersSync />
+            {children}
+          </QueryProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
