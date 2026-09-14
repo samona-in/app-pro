@@ -100,11 +100,12 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
       // notification permission. A full-screen intent would raise the same
       // route without the grant, so it is only the fallback where the overlay
       // permission is missing. Shown for any app state — backgrounded, killed
-      // and foreground alike. The ring, banner and countdown all run for the
-      // same window: the server-minted offer (`offerExpiresAt`, 90s by default).
-      val ringMs = alert.presentationDurationMs()
-      JobAlertSound.start(this, ringMs)
-      JobAlertOverlay.show(this, alert, ringMs)
+      // and foreground alike. Reconcile keeps the banner in step with the
+      // pending set and the ring with the pending count: the banner is skipped
+      // on the incoming-jobs screen (suppressed), the ring always follows the
+      // count. The banner and countdown both run for the server-minted offer
+      // window (`offerExpiresAt`, 90s by default).
+      JobAlertOverlay.reconcile(this, AlertStore(this))
       return
     }
     if (NotificationManagerCompat.from(this).areNotificationsEnabled()) {
@@ -124,8 +125,10 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
 
   private fun handleTerminal(jobId: String) {
     AlertStore(this).clearJob(jobId)
-    JobAlertOverlay.hide(jobId)
-    JobAlertSound.stop()
+    // The ring follows the remaining pending count, so terminal states for one
+    // offer never silence a still-pending request; the banner is re-presented
+    // for what remains unless the pro is on the incoming-jobs screen.
+    JobAlertOverlay.reconcile(this, AlertStore(this))
     AlertNotifications.cancel(this, jobId)
     Log.i(JOB_ALERT_TAG, "Cleared native alert for job $jobId")
   }

@@ -49,6 +49,7 @@ interface OverlayAlertNativeModule {
   getPendingJobs(): Promise<PendingNativeJob[]>;
   consumePendingAction(): Promise<Record<string, never> | PendingNativeAction>;
   clearJobAlert(jobId: string): Promise<boolean>;
+  setOverlaySuppressed(suppressed: boolean): Promise<boolean>;
   hasOverlayPermission(): Promise<boolean>;
   requestOverlayPermission(): Promise<boolean>;
 }
@@ -134,6 +135,23 @@ export async function clearNativeJobAlert(jobId: string): Promise<void> {
     await module.clearJobAlert(jobId);
   } catch {
     // Best-effort: the native store self-heals on terminal pushes.
+  }
+}
+
+/**
+ * Route-aware suppression of the flat `SYSTEM_ALERT_WINDOW` banner. While the
+ * pro is on the `incoming-jobs` route the floating alert is hidden (that screen
+ * already lists every offer), but the offers and the alert ring stay governed
+ * by the pending count, independent of the route. Android-only; clears/restores
+ * the banner without touching stored offers.
+ */
+export async function setOverlaySuppressed(suppressed: boolean): Promise<void> {
+  const module = getNativeModule();
+  if (!module) return;
+  try {
+    await module.setOverlaySuppressed(suppressed);
+  } catch {
+    // Best-effort: without the native side there is no overlay to suppress.
   }
 }
 
