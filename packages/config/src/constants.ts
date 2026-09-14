@@ -64,6 +64,13 @@ export const LOCATION_DEFAULTS = {
  * shared by the server and the clients.
  */
 export const JOB_DEFAULTS = {
+  /**
+   * How long a pending job offer stays actionable (ms) — the offer window a
+   * pro gets to accept before it lapses. Mirrors the server's `JOB_OFFER_TTL_MS`
+   * default (90s); used client-side to establish an offer deadline when the
+   * realtime payload carries no per-offer expiry timestamp.
+   */
+  offerTtlMs: 90_000,
   /** Assumed en-route speed used to derive ETA from distance, km/h. */
   etaSpeedKmh: 30,
   /** Cap on the pro app's available-jobs pool and job lists. */
