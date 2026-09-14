@@ -219,7 +219,7 @@ export default function IncomingJobsScreen() {
         </View>
 
         {/* Focused job card pager. */}
-        <View className="flex-1" onLayout={onPagerLayout}>
+        <View className="flex-1 bg-surface-muted" onLayout={onPagerLayout}>
           <FlatList
             ref={listRef}
             data={offers}
