@@ -116,10 +116,28 @@ class JobAlertBackgroundModule : Module() {
         val store = AlertStore(context)
         store.clearJob(jobId)
         store.clearPendingAction()
-        JobAlertOverlay.hide(jobId)
-        JobAlertSound.stop()
+        // The ring and banner follow the remaining pending count: a cleared
+        // offer never silences a still-pending request, and the banner is
+        // re-presented for what remains unless the pro is on incoming-jobs.
+        JobAlertOverlay.reconcile(context, store)
         AlertNotifications.cancel(context, jobId)
       }
+      promise.resolve(true)
+    }
+
+    /**
+     * Route-aware UI suppression. JS tells native whether the `incoming-jobs`
+     * route is active: the floating banner (which that route already replaces)
+     * is hidden while suppressed, but the offers stay and the ring keeps
+     * following the pending count. Unsuppressing restores the banner.
+     */
+    AsyncFunction("setOverlaySuppressed") { suppressed: Boolean, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      JobAlertOverlay.setSuppressed(context, suppressed)
       promise.resolve(true)
     }
 

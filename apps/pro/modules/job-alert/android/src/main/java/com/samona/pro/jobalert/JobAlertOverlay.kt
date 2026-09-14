@@ -36,9 +36,15 @@ import android.widget.TextView
  * job offers" row rendered below the card when several are pending) opens the
  * in-app `incoming-jobs` route, which lists every persisted offer. A NEW_JOB
  * for a *different* job never replaces the banner for the one already showing —
- * the active banner stays as the entry point, its pending count refreshes, and
- * the ring re-sounds so the new offer is still heard. Every offer is kept in
- * [AlertStore] until resolved, expired or accepted.
+ * the active banner stays as the entry point and its pending count refreshes
+ * (one banner at a time, all offers kept). Every offer is kept in [AlertStore]
+ * until resolved, expired or accepted.
+ *
+ * The banner is suppressed on the `incoming-jobs` screen ([setSuppressed]):
+ * that route already lists every offer, so the floating window is hidden while
+ * the pro is there but is restored for the latest pending offer on leaving.
+ * Suppression only hides the alert UI — the ring is governed independently by
+ * the pending count via [reconcile], so it keeps sounding on `incoming-jobs`.
  */
 object JobAlertOverlay {
   private val lock = Any()
@@ -55,37 +61,64 @@ object JobAlertOverlay {
   private var viewAllTextView: TextView? = null
 
   /**
-   * Shows the banner for [alert]. A second alert for a *different* job keeps
-   * the current banner as the entry point and refreshes its pending count —
-   * it never replaces a stored offer (one banner at a time, all offers kept).
-   *
-   * Must run on the main thread: `WindowManager.addView` requires a Looper and
-   * throws off-thread. Push delivery ([JobAlertMessagingService]) runs on a
-   * Firebase worker thread, so every entry point first hops to the main handler.
+   * Whether the floating banner is suppressed because the pro is on the
+   * `incoming-jobs` screen (which already lists every pending offer). In-process
+   * only, never persisted, so a cold start can never inherit a stale suppression.
    */
-  fun show(context: Context, alert: IncomingJobAlert, durationMs: Long) {
+  @Volatile
+  private var suppressed = false
+
+  /**
+   * Route-aware UI suppression. When suppressed (the `incoming-jobs` route is
+   * active) the banner is hidden but the offers stay — the ring keeps playing
+   * because it follows the pending count. When unsuppressed, the banner is
+   * restored for the latest pending offer so the entry point survives.
+   *
+   * Must run on the main thread; off-thread calls hop to the main handler like
+   * the other window entry points.
+   */
+  fun setSuppressed(context: Context, value: Boolean) {
     if (Looper.myLooper() != Looper.getMainLooper()) {
       val appContext = context.applicationContext
-      handler.post { show(appContext, alert, durationMs) }
+      handler.post { setSuppressed(appContext, value) }
       return
     }
-    val appContext = context.applicationContext
-    if (!Settings.canDrawOverlays(appContext)) return
     synchronized(lock) {
-      val store = AlertStore(appContext)
-      val pendingCount = store.loadJobs().size
-      if (overlayJobId != null && overlayJobId != alert.jobId) {
-        // A different job arrived while a banner is up. Keep the current banner
-        // (never replace), refresh its "N job offers" entry line, and re-ring so
-        // the new offer is not missed. All offers remain in AlertStore.
-        val current = store.loadJobs().firstOrNull { it.jobId == overlayJobId } ?: alert
-        Log.i(JOB_ALERT_TAG, "Another job ${alert.jobId} arrived while ${current.jobId} banner up; keeping banner, count=$pendingCount")
-        showLocked(appContext, current, pendingCount, durationMs)
-        JobAlertSound.start(appContext, alert.presentationDurationMs())
-        return
-      }
-      showLocked(appContext, alert, pendingCount, durationMs)
+      if (suppressed == value) return
+      suppressed = value
+      if (suppressed) hideAllInternal()
+      reconcileLocked(context, AlertStore(context))
     }
+  }
+
+  /**
+   * Keeps the banner and ring in step with the pending-offer set. The ring
+   * follows the count alone ([JobAlertSound.syncPending]); the banner follows
+   * the count and the suppression flag. Called from every path that changes the
+   * set: a new offer, a terminal message, JS clearing an offer, or an overlay
+   * accept/decline settling.
+   */
+  fun reconcile(context: Context, store: AlertStore) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      val appContext = context.applicationContext
+      handler.post { reconcile(appContext, store) }
+      return
+    }
+    synchronized(lock) { reconcileLocked(context, store) }
+  }
+
+  private fun reconcileLocked(context: Context, store: AlertStore) {
+    val pending = store.loadJobs()
+    JobAlertSound.syncPending(context, pending.size)
+    if (pending.isEmpty()) {
+      hideAllInternal()
+      return
+    }
+    if (suppressed || !Settings.canDrawOverlays(context)) return
+    // Keep the banner already showing (refreshing its count); otherwise present
+    // the newest pending offer as the entry point.
+    val current = pending.firstOrNull { it.jobId == overlayJobId } ?: pending.first()
+    showLocked(context, current, pending.size, current.presentationDurationMs())
   }
 
   /**
@@ -135,17 +168,6 @@ object JobAlertOverlay {
     }
     dismissRunnable = runnable
     handler.postDelayed(runnable, durationMs)
-  }
-
-  /** Dismisses the banner only when it is showing [jobId]. */
-  fun hide(jobId: String) {
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-      handler.post { hide(jobId) }
-      return
-    }
-    synchronized(lock) {
-      if (overlayJobId == jobId) hideAllInternal()
-    }
   }
 
   /** Dismisses whatever banner is showing. */

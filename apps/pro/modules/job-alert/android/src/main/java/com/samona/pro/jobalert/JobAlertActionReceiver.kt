@@ -20,8 +20,8 @@ import android.util.Log
  *  - terminal (4xx except 429/408/425) → the offer is dead (already used,
  *    job taken/gone, or the token is invalid); drop the alert, stay put.
  *  - transient (429, 5xx, transport failure) → keep the alert in the tray and
- *    store so the repeating push or a manual repost can retry; the ringing has
- *    stopped, the pro already saw it.
+ *    store so the repeating push or a manual repost can retry; the ringing
+ *    follows the pending count, so a still-pending offer keeps ringing.
  *
  * When the alert has no token (legacy push, or an Expo/older server), the same
  * pre-token path runs: record the choice, drop the native alert, open the app,
@@ -49,11 +49,10 @@ class JobAlertActionReceiver : BroadcastReceiver() {
       "Alert action=$action job=$jobId direct=${!offerToken.isNullOrBlank()}",
     )
 
-    // The pro saw the alert and acted; stop ringing whatever happens next. The
-    // store/tray are only cleared on an outcome, so a transient failure leaves
-    // the alert actionable for the next repeat.
-    JobAlertSound.stop()
-    JobAlertOverlay.hide(jobId)
+    // The ring and banner are count-driven via JobAlertOverlay.reconcile, so
+    // acting on one offer never silences a still-pending request. The store is
+    // only cleared on an outcome, so a transient failure leaves the alert
+    // actionable (and ringing) for the next repeat.
 
     if (offerToken.isNullOrBlank()) {
       // Legacy path: native code never held a token; hand the choice to the
@@ -61,6 +60,7 @@ class JobAlertActionReceiver : BroadcastReceiver() {
       store.setPendingAction(jobId, action)
       store.clearJob(jobId)
       AlertNotifications.cancel(appContext, jobId)
+      JobAlertOverlay.reconcile(appContext, store)
       launchJobAlertApp(appContext, jobId, action)
       return
     }
@@ -92,6 +92,7 @@ class JobAlertActionReceiver : BroadcastReceiver() {
         result.ok -> {
           store.clearJob(jobId)
           AlertNotifications.cancel(context, jobId)
+          JobAlertOverlay.reconcile(context, store)
           if (openJobOnSuccess) launchJob(context, jobId)
         }
 
@@ -100,6 +101,7 @@ class JobAlertActionReceiver : BroadcastReceiver() {
           Log.i(JOB_ALERT_TAG, "Offer $action job=$jobId dead (HTTP ${result.code}); dropping alert")
           store.clearJob(jobId)
           AlertNotifications.cancel(context, jobId)
+          JobAlertOverlay.reconcile(context, store)
         }
 
         else -> {

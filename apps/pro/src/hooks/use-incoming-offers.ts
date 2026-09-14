@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { usePathname, useRouter } from 'expo-router';
 import { isActiveJobStatus, JobStatus, type AvailableJob, type JobDetail } from '@samona/types';
 import { subscribe } from '@/services/realtime';
-import { clearNativeJobAlert } from '@/services/overlay-alert';
+import { clearNativeJobAlert, setOverlaySuppressed } from '@/services/overlay-alert';
 import {
   toPendingOfferFromAvailableJob,
   toPendingOfferFromPushData,
@@ -75,6 +75,15 @@ export function useIncomingOffers() {
     });
     return () => subscription.remove();
   }, []);
+
+  // Route-aware native overlay visibility: `incoming-jobs` already lists every
+  // pending offer, so the floating alert is suppressed there. This hides only
+  // the alert UI — the offers stay put and the ring follows the pending count
+  // natively, so the sound keeps playing on that screen too.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    void setOverlaySuppressed(pathname === '/incoming-jobs');
+  }, [pathname]);
 
   // Realtime: live offers upsert, terminal states drop the matching offer.
   useEffect(() => {
