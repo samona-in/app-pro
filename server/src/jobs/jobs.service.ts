@@ -185,7 +185,7 @@ type JobDetailRow = JobRow & {
 
 const iso = (d: Date): string => d.toISOString();
 
-function toJobDto(row: JobRow, storage: StorageService): Job {
+function toJobDto(row: JobRow, storage: StorageService, config: AppConfig): Job {
   return {
     id: row.id,
     customerId: row.customerId,
@@ -204,6 +204,12 @@ function toJobDto(row: JobRow, storage: StorageService): Job {
     basePayPaise: row.basePayPaise,
     agreedPayPaise: row.agreedPayPaise,
     finalPayPaise: row.finalPayPaise,
+    // The one deadline a client needs (offer window, countdown) and the sweep
+    // that turns the job EXPIRED use the same value: the FCM push already
+    // computed this exact moment, so the DTO keeps every surface in step with
+    // it. Computed for every job — a client that no longer needs the deadline
+    // just ignores the field.
+    expiresAt: new Date(row.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
   };
@@ -220,10 +226,11 @@ function toJobDetail(
   row: JobDetailRow,
   forViewer: 'customer' | 'pro',
   storage: StorageService,
+  config: AppConfig,
 ): JobDetail {
   const assigned = row.status !== JobStatus.REQUESTED && row.status !== JobStatus.OFFERED;
   return {
-    ...toJobDto(row, storage),
+    ...toJobDto(row, storage, config),
     acceptedAt: row.acceptedAt ? iso(row.acceptedAt) : null,
     completedAt: row.completedAt ? iso(row.completedAt) : null,
     distanceKm: null,
@@ -396,7 +403,7 @@ export function createJobsService(deps: JobsServiceDeps) {
         longitude: coords.longitude,
       });
       if (eligible.length > 0) {
-        const payload = toJobDto(created as unknown as JobRow, storage);
+        const payload = toJobDto(created as unknown as JobRow, storage, config);
         deps.realtime.emitToUsers(
           eligible.map((pro) => pro.userId),
           REALTIME_EVENTS.JOB_NEW,
@@ -424,7 +431,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       }
     }
 
-    return toJobDetail(created as unknown as JobDetailRow, 'customer', storage);
+    return toJobDetail(created as unknown as JobDetailRow, 'customer', storage, config);
   }
 
   /**
@@ -441,7 +448,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       take: Math.max(1, Math.min(limit, 50)),
       include: jobDetailInclude,
     });
-    return rows.map((row) => toJobDetail(row as unknown as JobDetailRow, 'customer', storage));
+    return rows.map((row) => toJobDetail(row as unknown as JobDetailRow, 'customer', storage, config));
   }
 
   /** One of the caller's requests, or a 404 that hides whether it exists at all. */
@@ -451,7 +458,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       include: jobDetailInclude,
     });
     if (!row) throw notFound('That booking could not be found.');
-    return toJobDetail(row as unknown as JobDetailRow, 'customer', storage);
+    return toJobDetail(row as unknown as JobDetailRow, 'customer', storage, config);
   }
 
   /**
@@ -514,12 +521,12 @@ export function createJobsService(deps: JobsServiceDeps) {
       return tx.job.findFirstOrThrow({ where: { id: row.id }, include: jobDetailInclude });
     });
 
-    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
+    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(
       updated.customer.userId,
       REALTIME_EVENTS.JOB_STATUS,
-      toJobDetail(updated as unknown as JobDetailRow, 'customer', storage),
+      toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config),
     );
 
     notifyCustomer(notifications, {
@@ -582,8 +589,8 @@ export function createJobsService(deps: JobsServiceDeps) {
       });
     });
 
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
-    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
+    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config);
+    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
     realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     if (row.pro) realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, proDetail);
 
@@ -656,7 +663,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       take: Math.max(1, Math.min(options.limit ?? 50, 50)),
       include: jobDetailInclude,
     });
-    return rows.map((row) => toJobDetail(row as unknown as JobDetailRow, 'pro', storage));
+    return rows.map((row) => toJobDetail(row as unknown as JobDetailRow, 'pro', storage, config));
   }
 
   /**
@@ -705,7 +712,7 @@ export function createJobsService(deps: JobsServiceDeps) {
           : null;
       const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
       return {
-        ...toJobDto(row as unknown as JobRow, storage),
+        ...toJobDto(row as unknown as JobRow, storage, config),
         distanceKm: km,
         estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
       };
@@ -760,7 +767,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
 
     return {
-      ...toJobDto(row as unknown as JobRow, storage),
+      ...toJobDto(row as unknown as JobRow, storage, config),
       distanceKm: km,
       estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
     };
@@ -850,7 +857,7 @@ export function createJobsService(deps: JobsServiceDeps) {
           : null;
       const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
       results.push({
-        ...toJobDto(row.job as unknown as JobRow, storage),
+        ...toJobDto(row.job as unknown as JobRow, storage, config),
         acceptedAt: row.job.acceptedAt ? iso(row.job.acceptedAt) : null,
         completedAt: row.job.completedAt ? iso(row.job.completedAt) : null,
         distanceKm: km,
@@ -950,8 +957,8 @@ export function createJobsService(deps: JobsServiceDeps) {
     updated: JobDetailRow,
     proId: string,
   ): Promise<JobDetail> {
-    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
+    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
+    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
@@ -1190,8 +1197,8 @@ export function createJobsService(deps: JobsServiceDeps) {
       return next;
     });
 
-    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
+    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
+    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
@@ -1283,8 +1290,8 @@ export function createJobsService(deps: JobsServiceDeps) {
       });
     }
 
-    const proDetail = toJobDetail(row as unknown as JobDetailRow, 'pro', storage);
-    const customerDetail = toJobDetail(row as unknown as JobDetailRow, 'customer', storage);
+    const proDetail = toJobDetail(row as unknown as JobDetailRow, 'pro', storage, config);
+    const customerDetail = toJobDetail(row as unknown as JobDetailRow, 'customer', storage, config);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     return proDetail;
@@ -1363,8 +1370,8 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     if (startOtpGuard) await startOtpGuard.reset(identifier);
 
-    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage);
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage);
+    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
+    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
@@ -1461,7 +1468,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       if (!eligible) continue;
 
       const payload: AvailableJob = {
-        ...toJobDto(job as unknown as JobRow, storage),
+        ...toJobDto(job as unknown as JobRow, storage, config),
         distanceKm: km,
         estimatedEtaMinutes: etaMinutes(km),
       };
@@ -1544,7 +1551,7 @@ export function createJobsService(deps: JobsServiceDeps) {
 
       // Customer and every alerted pro should drop the dead request the instant
       // it expires, not wait for the next validation poll.
-      const customerDetail = toJobDetail(expired as unknown as JobDetailRow, 'customer', storage);
+      const customerDetail = toJobDetail(expired as unknown as JobDetailRow, 'customer', storage, config);
       realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
       const alerted = await prisma.notification.findMany({
@@ -1552,7 +1559,7 @@ export function createJobsService(deps: JobsServiceDeps) {
         select: { pro: { select: { userId: true } } },
       });
       if (alerted.length > 0) {
-        const proDetail = toJobDetail(expired as unknown as JobDetailRow, 'pro', storage);
+        const proDetail = toJobDetail(expired as unknown as JobDetailRow, 'pro', storage, config);
         realtime.emitToUsers(
           alerted.map((n) => n.pro.userId),
           REALTIME_EVENTS.JOB_STATUS,

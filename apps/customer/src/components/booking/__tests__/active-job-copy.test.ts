@@ -24,6 +24,7 @@ function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     basePayPaise: 50000,
     agreedPayPaise: null,
     finalPayPaise: null,
+    expiresAt: '2026-09-11T10:30:00.000Z',
     createdAt: '2026-09-11T10:00:00.000Z',
     updatedAt: '2026-09-11T10:00:00.000Z',
     distanceKm: null,

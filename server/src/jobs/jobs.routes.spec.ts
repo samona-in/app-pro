@@ -31,6 +31,7 @@ const job = {
   basePayPaise: 15_000,
   agreedPayPaise: null,
   finalPayPaise: null,
+  expiresAt: new Date().toISOString(),
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

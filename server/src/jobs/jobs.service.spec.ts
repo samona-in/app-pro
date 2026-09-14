@@ -75,6 +75,7 @@ function buildJobs() {
     storage,
     matching: matching as never,
     realtime: realtime as never,
+    config: { jobExpireTtlMs: 30 * 60_000 } as never,
   } as never);
   return { jobs, prisma, storage, matching, realtime, txJobCreate, txHistoryCreate };
 }
@@ -432,7 +433,11 @@ describe('createJobsService.notifyReadyJobRequests', () => {
     expect(ctx.realtime.emitToUser).toHaveBeenCalledWith(
       'user-1',
       'job:new',
-      expect.objectContaining({ id: 'job-1', distanceKm: expect.any(Number) }),
+      expect.objectContaining({
+        id: 'job-1',
+        distanceKm: expect.any(Number),
+        expiresAt: '2026-08-28T00:00:10.000Z',
+      }),
     );
     expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(1);
     expect(ctx.notifications.alertEligiblePros).toHaveBeenCalledWith(
@@ -713,7 +718,7 @@ describe('createJobsService.getAvailableJobForPro', () => {
     const jobs = createJobsService({
       prisma: prisma as never,
       storage: storage as never,
-      config: {} as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return { jobs, prisma, storage };
@@ -837,6 +842,7 @@ describe('createJobsService.acceptJob', () => {
       matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
       realtime: realtime as never,
       notifications: { resolveJobAlerts, recordCustomerNotification, sendCustomerPush } as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return {
@@ -992,7 +998,7 @@ describe('createJobsService.acceptJobWithOffer', () => {
       matching: { isProEligible: jest.fn().mockResolvedValue(true) } as never,
       realtime: realtime as never,
       notifications: { resolveJobAlerts, recordCustomerNotification, sendCustomerPush } as never,
-      config: { jobOfferSecret: OFFER_SECRET } as never,
+      config: { jobOfferSecret: OFFER_SECRET, jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return {
@@ -1144,7 +1150,7 @@ describe('createJobsService.rejectJobOffer', () => {
       matching: { isProEligible: jest.fn() } as never,
       realtime: { emitToUser: jest.fn(), emitToUsers: jest.fn() } as never,
       notifications: { resolveJobAlerts: jest.fn() } as never,
-      config: { jobOfferSecret: OFFER_SECRET } as never,
+      config: { jobOfferSecret: OFFER_SECRET, jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return { jobs, prisma, offerUpdateMany, declineUpsert, alertUpdateMany };
@@ -1242,7 +1248,7 @@ describe('createJobsService.declineJob', () => {
     const jobs = createJobsService({
       prisma: prisma as never,
       storage: storage as never,
-      config: {} as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return { jobs, prisma, declineUpsert, alertUpdateMany, storage };
@@ -1322,7 +1328,7 @@ describe('createJobsService.listAvailableJobs', () => {
     const jobs = createJobsService({
       prisma: prisma as never,
       storage: storage as never,
-      config: {} as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return { jobs, prisma, storage };
@@ -1400,6 +1406,7 @@ describe('createJobsService.transitionJob', () => {
       matching: {} as never,
       realtime: realtime as never,
       notifications: { recordCustomerNotification, sendCustomerPush } as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return {
@@ -1605,6 +1612,7 @@ describe('createJobsService.verifyStart', () => {
       realtime: realtime as never,
       notifications: { recordCustomerNotification, sendCustomerPush } as never,
       startOtpGuard: startOtpGuard as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return {
@@ -1759,6 +1767,7 @@ describe('createJobsService.collectCashForPro', () => {
       matching: {} as never,
       realtime: realtime as never,
       notifications: { recordCustomerNotification, sendCustomerPush } as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return {
@@ -1923,6 +1932,7 @@ describe('createJobsService.cancelJob', () => {
       matching: {} as never,
       realtime: realtime as never,
       notifications: notifications as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
     return {

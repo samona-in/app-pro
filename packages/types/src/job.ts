@@ -145,6 +145,8 @@ export interface Job {
   basePayPaise: number;
   agreedPayPaise: number | null;
   finalPayPaise: number | null;
+  /** When the request stops being actionable (ISO). Null until known. */
+  expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
