@@ -5,7 +5,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { isApiError } from '@samona/api-client';
 import type { JobDetail } from '@samona/types';
 import { Badge, Button, Card, Screen, Text } from '@/components/ui';
-import { EmptyState } from '@/components/feedback';
 import { clearNativeJobAlert } from '@/services/overlay-alert';
 import { jobsApi } from '@/services/jobs';
 import {
@@ -98,13 +97,6 @@ export default function IncomingJobsScreen() {
         contentContainerClassName="px-5 pb-8"
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View className="h-3" />}
-        ListEmptyComponent={
-          <EmptyState
-            icon="file-tray-outline"
-            title="No requests right now"
-            message="New job requests appear here the moment they land. Keep the app open and alerts on to stay first in line."
-          />
-        }
         renderItem={({ item }) => (
           <OfferCard
             offer={item}
