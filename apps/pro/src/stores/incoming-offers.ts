@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import type { AvailableJob } from '@samona/types';
-import { clearNativeJobAlert, getPendingNativeJobs, type PendingNativeJob } from '@/services/overlay-alert';
+import {
+  clearNativeJobAlert,
+  getPendingNativeJobs,
+  type PendingNativeJob,
+} from '@/services/overlay-alert';
 
 /**
  * Live pending job offers for a free pro.
@@ -135,6 +139,24 @@ export function isOfferExpired(offer: PendingOffer, now: number): boolean {
   return deadline !== null && deadline <= now;
 }
 
+/**
+ * Fraction of the offer window still remaining, from 1 (just received) down to
+ * 0 (window closed) — the raw value a countdown ring draws. Uses the same
+ * deadline as the expiry pruning (offer token window, else job expiry) and the
+ * offer's own `receivedAt` as the window start, so the ring is driven by the
+ * existing source of truth rather than a made-up timer. Returns `null` when
+ * the offer carries no deadline (no countdown available).
+ */
+export function offerRemainingFraction(offer: PendingOffer, now: number): number | null {
+  const deadline = offerDeadlineMs(offer);
+  if (deadline === null) return null;
+  const total = deadline - offer.receivedAt;
+  if (total <= 0) return 0;
+  const remaining = deadline - now;
+  if (remaining <= 0) return 0;
+  return Math.min(1, remaining / total);
+}
+
 interface IncomingOffersState {
   offersById: Record<string, PendingOffer>;
   /** Monotonic clock driven by the 1s tick, so countdowns re-render. */
@@ -155,7 +177,10 @@ export const useIncomingOffersStore = create<IncomingOffersState>((set, get) => 
     set((state) => {
       const existing = state.offersById[offer.jobId];
       return {
-        offersById: { ...state.offersById, [offer.jobId]: existing ? mergeOffer(existing, offer) : offer },
+        offersById: {
+          ...state.offersById,
+          [offer.jobId]: existing ? mergeOffer(existing, offer) : offer,
+        },
       };
     }),
 
