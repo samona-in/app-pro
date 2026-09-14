@@ -94,7 +94,10 @@ export function toPendingOfferFromAvailableJob(job: AvailableJob): PendingOffer 
     serviceName: job.service.name,
     serviceCategory: job.customSkill ?? job.skill.name,
     address: job.locationLabel,
-    distanceMeters: job.distanceKm !== null ? Math.round(job.distanceKm * 1000) : null,
+    distanceMeters:
+      typeof job.distanceKm === 'number' && Number.isFinite(job.distanceKm)
+        ? Math.round(job.distanceKm * 1000)
+        : null,
     amountPaise: job.basePayPaise,
     expiresAt: null,
     offerExpiresAt: null,

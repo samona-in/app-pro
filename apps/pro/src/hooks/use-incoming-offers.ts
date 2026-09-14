@@ -86,7 +86,15 @@ export function useIncomingOffers() {
   }, [pathname]);
 
   // Realtime: live offers upsert, terminal states drop the matching offer.
+  //
+  // Subscribed only once authenticated. The socket connects from the auth
+  // provider when the session is restored, so listeners registered before that
+  // would live on a socket that gets torn down and recreated — leaving the
+  // store fed by nothing but native rehydrate. Gating here attaches the
+  // handlers to the socket after auth is ready, and this child effect runs
+  // before the parent `connectRealtime` on the same commit.
   useEffect(() => {
+    if (!isAuthenticated) return;
     const unsubscribes = [
       subscribe('job:new', (job: AvailableJob) => {
         useIncomingOffersStore.getState().upsert(toPendingOfferFromAvailableJob(job));
@@ -101,7 +109,7 @@ export function useIncomingOffers() {
     return () => {
       for (const off of unsubscribes) off();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Foreground push fallback for surfaces without the native overlay (iOS /
   // stale APK without the module). On Android NEW_JOB and terminal pushes are
