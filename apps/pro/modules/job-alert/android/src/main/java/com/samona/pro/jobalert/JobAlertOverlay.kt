@@ -281,9 +281,11 @@ object JobAlertOverlay {
       viewAll =
         TextView(context).apply {
           text = "View all $pendingCount job offers →"
-          setTextColor(JobAlertTheme.BRAND)
+          setTextColor(JobAlertTheme.BRAND_CONTOUR)
           textSize = 14f
           typeface = android.graphics.Typeface.DEFAULT_BOLD
+          setPadding(dp(16), dp(7), dp(16), dp(7))
+          background = gradient(dp(20).toFloat(), JobAlertTheme.BRAND)
           setOnClickListener { openIncomingJobs(context) }
         }
       viewAllTextView = viewAll
