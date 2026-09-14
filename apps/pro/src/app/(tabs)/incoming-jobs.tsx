@@ -199,7 +199,7 @@ export default function IncomingJobsScreen() {
 
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
-      <View className="px-5 pb-2 pt-2">
+      <View className="border-b border-border px-5 pb-2 pt-2">
         <Text variant="titleLg">{offers.length === 1 ? '1 job' : `${offers.length} jobs`}</Text>
       </View>
 
