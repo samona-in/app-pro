@@ -33,11 +33,11 @@ import android.widget.TextView
  * use — and the request remains in [AlertStore] until resolved or expired.
  *
  * Entry point to the combined list: tapping the card body (or the "View all N
- * job offers" row shown when several are pending) opens the in-app
- * `incoming-jobs` route, which lists every persisted offer. A NEW_JOB for a
- * *different* job never replaces the banner for the one already showing — the
- * active banner stays as the entry point, its pending count refreshes, and the
- * ring re-sounds so the new offer is still heard. Every offer is kept in
+ * job offers" row rendered below the card when several are pending) opens the
+ * in-app `incoming-jobs` route, which lists every persisted offer. A NEW_JOB
+ * for a *different* job never replaces the banner for the one already showing —
+ * the active banner stays as the entry point, its pending count refreshes, and
+ * the ring re-sounds so the new offer is still heard. Every offer is kept in
  * [AlertStore] until resolved, expired or accepted.
  */
 object JobAlertOverlay {
@@ -177,6 +177,14 @@ object JobAlertOverlay {
     val density = context.resources.displayMetrics.density
     fun dp(value: Int): Int = (value * density).toInt()
 
+    // Root column holds the alert card with the "View all N job offers" entry
+    // row rendered below it, outside the card, so it reads as a separate
+    // navigation action rather than part of the alert.
+    val root =
+      LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+      }
+
     val card =
       LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -266,18 +274,19 @@ object JobAlertOverlay {
 
     // When several offers are pending, surface an explicit entry line into the
     // combined incoming-jobs list so the pro never loses the other requests.
+    // It sits below the card (outside it), aligned with the card content, so it
+    // reads as a separate navigation action rather than part of the alert.
+    var viewAll: TextView? = null
     if (pendingCount > 1) {
-      val viewAll =
+      viewAll =
         TextView(context).apply {
           text = "View all $pendingCount job offers →"
           setTextColor(JobAlertTheme.BRAND)
           textSize = 14f
           typeface = android.graphics.Typeface.DEFAULT_BOLD
-          setPadding(0, dp(6), 0, 0)
           setOnClickListener { openIncomingJobs(context) }
         }
       viewAllTextView = viewAll
-      card.addView(viewAll)
     }
 
     val actions =
@@ -318,7 +327,23 @@ object JobAlertOverlay {
       startCountdown(countdown, deadline)
     }
 
-    return card
+    root.addView(card)
+
+    viewAll?.let { link ->
+      root.addView(
+        link,
+        LinearLayout.LayoutParams(
+          LinearLayout.LayoutParams.MATCH_PARENT,
+          LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply {
+          topMargin = dp(8)
+          leftMargin = dp(20)
+          rightMargin = dp(20)
+        },
+      )
+    }
+
+    return root
   }
 
   private fun actionButton(
