@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { isApiError } from '@samona/api-client';
 import type { JobDetail } from '@samona/types';
-import { Badge, Button, Card, IconButton, Screen, Text } from '@/components/ui';
+import { Badge, Button, Card, Screen, Text } from '@/components/ui';
 import { EmptyState } from '@/components/feedback';
 import { clearNativeJobAlert } from '@/services/overlay-alert';
 import { jobsApi } from '@/services/jobs';
@@ -19,13 +19,14 @@ import { occupiedJobRoute } from '@/utils/job-routes';
 import { formatInr } from '@/utils/format';
 
 /**
- * The combined incoming-job-offers screen.
+ * The combined incoming-job-offers tab.
  *
- * A free pro can be offered several jobs at once; this screen shows every
- * valid pending offer as one scrollable, comparable list — earnings and
- * distance big and scannable, per-offer expiry countdowns, and a direct Accept
- * per card. It is opened by the auto-present on an incoming offer, by the
- * native alert entry point, or from the home banner.
+ * A free pro can be offered several jobs at once; this tab shows every valid
+ * pending offer as one scrollable, comparable list — earnings and distance big
+ * and scannable, per-offer expiry countdowns, and a direct Accept per card. It
+ * is reached through the bottom "Requests" tab (badged with the live pending
+ * count), the auto-present on an incoming offer, the native alert entry point,
+ * or the home banner.
  *
  * Accept is always the atomic server-side claim: on success the whole pending
  * collection (and every native alert) is cleared and the pro is routed to the
@@ -33,7 +34,6 @@ import { formatInr } from '@/utils/format';
  * "already taken" notice — so the remaining offers stay actionable.
  */
 export default function IncomingJobsScreen() {
-  const routerParams = useLocalSearchParams<{ returnTo?: string }>();
   const queryClient = useQueryClient();
   const acceptMutation = useAcceptJob();
 
@@ -45,13 +45,6 @@ export default function IncomingJobsScreen() {
     const distance = (offer: PendingOffer) => offer.distanceMeters ?? Number.POSITIVE_INFINITY;
     return Object.values(offersById).sort((a, b) => distance(a) - distance(b));
   }, [offersById]);
-
-  // Every offer resolved — drop back to home.
-  useEffect(() => {
-    if (offers.length === 0) {
-      router.replace(`/${routerParams.returnTo ?? 'home'}`);
-    }
-  }, [offers.length, routerParams.returnTo]);
 
   async function handleAccept(offer: PendingOffer): Promise<string | null> {
     setBusyJobId(offer.jobId);
@@ -93,19 +86,13 @@ export default function IncomingJobsScreen() {
 
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
-      <View className="flex-row items-center justify-between px-5 pb-2 pt-2">
-        <View className="flex-1 pr-3">
+      <View className="flex-row items-center px-5 pb-2 pt-2">
+        <View className="flex-1">
           <Text variant="label">Incoming requests</Text>
           <Text variant="titleLg" className="mt-0.5">
             {offers.length === 1 ? '1 job offers you work' : `${offers.length} jobs are waiting`}
           </Text>
         </View>
-        <IconButton
-          name="close"
-          accessibilityLabel="Close"
-          onPress={() => router.back()}
-          haptic={false}
-        />
       </View>
 
       <FlatList
@@ -117,10 +104,8 @@ export default function IncomingJobsScreen() {
         ListEmptyComponent={
           <EmptyState
             icon="file-tray-outline"
-            title="No offers right now"
+            title="No requests right now"
             message="New job requests appear here the moment they land. Keep the app open and alerts on to stay first in line."
-            actionLabel="Back to home"
-            onAction={() => router.replace('/home')}
           />
         }
         renderItem={({ item }) => (

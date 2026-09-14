@@ -9,6 +9,7 @@ import type { TabNavigationState } from 'expo-router/build/react-navigation/nati
 import type { ParamListBase } from 'expo-router/build/react-navigation/native';
 import { LoadingState } from '@/components/feedback';
 import { useRealtimeSync, useSession, useUnreadMessages } from '@/hooks';
+import { useIncomingOffersStore } from '@/stores';
 import { initializeJobAlertService, stopJobAlertService } from '@/services/foreground-service';
 import { jobNotificationService } from '@/services/job-notifications';
 import { color } from '@/theme';
@@ -49,6 +50,8 @@ interface SwipeableTabBarProps {
 }
 
 function SwipeableTabBar({ state, descriptors, navigation }: SwipeableTabBarProps) {
+  const pendingCount = useIncomingOffersStore((s) => Object.keys(s.offersById).length);
+
   return (
     <View style={TAB_BAR_STYLE} className="flex-row items-start border-t px-1">
       {state.routes.map((route, index) => {
@@ -69,11 +72,25 @@ function SwipeableTabBar({ state, descriptors, navigation }: SwipeableTabBarProp
             key={route.key}
             accessibilityRole="tab"
             accessibilityState={isFocused ? { selected: true } : undefined}
+            accessibilityLabel={
+              route.name === 'incoming-jobs' && pendingCount > 0
+                ? `${label}, ${pendingCount} pending`
+                : label
+            }
             onPress={() => navigation.navigate(route.name)}
             className="flex-1 items-center"
             style={({ pressed }) => pressed && { opacity: 0.6 }}
           >
-            {options.tabBarIcon?.({ focused: isFocused, color: tint })}
+            <View>
+              {options.tabBarIcon?.({ focused: isFocused, color: tint })}
+              {route.name === 'incoming-jobs' && pendingCount > 0 ? (
+                <View className="absolute -right-2.5 -top-1.5 min-w-[18px] items-center rounded-full bg-brand px-1">
+                  <Text className="text-[10px] font-bold leading-4 text-brand-contrast">
+                    {pendingCount > 99 ? '99+' : pendingCount}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             <Text style={[TAB_LABEL_STYLE, { color: tint }]} className="mt-0.5">
               {label}
             </Text>
@@ -149,6 +166,13 @@ export default function TabsLayout() {
       <TopTabs.Screen
         name="home"
         options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
+      />
+      <TopTabs.Screen
+        name="incoming-jobs"
+        options={{
+          title: 'Requests',
+          tabBarIcon: tabIcon('file-tray-full-outline', 'file-tray-full'),
+        }}
       />
       <TopTabs.Screen
         name="earnings"

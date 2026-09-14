@@ -37,7 +37,6 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen name="job-alert/[id]" options={{ headerShown: false, animation: 'none' }} />
-          <Stack.Screen name="incoming-jobs" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen
             name="job/[id]/contact"
             options={{
