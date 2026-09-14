@@ -86,13 +86,10 @@ export default function IncomingJobsScreen() {
 
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
-      <View className="flex-row items-center px-5 pb-2 pt-2">
-        <View className="flex-1">
-          <Text variant="label">Incoming requests</Text>
-          <Text variant="titleLg" className="mt-0.5">
-            {offers.length === 1 ? '1 job offers you work' : `${offers.length} jobs are waiting`}
-          </Text>
-        </View>
+      <View className="px-5 pb-2 pt-2">
+        <Text variant="titleLg">
+          {offers.length === 1 ? '1 job' : `${offers.length} jobs`}
+        </Text>
       </View>
 
       <FlatList
