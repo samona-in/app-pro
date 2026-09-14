@@ -18,6 +18,7 @@ export {
   useVerifyStart,
 } from './use-jobs';
 export { useRealtimeSync } from './use-realtime';
+export { useIncomingOffers, IncomingOffersSync } from './use-incoming-offers';
 export { useMessages } from './use-messages';
 export { useUnreadMessages } from './use-unread-messages';
 export { usePushNavigation } from './use-push-navigation';

@@ -1,11 +1,13 @@
 package com.samona.pro.jobalert
 
 import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -18,7 +20,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * The Rapido-style SYSTEM_ALERT_WINDOW banner for a NEW_JOB request.
+ * The Rapido-style SYSTEM_ALERT_WINDOW banner for NEW_JOB requests.
  *
  * Shown only when the pro has granted "display over other apps" (so it draws
  * over any app, or over the lock screen via SHOW_WHEN_LOCKED). It is the sole
@@ -29,6 +31,14 @@ import android.widget.TextView
  * hands the job to the app. The overlay auto-dismisses after [durationMs] —
  * the same server-minted offer window the ring and the "Expires in" countdown
  * use — and the request remains in [AlertStore] until resolved or expired.
+ *
+ * Entry point to the combined list: tapping the card body (or the "View all N
+ * job offers" row shown when several are pending) opens the in-app
+ * `incoming-jobs` route, which lists every persisted offer. A NEW_JOB for a
+ * *different* job never replaces the banner for the one already showing — the
+ * active banner stays as the entry point, its pending count refreshes, and the
+ * ring re-sounds so the new offer is still heard. Every offer is kept in
+ * [AlertStore] until resolved, expired or accepted.
  */
 object JobAlertOverlay {
   private val lock = Any()
@@ -42,10 +52,12 @@ object JobAlertOverlay {
   private var countdownTextView: TextView? = null
   private var acceptButton: Button? = null
   private var ringButton: RingButtonView? = null
+  private var viewAllTextView: TextView? = null
 
   /**
-   * Shows the banner for [alert]. No-op without overlay permission. A second
-   * alert replaces any current banner (one ring at a time).
+   * Shows the banner for [alert]. A second alert for a *different* job keeps
+   * the current banner as the entry point and refreshes its pending count —
+   * it never replaces a stored offer (one banner at a time, all offers kept).
    *
    * Must run on the main thread: `WindowManager.addView` requires a Looper and
    * throws off-thread. Push delivery ([JobAlertMessagingService]) runs on a
@@ -57,47 +69,72 @@ object JobAlertOverlay {
       handler.post { show(appContext, alert, durationMs) }
       return
     }
+    val appContext = context.applicationContext
+    if (!Settings.canDrawOverlays(appContext)) return
     synchronized(lock) {
-      if (overlayView != null) hideAllInternal()
-      if (!Settings.canDrawOverlays(context)) return
-
-      val appContext = context.applicationContext
-      val wm = appContext.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
-      val view = buildView(appContext, alert)
-
-      val params =
-        WindowManager.LayoutParams(
-          WindowManager.LayoutParams.MATCH_PARENT,
-          WindowManager.LayoutParams.WRAP_CONTENT,
-          WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-          WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
-          PixelFormat.TRANSLUCENT,
-        ).apply {
-          gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        }
-
-      val added =
-        runCatching { wm.addView(view, params) }.onFailure { t ->
-          Log.w(JOB_ALERT_TAG, "Overlay add failed for job ${alert.jobId}", t)
-        }.isSuccess
-      if (!added) return
-
-      windowManager = wm
-      overlayView = view
-      overlayJobId = alert.jobId
-      Log.i(JOB_ALERT_TAG, "Showing overlay for job ${alert.jobId}")
-
-      val runnable = Runnable {
-        Log.d(JOB_ALERT_TAG, "Overlay auto-dismissed job ${alert.jobId}")
-        hideAll()
+      val store = AlertStore(appContext)
+      val pendingCount = store.loadJobs().size
+      if (overlayJobId != null && overlayJobId != alert.jobId) {
+        // A different job arrived while a banner is up. Keep the current banner
+        // (never replace), refresh its "N job offers" entry line, and re-ring so
+        // the new offer is not missed. All offers remain in AlertStore.
+        val current = store.loadJobs().firstOrNull { it.jobId == overlayJobId } ?: alert
+        Log.i(JOB_ALERT_TAG, "Another job ${alert.jobId} arrived while ${current.jobId} banner up; keeping banner, count=$pendingCount")
+        showLocked(appContext, current, pendingCount, durationMs)
+        JobAlertSound.start(appContext, alert.presentationDurationMs())
+        return
       }
-      dismissRunnable = runnable
-      handler.postDelayed(runnable, durationMs)
+      showLocked(appContext, alert, pendingCount, durationMs)
     }
+  }
+
+  /**
+   * Renders (or re-renders) the single overlay banner for [alert]. Handling a
+   * re-page of the same job is why this rebuilds rather than bailing when the
+   * banner is already up: the pending-count entry line must stay current.
+   */
+  private fun showLocked(
+    context: Context,
+    alert: IncomingJobAlert,
+    pendingCount: Int,
+    durationMs: Long,
+  ) {
+    hideAllInternal()
+    val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
+    val view = buildView(context, alert, pendingCount)
+
+    val params =
+      WindowManager.LayoutParams(
+        WindowManager.LayoutParams.MATCH_PARENT,
+        WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+          WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+          WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+          WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
+        PixelFormat.TRANSLUCENT,
+      ).apply {
+        gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+      }
+
+    val added =
+      runCatching { wm.addView(view, params) }.onFailure { t ->
+        Log.w(JOB_ALERT_TAG, "Overlay add failed for job ${alert.jobId}", t)
+      }.isSuccess
+    if (!added) return
+
+    windowManager = wm
+    overlayView = view
+    overlayJobId = alert.jobId
+    Log.i(JOB_ALERT_TAG, "Showing overlay for job ${alert.jobId} (${pendingCount} pending)")
+
+    val runnable = Runnable {
+      Log.d(JOB_ALERT_TAG, "Overlay auto-dismissed job ${alert.jobId}")
+      hideAll()
+    }
+    dismissRunnable = runnable
+    handler.postDelayed(runnable, durationMs)
   }
 
   /** Dismisses the banner only when it is showing [jobId]. */
@@ -128,6 +165,7 @@ object JobAlertOverlay {
     countdownTextView = null
     acceptButton = null
     ringButton = null
+    viewAllTextView = null
     val view = overlayView ?: return
     overlayView = null
     overlayJobId = null
@@ -135,7 +173,7 @@ object JobAlertOverlay {
     windowManager = null
   }
 
-  private fun buildView(context: Context, alert: IncomingJobAlert): View {
+  private fun buildView(context: Context, alert: IncomingJobAlert, pendingCount: Int): View {
     val density = context.resources.displayMetrics.density
     fun dp(value: Int): Int = (value * density).toInt()
 
@@ -150,6 +188,9 @@ object JobAlertOverlay {
             setStroke(dp(1), JobAlertTheme.BORDER_STRONG)
           }
         elevation = JobAlertTheme.CARD_ELEVATION
+        // The whole card is the entry point to the combined offers list; the
+        // Accept/Decline buttons are children and keep their own taps.
+        setOnClickListener { openIncomingJobs(context) }
       }
 
     // Row 1: service name (left) with the guaranteed amount right beside it.
@@ -221,6 +262,22 @@ object JobAlertOverlay {
       countdown =
         TextView(context).apply { textSize = 13f; setPadding(0, dp(6), 0, 0) }
       card.addView(countdown)
+    }
+
+    // When several offers are pending, surface an explicit entry line into the
+    // combined incoming-jobs list so the pro never loses the other requests.
+    if (pendingCount > 1) {
+      val viewAll =
+        TextView(context).apply {
+          text = "View all $pendingCount job offers →"
+          setTextColor(JobAlertTheme.BRAND)
+          textSize = 14f
+          typeface = android.graphics.Typeface.DEFAULT_BOLD
+          setPadding(0, dp(6), 0, 0)
+          setOnClickListener { openIncomingJobs(context) }
+        }
+      viewAllTextView = viewAll
+      card.addView(viewAll)
     }
 
     val actions =
@@ -309,6 +366,20 @@ object JobAlertOverlay {
       intent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
+  }
+
+  /** Opens the combined incoming-jobs route, which lists every persisted offer. */
+  private fun openIncomingJobs(context: Context) {
+    val intent =
+      Intent(Intent.ACTION_VIEW, Uri.parse(JOB_OFFERS_DEEP_LINK))
+        .setComponent(ComponentName(context.packageName, "${context.packageName}.MainActivity"))
+        .addFlags(
+          Intent.FLAG_ACTIVITY_NEW_TASK or
+            Intent.FLAG_ACTIVITY_SINGLE_TOP or
+            Intent.FLAG_ACTIVITY_CLEAR_TOP,
+        )
+    val pending = PendingIntent.getActivity(context, "incoming-jobs-entry".hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    runCatching { pending.send() }
   }
 
   /**
