@@ -96,7 +96,7 @@ export function toPendingOfferFromAvailableJob(job: AvailableJob): PendingOffer 
     address: job.locationLabel,
     distanceMeters: job.distanceKm !== null ? Math.round(job.distanceKm * 1000) : null,
     amountPaise: job.basePayPaise,
-    expiresAt: null,
+    expiresAt: job.expiresAt,
     offerExpiresAt: null,
     jobOfferToken: null,
     receivedAt: Date.now(),
