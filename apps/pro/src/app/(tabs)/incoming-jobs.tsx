@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, View, type LayoutChangeEvent, type ViewToken } from 'react-native';
+import { FlatList, Pressable, View, type ViewToken } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { isApiError } from '@samona/api-client';
@@ -33,7 +33,7 @@ const RING_SIZE = 46;
 const RING_STROKE = 3;
 const URGENT_THRESHOLD_MS = 20_000;
 
-const VIEWABILITY_CONFIG = { viewAreaCoveragePercentThreshold: 60 };
+const VIEWABILITY_CONFIG = { viewAreaCoveragePercentThreshold: 30 };
 
 /**
  * The requested ordering: nearest offers first (by straight-line distance).
@@ -50,10 +50,11 @@ function nearestFirst(offersById: Record<string, PendingOffer>): PendingOffer[] 
  * A free pro can be offered several jobs at once. This tab splits into a narrow
  * job selector on the left — one compact item per offer (a countdown ring drawn
  * around the ₹ amount, so offers can be compared by earning and remaining time
- * at a glance) — and a snap-to-card pager on the right that keeps one large
- * request card focused at a time. Both sides stay synchronized: tapping a
- * sidebar item snaps the pager to that job, and swiping through the pager moves
- * the sidebar highlight.
+ * at a glance) — and a scrollable stack of content-height request cards on the
+ * right, so any number of requests can be read side by side. Both sides stay
+ * synchronized: tapping a sidebar item scrolls to that job's card, and
+ * scrolling through the cards moves the sidebar highlight to the topmost
+ * visible one.
  *
  * Performance: the screen subscribes only to the offer collection (and the
  * active/busy ids); the per-second store clock lives inside each ring/card
@@ -70,7 +71,6 @@ export default function IncomingJobsScreen() {
   const offersById = useIncomingOffersStore((state) => state.offersById);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
-  const [cardHeight, setCardHeight] = useState(0);
 
   const offers = useMemo(() => nearestFirst(offersById), [offersById]);
 
@@ -89,18 +89,15 @@ export default function IncomingJobsScreen() {
   // never fights a manual swipe.
   const activeIndexRef = useRef(-1);
 
-  const scrollToIndex = useCallback(
-    (index: number) => {
-      if (cardHeight <= 0 || index < 0) return;
-      try {
-        listRef.current?.scrollToIndex({ index, viewPosition: 0, animated: true });
-      } catch {
-        // The item disappeared mid-gesture; fall back to a raw offset.
-        listRef.current?.scrollToOffset({ offset: index * cardHeight, animated: true });
-      }
-    },
-    [cardHeight],
-  );
+  const scrollToIndex = useCallback((index: number) => {
+    if (index < 0) return;
+    try {
+      listRef.current?.scrollToIndex({ index, viewPosition: 0, animated: true });
+    } catch {
+      // The item is not measured yet; `onScrollToIndexFailed` falls back and
+      // retries once the list has laid out.
+    }
+  }, []);
 
   const focus = useCallback(
     (jobId: string) => {
@@ -116,15 +113,15 @@ export default function IncomingJobsScreen() {
   );
 
   // When the active job's position in the list moves (an earlier offer expired)
-  // or the highlight falls back to the first offer, re-scroll the pager so the
-  // focused card stays on screen.
+  // or the highlight falls back to the first offer, scroll so the focused card
+  // stays in view.
   const activeJobIndex = offers.findIndex((offer) => offer.jobId === activeJobId);
   useEffect(() => {
-    if (cardHeight <= 0 || activeJobIndex < 0) return;
+    if (activeJobIndex < 0) return;
     if (activeIndexRef.current === activeJobIndex) return;
     activeIndexRef.current = activeJobIndex;
     scrollToIndex(activeJobIndex);
-  }, [cardHeight, activeJobIndex, scrollToIndex]);
+  }, [activeJobIndex, scrollToIndex]);
 
   // The pager drives the highlight whenever the user swipes between cards.
   const onViewableItemsChanged = useCallback(
@@ -139,20 +136,6 @@ export default function IncomingJobsScreen() {
     },
     [],
   );
-
-  const getItemLayout = useCallback(
-    (_: unknown, index: number) => ({
-      length: cardHeight,
-      offset: cardHeight * index,
-      index,
-    }),
-    [cardHeight],
-  );
-
-  function onPagerLayout(event: LayoutChangeEvent) {
-    const height = Math.round(event.nativeEvent.layout.height);
-    setCardHeight((previous) => (previous === height ? previous : height));
-  }
 
   const handleAccept = useCallback(
     async (offer: PendingOffer): Promise<string | null> => {
@@ -218,29 +201,28 @@ export default function IncomingJobsScreen() {
           />
         </View>
 
-        {/* Focused job card pager. */}
-        <View className="flex-1 bg-surface-muted" onLayout={onPagerLayout}>
+        {/* Request cards: content-height stack, so any number fit on screen. */}
+        <View className="flex-1 bg-surface-muted">
           <FlatList
             ref={listRef}
             data={offers}
             extraData={busyJobId}
             keyExtractor={(offer) => offer.jobId}
             showsVerticalScrollIndicator={false}
-            getItemLayout={getItemLayout}
-            snapToInterval={cardHeight > 0 ? cardHeight : undefined}
-            snapToAlignment="start"
-            decelerationRate="fast"
-            initialNumToRender={1}
+            contentContainerClassName="pb-4"
             windowSize={3}
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={VIEWABILITY_CONFIG}
-            onScrollToIndexFailed={({ index }) =>
-              listRef.current?.scrollToOffset({ offset: index * cardHeight, animated: true })
-            }
+            onScrollToIndexFailed={({ index, averageItemLength }) => {
+              const offset = index * (averageItemLength || 320);
+              listRef.current?.scrollToOffset({ offset, animated: false });
+              setTimeout(() => {
+                listRef.current?.scrollToIndex({ index, viewPosition: 0, animated: true });
+              }, 100);
+            }}
             renderItem={({ item }) => (
               <FocusedJobCard
                 offer={item}
-                height={cardHeight}
                 busy={busyJobId === item.jobId}
                 onAccept={handleAccept}
                 onDecline={handleDecline}
@@ -413,13 +395,11 @@ const SidebarItem = memo(function SidebarItem({
 
 const FocusedJobCard = memo(function FocusedJobCard({
   offer,
-  height,
   busy,
   onAccept,
   onDecline,
 }: {
   offer: PendingOffer;
-  height: number;
   busy: boolean;
   onAccept: (offer: PendingOffer) => Promise<string | null>;
   onDecline: (offer: PendingOffer) => void;
@@ -441,9 +421,9 @@ const FocusedJobCard = memo(function FocusedJobCard({
   const category = offer.serviceCategory || offer.serviceName;
 
   return (
-    <View style={{ height: height > 0 ? height : undefined }} className="px-3 py-1.5">
-      <Card className="flex-1 border border-border" padded={false}>
-        <View className="flex-1 p-4">
+    <View className="px-3 pt-1.5 pb-3">
+      <Card className="border border-border" padded={false}>
+        <View className="p-4">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-4">
               <Text variant="label" className="text-text-secondary">
@@ -478,15 +458,13 @@ const FocusedJobCard = memo(function FocusedJobCard({
             </Text>
           ) : null}
 
-          <View className="flex-1" />
-
           {error ? (
-            <Text variant="caption" className="mb-2 text-danger">
+            <Text variant="caption" className="mt-3 text-danger">
               {error}
             </Text>
           ) : null}
 
-          <View className="flex-row gap-3">
+          <View className="mt-4 flex-row gap-3">
             <Button
               variant="secondary"
               label="Decline"
