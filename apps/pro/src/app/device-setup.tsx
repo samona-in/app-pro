@@ -56,7 +56,7 @@ const ITEMS: ReadinessItem[] = [
     key: 'overlayPermissionEnabled',
     title: 'Show over other apps',
     description:
-      'The job-alert overlay draws Accept/Decline over any app while Samona is closed. Grant "Appear on top" under Display over other apps so the banner can show.',
+      'The job-alert overlay draws Accept/Decline over any app while Samona is closed, and the floating Samona icon stays with you while you\'re online. Grant "Appear on top" under Display over other apps so both can show.',
     fix: requestOverlayPermission,
   },
   {

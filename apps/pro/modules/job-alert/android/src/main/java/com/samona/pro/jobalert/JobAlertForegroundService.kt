@@ -45,6 +45,7 @@ class JobAlertForegroundService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (intent?.action == ACTION_STOP) {
+      FloatingBubble.hideAll()
       ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
       stopSelf()
       return START_NOT_STICKY
@@ -60,8 +61,18 @@ class JobAlertForegroundService : Service() {
   }
 
   override fun onDestroy() {
+    FloatingBubble.hideAll()
     ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
     super.onDestroy()
+  }
+
+  override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+    super.onConfigurationChanged(newConfig)
+    // A config change (e.g. a split-screen resize) can move the screen edges
+    // under the bubble; rebuild it clamped back on-screen. Harmless when no
+    // bubble is up — reconcile simply shows nothing.
+    FloatingBubble.hideAll()
+    FloatingBubble.reconcile(this)
   }
 
   override fun onBind(intent: Intent?): IBinder? = null
@@ -107,6 +118,10 @@ class JobAlertForegroundService : Service() {
     }
 
     Log.i(TAG, "Started online job-alert foreground service")
+    // The online pro gets the floating Samona icon. Reconcile on every (re)start
+    // so a service restart or a permission (re)grant can never leave it stale:
+    // the gate re-checks the persisted online flag and the overlay permission.
+    FloatingBubble.reconcile(this)
   }
 
   private fun ensureOnlineChannel() {

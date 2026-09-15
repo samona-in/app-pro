@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { isFullScreenIntentEnabled, isFullScreenIntentSupported } from './full-screen-alert';
 import { isOverlayPermissionEnabled } from './overlay-alert';
 import { readPowerState } from './device-readiness';
+import { reconcileFloatingBubble } from './floating-bubble';
 
 /**
  * Job-alert readiness on the device.
@@ -123,6 +124,11 @@ export async function refreshDeviceReadiness(): Promise<DeviceReadiness> {
     // Leave the previous result (or null) in place; a failed probe is not new
     // information, so nothing is broadcast.
   }
+  // The overlay permission probe above is exactly the moment the floating
+  // Samona icon's gate may have flipped (a grant while online, a revocation).
+  // Reconcile it here, where app foreground and device-setup "Check again"
+  // both land; offline/no-permission is handled natively.
+  void reconcileFloatingBubble();
   listeners.forEach((listener) => listener(lastReadiness));
   return (
     lastReadiness ?? {

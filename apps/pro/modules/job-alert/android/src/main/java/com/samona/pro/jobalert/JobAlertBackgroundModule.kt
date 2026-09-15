@@ -82,6 +82,7 @@ class JobAlertBackgroundModule : Module() {
           clearPendingAction()
         }
         JobAlertOverlay.hideAll()
+        FloatingBubble.hideAll()
         JobAlertSound.stop()
         runCatching {
           context.stopService(Intent(context, JobAlertForegroundService::class.java))
@@ -193,6 +194,24 @@ class JobAlertBackgroundModule : Module() {
     AsyncFunction("isOnlineServiceRunning") { promise: Promise ->
       val context = appContext.reactContext
       promise.resolve(context != null && AlertStore(context).isOnline())
+    }
+
+    /**
+     * Re-checks whether the floating Samona icon should be visible: shown only
+     * while the pro is online AND has granted "display over other apps",
+     * hidden otherwise. Called after any overlay-permission probe (app
+     * foreground, device-setup "Check again"), so a grant while online brings
+     * the icon up immediately and a revocation takes it down — without ever
+     * looping the permission screen.
+     */
+    AsyncFunction("reconcileBubble") { promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      FloatingBubble.reconcile(context)
+      promise.resolve(true)
     }
   }
 }
