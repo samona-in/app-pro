@@ -47,6 +47,15 @@ Notifications.setNotificationHandler({
 export const JOB_ALERT_CHANNEL = 'incoming_jobs';
 
 /**
+ * The notification channel "customer cancelled your job" heads-ups are
+ * delivered on (Android). Matches the native `job_cancelled` channel: MAX
+ * importance so a screen-off device still wakes, silent by design — the long
+ * repeating cancellation ring is owned by the native module, never the channel,
+ * keeping its ~10s cap intact.
+ */
+export const CANCELLATION_CHANNEL = 'job_cancelled';
+
+/**
  * The notification channel chat-message pushes are delivered on (Android).
  * Matches the server's `channelId` on every chat FCM push. Unlike the job-alert
  * channel, the `sound` key is deliberately omitted so the channel uses the
@@ -75,6 +84,9 @@ const PROJECT_ID =
  *    follows the device default notification sound. (The id is a bumped "v2" —
  *    the original `chat_messages` was created silent and Android never lets an
  *    app change an existing channel's sound, so the fresh id starts clean.)
+ *  - `job_cancelled` for the silent "customer cancelled your job" heads-up
+ *    (also created natively; kept here so the channel exists even on builds
+ *    before the native module started creating it).
  */
 async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -94,6 +106,16 @@ async function ensureChannel(): Promise<void> {
     // use the device's default notification sound.
     vibrationPattern: [0, 250, 250],
     enableVibrate: true,
+  });
+  await Notifications.setNotificationChannelAsync(CANCELLATION_CHANNEL, {
+    name: 'Job cancelled',
+    importance: Notifications.AndroidImportance.MAX,
+    // Deliberately silent with vibration off: the cancellation ring (a finite
+    // repeating pulse) is owned by the native module and the cap is on the
+    // ringing, never stretched by a channel-driven second buzz.
+    sound: null,
+    vibrationPattern: [],
+    enableVibrate: false,
   });
 }
 

@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Wordmark } from '@/components/brand/Wordmark';
+import { CancellationAlertModal } from '@/components/home/CancellationAlertModal';
 import { TodayStack } from '@/components/home/TodayStack';
 import { ServicesVerificationCard } from '@/components/services/ServicesVerificationCard';
 import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
@@ -308,34 +309,39 @@ export default function Home() {
   }
 
   return (
-    <Screen scrollable>
-      <View className="flex-row items-center justify-between pt-2">
-        <Wordmark size="sm" />
-        <View className="flex-row items-center gap-2">
-          <IconButton
-            name="briefcase-outline"
-            accessibilityLabel="Jobs"
-            onPress={() => router.push('/jobs')}
-          />
-          <IconButton
-            name="notifications-outline"
-            accessibilityLabel="Notifications"
-            onPress={() => router.push('/notifications')}
-          />
+    <>
+      <Screen scrollable>
+        <View className="flex-row items-center justify-between pt-2">
+          <Wordmark size="sm" />
+          <View className="flex-row items-center gap-2">
+            <IconButton
+              name="briefcase-outline"
+              accessibilityLabel="Jobs"
+              onPress={() => router.push('/jobs')}
+            />
+            <IconButton
+              name="notifications-outline"
+              accessibilityLabel="Notifications"
+              onPress={() => router.push('/notifications')}
+            />
+          </View>
         </View>
-      </View>
 
-      <View className="mt-6">
-        <AvailabilityCard />
-      </View>
+        <View className="mt-6">
+          <AvailabilityCard />
+        </View>
 
-      <IncomingRequestsCard />
+        <IncomingRequestsCard />
 
-      <TodayStack />
+        <TodayStack />
 
-      <ServicesVerificationCard />
+        <ServicesVerificationCard />
 
-      <ReadinessBanner />
-    </Screen>
+        <ReadinessBanner />
+      </Screen>
+      {/* The single acknowledgement for a customer-cancelled job; Home is the
+          only route a cancelled job leaves the pro on. */}
+      <CancellationAlertModal />
+    </>
   );
 }

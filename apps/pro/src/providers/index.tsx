@@ -8,6 +8,7 @@ import { QueryProvider } from './query-provider';
 // barrel would form an import cycle with this file.
 import { usePushNavigation } from '@/hooks/use-push-navigation';
 import { IncomingOffersSync } from '@/hooks/use-incoming-offers';
+import { JobCancellationSync } from '@/hooks/use-job-cancellation';
 
 /**
  * Every app-wide provider, composed once and mounted by the root layout.
@@ -26,6 +27,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <QueryProvider>
             {/* Feeds and prunes the live pending-offers collection for the whole app. */}
             <IncomingOffersSync />
+            {/* Feeds the unacknowledged customer-cancellation collection for the whole app. */}
+            <JobCancellationSync />
             {children}
           </QueryProvider>
         </AuthProvider>

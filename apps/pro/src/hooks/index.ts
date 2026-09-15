@@ -18,6 +18,7 @@ export {
 } from './use-jobs';
 export { useRealtimeSync } from './use-realtime';
 export { useIncomingOffers, IncomingOffersSync } from './use-incoming-offers';
+export { useJobCancellation, JobCancellationSync } from './use-job-cancellation';
 export { useMessages } from './use-messages';
 export { useUnreadMessages } from './use-unread-messages';
 export { usePushNavigation } from './use-push-navigation';
