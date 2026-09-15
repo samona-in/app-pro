@@ -27,6 +27,10 @@ object AlertNotifications {
   const val CHANNEL_ID = "incoming_jobs"
   const val CHANNEL_NAME = "Job alerts"
 
+  /** Dedicated channel for "customer cancelled your job" heads-ups. */
+  const val CANCELLATION_CHANNEL_ID = "job_cancelled"
+  const val CANCELLATION_CHANNEL_NAME = "Job cancelled"
+
   private const val DEFAULT_TITLE = "New job request"
   private const val DEFAULT_BODY = "A customer nearby needs your services."
 
@@ -51,6 +55,27 @@ object AlertNotifications {
               .build(),
           )
         }
+      }
+    manager.createNotificationChannel(channel)
+  }
+
+  /**
+   * The cancellation channel: a MAX heads-up that can wake a screen-off device
+   * but deliberately carries no sound and no channel vibration — the repeating
+   * [JobAlertCancellation] ring owns the audio cue so the ~9.6s cap is never
+   * stretched by a second vibrator.
+   */
+  fun ensureCancellationChannel(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    if (manager.getNotificationChannel(CANCELLATION_CHANNEL_ID) != null) return
+
+    val channel =
+      NotificationChannel(CANCELLATION_CHANNEL_ID, CANCELLATION_CHANNEL_NAME, NotificationManager.IMPORTANCE_MAX).apply {
+        description = "A customer cancelled a job you were committed to"
+        enableVibration(false)
+        setSound(null, null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) setBypassDnd(true)
       }
     manager.createNotificationChannel(channel)
   }
@@ -100,6 +125,50 @@ object AlertNotifications {
 
     NotificationManagerCompat.from(context).notify(alert.jobId.hashCode(), builder.build())
     Log.i(JOB_ALERT_TAG, "Posted alert job=${alert.jobId} fullScreen=$fullScreen")
+  }
+
+  /**
+   * Posts the "job cancelled" heads-up for one assignment cancellation.
+   *
+   * The channel is MAX (wake a screen-off device) but silent — the long
+   * repeating ring is [JobAlertCancellation]'s. Tapping opens the app on its
+   * current task (CLEAR_TOP) where the JS modal presents the same cancellation
+   * and gives the pro their single acknowledgement.
+   */
+  fun postAssignmentCancellation(context: Context, jobId: String) {
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+      Log.w(JOB_ALERT_TAG, "Notifications disabled — skipping cancellation tray for job $jobId")
+      return
+    }
+    ensureCancellationChannel(context)
+    val builder =
+      NotificationCompat.Builder(context, CANCELLATION_CHANNEL_ID)
+        .setSmallIcon(smallIcon(context))
+        .setContentTitle("Job cancelled")
+        .setContentText("The customer cancelled this booking.")
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setCategory(NotificationCompat.CATEGORY_STATUS)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setShowWhen(true)
+        .setContentIntent(openMainActivityPendingIntent(context))
+    NotificationManagerCompat.from(context).notify(jobId.hashCode(), builder.build())
+    Log.i(JOB_ALERT_TAG, "Posted cancellation tray for job $jobId")
+  }
+
+  /** Intent that brings the already-running MainActivity back to the front. */
+  private fun openMainActivityPendingIntent(context: Context): PendingIntent {
+    val intent =
+      Intent(Intent.ACTION_MAIN).apply {
+        addCategory(Intent.CATEGORY_LAUNCHER)
+        setComponent(ComponentName(context.packageName, "${context.packageName}.MainActivity"))
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+      }
+    return PendingIntent.getActivity(
+      context,
+      "job-cancelled".hashCode(),
+      intent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
   }
 
   /**
