@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import { JobStatus, type JobDetail } from '@samona/types';
 import { subscribe } from '@/services/realtime';
 import { useJobCancellationStore } from '@/stores/job-cancellation';
-import { startCancellationVibration, stopCancellationVibration } from '../utils/cancellation-vibration';
+import { startCancellationVibration } from '../utils/cancellation-vibration';
 import { useSession } from './use-session';
 
 /**
