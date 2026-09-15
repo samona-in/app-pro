@@ -48,7 +48,23 @@ export function useJobCancellation() {
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsubscribe = subscribe('job:status', (detail: JobDetail) => {
-      if (detail.status !== JobStatus.CANCELLED || detail.cancelledBy !== 'customer') return;
+      // Gate on the *accepted* state, never the status alone: a CANCELLED
+      // event for a job the pro never accepted (only ever held a pending
+      // offer) must drop silently — the offer-holder's offer is removed by
+      // use-incoming-offers, and no alert/vibration/navigation should happen.
+      // The server stamps `acceptedAt` on sale/assignment and never clears it
+      // on cancel, so `acceptedAt != null` is the reliable "did the pro accept
+      // this job" discriminator.
+      if (detail.status !== JobStatus.CANCELLED) return;
+      if (detail.cancelledBy !== 'customer') return;
+      if (detail.acceptedAt == null) return;
+      if (isFirstOfEvent) {
+        // Req 3: don't gamble on the query-driven redirect alone. Whatever
+        // screen the pro is on, explicitly return to Home so the modal (which
+        // presents on Home) reliably appears.
+        router.replace('/home');
+        if (vibrationShouldPresent()) startCancellationVibration();
+      }
       void useJobCancellationStore.getState().raise({
         jobId: detail.id,
         cancelledAt: detail.cancelledAt ?? new Date().toISOString(),

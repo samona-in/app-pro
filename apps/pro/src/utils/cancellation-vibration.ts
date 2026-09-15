@@ -24,7 +24,7 @@ export const CANCELLED_VIBRATION_PATTERN = [
 
 export function startCancellationVibration(): void {
   if (Platform.OS === 'android') return;
-  Vibration.vibrate(CANCELLED_VIBRATION_PATTERN, false);
+  Vibration.vibrate(CANCELLED_VIBRATION_PATTERN, true);
 }
 
 export function stopCancellationVibration(): void {

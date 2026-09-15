@@ -20,9 +20,10 @@ private const val PULSES = 12
  * tray entry. [clear] stops the now-misleading vibration and drops the tray
  * entry the moment the pro acknowledges.
  *
- * Vibration is deliberately finite: 12 short pulses over ~9.6s, never one long
- * uninterrupted buzz. The 10s cap is a cap on the *vibration*, not on the
- * alert — the JS modal stays up until the pro taps okay.
+ * The vibration is a short-pulse pattern — 12 × (600ms on / 200ms off) after
+ * an initial 0ms, never one long uninterrupted buzz — that *repeats* (repeat
+ * index 0) until the pro acknowledges. It stops only when [clear] runs (the
+ * acknowledged path); the JS modal stays up until the pro taps okay.
  */
 object JobAlertCancellation {
   private val VIBRATION_PATTERN: LongArray =
@@ -33,10 +34,10 @@ object JobAlertCancellation {
     val vibrator = vibrator(context)
     if (vibrator != null) {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        vibrator.vibrate(VibrationEffect.createWaveform(VIBRATION_PATTERN, -1))
+        vibrator.vibrate(VibrationEffect.createWaveform(VIBRATION_PATTERN, 0))
       } else {
         @Suppress("DEPRECATION")
-        vibrator.vibrate(VIBRATION_PATTERN, -1)
+        vibrator.vibrate(VIBRATION_PATTERN, 0)
       }
     }
     Log.i(JOB_ALERT_TAG, "Pulsing cancellation vibration for job $jobId")
