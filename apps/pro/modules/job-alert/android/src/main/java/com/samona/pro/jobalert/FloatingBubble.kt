@@ -119,8 +119,10 @@ object FloatingBubble {
 
     val view = ImageView(context).apply {
       setImageDrawable(context.packageManager.getApplicationIcon(context.packageName))
-      scaleType = ImageView.ScaleType.FIT_CENTER
-      setPadding(dp(12), dp(12), dp(12), dp(12))
+      // Fill the whole bubble with the icon and clip it to a circle using the
+      // oval background's outline, so the image covers the disc edge to edge.
+      scaleType = ImageView.ScaleType.CENTER_CROP
+      clipToOutline = true
       background =
         GradientDrawable().apply {
           shape = GradientDrawable.OVAL
