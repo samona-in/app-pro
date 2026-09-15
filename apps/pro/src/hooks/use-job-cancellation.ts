@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
-import * as Role from 'expo-role';
+import { useRouter } from 'expo-router';
 import { JobStatus, type JobDetail } from '@samona/types';
 import { subscribe } from '@/services/realtime';
 import { useJobCancellationStore } from '@/stores/job-cancellation';
@@ -30,6 +30,10 @@ export function useJobCancellation() {
   const { isAuthenticated } = useSession();
   const router = useRouter();
 
+  // Rehydrate on mount and whenever the app returns to the foreground — a
+  // cancellation raised by the FCM path (screen off, killed, socket down) must
+  // not be lost. Rehydrate never re-vibrates: the native side already presented
+  // it at delivery.
   useEffect(() => {
     void useJobCancellationStore.getState().rehydrateFromNative();
     const subscription = AppState.addEventListener('change', (state) => {
@@ -40,6 +44,9 @@ export function useJobCancellation() {
     return () => subscription.remove();
   }, []);
 
+  // Realtime. Subscribed once authenticated for the same reason as the offers
+  // hook: the socket connects on auth, so a listener attached earlier would
+  // live on a socket that gets torn down and recreated.
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsubscribe = subscribe('job:status', (detail: JobDetail) => {
@@ -66,4 +73,13 @@ export function useJobCancellation() {
     });
     return unsubscribe;
   }, [isAuthenticated]);
+}
+/**
+ * Mounted once by the root providers (as JSX, like {@link IncomingOffersSync})
+ * to feed the unacknowledged customer-cancellation collection for the whole
+ * signed-in app. Rendering-null: every effect lives in the hook.
+ */
+export function JobCancellationSync() {
+  useJobCancellation();
+  return null;
 }
