@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { usePathname, useRouter } from 'expo-router';
 import { isActiveJobStatus, JobStatus, type AvailableJob, type JobDetail } from '@samona/types';
 import { subscribe } from '@/services/realtime';
-import { clearNativeJobAlert, setOverlaySuppressed } from '@/services/overlay-alert';
+import { setOverlaySuppressed } from '@/services/overlay-alert';
 import {
   toPendingOfferFromAvailableJob,
   toPendingOfferFromPushData,
@@ -85,7 +85,11 @@ export function useIncomingOffers() {
     void setOverlaySuppressed(pathname === '/incoming-jobs');
   }, [pathname]);
 
-  // Realtime: live offers upsert, terminal states drop the matching offer.
+  // Realtime: live offers upsert, terminal states drop the matching offer, and
+  // a `job:offer:ended` (the server confirming this pro declined it) drops the
+  // offer too — covering the native overlay's token-native decline, which never
+  // launches the app and therefore has no other JS-side signal. Each removal
+  // funnels through the store, which also clears the native alert.
   //
   // Subscribed only once authenticated. The socket connects from the auth
   // provider when the session is restored, so listeners registered before that
@@ -102,8 +106,10 @@ export function useIncomingOffers() {
       subscribe('job:status', (detail: JobDetail) => {
         if (UNAVAILABLE_STATUSES.has(detail.status)) {
           useIncomingOffersStore.getState().remove(detail.id);
-          void clearNativeJobAlert(detail.id);
         }
+      }),
+      subscribe('job:offer:ended', ({ jobId }: { jobId: string }) => {
+        useIncomingOffersStore.getState().remove(jobId);
       }),
     ];
     return () => {
@@ -138,10 +144,8 @@ export function useIncomingOffers() {
   useEffect(() => {
     if (!hasActiveJob) return;
     const state = useIncomingOffersStore.getState();
-    const jobIds = Object.keys(state.offersById);
-    if (jobIds.length === 0) return;
+    if (Object.keys(state.offersById).length === 0) return;
     state.clearAll();
-    for (const jobId of jobIds) void clearNativeJobAlert(jobId);
   }, [hasActiveJob]);
 
   // Auto-present the combined incoming-jobs screen on a 0 → N transition for a

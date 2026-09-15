@@ -23,6 +23,11 @@ import {
  *  - `upsert()` is fed by the realtime `job:new`/`job:status` handlers and the
  *    foreground push fallback for non-native surfaces.
  *
+ * Removing an offer through `remove()`/`clearAll()` also clears its native
+ * alert, so a decline accepted on any surface — the incoming-jobs screen, the
+ * no-token deep link, or a realtime `job:offer:ended`/terminal event — drops
+ * the job everywhere at once instead of leaving a stale copy behind.
+ *
  * `tick()` advances `now` once a second so countdowns re-render, and prunes
  * offers whose offer window (or job expiry) has passed — dropping them from
  * native storage too.
@@ -194,10 +199,21 @@ export const useIncomingOffersStore = create<IncomingOffersState>((set, get) => 
       for (const [id, offer] of Object.entries(state.offersById)) {
         if (id !== jobId) rest[id] = offer;
       }
+      // One removal path: dropping an offer also clears its native alert, so
+      // every surface (screen list, sidebar, badge, native overlay/ring) that
+      // reads this store converges. The native clear is best-effort and the
+      // removal is idempotent — a second `remove` for the same job is a no-op.
+      void clearNativeJobAlert(jobId);
       return { offersById: rest };
     }),
 
-  clearAll: () => set({ offersById: {} }),
+  clearAll: () =>
+    set((state) => {
+      const jobIds = Object.keys(state.offersById);
+      if (jobIds.length === 0) return state;
+      for (const jobId of jobIds) void clearNativeJobAlert(jobId);
+      return { offersById: {} };
+    }),
 
   rehydrateFromNative: async () => {
     try {

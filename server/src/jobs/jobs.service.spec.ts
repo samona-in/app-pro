@@ -1134,8 +1134,10 @@ describe('createJobsService.rejectJobOffer', () => {
     const offerUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     const declineUpsert = jest.fn().mockResolvedValue({ id: 'decline-1' });
     const alertUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const proProfileFindUnique = jest.fn().mockResolvedValue({ userId: 'user-1' });
     const prisma = {
       jobOffer: { updateMany: offerUpdateMany },
+      proProfile: { findUnique: proProfileFindUnique },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
           jobDecline: { upsert: declineUpsert },
@@ -1143,17 +1145,18 @@ describe('createJobsService.rejectJobOffer', () => {
         }),
       ),
     };
+    const realtime = { emitToUser: jest.fn(), emitToUsers: jest.fn() };
 
     const jobs = createJobsService({
       prisma: prisma as never,
       storage: { jobImagePublicUrl: jest.fn() } as never,
       matching: { isProEligible: jest.fn() } as never,
-      realtime: { emitToUser: jest.fn(), emitToUsers: jest.fn() } as never,
+      realtime: realtime as never,
       notifications: { resolveJobAlerts: jest.fn() } as never,
       config: { jobOfferSecret: OFFER_SECRET, jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
-    return { jobs, prisma, offerUpdateMany, declineUpsert, alertUpdateMany };
+    return { jobs, prisma, realtime, offerUpdateMany, declineUpsert, alertUpdateMany };
   }
 
   it('consumes the offer, records a JobDecline and stops paging this pro', async () => {
@@ -1186,6 +1189,13 @@ describe('createJobsService.rejectJobOffer', () => {
       },
       data: { resolvedAt: expect.any(Date) },
     });
+    expect(ctx.prisma.proProfile.findUnique).toHaveBeenCalledWith({
+      where: { id: 'pro-1' },
+      select: { userId: true },
+    });
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledWith('user-1', 'job:offer:ended', {
+      jobId: 'job-1',
+    });
   });
 
   it('is idempotent for a replayed token: resolves the decline but settles only the first act', async () => {
@@ -1217,11 +1227,12 @@ describe('createJobsService.rejectJobOffer', () => {
       'This offer belongs to another device.',
     );
     expect(ctx.offerUpdateMany).not.toHaveBeenCalled();
+    expect(ctx.realtime.emitToUser).not.toHaveBeenCalled();
   });
 });
 
 describe('createJobsService.declineJob', () => {
-  const pro = { id: 'pro-1', latitude: 12.9716, longitude: 77.5946 };
+  const pro = { id: 'pro-1', userId: 'user-1', latitude: 12.9716, longitude: 77.5946 };
 
   function buildDecline() {
     const storage = {
@@ -1232,6 +1243,7 @@ describe('createJobsService.declineJob', () => {
     const jobFindFirst = jest.fn().mockResolvedValue({ id: 'job-1' });
     const declineUpsert = jest.fn().mockResolvedValue({ id: 'decline-1' });
     const alertUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const realtime = { emitToUser: jest.fn(), emitToUsers: jest.fn() };
 
     const prisma = {
       proProfile: { findUnique: proProfileFindUnique },
@@ -1248,13 +1260,14 @@ describe('createJobsService.declineJob', () => {
     const jobs = createJobsService({
       prisma: prisma as never,
       storage: storage as never,
+      realtime: realtime as never,
       config: { jobExpireTtlMs: 30 * 60_000 } as never,
     } as never);
 
-    return { jobs, prisma, declineUpsert, alertUpdateMany, storage };
+    return { jobs, prisma, realtime, declineUpsert, alertUpdateMany, storage };
   }
 
-  it('records the decline and resolves the pro’s own job-alert rows', async () => {
+  it('records the decline, resolves the pro’s own job-alert rows and resolves the offer', async () => {
     const ctx = buildDecline();
 
     await ctx.jobs.declineJob('user-1', 'job-1');
@@ -1267,6 +1280,9 @@ describe('createJobsService.declineJob', () => {
     expect(ctx.alertUpdateMany).toHaveBeenCalledWith({
       where: { jobId: 'job-1', proId: 'pro-1', kind: NotificationKind.JOB_ALERT, resolvedAt: null },
       data: { resolvedAt: expect.any(Date) },
+    });
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledWith('user-1', 'job:offer:ended', {
+      jobId: 'job-1',
     });
   });
 
@@ -1281,6 +1297,7 @@ describe('createJobsService.declineJob', () => {
     expect(ctx.declineUpsert).toHaveBeenLastCalledWith(
       expect.objectContaining({ where: { jobId_proId: { jobId: 'job-1', proId: 'pro-1' } } }),
     );
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(2);
   });
 
   it('404s when the request is no longer open', async () => {
@@ -1561,25 +1578,23 @@ describe('createJobsService.verifyStart', () => {
   function buildVerify() {
     const jobFindFirst = jest.fn().mockResolvedValue(arrivedRow);
     const historyCreate = jest.fn().mockResolvedValue({});
-    const jobUpdate = jest
-      .fn()
-      .mockImplementation(
-        async (args: {
-          data: {
-            status?: JobStatus;
-            verificationOtp?: string | null;
-            startOtpAttempts?: number | { increment: number };
-          };
-        }) => ({
-          ...arrivedRow,
-          status: args.data.status ?? arrivedRow.status,
-          verificationOtp: args.data.verificationOtp ?? arrivedRow.verificationOtp,
-          startOtpAttempts:
-            typeof args.data.startOtpAttempts === 'number'
-              ? args.data.startOtpAttempts
-              : args.data.startOtpAttempts?.increment ?? 0,
-        }),
-      );
+    const jobUpdate = jest.fn().mockImplementation(
+      async (args: {
+        data: {
+          status?: JobStatus;
+          verificationOtp?: string | null;
+          startOtpAttempts?: number | { increment: number };
+        };
+      }) => ({
+        ...arrivedRow,
+        status: args.data.status ?? arrivedRow.status,
+        verificationOtp: args.data.verificationOtp ?? arrivedRow.verificationOtp,
+        startOtpAttempts:
+          typeof args.data.startOtpAttempts === 'number'
+            ? args.data.startOtpAttempts
+            : (args.data.startOtpAttempts?.increment ?? 0),
+      }),
+    );
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
     const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
     const jobUpdateNoTx = jest.fn().mockResolvedValue(undefined);
@@ -1602,7 +1617,9 @@ describe('createJobsService.verifyStart', () => {
     };
     const reset = jest.fn().mockResolvedValue(undefined);
     const recordFailure = jest.fn().mockResolvedValue({ locked: false, retryAfterSeconds: 0 });
-    const check = jest.fn().mockResolvedValue({ locked: false, retryAfterSeconds: 0, attemptsRemaining: 5 });
+    const check = jest
+      .fn()
+      .mockResolvedValue({ locked: false, retryAfterSeconds: 0, attemptsRemaining: 5 });
     const startOtpGuard = { check, recordFailure, reset };
 
     const jobs = createJobsService({
@@ -1749,7 +1766,11 @@ describe('createJobsService.collectCashForPro', () => {
       },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
-          job: { findFirst: jobFindFirst, update: jobUpdate, findFirstOrThrow: jobFindFirstOrThrow },
+          job: {
+            findFirst: jobFindFirst,
+            update: jobUpdate,
+            findFirstOrThrow: jobFindFirstOrThrow,
+          },
           jobStatusHistory: { create: historyCreate },
           proProfile: { update: proProfileUpdate },
         }),
@@ -1890,7 +1911,13 @@ describe('createJobsService.cancelJob', () => {
     finalPayPaise: 15_000,
     verificationOtp: '1234',
     customer: { userId: 'cust-user-1', displayName: 'Cust', profile: { phone: null } },
-    pro: { id: 'pro-1', userId: 'user-1', displayName: 'Pro', rating: null, profile: { phone: null } },
+    pro: {
+      id: 'pro-1',
+      userId: 'user-1',
+      displayName: 'Pro',
+      rating: null,
+      profile: { phone: null },
+    },
   };
 
   function buildCancel() {
@@ -1911,9 +1938,11 @@ describe('createJobsService.cancelJob', () => {
       job: { findUnique: jobFindUnique, update: jobUpdate },
       jobStatusHistory: { create: historyCreate },
       proProfile: { findUnique: jest.fn().mockResolvedValue({ isOnline: false }) },
-      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
-        fn({ job: { update: jobUpdate }, jobStatusHistory: { create: historyCreate } }),
-      ),
+      $transaction: jest
+        .fn()
+        .mockImplementation(async (fn: (tx: unknown) => unknown) =>
+          fn({ job: { update: jobUpdate }, jobStatusHistory: { create: historyCreate } }),
+        ),
     };
 
     const realtime = { emitToUser: jest.fn(), emitToUsers: jest.fn() };
@@ -1985,7 +2014,9 @@ describe('createJobsService.cancelJob', () => {
 
     const result = await ctx.jobs.cancelJob('user-1', 'job-1');
 
-    expect(result).toMatchObject({ detail: expect.objectContaining({ status: JobStatus.CANCELLED }) });
+    expect(result).toMatchObject({
+      detail: expect.objectContaining({ status: JobStatus.CANCELLED }),
+    });
     expect(ctx.recordCustomerNotification).toHaveBeenCalled();
     expect(ctx.sendCustomerPush).toHaveBeenCalledWith({
       userId: 'cust-user-1',

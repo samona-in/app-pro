@@ -61,6 +61,14 @@ export const REALTIME_EVENTS = {
    * screen. REST (`GET /notifications`) remains the source of truth.
    */
   NOTIFICATION_UNREAD: 'notification:unread',
+  /**
+   * An open-job offer ended for the recipient pro because they declined it —
+   * either an explicit tap in the app or a reject via the signed offer token.
+   * Payload: `{ jobId }`. This lets the pending-offer UI drop the job the
+   * moment a decline is recorded, so the tray and the incoming-jobs screen
+   * agree without waiting for the offer window to close.
+   */
+  JOB_OFFER_ENDED: 'job:offer:ended',
 } as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];

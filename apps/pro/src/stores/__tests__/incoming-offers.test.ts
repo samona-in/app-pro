@@ -1,9 +1,18 @@
 import {
   offerRemainingFraction,
   toPendingOfferFromAvailableJob,
+  useIncomingOffersStore,
   type PendingOffer,
 } from '../incoming-offers';
 import { JobStatus, type AvailableJob } from '@samona/types';
+import { clearNativeJobAlert } from '@/services/overlay-alert';
+
+jest.mock('@/services/overlay-alert', () => ({
+  clearNativeJobAlert: jest.fn().mockResolvedValue(undefined),
+  getPendingNativeJobs: jest.fn().mockResolvedValue([]),
+}));
+
+const mockClearNativeJobAlert = clearNativeJobAlert as jest.Mock;
 
 function offer(partial: Partial<PendingOffer>): PendingOffer {
   return {
@@ -103,5 +112,53 @@ describe('toPendingOfferFromAvailableJob', () => {
     const deadline = Date.parse(expiresAt);
     const now = received + (deadline - received) / 2;
     expect(offerRemainingFraction(offer, now)).toBeCloseTo(0.5);
+  });
+});
+
+describe('useIncomingOffersStore removal cascade', () => {
+  function seed(ids: string[]): void {
+    useIncomingOffersStore.setState({
+      offersById: Object.fromEntries(ids.map((jobId) => [jobId, offer({ jobId })])),
+    });
+  }
+
+  beforeEach(() => {
+    useIncomingOffersStore.setState({ offersById: {} });
+    mockClearNativeJobAlert.mockReset();
+  });
+
+  it('remove drops the offer and its native alert, leaving the rest', () => {
+    seed(['job-1', 'job-2']);
+
+    useIncomingOffersStore.getState().remove('job-1');
+
+    expect(Object.keys(useIncomingOffersStore.getState().offersById)).toEqual(['job-2']);
+    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-1');
+  });
+
+  it('remove is an idempotent no-op for an unknown job', () => {
+    seed(['job-1']);
+
+    useIncomingOffersStore.getState().remove('job-nope');
+
+    expect(Object.keys(useIncomingOffersStore.getState().offersById)).toEqual(['job-1']);
+    expect(mockClearNativeJobAlert).not.toHaveBeenCalled();
+  });
+
+  it('clearAll empties the store and clears every native alert', () => {
+    seed(['job-1', 'job-2', 'job-3']);
+
+    useIncomingOffersStore.getState().clearAll();
+
+    expect(useIncomingOffersStore.getState().offersById).toEqual({});
+    expect(mockClearNativeJobAlert).toHaveBeenNthCalledWith(1, 'job-1');
+    expect(mockClearNativeJobAlert).toHaveBeenNthCalledWith(2, 'job-2');
+    expect(mockClearNativeJobAlert).toHaveBeenNthCalledWith(3, 'job-3');
+  });
+
+  it('clearAll is a no-op when the store is already empty', () => {
+    useIncomingOffersStore.getState().clearAll();
+
+    expect(mockClearNativeJobAlert).not.toHaveBeenCalled();
   });
 });

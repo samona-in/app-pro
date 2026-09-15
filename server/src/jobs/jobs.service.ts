@@ -16,13 +16,7 @@ import type { RealtimeService } from '../realtime/gateway';
 import { REALTIME_EVENTS } from '../realtime/gateway';
 import type { MatchingService } from '../matching/matching.service';
 import type { AppConfig } from '../config';
-import {
-  badRequest,
-  notFound,
-  conflict,
-  forbidden,
-  createHttpError,
-} from '../common/errors';
+import { badRequest, notFound, conflict, forbidden, createHttpError } from '../common/errors';
 import { ApiErrorCode } from '@samona/types';
 import { distanceKm, etaMinutes } from '../common/geo';
 import { logger } from '../common/logger';
@@ -283,7 +277,7 @@ export function createJobsService(deps: JobsServiceDeps) {
   const findProByUserId = async (userId: string) => {
     const pro = await prisma.proProfile.findUnique({
       where: { userId },
-      select: { id: true, latitude: true, longitude: true },
+      select: { id: true, userId: true, latitude: true, longitude: true },
     });
     if (!pro) throw forbidden('No professional profile for this account.');
     return pro;
@@ -448,7 +442,9 @@ export function createJobsService(deps: JobsServiceDeps) {
       take: Math.max(1, Math.min(limit, 50)),
       include: jobDetailInclude,
     });
-    return rows.map((row) => toJobDetail(row as unknown as JobDetailRow, 'customer', storage, config));
+    return rows.map((row) =>
+      toJobDetail(row as unknown as JobDetailRow, 'customer', storage, config),
+    );
   }
 
   /** One of the caller's requests, or a 404 that hides whether it exists at all. */
@@ -589,7 +585,12 @@ export function createJobsService(deps: JobsServiceDeps) {
       });
     });
 
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config);
+    const customerDetail = toJobDetail(
+      updated as unknown as JobDetailRow,
+      'customer',
+      storage,
+      config,
+    );
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
     realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
     if (row.pro) realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, proDetail);
@@ -818,6 +819,11 @@ export function createJobsService(deps: JobsServiceDeps) {
         data: { resolvedAt: new Date() },
       });
     });
+
+    // Tell the pro's own devices the offer ended so the pending-offer UI drops
+    // it without waiting for the countdown to prune it. Purely a notification;
+    // the decline row above is the source of truth.
+    realtime.emitToUser(pro.userId, REALTIME_EVENTS.JOB_OFFER_ENDED, { jobId });
   }
 
   /**
@@ -958,7 +964,12 @@ export function createJobsService(deps: JobsServiceDeps) {
     proId: string,
   ): Promise<JobDetail> {
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config);
+    const customerDetail = toJobDetail(
+      updated as unknown as JobDetailRow,
+      'customer',
+      storage,
+      config,
+    );
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
@@ -1081,6 +1092,11 @@ export function createJobsService(deps: JobsServiceDeps) {
       data: { consumedAt: new Date(), outcome: 'REJECTED' },
     });
 
+    const pro = await prisma.proProfile.findUnique({
+      where: { id: offer.proId },
+      select: { userId: true },
+    });
+
     // Record the decline and resolve this pro's alert row so the scheduler
     // stops paging them for a job they have already turned down.
     await prisma.$transaction(async (tx) => {
@@ -1099,6 +1115,12 @@ export function createJobsService(deps: JobsServiceDeps) {
         data: { resolvedAt: new Date() },
       });
     });
+
+    // The token path only ever runs when the app is open; the reject was
+    // decided on the device that consumed it, but other surfaces (another
+    // device, or a screen still showing the offer) need the same nudge that
+    // the explicit `declineJob` path emits.
+    if (pro) realtime.emitToUser(pro.userId, REALTIME_EVENTS.JOB_OFFER_ENDED, { jobId });
   }
 
   /**
@@ -1159,7 +1181,9 @@ export function createJobsService(deps: JobsServiceDeps) {
             ? { latitude: row.latitude, longitude: row.longitude }
             : null;
         if (!jobPoint || !coordinates) {
-          throw badRequest('Your location is needed to confirm you have arrived. Please try again.');
+          throw badRequest(
+            'Your location is needed to confirm you have arrived. Please try again.',
+          );
         }
         const metres = distanceKm(coordinates, jobPoint) * 1000;
         if (metres > JOB_DEFAULTS.arrivalRadiusMeters) {
@@ -1198,7 +1222,12 @@ export function createJobsService(deps: JobsServiceDeps) {
     });
 
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config);
+    const customerDetail = toJobDetail(
+      updated as unknown as JobDetailRow,
+      'customer',
+      storage,
+      config,
+    );
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
@@ -1242,7 +1271,11 @@ export function createJobsService(deps: JobsServiceDeps) {
    * The code is never returned to the pro (pro view sets it null); the pro must
    * read it back from the customer and prove possession via `verifyStart`.
    */
-  async function issueStartOtp(proUserId: string, proId: string, jobId: string): Promise<JobDetail> {
+  async function issueStartOtp(
+    proUserId: string,
+    proId: string,
+    jobId: string,
+  ): Promise<JobDetail> {
     const { row, issued } = await prisma.$transaction(async (tx) => {
       const current = await tx.job.findFirst({
         where: { id: jobId, proId },
@@ -1277,7 +1310,10 @@ export function createJobsService(deps: JobsServiceDeps) {
           body: `Share the 4-digit code with ${row.pro?.displayName ?? 'your professional'} to start the work.`,
         });
       } catch (error) {
-        logger.error(`Failed to push the start-work code for job ${row.id} to the customer.`, error);
+        logger.error(
+          `Failed to push the start-work code for job ${row.id} to the customer.`,
+          error,
+        );
       }
       recordCustomerNotice(notifications, {
         customerId: row.customerId,
@@ -1340,7 +1376,9 @@ export function createJobsService(deps: JobsServiceDeps) {
         where: { id: current.id },
         data: { startOtpAttempts: { increment: 1 } },
       });
-      throw badRequest('That verification code is not correct. Check with the customer and try again.');
+      throw badRequest(
+        'That verification code is not correct. Check with the customer and try again.',
+      );
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -1371,7 +1409,12 @@ export function createJobsService(deps: JobsServiceDeps) {
     if (startOtpGuard) await startOtpGuard.reset(identifier);
 
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
-    const customerDetail = toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config);
+    const customerDetail = toJobDetail(
+      updated as unknown as JobDetailRow,
+      'customer',
+      storage,
+      config,
+    );
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
@@ -1551,7 +1594,12 @@ export function createJobsService(deps: JobsServiceDeps) {
 
       // Customer and every alerted pro should drop the dead request the instant
       // it expires, not wait for the next validation poll.
-      const customerDetail = toJobDetail(expired as unknown as JobDetailRow, 'customer', storage, config);
+      const customerDetail = toJobDetail(
+        expired as unknown as JobDetailRow,
+        'customer',
+        storage,
+        config,
+      );
       realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
       const alerted = await prisma.notification.findMany({

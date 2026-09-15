@@ -44,17 +44,6 @@ export function useToggleAvailability() {
   });
 }
 
-/** Accepts one open job. The server keeps the claim atomic. */
-export function useAcceptJob() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (jobId: string) => jobsApi.accept(jobId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-    },
-  });
-}
-
 /** Advances an assigned job through the on-site stages. */
 export function useTransitionJob() {
   const queryClient = useQueryClient();
@@ -92,8 +81,7 @@ export function useCancelJob() {
 export function useVerifyStart() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ jobId, code }: { jobId: string; code: string }) =>
-      jobsApi.verify(jobId, code),
+    mutationFn: ({ jobId, code }: { jobId: string; code: string }) => jobsApi.verify(jobId, code),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     },

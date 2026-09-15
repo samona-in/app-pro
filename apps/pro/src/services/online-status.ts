@@ -3,7 +3,6 @@ import { Alert, Linking, Platform } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
 import { env } from '@/env';
-import { jobNotificationService } from './job-notifications';
 import { api } from './api';
 import { checkDeviceReadiness, isDeviceReady } from './device-readiness-state';
 import {
@@ -282,8 +281,6 @@ export async function goOnline(token: string): Promise<AvailabilityResult> {
 
     connectSocket(token);
 
-    jobNotificationService.initialize();
-
     const patch = {
       isOnline: true,
       coordinates,
@@ -315,8 +312,6 @@ export async function goOffline(_token: string): Promise<AvailabilityResult> {
   setStatus('loading');
 
   try {
-    jobNotificationService.cleanup();
-
     const patch = { isOnline: false };
     await api.post('/pros/availability', patch);
 

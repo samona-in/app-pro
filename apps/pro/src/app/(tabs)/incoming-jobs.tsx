@@ -12,8 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Badge, Button, Card, Screen, Text } from '@/components/ui';
-import { clearNativeJobAlert } from '@/services/overlay-alert';
-import { jobsApi } from '@/services/jobs';
+import { offerActions } from '@/services/offer-actions';
 import {
   useIncomingOffersStore,
   offerDeadlineMs,
@@ -21,7 +20,6 @@ import {
   type PendingOffer,
 } from '@/stores/incoming-offers';
 import { queryKeys } from '@/constants';
-import { useAcceptJob } from '@/hooks';
 import { occupiedJobRoute } from '@/utils/job-routes';
 import { formatInr } from '@/utils/format';
 import { color } from '@/theme';
@@ -66,8 +64,6 @@ function nearestFirst(offersById: Record<string, PendingOffer>): PendingOffer[] 
  */
 export default function IncomingJobsScreen() {
   const queryClient = useQueryClient();
-  const acceptMutation = useAcceptJob();
-
   const offersById = useIncomingOffersStore((state) => state.offersById);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
@@ -141,11 +137,12 @@ export default function IncomingJobsScreen() {
     async (offer: PendingOffer): Promise<string | null> => {
       setBusyJobId(offer.jobId);
       try {
-        await acceptMutation.mutateAsync(offer.jobId);
-        const store = useIncomingOffersStore.getState();
-        const cleared = Object.keys(store.offersById);
-        store.clearAll();
-        for (const jobId of cleared) void clearNativeJobAlert(jobId);
+        const result = await offerActions.accept(offer.jobId);
+        if (result.status !== 'done') {
+          // A failed claim (taken / expired / offline) already dropped just
+          // this offer; the screen stays open for the rest.
+          return result.status === 'error' ? messageForAcceptError(result.error) : null;
+        }
         // Refresh the assigned-jobs cache so the money-owed rule can route, then
         // land on the just-accepted job (or its payment screen when cash is owed).
         await queryClient.refetchQueries({ queryKey: queryKeys.jobs.all });
@@ -153,31 +150,22 @@ export default function IncomingJobsScreen() {
         const occupied = occupiedJobRoute(jobs);
         router.replace(occupied ?? `/job/${offer.jobId}/active`);
         return null;
-      } catch (error) {
-        // The claim failed (taken by another pro, expired, offline): only this
-        // offer is lost, the screen stays open for the rest.
-        useIncomingOffersStore.getState().remove(offer.jobId);
-        void clearNativeJobAlert(offer.jobId);
-        return messageForAcceptError(error);
       } finally {
         setBusyJobId(null);
       }
     },
-    [acceptMutation, queryClient],
+    [queryClient],
   );
 
-  const handleDecline = useCallback((offer: PendingOffer) => {
+  const handleDecline = useCallback(async (offer: PendingOffer): Promise<string | null> => {
     setBusyJobId(offer.jobId);
-    void jobsApi
-      .decline(offer.jobId)
-      .catch(() => {
-        // Declining is idempotent server-side; leaving the offer is the goal.
-      })
-      .finally(() => {
-        useIncomingOffersStore.getState().remove(offer.jobId);
-        void clearNativeJobAlert(offer.jobId);
-        setBusyJobId(null);
-      });
+    try {
+      const result = await offerActions.decline(offer.jobId);
+      if (result.status === 'error') return "Couldn't decline. Try again.";
+      return null;
+    } finally {
+      setBusyJobId(null);
+    }
   }, []);
 
   return (
@@ -402,7 +390,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
   offer: PendingOffer;
   busy: boolean;
   onAccept: (offer: PendingOffer) => Promise<string | null>;
-  onDecline: (offer: PendingOffer) => void;
+  onDecline: (offer: PendingOffer) => Promise<string | null>;
 }) {
   const now = useIncomingOffersStore((state) => state.now);
   const [error, setError] = useState<string | null>(null);
@@ -471,7 +459,9 @@ const FocusedJobCard = memo(function FocusedJobCard({
               size="md"
               className="flex-1"
               disabled={busy}
-              onPress={() => onDecline(offer)}
+              onPress={() => {
+                void onDecline(offer).then((message) => setError(message));
+              }}
             />
             <Button
               variant="success"
