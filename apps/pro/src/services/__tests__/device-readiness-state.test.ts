@@ -3,11 +3,13 @@ import {
   checkDeviceReadiness,
   isDeviceReady,
   missingReadinessCount,
+  refreshDeviceReadiness,
   type DeviceReadiness,
 } from '../device-readiness-state';
 import { readPowerState } from '../device-readiness';
 import { isFullScreenIntentEnabled, isFullScreenIntentSupported } from '../full-screen-alert';
 import { isOverlayPermissionEnabled } from '../overlay-alert';
+import { reconcileFloatingBubble } from '../floating-bubble';
 
 jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn(),
@@ -24,6 +26,10 @@ jest.mock('../full-screen-alert', () => ({
 
 jest.mock('../overlay-alert', () => ({
   isOverlayPermissionEnabled: jest.fn(),
+}));
+
+jest.mock('../floating-bubble', () => ({
+  reconcileFloatingBubble: jest.fn(),
 }));
 
 const ALL_SET: DeviceReadiness = {
@@ -127,5 +133,16 @@ describe('checkDeviceReadiness on Android', () => {
     const result = await checkDeviceReadiness('android');
     expect(result.fullScreenAlertsEnabled).toBe(true);
     expect(isFullScreenIntentEnabled).not.toHaveBeenCalled();
+  });
+});
+
+describe('refreshDeviceReadiness', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('reconciles the floating bubble after each re-probe', async () => {
+    await refreshDeviceReadiness();
+    expect(reconcileFloatingBubble).toHaveBeenCalledTimes(1);
   });
 });
