@@ -145,6 +145,7 @@ type JobRow = {
   finalPayPaise: number | null;
   acceptedAt: Date | null;
   completedAt: Date | null;
+  cancelledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   service: Job['service'];
@@ -227,6 +228,12 @@ function toJobDetail(
     ...toJobDto(row, storage, config),
     acceptedAt: row.acceptedAt ? iso(row.acceptedAt) : null,
     completedAt: row.completedAt ? iso(row.completedAt) : null,
+    // Cancellation identity is stamped by the transition that produces it
+    // (`cancelJob`), so a detail read of an already-cancelled job can still
+    // answer "who cancelled" for the party it reaches. Non-cancelled reads
+    // default both to null.
+    cancelledAt: row.cancelledAt ? iso(row.cancelledAt) : null,
+    cancelledBy: null,
     distanceKm: null,
     estimatedEtaMinutes: null,
     // The start-work code is customer-only by design: it is never shipped to
@@ -585,6 +592,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       });
     });
 
+    const cancelledBy = actorIsCustomer ? ('customer' as const) : ('pro' as const);
     const customerDetail = toJobDetail(
       updated as unknown as JobDetailRow,
       'customer',
@@ -592,8 +600,16 @@ export function createJobsService(deps: JobsServiceDeps) {
       config,
     );
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
-    realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
-    if (row.pro) realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, proDetail);
+    realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, {
+      ...customerDetail,
+      cancelledBy,
+    });
+    if (row.pro) {
+      realtime.emitToUser(row.pro.userId, REALTIME_EVENTS.JOB_STATUS, {
+        ...proDetail,
+        cancelledBy,
+      });
+    }
 
     // When the pro backs out, the customer hears about it. A customer-initiated
     // cancellation is their own action — no own-notice — but the page already
@@ -613,6 +629,18 @@ export function createJobsService(deps: JobsServiceDeps) {
     // A cancelled job is no longer open; stop repeating its alert and page its
     // holders so their native overlay/sound/tray entry closes immediately.
     void notifications.resolveJobAlerts(jobId, 'CANCELLED');
+
+    // The assigned pro never holds an open offer alert, so the terminal push
+    // above can never reach them. A customer-initiated cancellation must still
+    // alert them when their app process is dead or the screen is off — send a
+    // dedicated data push straight to the assigned pro.
+    if (actorIsCustomer && row.pro && updated.cancelledAt) {
+      void notifications.sendAssignedCancellationProPush(
+        row.pro.userId,
+        updated.id,
+        updated.cancelledAt,
+      );
+    }
 
     // If a pro was freed up by this cancellation, re-nudge them only with jobs
     // that arrived after they accepted the cancelled job (the ones they truly
@@ -866,6 +894,8 @@ export function createJobsService(deps: JobsServiceDeps) {
         ...toJobDto(row.job as unknown as JobRow, storage, config),
         acceptedAt: row.job.acceptedAt ? iso(row.job.acceptedAt) : null,
         completedAt: row.job.completedAt ? iso(row.job.completedAt) : null,
+        cancelledAt: row.job.cancelledAt ? iso(row.job.cancelledAt) : null,
+        cancelledBy: null,
         distanceKm: km,
         estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
         verificationOtp: null,

@@ -9,6 +9,7 @@ import com.google.firebase.messaging.RemoteMessage
 import expo.modules.notifications.service.ExpoFirebaseMessagingService
 
 private const val NEW_JOB_TYPE = "NEW_JOB"
+private const val ASSIGNED_CANCELLATION_TYPE = "JOB_CANCELLED_ASSIGNED"
 private val TERMINAL_JOB_DATA_TYPES = setOf("JOB_ACCEPTED", "JOB_CANCELLED", "JOB_EXPIRED")
 
 /**
@@ -75,6 +76,15 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
       return
     }
 
+    if (type == ASSIGNED_CANCELLATION_TYPE && !jobId.isNullOrBlank()) {
+      try {
+        handleAssignedCancellation(jobId, data["cancelledAt"].orEmpty())
+      } catch (t: Throwable) {
+        Log.e(JOB_ALERT_TAG, "Assigned-cancellation handling failed for $jobId", t)
+      }
+      return
+    }
+
     if (type in TERMINAL_JOB_DATA_TYPES && !jobId.isNullOrBlank()) {
       try {
         handleTerminal(jobId)
@@ -121,6 +131,20 @@ class JobAlertMessagingService : ExpoFirebaseMessagingService() {
     } else {
       Log.w(JOB_ALERT_TAG, "Notifications off — alert for $jobId only stored")
     }
+  }
+
+  private fun handleAssignedCancellation(jobId: String, cancelledAt: String) {
+    val store = AlertStore(this)
+    val isNew = store.setAssignmentCancellation(jobId, cancelledAt)
+    if (!isNew) {
+      // The socket already raised this cancellation in-process — the single
+      // alert rule: one vibration, one tray entry, one modal.
+      Log.i(JOB_ALERT_TAG, "Cancellation for job $jobId already raised — skipping push")
+      return
+    }
+    JobAlertCancellation.present(this, jobId)
+    AlertNotifications.postAssignmentCancellation(this, jobId)
+    Log.i(JOB_ALERT_TAG, "Raised cancellation alert for job $jobId")
   }
 
   private fun handleTerminal(jobId: String) {

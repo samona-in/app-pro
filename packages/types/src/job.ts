@@ -227,6 +227,19 @@ export interface JobDetail extends Job {
   acceptedAt: string | null;
   /** When the work was completed; null until it reaches a completed state. */
   completedAt: string | null;
+  /**
+   * When the job was cancelled; null until it leaves the flow via a
+   * cancellation. The client uses this (with `cancelledBy`) to tell a
+   * customer-initiated cancellation of an active job apart from any other
+   * terminal outcome.
+   */
+  cancelledAt: string | null;
+  /**
+   * Who cancelled: the customer or the assigned pro. Null until the job is
+   * cancelled. Derived from the actor on the status transition, never from a
+   * client claim.
+   */
+  cancelledBy: 'customer' | 'pro' | null;
 }
 
 /**

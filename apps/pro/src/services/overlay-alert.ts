@@ -43,6 +43,16 @@ export interface PendingNativeAction {
   action: 'accept' | 'decline';
 }
 
+/**
+ * A customer-initiated cancellation the native side recorded for a job the pro
+ * was assigned to. `cancelledAt` is the server-stamped ISO timestamp shared by
+ * the socket event and the FCM push, so both surfaces agree on one event.
+ */
+export interface NativeAssignedCancellation {
+  jobId: string;
+  cancelledAt: string;
+}
+
 interface OverlayAlertNativeModule {
   configure(apiUrl: string): Promise<boolean>;
   getDeviceId(): Promise<string>;
@@ -52,6 +62,13 @@ interface OverlayAlertNativeModule {
   setOverlaySuppressed(suppressed: boolean): Promise<boolean>;
   hasOverlayPermission(): Promise<boolean>;
   requestOverlayPermission(): Promise<boolean>;
+  presentCancellation(
+    jobId: string,
+    cancelledAt: string,
+    showNotification: boolean,
+  ): Promise<{ isNew: boolean }>;
+  getCancellations(): Promise<NativeAssignedCancellation[]>;
+  clearCancellation(jobId: string): Promise<boolean>;
 }
 
 /** The "already asked on this install" flag, so we never re-loop the settings sheet. */
@@ -174,6 +191,63 @@ export async function requestOverlayPermission(): Promise<boolean> {
     return await module.requestOverlayPermission();
   } catch {
     return false;
+  }
+}
+
+/**
+ * Records (if new) and presents a customer-initiated cancellation of an
+ * assigned job. Returns whether the native side had not already raised it
+ * (`isNew`) — the single deduplication anchor shared with the FCM push: the
+ * first venue (socket or push) wins, the other no-ops. The native side starts
+ * its finite repeating vibration on a new present; `showNotification` decides
+ * whether it also posts the silent heads-up tray (false on the foreground
+ * socket path — the JS modal is the foreground presentation).
+ *
+ * Android-only; resolves `{ isNew: false }` elsewhere or without the module.
+ */
+export async function presentNativeCancellation(
+  jobId: string,
+  cancelledAt: string,
+  showNotification: boolean,
+): Promise<{ isNew: boolean }> {
+  const module = getNativeModule();
+  if (!module || !jobId) return { isNew: false };
+  try {
+    return await module.presentCancellation(jobId, cancelledAt, showNotification);
+  } catch {
+    // Best-effort: without the native store the socket still drives the modal.
+    return { isNew: false };
+  }
+}
+
+/**
+ * The unacknowledged customer cancellations the native store persists. Rehydrated
+ * on mount and on every return to the active AppState, so an alert raised via a
+ * push the JS layer never saw (killed process, screen off) still surfaces.
+ */
+export async function getNativeCancellations(): Promise<NativeAssignedCancellation[]> {
+  const module = getNativeModule();
+  if (!module) return [];
+  try {
+    return await module.getCancellations();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Acknowledges a cancellation with the native side: stops the repeating
+ * vibration, drops the tray entry and clears the persisted record so the pro
+ * is never shown the same cancellation twice. Best-effort.
+ */
+export async function clearNativeCancellation(jobId: string): Promise<void> {
+  const module = getNativeModule();
+  if (!module || !jobId) return;
+  try {
+    await module.clearCancellation(jobId);
+  } catch {
+    // Best-effort: the modal still closes; the native record self-heals on the
+    // next terminal push or fresh-raise of the same job.
   }
 }
 

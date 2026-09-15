@@ -16,6 +16,28 @@ data class PendingAction(val jobId: String, val action: String, val offerToken: 
 }
 
 /**
+ * A customer-initiated cancellation of a job the pro was assigned to.
+ *
+ * The native side persists it purely so "did the pro acknowledge this yet?" has
+ * one cross-process source of truth: the socket while the app is alive and the
+ * FCM push while it is backgrounded/killed both funnel through this record, and
+ * whichever arrives first presents the single alert. `cancelledAt` is the
+ * server-stamped timestamp shared by both surfaces, so the two can agree on one
+ * logical (jobId, cancelledAt) event.
+ */
+data class AssignmentCancellation(val jobId: String, val cancelledAt: String) {
+  fun toJson(): JSONObject = JSONObject().put("jobId", jobId).put("cancelledAt", cancelledAt)
+
+  companion object {
+    fun fromJson(json: JSONObject): AssignmentCancellation {
+      val jobId = json.optString("jobId")
+      val cancelledAt = json.optString("cancelledAt")
+      return AssignmentCancellation(jobId, cancelledAt)
+    }
+  }
+}
+
+/**
  * Plain SharedPreferences store for native-side job alert state.
  *
  * Only non-sensitive metadata lives here: the job details the alert already
@@ -122,6 +144,43 @@ class AlertStore(context: Context) {
 
   fun isOnline(): Boolean = prefs.getBoolean(KEY_ONLINE, false)
 
+  /**
+   * Records that the customer cancelled an assigned job. Returns
+   * `true` when the cancellation is new (not yet acknowledged) and `false`
+   * when another venue already raised it — the single-alert deduplication
+   * anchor the presentation layers rely on.
+   */
+  fun setAssignmentCancellation(jobId: String, cancelledAt: String): Boolean {
+    val current = loadAssignmentCancellations()
+    val isNew = current.none { it.jobId == jobId }
+    if (isNew) {
+      persistAssignments(listOf(AssignmentCancellation(jobId, cancelledAt)) + current)
+    }
+    return isNew
+  }
+
+  fun loadAssignmentCancellations(): List<AssignmentCancellation> {
+    val raw = prefs.getString(KEY_ASSIGNED_CANCELLATIONS, null) ?: return emptyList()
+    return runCatching {
+      val array = JSONArray(raw)
+      (0 until array.length()).map { AssignmentCancellation.fromJson(array.getJSONObject(it)) }
+    }.getOrDefault(emptyList())
+  }
+
+  fun clearAssignmentCancellation(jobId: String) {
+    persistAssignments(loadAssignmentCancellations().filterNot { it.jobId == jobId })
+  }
+
+  fun clearAllAssignmentCancellations() {
+    persistAssignments(emptyList())
+  }
+
+  private fun persistAssignments(items: List<AssignmentCancellation>) {
+    val array = JSONArray()
+    items.forEach { array.put(it.toJson()) }
+    prefs.edit().putString(KEY_ASSIGNED_CANCELLATIONS, array.toString()).commit()
+  }
+
   private companion object {
     const val PREFS_NAME = "samona_job_alerts"
     const val KEY_JOBS = "pending_jobs"
@@ -129,5 +188,6 @@ class AlertStore(context: Context) {
     const val KEY_ONLINE = "online"
     const val KEY_DEVICE_ID = "device_id"
     const val KEY_API_URL = "api_url"
+    const val KEY_ASSIGNED_CANCELLATIONS = "assigned_cancellations"
   }
 }

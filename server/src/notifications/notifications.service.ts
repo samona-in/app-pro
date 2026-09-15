@@ -281,6 +281,26 @@ export function buildFcmTerminalMessage(
   return { data: { type, jobId } };
 }
 
+/**
+ * Data-only message telling the *assigned* pro's native side to raise a
+ * persistent "job cancelled by the customer" alert.
+ *
+ * Distinct from the `JOB_CANCELLED` terminal message: that one clears an open
+ * offer, whereas this one presents a cancellation the pro committed to. The
+ * `cancelledAt` timestamp (ISO) is the same value stamped on the job row and
+ * carried by the `job:status` socket event, so the two surfaces deduplicate to
+ * a single logical alert (one modal, one vibration).
+ */
+export function buildFcmAssignmentCancelMessage(
+  jobId: string,
+  cancelledAt: Date,
+): FcmMessagePayload {
+  return {
+    data: { type: 'JOB_CANCELLED_ASSIGNED', jobId, cancelledAt: cancelledAt.toISOString() },
+    android: { priority: 'high', collapseKey: jobId },
+  };
+}
+
 /** A persisted notification row, mapped to the client DTO. */
 type NotificationRow = {
   id: string;
@@ -494,6 +514,46 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     const result = await client.send(pushToken, buildFcmTerminalMessage(type, jobId));
     if (!result.ok) {
       logger.warn(`[Push] Terminal ${type} push for job ${jobId} was not delivered.`);
+    }
+  }
+
+  /**
+   * Data-only cancellation push to the pro *assigned* to a job just cancelled
+   * by its customer.
+   *
+   * The terminal push (`resolveJobAlerts`) only reaches pros still holding an
+   * open offer; a pro who already committed holds no alert, so they would never
+   * hear about the cancellation while their process is dead. This mirrors the
+   * same native FCM surface with the `JOB_CANCELLED_ASSIGNED` data type the
+   * native messaging service presents as a persistent alert. FCM-only (the
+   * native presentation is Android); resolves quietly when the pro has no token,
+   * uses non-FCM delivery, or FCM is unconfigured — the socket is still the
+   * source of truth while the app is alive.
+   */
+  async function sendAssignedCancellationProPush(
+    proUserId: string,
+    jobId: string,
+    cancelledAt: Date,
+  ): Promise<void> {
+    const pro = await prisma.proProfile.findUnique({
+      where: { userId: proUserId },
+      select: { pushToken: true, pushProvider: true },
+    });
+    if (!pro?.pushToken || pushProviderOf(pro) !== 'FCM') return;
+    const client = getFcmClient();
+    if (!client) {
+      logger.warn(
+        '[Push] FCM is not configured — skipping assigned-cancellation push for job ' +
+          `${jobId}.`,
+      );
+      return;
+    }
+    const result = await client.send(
+      pro.pushToken,
+      buildFcmAssignmentCancelMessage(jobId, cancelledAt),
+    );
+    if (!result.ok) {
+      logger.warn(`[Push] Assigned-cancellation push for job ${jobId} was not delivered.`);
     }
   }
 
@@ -1327,6 +1387,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   return {
     alertEligiblePros,
     resolveJobAlerts,
+    sendAssignedCancellationProPush,
     listForPro,
     recordCustomerNotification,
     listForCustomer,

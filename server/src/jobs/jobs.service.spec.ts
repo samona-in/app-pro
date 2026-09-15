@@ -1933,6 +1933,7 @@ describe('createJobsService.cancelJob', () => {
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
     const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
     const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
+    const sendAssignedCancellationProPush = jest.fn().mockResolvedValue(undefined);
 
     const prisma = {
       job: { findUnique: jobFindUnique, update: jobUpdate },
@@ -1953,6 +1954,7 @@ describe('createJobsService.cancelJob', () => {
       recordCustomerNotification,
       sendCustomerPush,
       resolveJobAlerts,
+      sendAssignedCancellationProPush,
     };
 
     const jobs = createJobsService({
@@ -1976,6 +1978,7 @@ describe('createJobsService.cancelJob', () => {
       recordCustomerNotification,
       sendCustomerPush,
       resolveJobAlerts,
+      sendAssignedCancellationProPush,
     };
   }
 
@@ -2005,6 +2008,26 @@ describe('createJobsService.cancelJob', () => {
     );
     // Both sides were told in realtime.
     expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(2);
+    // The cancellation's realtime payload names the actor so the pro's app can
+    // tell a customer walk-away from the pro's own cancel.
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledWith(
+      'user-1',
+      'job:status',
+      expect.objectContaining({
+        id: 'job-1',
+        status: JobStatus.CANCELLED,
+        cancelledBy: 'customer',
+        cancelledAt: expect.any(String),
+      }),
+    );
+    // The pro is not holding an offer alert (they already accepted), so the
+    // assigned pro is paged directly and the terminal resolve is untouched.
+    expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'CANCELLED');
+    expect(ctx.sendAssignedCancellationProPush).toHaveBeenCalledWith(
+      'user-1',
+      'job-1',
+      expect.any(Date),
+    );
     // The customer cancelling is their own act — no customer notice.
     expect(ctx.recordCustomerNotification).not.toHaveBeenCalled();
   });
@@ -2026,6 +2049,9 @@ describe('createJobsService.cancelJob', () => {
       type: 'JOB_STATUS',
     });
     expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'CANCELLED');
+    // The pro initiated the cancel — no self-notice; the assigned-pro push is
+    // only for cancellations the customer performs.
+    expect(ctx.sendAssignedCancellationProPush).not.toHaveBeenCalled();
   });
 
   it('blocks cancellation once the work has started, for both sides', async () => {

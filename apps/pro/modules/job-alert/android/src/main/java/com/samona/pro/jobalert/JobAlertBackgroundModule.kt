@@ -127,6 +127,70 @@ class JobAlertBackgroundModule : Module() {
     }
 
     /**
+     * Records (if new) and presents a customer-initiated cancellation of an
+     * assigned job: the repeating cancellation vibration and, when
+     * [showNotification] is set, the silent heads-up tray. Returns
+     * `{ isNew }` — false when the socket already raised this exact
+     * cancellation in-process, which is how the two surfaces deduplicate to a
+     * single alert. The JS caller decides [showNotification] (foreground socket
+     * path passes false; the JS modal is the foreground presentation).
+     */
+    AsyncFunction("presentCancellation") {
+        jobId: String,
+        cancelledAt: String,
+        showNotification: Boolean,
+        promise: Promise,
+      ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(mapOf("isNew" to false))
+        return@AsyncFunction
+      }
+      val store = AlertStore(context)
+      val isNew = store.setAssignmentCancellation(jobId, cancelledAt)
+      if (isNew) {
+        JobAlertCancellation.present(context, jobId)
+        if (showNotification) AlertNotifications.postAssignmentCancellation(context, jobId)
+      }
+      promise.resolve(mapOf("isNew" to isNew))
+    }
+
+    /**
+     * The unacknowledged customer cancellations native has recorded, newest
+     * first. The JS layer rehydrates from here on mount and on every return to
+     * the active AppState, so an alert raised while the process was alive
+     * elsewhere (or delivered via a push the JS layer never saw) still surfaces.
+     */
+    AsyncFunction("getCancellations") { promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(emptyList<Map<String, Any?>>())
+        return@AsyncFunction
+      }
+      promise.resolve(
+        AlertStore(context)
+          .loadAssignmentCancellations()
+          .map { mapOf("jobId" to it.jobId, "cancelledAt" to it.cancelledAt) },
+      )
+    }
+
+    /**
+     * Acknowledges the cancellation for [jobId]: stops the vibration, drops the
+     * tray entry and clears the native record so the pro is never shown the
+     * same cancellation twice.
+     */
+    AsyncFunction("clearCancellation") { jobId: String, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      JobAlertCancellation.clear(context, jobId)
+      AlertStore(context).clearAssignmentCancellation(jobId)
+      promise.resolve(true)
+    }
+
+    /**
      * Route-aware UI suppression. JS tells native whether the `incoming-jobs`
      * route is active: the floating banner (which that route already replaces)
      * is hidden while suppressed, but the offers stay and the ring keeps
