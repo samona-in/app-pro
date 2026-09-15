@@ -3,6 +3,7 @@ package com.samona.pro.jobalert
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
+import android.app.Application
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -34,8 +35,12 @@ import kotlin.math.roundToInt
  *
  * Native guards keep it honest:
  *  - [reconcile] is the single gate: the icon appears only when
- *    [AlertStore.isOnline] and the overlay permission are both true — so a
- *    grant while online shows it and a revocation hides it, no duplication;
+ *    [AlertStore.isOnline], the overlay permission, and the app being off-screen
+ *    ([AppForeground] follows the activity start/stop lifecycle) are all true —
+ *    so the Samona app and the floating icon are never visible at the same time,
+ *    and a grant while online shows it while a revocation hides it;
+ *  - a tap hides the icon *before* the app opens, so nothing overlaps the open
+ *    transition, and the icon returns automatically on the next onStop;
  *  - exactly one window exists at a time (`lock` + the live-view check);
  *  - the last resting position is persisted and re-clamped on-screen on restore.
  */
@@ -56,10 +61,13 @@ object FloatingBubble {
   private var lastY = 0
 
   /**
-   * Shows the bubble when the pro is online and has granted "display over other
-   * apps", and hides it otherwise. Idempotent and safe to call from any thread;
-   * off-thread calls hop to the main handler like the other window entry points
-   * in this package.
+   * Shows the bubble when the pro is online, has granted "display over other
+   * apps", **and** the app itself is off-screen, and hides it otherwise. This
+   * is the single gate, so a grant while online shows the icon, a revocation
+   * hides it, and an app start/stop transition shows or hides it — the app and
+   * the icon are never on screen at the same time. Idempotent and safe to call
+   * from any thread; off-thread calls hop to the main handler like the other
+   * window entry points in this package.
    */
   fun reconcile(context: Context) {
     if (Looper.myLooper() != Looper.getMainLooper()) {
@@ -68,7 +76,12 @@ object FloatingBubble {
       return
     }
     synchronized(lock) {
-      if (!AlertStore(context).isOnline() || !Settings.canDrawOverlays(context)) {
+      val application = context.applicationContext as? Application ?: return
+      // Keep the visibility sensor alive so the foreground gate is real;
+      // registration is idempotent and shared with the native services.
+      AppForeground.register(application)
+      val appVisible = AppForeground.isForeground
+      if (!AlertStore(context).isOnline() || !Settings.canDrawOverlays(context) || appVisible) {
         hideLocked()
         return
       }
@@ -256,9 +269,12 @@ object FloatingBubble {
   /**
    * Brings the app forward, preserving the existing single-task instance's
    * state. When the activity was swiped away (the online service keeps the
-   * process alive), this recreates it fresh.
+   * process alive), this recreates it fresh. The icon is dropped first so the
+   * app and the bubble never overlap — even mid open-transition; the app's
+   * onStart later reconciles the (now absent) icon back to hidden.
    */
   private fun openApp(context: Context) {
+    hideAll()
     val intent =
       Intent(Intent.ACTION_MAIN)
         .setComponent(ComponentName(context.packageName, "${context.packageName}.MainActivity"))

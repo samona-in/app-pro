@@ -8,12 +8,15 @@ import { requireNativeModule } from 'expo-modules-core';
  * The icon is owned by the native online foreground service, whose lifecycle is
  * already driven by the online mirror in `foreground-service.ts` — start on
  * `online`, stop on `offline`/sign-out. This module only *reconciles* it after
- * the overlay permission may have changed: the icon lives above other apps only
- * when the pro is online AND has granted "display over other apps", and the
- * native gate re-checks both on every reconciliation (app foreground,
- * device-setup "Check again"). A grant while online brings the icon up
- * immediately; a revocation takes it down — without ever looping the permission
- * screen.
+ * the overlay permission may have changed. The native gate shows the icon only
+ * while the pro is online AND has granted "display over other apps" AND the
+ * app itself is off-screen (the Android activity lifecycle), so SAMONA and the
+ * floating icon are never visible at the same time: the icon disappears the
+ * moment the app becomes visible and returns the moment it leaves the screen.
+ * Reconcile runs after every overlay-permission probe (app foreground,
+ * device-setup "Check again"), so a grant while online brings the icon up
+ * immediately and a revocation takes it down — without ever looping the
+ * permission screen.
  *
  * Every function degrades to a safe no-op when the native side is absent
  * (non-Android, or a stale APK that never bundled the module).
