@@ -32,6 +32,8 @@ export interface RealtimeEventMap {
   'message:read': MessageReceiptUpdate;
   /** A job thread's unread count changed for the pro's surface. Payload: MessageUnreadUpdate. */
   'message:unread': MessageUnreadUpdate;
+  /** The pro declined a pending offer (explicit tap or via an offer token). Payload: { jobId }. */
+  'job:offer:ended': { jobId: string };
 }
 type RealtimeEvent = keyof RealtimeEventMap;
 

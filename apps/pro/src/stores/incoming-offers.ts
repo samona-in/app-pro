@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { JOB_DEFAULTS } from '@samona/config';
 import type { AvailableJob } from '@samona/types';
 import {
   clearNativeJobAlert,
@@ -23,6 +24,11 @@ import {
  *  - `upsert()` is fed by the realtime `job:new`/`job:status` handlers and the
  *    foreground push fallback for non-native surfaces.
  *
+ * Removing an offer through `remove()`/`clearAll()` also clears its native
+ * alert, so a decline accepted on any surface — the incoming-jobs screen, the
+ * no-token deep link, or a realtime `job:offer:ended`/terminal event — drops
+ * the job everywhere at once instead of leaving a stale copy behind.
+ *
  * `tick()` advances `now` once a second so countdowns re-render, and prunes
  * offers whose offer window (or job expiry) has passed — dropping them from
  * native storage too.
@@ -42,9 +48,9 @@ export interface PendingOffer {
   distanceMeters: number | null;
   /** Guaranteed amount, in paise. */
   amountPaise: number | null;
-  /** When the job stops being actionable (ISO); null when not set. */
+  /** Job-level expiry (ISO); never the offer countdown. */
   expiresAt: string | null;
-  /** When the single-use offer stops being redeemable (ISO); null when no token. */
+  /** When this offer stops being actionable (ISO) — the one countdown deadline. */
   offerExpiresAt: string | null;
   /** The signed offer token for this device; null without one. */
   jobOfferToken: string | null;
@@ -69,6 +75,25 @@ function mergeOffer(existing: PendingOffer, incoming: PendingOffer): PendingOffe
   };
 }
 
+/**
+ * Guarantees every offer carries one canonical offer window (`offerExpiresAt`).
+ *
+ * The minted single-use offer token window is authoritative and kept verbatim. A
+ * realtime `job:new` payload carries no minted token, so without this fallback
+ * the offer would render no ring, no remaining time and no "Expires in" chip. In
+ * that case the window is the default offer lifetime (`JOB_DEFAULTS.offerTtlMs`,
+ * the server's `JOB_OFFER_TTL_MS`) measured from when the offer first reached
+ * this pro (`receivedAt`). The job-level `expiresAt` is never used as an offer
+ * deadline. An already-established window is carried through unchanged, so
+ * duplicates, rerenders and navigation cannot reset a running countdown.
+ */
+function ensureOfferDeadline(offer: PendingOffer): PendingOffer {
+  const deadline =
+    offer.offerExpiresAt ??
+    new Date(offer.receivedAt + JOB_DEFAULTS.offerTtlMs).toISOString();
+  return { ...offer, offerExpiresAt: deadline };
+}
+
 /** An offer as persisted by the native AlertStore (rehydrated on foreground). */
 export function toPendingOfferFromNative(native: PendingNativeJob): PendingOffer {
   return {
@@ -79,14 +104,25 @@ export function toPendingOfferFromNative(native: PendingNativeJob): PendingOffer
     address: native.address,
     distanceMeters: native.distanceMeters ? Number(native.distanceMeters) || null : null,
     amountPaise: native.amountPaise ? Number(native.amountPaise) || null : null,
-    expiresAt: native.expiresAt,
+    // The native store's `expiresAt` is the job-level expiry, so it never
+    // becomes the offer window; `offerExpiresAt` is kept when a minted token
+    // exists (ensureOfferDeadline fills the default window otherwise).
+    expiresAt: null,
     offerExpiresAt: native.offerExpiresAt,
     jobOfferToken: native.jobOfferToken,
     receivedAt: native.receivedAt,
   };
 }
 
-/** An open job from the realtime `job:new` event. */
+/**
+ * An open job from the realtime `job:new` event.
+ *
+ * The payload carries no minted offer window (that exists only on the FCM push,
+ * where `offerExpiresAt` is attached), and its `expiresAt` is the job-level
+ * "stops being pageable" time, not the offer stay actionable. The store derives
+ * the offer deadline instead: `ensureOfferDeadline` applies the default offer
+ * window from this offer's arrival time.
+ */
 export function toPendingOfferFromAvailableJob(job: AvailableJob): PendingOffer {
   return {
     jobId: job.id,
@@ -99,7 +135,7 @@ export function toPendingOfferFromAvailableJob(job: AvailableJob): PendingOffer 
         ? Math.round(job.distanceKm * 1000)
         : null,
     amountPaise: job.basePayPaise,
-    expiresAt: job.expiresAt,
+    expiresAt: null,
     offerExpiresAt: null,
     jobOfferToken: null,
     receivedAt: Date.now(),
@@ -122,16 +158,23 @@ export function toPendingOfferFromPushData(data: Record<string, unknown>): Pendi
     address: str('address'),
     distanceMeters: dist,
     amountPaise: amount,
-    expiresAt: str('expiresAt'),
+    // The push's `expiresAt` is the job-level expiry, not the offer window; the
+    // store applies the default offer window from receipt when no minted token
+    // is present (see ensureOfferDeadline).
+    expiresAt: null,
     offerExpiresAt: str('offerExpiresAt'),
     jobOfferToken: str('jobOfferToken'),
     receivedAt: Date.now(),
   };
 }
 
-/** The deadline that ends an offer: the single-use token window, else job expiry. */
+/**
+ * The deadline that ends an offer — the canonical `offerExpiresAt` (the minted
+ * token window, else the default offer window from receipt). The job-level
+ * `expiresAt` is never an offer deadline.
+ */
 export function offerDeadlineMs(offer: PendingOffer): number | null {
-  const raw = offer.offerExpiresAt ?? offer.expiresAt;
+  const raw = offer.offerExpiresAt;
   if (!raw) return null;
   const parsed = Date.parse(raw);
   return Number.isNaN(parsed) ? null : parsed;
@@ -145,7 +188,7 @@ export function isOfferExpired(offer: PendingOffer, now: number): boolean {
 /**
  * Fraction of the offer window still remaining, from 1 (just received) down to
  * 0 (window closed) — the raw value a countdown ring draws. Uses the same
- * deadline as the expiry pruning (offer token window, else job expiry) and the
+ * deadline as the expiry pruning (the canonical offer window) and the
  * offer's own `receivedAt` as the window start, so the ring is driven by the
  * existing source of truth rather than a made-up timer. Returns `null` when
  * the offer carries no deadline (no countdown available).
@@ -179,10 +222,11 @@ export const useIncomingOffersStore = create<IncomingOffersState>((set, get) => 
   upsert: (offer) =>
     set((state) => {
       const existing = state.offersById[offer.jobId];
+      const merged = existing ? mergeOffer(existing, offer) : offer;
       return {
         offersById: {
           ...state.offersById,
-          [offer.jobId]: existing ? mergeOffer(existing, offer) : offer,
+          [offer.jobId]: ensureOfferDeadline(merged),
         },
       };
     }),
@@ -194,10 +238,21 @@ export const useIncomingOffersStore = create<IncomingOffersState>((set, get) => 
       for (const [id, offer] of Object.entries(state.offersById)) {
         if (id !== jobId) rest[id] = offer;
       }
+      // One removal path: dropping an offer also clears its native alert, so
+      // every surface (screen list, sidebar, badge, native overlay/ring) that
+      // reads this store converges. The native clear is best-effort and the
+      // removal is idempotent — a second `remove` for the same job is a no-op.
+      void clearNativeJobAlert(jobId);
       return { offersById: rest };
     }),
 
-  clearAll: () => set({ offersById: {} }),
+  clearAll: () =>
+    set((state) => {
+      const jobIds = Object.keys(state.offersById);
+      if (jobIds.length === 0) return state;
+      for (const jobId of jobIds) void clearNativeJobAlert(jobId);
+      return { offersById: {} };
+    }),
 
   rehydrateFromNative: async () => {
     try {
@@ -208,7 +263,7 @@ export const useIncomingOffersStore = create<IncomingOffersState>((set, get) => 
           const jobId = item.jobId;
           const incoming = toPendingOfferFromNative(item);
           const existing = next[jobId];
-          next[jobId] = existing ? mergeOffer(existing, incoming) : incoming;
+          next[jobId] = ensureOfferDeadline(existing ? mergeOffer(existing, incoming) : incoming);
         }
         const now = Date.now();
         for (const [jobId, offer] of Object.entries(next)) {

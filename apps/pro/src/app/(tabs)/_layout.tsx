@@ -11,7 +11,6 @@ import { LoadingState } from '@/components/feedback';
 import { useRealtimeSync, useSession, useUnreadMessages } from '@/hooks';
 import { useIncomingOffersStore } from '@/stores';
 import { initializeJobAlertService, stopJobAlertService } from '@/services/foreground-service';
-import { jobNotificationService } from '@/services/job-notifications';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -119,15 +118,12 @@ export default function TabsLayout() {
 
   // The foreground service mirrors the online status so a backgrounded pro
   // still receives pushes; signing out releases it even though the status store
-  // is never told to go offline on logout. The job-notification service rides
-  // the same signed-in lifetime for its realtime cleanup.
+  // is never told to go offline on logout.
   useEffect(() => {
     if (isAuthenticated && isOnboardingComplete) {
       initializeJobAlertService();
-      void jobNotificationService.initialize();
     } else {
       stopJobAlertService();
-      jobNotificationService.cleanup();
     }
   }, [isAuthenticated, isOnboardingComplete]);
 

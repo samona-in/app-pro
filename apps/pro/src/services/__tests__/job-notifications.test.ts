@@ -1,6 +1,7 @@
 import { JobStatus } from '@samona/types';
 import { clearNativeJobAlert, consumeNativePendingAction } from '../overlay-alert';
 import { jobNotificationService } from '../job-notifications';
+import { useIncomingOffersStore } from '@/stores/incoming-offers';
 import { api } from '@/services/api';
 
 const mockApiPost = api.post as jest.Mock;
@@ -16,107 +17,88 @@ jest.mock('../overlay-alert', () => ({
   consumeNativePendingAction: jest.fn().mockResolvedValue(null),
 }));
 
-type Handler = (payload: unknown) => void;
-const mockHandlers = new Map<string, Handler>();
-
-jest.mock('@/services/realtime', () => ({
-  subscribe: jest.fn((event: string, handler: Handler) => {
-    mockHandlers.set(event, handler);
-    return () => mockHandlers.delete(event);
-  }),
-}));
-
-function statusHandler(): Handler {
-  const handler = mockHandlers.get('job:status');
-  if (!handler) throw new Error('job:status handler was not registered');
-  return handler;
+function seedOffers(ids: string[]): void {
+  useIncomingOffersStore.setState({
+    offersById: Object.fromEntries(
+      ids.map((jobId) => [
+        jobId,
+        {
+          jobId,
+          title: 'Test job',
+          serviceName: 'Plumbing',
+          serviceCategory: null,
+          address: null,
+          distanceMeters: null,
+          amountPaise: null,
+          expiresAt: null,
+          offerExpiresAt: null,
+          jobOfferToken: null,
+          receivedAt: Date.now(),
+        },
+      ]),
+    ),
+  });
 }
 
-describe('jobNotificationService job:status cleanup', () => {
-  beforeEach(() => {
-    mockHandlers.clear();
-    mockClearNativeJobAlert.mockReset();
-    mockConsumeNativePendingAction.mockReset();
-    mockApiPost.mockReset();
-  });
-
-  afterEach(() => {
-    jobNotificationService.cleanup();
-  });
-
-  it('clears the native alert when realtime says a queued job was claimed', async () => {
-    await jobNotificationService.initialize();
-    statusHandler()({ id: 'job-1', status: JobStatus.ACCEPTED } as never);
-    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-1');
-  });
-
-  it('clears the native alert for a cancelled job', async () => {
-    await jobNotificationService.initialize();
-    statusHandler()({ id: 'job-2', status: JobStatus.CANCELLED } as never);
-    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-2');
-  });
-
-  it('ignores events for jobs that remain open', async () => {
-    await jobNotificationService.initialize();
-    statusHandler()({ id: 'job-3', status: JobStatus.REQUESTED } as never);
-    expect(mockClearNativeJobAlert).not.toHaveBeenCalled();
-  });
-
-  it('is idempotent across initialize/cleanup cycles', async () => {
-    await jobNotificationService.initialize();
-    await jobNotificationService.initialize();
-    expect(mockHandlers.get('job:status')).toBeDefined();
-
-    jobNotificationService.cleanup();
-    expect(mockHandlers.get('job:status')).toBeUndefined();
-
-    await jobNotificationService.initialize();
-    expect(mockHandlers.get('job:status')).toBeDefined();
-  });
-});
+function offerIds(): string[] {
+  return Object.keys(useIncomingOffersStore.getState().offersById);
+}
 
 describe('jobNotificationService native overlay action', () => {
   beforeEach(() => {
-    mockHandlers.clear();
+    useIncomingOffersStore.setState({ offersById: {} });
     mockClearNativeJobAlert.mockReset();
     mockConsumeNativePendingAction.mockReset();
     mockApiPost.mockReset();
   });
 
-  afterEach(() => {
-    jobNotificationService.cleanup();
-  });
-
-  it('accepts the job with the secured token and clears the native alert', async () => {
+  it('accepts the job and clears the whole pending collection', async () => {
+    seedOffers(['job-1', 'job-2']);
     mockApiPost.mockResolvedValue({ id: 'job-1', status: JobStatus.ACCEPTED });
 
     await jobNotificationService.resolveNativePendingAction('job-1', 'accept');
 
     expect(mockConsumeNativePendingAction).toHaveBeenCalled();
     expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-1/accept', {});
+    expect(offerIds()).toEqual([]);
     expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-1');
   });
 
-  it('records a decline and drops the native alert', async () => {
+  it('records a decline and drops the offer from every surface', async () => {
+    seedOffers(['job-1', 'job-2']);
     mockApiPost.mockResolvedValue(undefined);
 
-    await jobNotificationService.resolveNativePendingAction('job-2', 'decline');
+    await jobNotificationService.resolveNativePendingAction('job-1', 'decline');
 
     expect(mockConsumeNativePendingAction).toHaveBeenCalled();
-    expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-2/decline', {});
-    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-2');
+    expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-1/decline', {});
+    expect(offerIds()).toEqual(['job-2']);
+    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-1');
   });
 
-  it('clears the native alert even when the accept fails', async () => {
+  it('still clears the native alert and drops an unclaimable offer when the accept fails', async () => {
+    seedOffers(['job-1']);
     mockApiPost.mockRejectedValue(new Error('transition not allowed'));
 
-    await jobNotificationService.resolveNativePendingAction('job-3', 'accept');
+    await jobNotificationService.resolveNativePendingAction('job-1', 'accept');
 
-    expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-3/accept', {});
-    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-3');
+    expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-1/accept', {});
+    expect(offerIds()).toEqual([]);
+    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-1');
+  });
+
+  it('keeps the offer when a deep-linked decline fails', async () => {
+    seedOffers(['job-1']);
+    mockApiPost.mockRejectedValue(new Error('connection lost'));
+
+    await jobNotificationService.resolveNativePendingAction('job-1', 'decline');
+
+    expect(offerIds()).toEqual(['job-1']);
+    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-1');
   });
 
   it('executes the action even when no recorded choice was left to consume', async () => {
+    seedOffers(['job-4']);
     mockConsumeNativePendingAction.mockResolvedValue(null);
     mockApiPost.mockResolvedValue(undefined);
 
@@ -124,6 +106,6 @@ describe('jobNotificationService native overlay action', () => {
 
     expect(mockConsumeNativePendingAction).toHaveBeenCalled();
     expect(mockApiPost).toHaveBeenCalledWith('/jobs/job-4/accept', {});
-    expect(mockClearNativeJobAlert).toHaveBeenCalledWith('job-4');
+    expect(offerIds()).toEqual([]);
   });
 });

@@ -8,7 +8,6 @@ export { useSubmitGuard } from './use-submit-guard';
 export { useUploadSelfie } from './use-selfie';
 export { useUploadAvatar } from './use-avatar';
 export {
-  useAcceptJob,
   useCancelJob,
   useCollectCash,
   useJobHistory,
