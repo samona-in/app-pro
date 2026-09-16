@@ -607,12 +607,17 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
    * Persists (or re-arms) one pro's job-alert row. The row is the record of an
    * offer — the "past jobs" list is built from it — so it is written whether or
    * not a push could actually be delivered; `delivered` records the push outcome.
+   *
+   * When `rearm` is set the existing row is un-resolved (resolvedAt → null) so
+   * the repeating scheduler can page the pro again. The repeat counter is
+   * incremented to track how many times this pro has been alerted for the job.
    */
   async function upsertAlert(
     proId: string,
     info: JobAlertInfo,
     result: { ok: boolean; providerRef?: string | null },
     isRepeat: boolean,
+    rearm = false,
   ): Promise<void> {
     await prisma.notification.upsert({
       where: {
@@ -629,13 +634,20 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         providerRef: result.providerRef,
         repeats: isRepeat ? 1 : 0,
       },
-      update: isRepeat
+      update: rearm
         ? {
             delivered: result.ok,
             ...(result.providerRef ? { providerRef: result.providerRef } : {}),
+            resolvedAt: null,
             repeats: { increment: 1 },
           }
-        : {},
+        : isRepeat
+          ? {
+              delivered: result.ok,
+              ...(result.providerRef ? { providerRef: result.providerRef } : {}),
+              repeats: { increment: 1 },
+            }
+          : {},
     });
   }
 
@@ -648,6 +660,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     platform: PushTargetPlatform,
     provider: PushTargetProvider,
     deviceId: string | null,
+    rearm = false,
   ): Promise<void> {
     const data = jobAlertData(info, config);
     await attachOfferData(data, proId, info.jobId, deviceId, provider);
@@ -663,7 +676,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       void checkPushReceipts([result.providerRef], proId);
     }
 
-    await upsertAlert(proId, info, result, isRepeat);
+    await upsertAlert(proId, info, result, isRepeat, rearm);
   }
 
   /**
@@ -767,6 +780,110 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           pro.pushPlatform,
           pushProviderOf(pro),
           pro.pushDeviceId ?? null,
+        );
+      }),
+    );
+  }
+
+  /**
+   * Re-alerts eligible pros after a job returns to the open pool (pro release).
+   *
+   * Unlike the initial `alertEligiblePros` this enforces a per-pro cooldown:
+   * a pro who was alerted recently for this job is not bombarded again until
+   * `cooldownMs` has elapsed since their last alert (`Notification.updatedAt`).
+   *
+   * - Fresh pros (never alerted): normal immediate push.
+   * - Cooled-down pros (last alert ≥ cooldownMs ago): re-arm alert row + push.
+   * - Within-cooldown pros: skipped (no push; the JOB_NEW socket event
+   *   surfaces the job to online pros regardless).
+   */
+  async function reAlertEligiblePros(
+    recipients: JobAlertRecipient[],
+    info: JobAlertInfoInput,
+    cooldownMs: number,
+  ): Promise<void> {
+    if (recipients.length === 0) return;
+
+    const proIds = recipients.map((r) => r.proId);
+
+    // Fetch profiles + any existing alert rows for this (pro, job) pair.
+    const [pros, existingAlerts] = await Promise.all([
+      prisma.proProfile.findMany({
+        where: { id: { in: proIds } },
+        select: {
+          id: true,
+          pushToken: true,
+          pushPlatform: true,
+          pushProvider: true,
+          pushDeviceId: true,
+          jobAlertsEnabled: true,
+        },
+      }),
+      prisma.notification.findMany({
+        where: {
+          jobId: info.jobId,
+          proId: { in: proIds },
+          kind: NotificationKind.JOB_ALERT,
+        },
+        select: { proId: true, updatedAt: true },
+      }),
+    ]);
+
+    const lastAlertedAt = new Map<string, Date>(
+      existingAlerts.map((row) => [row.proId, row.updatedAt]),
+    );
+
+    const now = Date.now();
+
+    await Promise.all(
+      pros.map(async (pro) => {
+        const recipient = recipients.find((r) => r.proId === pro.id);
+        const infoForRecipient: JobAlertInfo = {
+          ...info,
+          professionalId: pro.id,
+          distanceKm: recipient?.distanceKm ?? null,
+        };
+
+        if (!pro.jobAlertsEnabled || !pro.pushToken) {
+          // Still record the offer for history, but skip delivery.
+          await upsertAlert(pro.id, infoForRecipient, { ok: false, providerRef: null }, false);
+          return;
+        }
+
+        const previous = lastAlertedAt.get(pro.id);
+
+        // Never alerted before → normal immediate push (treat as fresh).
+        if (!previous) {
+          await alertOne(
+            pro.id,
+            infoForRecipient,
+            pro.pushToken,
+            false,
+            pro.pushPlatform,
+            pushProviderOf(pro),
+            pro.pushDeviceId ?? null,
+          );
+          return;
+        }
+
+        const elapsed = now - previous.getTime();
+        if (elapsed < cooldownMs) {
+          // Within cooldown — leave resolved, no push. The JOB_NEW socket
+          // event shows the job to online pros; background pros on cooldown
+          // won't be bombarded.
+          return;
+        }
+
+        // Cooled-down pro: re-arm the alert row + send a fresh push.
+        await alertOne(
+          pro.id,
+          infoForRecipient,
+          pro.pushToken,
+          false,
+          pro.pushPlatform,
+          pushProviderOf(pro),
+          pro.pushDeviceId ?? null,
+          true, // rearm
         );
       }),
     );
@@ -1386,6 +1503,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
   return {
     alertEligiblePros,
+    reAlertEligiblePros,
     resolveJobAlerts,
     sendAssignedCancellationProPush,
     listForPro,

@@ -32,17 +32,23 @@ export const JOB_STATUSES = Object.values(JobStatus);
  * uses it to decide which action to surface. It intentionally describes only
  * the shape of the machine — the authorisation rules for *who* may trigger a
  * transition live in the server's jobs domain.
+ *
+ * `REQUESTED` as a target from ACCEPTED/TRAVELLING/ARRIVED is the **pro
+ * release** path: an assigned pro hands the job back to the open pool so other
+ * eligible pros can take it. The server alone decides between release
+ * (pro-actor → REQUESTED) and cancellation (customer-actor → CANCELLED);
+ * clients never pick the target.
  */
 export const JOB_STATUS_TRANSITIONS: Readonly<Record<JobStatus, readonly JobStatus[]>> = {
   REQUESTED: [JobStatus.OFFERED, JobStatus.CANCELLED, JobStatus.EXPIRED],
   OFFERED: [JobStatus.ACCEPTED, JobStatus.REQUESTED, JobStatus.CANCELLED, JobStatus.EXPIRED],
-  ACCEPTED: [JobStatus.TRAVELLING, JobStatus.CANCELLED],
-  TRAVELLING: [JobStatus.ARRIVED, JobStatus.CANCELLED],
-  ARRIVED: [JobStatus.IN_PROGRESS, JobStatus.CANCELLED],
-  // Once the pro has started the work there is no turning back: cancellation
-  // is only allowed up to and including ARRIVED, when the pro has seen the job
-  // and can still hand it back. From IN_PROGRESS the job must run to
-  // completion and collection.
+  ACCEPTED: [JobStatus.TRAVELLING, JobStatus.REQUESTED, JobStatus.CANCELLED],
+  TRAVELLING: [JobStatus.ARRIVED, JobStatus.REQUESTED, JobStatus.CANCELLED],
+  ARRIVED: [JobStatus.IN_PROGRESS, JobStatus.REQUESTED, JobStatus.CANCELLED],
+  // Once the pro has started the work there is no turning back: a pro may only
+  // hand the job back up to and including ARRIVED, when they have seen the job
+  // and can still let it go, and that is exactly what the REQUESTED target
+  // permits. From IN_PROGRESS the job must run to completion and collection.
   IN_PROGRESS: [JobStatus.COMPLETED],
   COMPLETED: [JobStatus.PAYMENT_PENDING],
   PAYMENT_PENDING: [JobStatus.PAID],

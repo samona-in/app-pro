@@ -30,9 +30,10 @@ const info = {
 function buildService() {
   const upsert = jest.fn().mockResolvedValue({});
   const proProfileFindMany = jest.fn().mockResolvedValue([]);
+  const alertFindMany = jest.fn().mockResolvedValue([]);
   const prisma = {
     proProfile: { findMany: proProfileFindMany },
-    notification: { upsert },
+    notification: { upsert, findMany: alertFindMany },
   };
 
   const service = createNotificationsService({
@@ -40,7 +41,7 @@ function buildService() {
     config: { expoAccessToken: null, jobAlertRepeatMs: 60_000, jobAlertMaxRepeats: 0 } as never,
   });
 
-  return { service, upsert, proProfileFindMany };
+  return { service, upsert, proProfileFindMany, alertFindMany };
 }
 
 describe('createNotificationsService.alertEligiblePros', () => {
@@ -192,6 +193,86 @@ describe('createNotificationsService.alertEligiblePros — job-offer minting', (
 
     await expect(service.alertEligiblePros([{ proId: 'pro-1' }], info)).resolves.toBeUndefined();
     expect(mockFcmSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('createNotificationsService.reAlertEligiblePros — release cooldown', () => {
+  const expoPro = {
+    id: 'pro-1',
+    pushToken: 'ExponentPushToken[abc]',
+    pushPlatform: 'IOS' as const,
+    pushProvider: 'EXPO' as const,
+    pushDeviceId: null,
+    jobAlertsEnabled: true,
+  };
+  const COOLDOWN_MS = 5 * 60_000;
+
+  it('does nothing when there are no recipients', async () => {
+    const ctx = buildService();
+
+    await ctx.service.reAlertEligiblePros([], info, COOLDOWN_MS);
+
+    expect(ctx.proProfileFindMany).not.toHaveBeenCalled();
+    expect(ctx.alertFindMany).not.toHaveBeenCalled();
+    expect(ctx.upsert).not.toHaveBeenCalled();
+  });
+
+  it('pushes a pro never alerted for this job as a fresh offer, without re-arming', async () => {
+    const ctx = buildService();
+    ctx.proProfileFindMany.mockResolvedValue([expoPro]);
+
+    await ctx.service.reAlertEligiblePros([{ proId: 'pro-1' }], info, COOLDOWN_MS);
+
+    // No prior alert row → the normal create/upsert path, no rearm semantics.
+    expect(ctx.alertFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { jobId: 'job-1', proId: { in: ['pro-1'] }, kind: NotificationKind.JOB_ALERT },
+      }),
+    );
+    expect(ctx.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          proId: 'pro-1',
+          jobId: 'job-1',
+          kind: NotificationKind.JOB_ALERT,
+          delivered: false,
+        }),
+      }),
+    );
+  });
+
+  it('leaves a pro who was alerted within the cooldown window untouched — no re-push', async () => {
+    const ctx = buildService();
+    ctx.proProfileFindMany.mockResolvedValue([expoPro]);
+    ctx.alertFindMany.mockResolvedValue([{ proId: 'pro-1', updatedAt: new Date() }]);
+
+    await ctx.service.reAlertEligiblePros([{ proId: 'pro-1' }], info, COOLDOWN_MS);
+
+    // Within the cooldown: the alert row is neither re-armed nor re-pushed; the
+    // JOB_NEW socket event is the surface that reaches this pro instead.
+    expect(ctx.upsert).not.toHaveBeenCalled();
+  });
+
+  it('re-arms and re-pushes a pro whose last alert has cooled down', async () => {
+    const ctx = buildService();
+    ctx.proProfileFindMany.mockResolvedValue([expoPro]);
+    ctx.alertFindMany.mockResolvedValue([
+      { proId: 'pro-1', updatedAt: new Date(Date.now() - 10 * 60_000) },
+    ]);
+
+    await ctx.service.reAlertEligiblePros([{ proId: 'pro-1' }], info, COOLDOWN_MS);
+
+    // Past the cooldown: the resolved/alert row is un-resolved (rearmed) and
+    // the repeat counter advances so history still reflects the extra page.
+    expect(ctx.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          resolvedAt: null,
+          repeats: { increment: 1 },
+          delivered: false,
+        }),
+      }),
+    );
   });
 });
 
