@@ -86,7 +86,7 @@ describe('useJobCancellationStore', () => {
       showNotification: false,
     });
 
-    expect(useJobCancellationStore.getState().cancellations['job-1'].serviceName).toBe(
+    expect(useJobCancellationStore.getState().cancellations['job-1']!.serviceName).toBe(
       'Electrical',
     );
   });
@@ -161,6 +161,6 @@ describe('useJobCancellationStore', () => {
 
     await useJobCancellationStore.getState().rehydrateFromNative();
 
-    expect(useJobCancellationStore.getState().cancellations['job-1'].serviceName).toBe('Electrical');
+    expect(useJobCancellationStore.getState().cancellations['job-1']!.serviceName).toBe('Electrical');
   });
 });
