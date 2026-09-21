@@ -9,6 +9,7 @@ When a pro cancels (releases) a job from `ACCEPTED`, `TRAVELLING`, or `ARRIVED`,
 | Decision | Choice |
 |---|---|
 | Which states re-offer | `ACCEPTED`, `TRAVELLING`, `ARRIVED` (all pre-work) |
+| Release gate | Explicit `PRO_RELEASABLE_STATUSES` allowlist, **not** `canTransition` — `@samona/types` is a built dependency, and a stale build in a deployment could otherwise regress a pro cancel into a terminal `CANCELLED` write. A pro cancel outside the allowlist is a hard lock; the `CANCELLED` branch is unreachable by pros. |
 | Expiry reset | Fresh `jobExpireTtlMs` window from re-release |
 | Chat messages | Cleared when job returns to pool |
 | Releasing pro | Excluded via `JobDecline`; cannot re-grab |
@@ -31,7 +32,7 @@ ARRIVED:    [IN_PROGRESS, REQUESTED, CANCELLED],
 
 ### 2. `cancelJob` split — `server/src/jobs/jobs.service.ts`
 
-- Gate: `!actorIsCustomer && canTransition(row.status, REQUESTED)` → `releaseJobToPool()`
+- Gate: `!actorIsCustomer && PRO_RELEASABLE_STATUSES.includes(row.status)` → `releaseJobToPool()`; any other pro status → hard conflict. Never the shared transition table (built-dependency drift hardening).
 - Customer path unchanged (→ `CANCELLED`)
 - IN_PROGRESS lockout unchanged
 
