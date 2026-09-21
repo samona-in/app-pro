@@ -13,7 +13,7 @@ export const queryKeys = {
     all: ['jobs'] as const,
     list: (status?: string) => ['jobs', 'list', status ?? 'all'] as const,
     offers: (status?: string) => ['jobs', 'offers', status ?? 'all'] as const,
-    history: ['jobs', 'history'] as const,
+    available: ['jobs', 'available'] as const,
     detail: (jobId: string) => ['jobs', 'detail', jobId] as const,
   },
   earnings: {

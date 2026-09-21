@@ -1,4 +1,4 @@
-import type { JobDetail, JobStatus, ProProfile } from '@samona/types';
+import type { AvailableJob, JobDetail, JobStatus, ProProfile } from '@samona/types';
 import type { AvailabilityPatchInput, JobAction } from '@samona/validation';
 import { api } from './api';
 
@@ -19,11 +19,13 @@ export const jobsApi = {
     api.get<JobDetail[]>('/jobs/mine', { query: options }),
 
   /**
-   * Every request this pro was offered, newest first — the "past jobs" history.
-   * Includes requests nobody accepted; each job's final status shows the outcome.
+   * Open, eligible jobs in the caller's pool — the "job pool" feed. The server
+   * gates every job by the same matching predicate used for offers (online,
+   * onboarded, serving the service, inside the radius, not busy), nearest
+   * first, so the pool always equals the offers this pro would receive.
    */
-  history: (options: { limit?: number } = {}) =>
-    api.get<JobDetail[]>('/jobs/history', { query: options }),
+  available: (options: { limit?: number } = {}) =>
+    api.get<AvailableJob[]>('/jobs/available', { query: options }),
 
   /** Accepts an open job. The first eligible pro to claim it wins. */
   accept: (jobId: string) => api.post<JobDetail>(`/jobs/${jobId}/accept`, {}),

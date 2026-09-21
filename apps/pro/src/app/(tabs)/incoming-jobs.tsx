@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, View, type ViewToken } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { isApiError } from '@samona/api-client';
 import type { JobDetail } from '@samona/types';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
@@ -21,6 +20,7 @@ import {
 } from '@/stores/incoming-offers';
 import { queryKeys } from '@/constants';
 import { occupiedJobRoute } from '@/utils/job-routes';
+import { messageForAcceptError } from '@/utils/job-errors';
 import { formatInr } from '@/utils/format';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
@@ -221,15 +221,6 @@ export default function IncomingJobsScreen() {
       </View>
     </Screen>
   );
-}
-
-function messageForAcceptError(error: unknown): string {
-  if (isApiError(error)) {
-    if (error.status === 409) return 'Job already taken';
-    if (error.status === 404) return 'This request is no longer available';
-    if (error.status === 429) return "You're moving fast — try again in a moment.";
-  }
-  return "Couldn't accept. Check your connection.";
 }
 
 function formatOfferDistance(meters: number | null): string | null {

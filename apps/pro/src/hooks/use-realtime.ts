@@ -19,10 +19,13 @@ export function useRealtimeSync() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     };
     // A `job:new` nudge refreshes the open pool; a `job:status` refresh keeps
-    // every screen that holds the same job current.
+    // every screen that holds the same job current; a `job:offer:ended`
+    // (this pro declined elsewhere — offers tab or the native overlay) also
+    // drops the job out of an open pool.
     const unsubscribes = [
       subscribe('job:new', invalidateJobs),
       subscribe('job:status', invalidateJobs),
+      subscribe('job:offer:ended', invalidateJobs),
     ];
 
     return () => {

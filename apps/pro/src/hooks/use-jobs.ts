@@ -15,14 +15,16 @@ export function useProJobs(status?: JobStatus, options?: { enabled?: boolean }) 
 }
 
 /**
- * The pro's job-request history — every request offered, newest first,
- * including requests nobody accepted. Powers the "past jobs" Jobs tab.
+ * The caller's open, eligible job pool — the jobs list the Job Pool screen
+ * renders. Refresh is driven by realtime `job:new` / `job:status` invalidation
+ * and pull-to-refresh, so a claim, cancellation or expiry drops a job live.
  */
-export function useJobHistory() {
+export function useJobPool(options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: queryKeys.jobs.history,
-    queryFn: () => jobsApi.history(),
-    staleTime: 60_000,
+    queryKey: queryKeys.jobs.available,
+    queryFn: () => jobsApi.available(),
+    staleTime: 15_000,
+    enabled: options?.enabled,
   });
 }
 
