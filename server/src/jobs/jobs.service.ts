@@ -873,12 +873,18 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
-   * Open (REQUESTED, unassigned) jobs the pro serves, distance-first.
+   * Open (REQUESTED, unassigned) jobs the pro serves and is eligible for,
+   * nearest first.
    *
-   * Distance is measured between the pro and the customer's saved location —
-   * the jobs table carries no coordinates of its own. Eligibility (online,
-   * onboarded, within radius, not busy) is enforced at accept time, not on
-   * this read, so the pool stays cheap and honest.
+   * The pool mirrors the offer path: a job only surfaces to a pro who would
+   * have been offered it — online, onboarded, serving the service, inside
+   * their service radius and not already committed to another job. The cheap
+   * DB prefilter (open, unassigned, in the pro's services, not declined)
+   * narrows the candidates, then `matching.isProEligible` — the exact
+   * predicate `findEligiblePros` uses to page a pro — decides each one, so
+   * the offer set and the pool cannot drift. Distance is measured between the
+   * pro and the customer's saved location (the jobs table carries no
+   * coordinates of its own); the nearest surface first.
    */
   async function listAvailableJobs(
     proUserId: string,
@@ -911,18 +917,41 @@ export function createJobsService(deps: JobsServiceDeps) {
         ? { latitude: pro.latitude, longitude: pro.longitude }
         : null;
 
-    return rows.map((row) => {
-      const jobPoint =
-        row.latitude !== null && row.longitude !== null
-          ? { latitude: row.latitude, longitude: row.longitude }
-          : null;
-      const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
-      return {
+    const pool: AvailableJob[] = [];
+    for (const row of rows) {
+      // Without both locations a job cannot be "nearby", and the matching
+      // predicate the offer path uses decides the pool too — so a pro only
+      // ever sees (and therefore only ever accepts) jobs they would have
+      // been offered. The accept path re-checks it atomically.
+      const jobLat = row.latitude;
+      const jobLng = row.longitude;
+      if (
+        !proPoint ||
+        jobLat === null ||
+        jobLng === null ||
+        pro.latitude === null ||
+        pro.longitude === null
+      ) {
+        continue;
+      }
+      const jobPoint = { latitude: jobLat, longitude: jobLng };
+      const eligible = await matching.isProEligible(pro.id, {
+        serviceId: row.serviceId,
+        latitude: jobLat,
+        longitude: jobLng,
+      });
+      if (!eligible) continue;
+      const km = distanceKm(proPoint, jobPoint);
+      pool.push({
         ...toJobDto(row as unknown as JobRow, storage, config),
         distanceKm: km,
-        estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
-      };
-    });
+        estimatedEtaMinutes: etaMinutes(km),
+      });
+    }
+
+    // Nearest first, matching the proximity order offers are presented in.
+    pool.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    return pool;
   }
 
   /**
