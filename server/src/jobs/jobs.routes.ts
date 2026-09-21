@@ -264,7 +264,12 @@ export function createJobsRouter(services: Services): Router {
   router.post('/:id/cancel', ...cancelGuard, async (req, res, next) => {
     try {
       res.json(
-        await services.jobs.cancelJob(req.user!.id, routeParamId(req.params.id), req.body.note),
+        await services.jobs.cancelJob(
+          req.user!.id,
+          routeParamId(req.params.id),
+          req.body.note,
+          req.user!.appType ?? null,
+        ),
       );
     } catch (error) {
       next(error);

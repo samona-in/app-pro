@@ -2377,4 +2377,63 @@ describe('createJobsService.cancelJob', () => {
     });
     expect(ctx.historyCreate).not.toHaveBeenCalled();
   });
+
+  it('releases when the same account holds both seats and cancels from the pro surface', async () => {
+    const ctx = buildCancel();
+    ctx.setRow({
+      customer: { userId: 'dual-user-1', displayName: 'Same', profile: { phone: null } },
+      pro: {
+        id: 'pro-1',
+        userId: 'dual-user-1',
+        displayName: 'Same',
+        rating: null,
+        profile: { phone: null },
+      },
+    });
+
+    const result = await ctx.jobs.cancelJob('dual-user-1', 'job-1', undefined, 'pro');
+
+    expect(result.detail.status).toBe(JobStatus.REQUESTED);
+    const data = ctx.jobUpdateMany.mock.calls[0][0].data;
+    expect(data.status).toBe(JobStatus.REQUESTED);
+    expect(data.proId).toBeNull();
+    expect(data.cancelledAt).toBeNull();
+    expect(ctx.historyCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromStatus: JobStatus.ARRIVED,
+          toStatus: JobStatus.REQUESTED,
+        }),
+      }),
+    );
+    // It went back to the pool — nothing wrote a terminal CANCELLED row.
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
+  });
+
+  it('cancels terminally when the same account holds both seats but acts from a non-pro surface', async () => {
+    for (const appType of ['customer', undefined]) {
+      const ctx = buildCancel();
+      ctx.setRow({
+        customer: { userId: 'dual-user-1', displayName: 'Same', profile: { phone: null } },
+        pro: {
+          id: 'pro-1',
+          userId: 'dual-user-1',
+          displayName: 'Same',
+          rating: null,
+          profile: { phone: null },
+        },
+      });
+
+      const result = await ctx.jobs.cancelJob('dual-user-1', 'job-1', undefined, appType as never);
+
+      expect(result.detail.status).toBe(JobStatus.CANCELLED);
+      expect(ctx.jobUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'job-1' },
+          data: expect.objectContaining({ status: JobStatus.CANCELLED }),
+        }),
+      );
+      expect(ctx.jobUpdateMany).not.toHaveBeenCalled();
+    }
+  });
 });
