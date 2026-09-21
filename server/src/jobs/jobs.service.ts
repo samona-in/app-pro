@@ -9,7 +9,7 @@ import {
 } from '@samona/types';
 import { randomInt } from 'node:crypto';
 import type { CreateJobInput, JobAction } from '@samona/validation';
-import { JOB_DEFAULTS } from '@samona/config';
+import { JOB_DEFAULTS, type AppType } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
 import type { RealtimeService } from '../realtime/gateway';
@@ -573,14 +573,19 @@ export function createJobsService(deps: JobsServiceDeps) {
    * The actor is resolved from the verified token; the job is scoped to their
    * own involvement, so neither side can cancel a job they are not part of.
    *
-   * A pro-initiated release from ACCEPTED/TRAVELLING/ARRIVED returns the job to
-   * the pool (`REQUESTED`) instead of cancelling it, so the work can still be
-   * matched to another eligible pro. Every other cancellation stays terminal.
+   * An account may hold both the customer and the pro seat on the same job
+   * (multi-surface profiles). When that happens the acting seat is resolved
+   * from the surface the request arrived on (`appType`): the pro surface
+   * releases to the pool, every other surface cancels. A pro-initiated release
+   * from ACCEPTED/TRAVELLING/ARRIVED returns the job to the pool (`REQUESTED`)
+   * instead of cancelling it, so the work can still be matched to another
+   * eligible pro. Every other cancellation stays terminal.
    */
   async function cancelJob(
     actorUserId: string,
     jobId: string,
     _note?: string,
+    appType?: AppType | null,
   ): Promise<{ detail: JobDetail; customerUserId: string; proUserId: string | null }> {
     const row = await prisma.job.findUnique({
       where: { id: jobId },
@@ -589,12 +594,16 @@ export function createJobsService(deps: JobsServiceDeps) {
     if (!row) throw notFound('That job could not be found.');
 
     const actorIsCustomer = row.customer.userId === actorUserId;
-    if (!actorIsCustomer && !(row.pro && row.pro.userId === actorUserId)) {
+    const pro = row.pro;
+    const actorIsPro = pro !== null && pro.userId === actorUserId;
+    if (!actorIsCustomer && !actorIsPro) {
       throw forbidden('You are not part of this job.');
     }
-    if (!actorIsCustomer && !row.pro) {
-      throw conflict('A professional is not assigned to this job.');
-    }
+
+    // A same-identity account holding both seats is resolved by the surface it
+    // acted from: the pro app releases, the customer app (or an unknown/missing
+    // surface) cancels.
+    const actsAsPro = actorIsPro && (!actorIsCustomer || appType === 'pro');
 
     // The assigned pro tearing out of a pre-work job releases it to the pool
     // instead of killing it; the work may still find another professional. The
@@ -603,11 +612,15 @@ export function createJobsService(deps: JobsServiceDeps) {
     // regress a pro-actor cancel into a terminal CANCELLED write. Any pro
     // status outside the list is a hard lock: the CANCELLED branch below is
     // unreachable by pros.
-    if (!actorIsCustomer) {
+    if (actsAsPro) {
       if (!PRO_RELEASABLE_STATUSES.includes(row.status)) {
         throw conflict('This job can no longer be cancelled.');
       }
-      return releaseJobToPool(actorUserId, row as unknown as JobRow, row.pro!.userId);
+      return releaseJobToPool(actorUserId, row as unknown as JobRow, pro!.userId);
+    }
+
+    if (!actorIsCustomer) {
+      throw forbidden('You are not part of this job.');
     }
 
     if (!canTransition(row.status, JobStatus.CANCELLED)) {
