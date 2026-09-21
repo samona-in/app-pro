@@ -29,7 +29,7 @@ export default function RootLayout() {
             name="jobs"
             options={{
               headerShown: true,
-              title: 'Past Jobs',
+              title: 'Job Pool',
               headerBackTitle: 'Back',
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },

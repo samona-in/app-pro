@@ -4,7 +4,7 @@ import { Redirect, router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AvailableJob, JobDetail } from '@samona/types';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
-import { Screen, Text } from '@/components/ui';
+import { Screen } from '@/components/ui';
 import { JobPoolCard } from '@/components/jobs';
 import { offerActions } from '@/services/offer-actions';
 import { queryKeys } from '@/constants';
@@ -83,13 +83,6 @@ export default function JobPoolScreen() {
 
   return (
     <Screen>
-      <View className="pt-2">
-        <Text variant="titleLg">Job Pool</Text>
-        <Text variant="footnote" className="mt-1 text-text-secondary">
-          Open requests near you that match your services — accept any job to claim it.
-        </Text>
-      </View>
-
       {!isOnline ? (
         <View className="mt-2 flex-1">
           <EmptyState
