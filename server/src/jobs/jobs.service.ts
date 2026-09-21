@@ -553,6 +553,20 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
+   * The pre-work states an assigned pro may back out of. A pro cancel from
+   * exactly these returns the job to the open pool (REQUESTED); from any other
+   * state it is a hard lock. Deliberately an explicit list rather than the
+   * shared transition table (a built dependency that can drift stale in a
+   * deployment), so a pro-actor cancel can never regress into a terminal
+   * CANCELLED write regardless of the runtime `@samona/types` version.
+   */
+  const PRO_RELEASABLE_STATUSES: readonly JobStatus[] = [
+    JobStatus.ACCEPTED,
+    JobStatus.TRAVELLING,
+    JobStatus.ARRIVED,
+  ];
+
+  /**
    * Cancels a job, or — when the assigned pro acts pre-work — hands it back to
    * the open pool. Applies to its customer or its assigned pro.
    *
@@ -583,8 +597,16 @@ export function createJobsService(deps: JobsServiceDeps) {
     }
 
     // The assigned pro tearing out of a pre-work job releases it to the pool
-    // instead of killing it; the work may still find another professional.
-    if (!actorIsCustomer && canTransition(row.status, JobStatus.REQUESTED)) {
+    // instead of killing it; the work may still find another professional. The
+    // releasable set is this explicit allowlist — never the shared transition
+    // table — so a stale `@samona/types` build in a deployment can never
+    // regress a pro-actor cancel into a terminal CANCELLED write. Any pro
+    // status outside the list is a hard lock: the CANCELLED branch below is
+    // unreachable by pros.
+    if (!actorIsCustomer) {
+      if (!PRO_RELEASABLE_STATUSES.includes(row.status)) {
+        throw conflict('This job can no longer be cancelled.');
+      }
       return releaseJobToPool(actorUserId, row as unknown as JobRow, row.pro!.userId);
     }
 
