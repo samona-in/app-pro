@@ -30,8 +30,9 @@ import { color } from '@/theme';
  *
  * The single most important surface for a pro: a prominent Online / Offline
  * (with a Loading in-between) toggle. Job *requests* arrive here as the
- * realtime Rapido-style alert — there is no browse-available-jobs marketplace;
- * a pro acts on a request the moment it lands.
+ * realtime Rapido-style alert; the briefcase entry opens the browseable job
+ * pool — the same open requests, listed for the free, online pro. A pro acts
+ * on a request the moment it lands, or browses the pool at their own pace.
  *
  * When offline, an explicit prompt points the pro back online before they can
  * see or act on any job.

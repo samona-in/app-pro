@@ -646,6 +646,25 @@ export function createJobsService(deps: JobsServiceDeps) {
     // holders so their native overlay/sound/tray entry closes immediately.
     void notifications.resolveJobAlerts(jobId, 'CANCELLED');
 
+    // An open (unassigned) job lives in every alerted pro's available-jobs
+    // pool; page those holders over realtime so their pools drop the dead
+    // request the instant it is cancelled, not on the next refetch. The client
+    // treats the event as a background refresh — no pro was ever assigned, so
+    // no alert, vibration or navigation fires (guarded by `acceptedAt == null`).
+    if (!row.pro) {
+      const alerted = await prisma.notification.findMany({
+        where: { jobId: row.id, kind: NotificationKind.JOB_ALERT },
+        select: { pro: { select: { userId: true } } },
+      });
+      if (alerted.length > 0) {
+        realtime.emitToUsers(
+          alerted.map((n) => n.pro.userId),
+          REALTIME_EVENTS.JOB_STATUS,
+          { ...proDetail, cancelledBy },
+        );
+      }
+    }
+
     // The assigned pro never holds an open offer alert, so the terminal push
     // above can never reach them. A customer-initiated cancellation must still
     // alert them when their app process is dead or the screen is off — send a
@@ -873,12 +892,18 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
-   * Open (REQUESTED, unassigned) jobs the pro serves, distance-first.
+   * Open (REQUESTED, unassigned) jobs the pro serves and is eligible for,
+   * nearest first.
    *
-   * Distance is measured between the pro and the customer's saved location —
-   * the jobs table carries no coordinates of its own. Eligibility (online,
-   * onboarded, within radius, not busy) is enforced at accept time, not on
-   * this read, so the pool stays cheap and honest.
+   * The pool mirrors the offer path: a job only surfaces to a pro who would
+   * have been offered it — online, onboarded, serving the service, inside
+   * their service radius and not already committed to another job. The cheap
+   * DB prefilter (open, unassigned, in the pro's services, not declined)
+   * narrows the candidates, then `matching.isProEligible` — the exact
+   * predicate `findEligiblePros` uses to page a pro — decides each one, so
+   * the offer set and the pool cannot drift. Distance is measured between the
+   * pro and the customer's saved location (the jobs table carries no
+   * coordinates of its own); the nearest surface first.
    */
   async function listAvailableJobs(
     proUserId: string,
@@ -911,18 +936,41 @@ export function createJobsService(deps: JobsServiceDeps) {
         ? { latitude: pro.latitude, longitude: pro.longitude }
         : null;
 
-    return rows.map((row) => {
-      const jobPoint =
-        row.latitude !== null && row.longitude !== null
-          ? { latitude: row.latitude, longitude: row.longitude }
-          : null;
-      const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
-      return {
+    const pool: AvailableJob[] = [];
+    for (const row of rows) {
+      // Without both locations a job cannot be "nearby", and the matching
+      // predicate the offer path uses decides the pool too — so a pro only
+      // ever sees (and therefore only ever accepts) jobs they would have
+      // been offered. The accept path re-checks it atomically.
+      const jobLat = row.latitude;
+      const jobLng = row.longitude;
+      if (
+        !proPoint ||
+        jobLat === null ||
+        jobLng === null ||
+        pro.latitude === null ||
+        pro.longitude === null
+      ) {
+        continue;
+      }
+      const jobPoint = { latitude: jobLat, longitude: jobLng };
+      const eligible = await matching.isProEligible(pro.id, {
+        serviceId: row.serviceId,
+        latitude: jobLat,
+        longitude: jobLng,
+      });
+      if (!eligible) continue;
+      const km = distanceKm(proPoint, jobPoint);
+      pool.push({
         ...toJobDto(row as unknown as JobRow, storage, config),
         distanceKm: km,
-        estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
-      };
-    });
+        estimatedEtaMinutes: etaMinutes(km),
+      });
+    }
+
+    // Nearest first, matching the proximity order offers are presented in.
+    pool.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    return pool;
   }
 
   /**
@@ -1029,58 +1077,6 @@ export function createJobsService(deps: JobsServiceDeps) {
     // it without waiting for the countdown to prune it. Purely a notification;
     // the decline row above is the source of truth.
     realtime.emitToUser(pro.userId, REALTIME_EVENTS.JOB_OFFER_ENDED, { jobId });
-  }
-
-  /**
-   * The pro's job-request history: every request they were offered, newest
-   * first.
-   *
-   * Each `JOB_ALERT` notification records one offer the pro was paged for, so
-   * this is the source of the "past jobs" list — including requests nobody
-   * accepted (the job simply left the open pool). One row per job per pro;
-   * the job DTO carries its final status so the pro sees where each request
-   * landed.
-   */
-  async function listJobHistory(
-    proUserId: string,
-    options: { limit?: number } = {},
-  ): Promise<JobDetail[]> {
-    const pro = await findProByUserId(proUserId);
-
-    const rows = await prisma.notification.findMany({
-      where: { proId: pro.id, kind: 'JOB_ALERT', job: { isNot: null } },
-      orderBy: { createdAt: 'desc' },
-      take: Math.max(1, Math.min(options.limit ?? 50, 50)),
-      include: { job: { include: { ...jobDetailInclude } } },
-    });
-
-    const proPoint =
-      pro.latitude !== null && pro.longitude !== null
-        ? { latitude: pro.latitude, longitude: pro.longitude }
-        : null;
-
-    const results: JobDetail[] = [];
-    for (const row of rows) {
-      if (!row.job) continue;
-      const jobPoint =
-        row.job.latitude !== null && row.job.longitude !== null
-          ? { latitude: row.job.latitude, longitude: row.job.longitude }
-          : null;
-      const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
-      results.push({
-        ...toJobDto(row.job as unknown as JobRow, storage, config),
-        acceptedAt: row.job.acceptedAt ? iso(row.job.acceptedAt) : null,
-        completedAt: row.job.completedAt ? iso(row.job.completedAt) : null,
-        cancelledAt: row.job.cancelledAt ? iso(row.job.cancelledAt) : null,
-        cancelledBy: null,
-        distanceKm: km,
-        estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
-        verificationOtp: null,
-        customer: null,
-        pro: null,
-      });
-    }
-    return results;
   }
 
   /**
@@ -1884,7 +1880,6 @@ export function createJobsService(deps: JobsServiceDeps) {
     listAvailableJobs,
     getAvailableJobForPro,
     declineJob,
-    listJobHistory,
     notifyReadyJobRequests,
     acceptJob,
     acceptJobWithOffer,

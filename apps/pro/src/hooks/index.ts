@@ -10,7 +10,7 @@ export { useUploadAvatar } from './use-avatar';
 export {
   useCancelJob,
   useCollectCash,
-  useJobHistory,
+  useJobPool,
   useProJobs,
   useToggleAvailability,
   useTransitionJob,

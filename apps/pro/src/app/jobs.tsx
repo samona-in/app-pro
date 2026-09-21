@@ -1,69 +1,74 @@
-import { Pressable, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { FlatList, RefreshControl, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import type { JobStatus } from '@samona/types';
-import { isSettlementPendingStatus } from '@samona/types';
-import { EmptyState, LoadingState } from '@/components/feedback';
-import { Card, Divider, Screen, Text } from '@/components/ui';
-import { JobStatusBadge } from '@/components/jobs';
-import { useJobHistory, useSession } from '@/hooks';
+import { useQueryClient } from '@tanstack/react-query';
+import type { AvailableJob, JobDetail } from '@samona/types';
+import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
+import { Screen } from '@/components/ui';
+import { JobPoolCard } from '@/components/jobs';
+import { offerActions } from '@/services/offer-actions';
+import { queryKeys } from '@/constants';
+import { useJobPool, useSession } from '@/hooks';
 import { isOnline as checkIsOnline } from '@/services/online-status';
-import { color } from '@/theme';
-import { formatInr } from '@/utils/format';
+import { occupiedJobRoute } from '@/utils/job-routes';
+import { messageForAcceptError } from '@/utils/job-errors';
 
 /**
- * Past jobs — every request the pro was offered, including ones nobody
- * accepted. No Active/Completed/All filters: this is simply the history of
- * requests and where they ended up.
+ * The pro's job pool — every open, eligible request they can take right now,
+ * nearest first. The server feeds it through the same matching predicate used
+ * for offers, so the pool is exactly the jobs this pro would be offered.
  *
- * Viewing past jobs requires being online; when offline the pro is pointed
+ * Accept is the single action: the claim is atomic server-side, and once it
+ * lands the pro is routed to the accepted job (or its cash-settlement screen
+ * when money is owed). Realtime `job:new` / `job:status` keep the pool in step
+ * with claims, cancellations and expiry.
+ *
+ * Viewing the pool requires being online; when offline the pro is pointed
  * back to the home toggle.
  */
-
-function statusLabel(status: JobStatus): string {
-  switch (status) {
-    case 'ACCEPTED':
-    case 'TRAVELLING':
-    case 'ARRIVED':
-    case 'IN_PROGRESS':
-      return 'Active';
-    case 'COMPLETED':
-      return 'Collect payment';
-    case 'PAYMENT_PENDING':
-    case 'PAID':
-      return 'Completed';
-    case 'CANCELLED':
-      return 'Cancelled';
-    case 'EXPIRED':
-      return 'Expired';
-    default:
-      return 'Requested';
-  }
-}
-
-/** What a history row does when tapped, based on where that job is today. */
-function openJob(job: { id: string; status: JobStatus }) {
-  if (isSettlementPendingStatus(job.status)) {
-    // The pro's doorstep settlement screen.
-    router.push({ pathname: '/job/[id]/pay', params: { id: job.id } });
-    return;
-  }
-  if (['ACCEPTED', 'TRAVELLING', 'ARRIVED', 'IN_PROGRESS'].includes(job.status)) {
-    router.push({ pathname: '/job/[id]/active', params: { id: job.id } });
-  }
-}
-
-export default function Jobs() {
-  // Lives outside the (tabs) navigator (it is reachable by deep link), so it
-  // must enforce the same signed-in/onboarding gates the tabs layout applies.
+export default function JobPoolScreen() {
+  const queryClient = useQueryClient();
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
-  const { data: jobs, isPending } = useJobHistory();
   const isOnline = checkIsOnline();
+  const {
+    data: jobs = [],
+    isPending,
+    isError,
+    isRefetching,
+    refetch,
+  } = useJobPool({
+    enabled: isAuthenticated && isOnboardingComplete && !isLoading,
+  });
+  const [busyJobId, setBusyJobId] = useState<string | null>(null);
+
+  const handleAccept = useCallback(
+    async (job: AvailableJob): Promise<string | null> => {
+      setBusyJobId(job.id);
+      try {
+        const result = await offerActions.accept(job.id);
+        if (result.status !== 'done') {
+          // A failed claim (taken / expired) already dropped this job from the
+          // pool via realtime; the rest stays actionable.
+          return result.status === 'error' ? messageForAcceptError(result.error) : null;
+        }
+        // Refresh the assigned-jobs cache so the money-owed rule can route, then
+        // land on the just-accepted job (or its payment screen when cash is owed).
+        await queryClient.refetchQueries({ queryKey: queryKeys.jobs.all });
+        const assigned = queryClient.getQueryData<JobDetail[]>(queryKeys.jobs.all) ?? [];
+        const occupied = occupiedJobRoute(assigned);
+        router.replace(occupied ?? `/job/${job.id}/active`);
+        return null;
+      } finally {
+        setBusyJobId(null);
+      }
+    },
+    [queryClient],
+  );
 
   if (isLoading) {
     return (
       <Screen>
-        <LoadingState message="Loading past jobs" />
+        <LoadingState message="Loading job pool" />
       </Screen>
     );
   }
@@ -78,75 +83,49 @@ export default function Jobs() {
 
   return (
     <Screen>
-      <View className="pt-2">
-        <Text variant="titleLg">Past jobs</Text>
-        <Text variant="footnote" className="mt-1 text-text-secondary">
-          Every job request you were offered, including ones nobody accepted.
-        </Text>
-      </View>
-
       {!isOnline ? (
         <View className="mt-2 flex-1">
           <EmptyState
             icon="power-outline"
             title="Go online to see jobs"
-            message="Your job history is available when you're online. Toggle availability on the home screen."
+            message="Your job pool fills up while you're online. Toggle availability on the home screen."
           />
         </View>
       ) : isPending ? (
         <View className="mt-2 flex-1">
-          <EmptyState
-            icon="briefcase-outline"
-            title="Loading your jobs"
-            message="Fetching your job history…"
-          />
+          <LoadingState message="Loading your job pool" />
         </View>
-      ) : (jobs?.length ?? 0) > 0 ? (
-        <Card padded={false} className="mt-4 overflow-hidden">
-          {(jobs ?? []).map((job, index) => (
-            <View key={job.id}>
-              {index > 0 ? <Divider /> : null}
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => openJob(job)}
-                className="active:bg-surface-muted"
-              >
-                <View className="flex-row items-center gap-3 px-4 py-4">
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-2">
-                      <Text variant="bodyStrong" className="flex-shrink">
-                        {job.service.name}
-                      </Text>
-                      <JobStatusBadge status={job.status} />
-                    </View>
-                    {job.customSkill ? (
-                      <Text variant="footnote" className="mt-0.5 text-text-secondary">
-                        {job.customSkill}
-                      </Text>
-                    ) : null}
-                    <Text variant="footnote" className="mt-0.5 text-text-muted" numberOfLines={1}>
-                      {statusLabel(job.status)}
-                    </Text>
-                  </View>
-                  <View className="items-end gap-1">
-                    <Text variant="bodyStrong">
-                      {formatInr(job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise)}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={color['text-muted']} />
-                  </View>
-                </View>
-              </Pressable>
-            </View>
-          ))}
-        </Card>
-      ) : (
+      ) : isError ? (
+        <ErrorState
+          title="Couldn't load the job pool"
+          message="Check your connection and try again."
+          onRetry={() => void refetch()}
+        />
+      ) : jobs.length === 0 ? (
         <View className="mt-2 flex-1">
           <EmptyState
-            icon="time-outline"
-            title="No past jobs yet"
-            message="When you're offered a job request, it will show up here with its outcome."
+            icon="briefcase-outline"
+            title="No jobs in your pool right now"
+            message="When an open request matches your services and area, it appears here instantly."
           />
         </View>
+      ) : (
+        <FlatList
+          className="mt-4 flex-1"
+          data={jobs}
+          keyExtractor={(job) => job.id}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
+          }
+          renderItem={({ item }) => (
+            <JobPoolCard
+              job={item}
+              busy={busyJobId === item.id}
+              onAccept={() => handleAccept(item)}
+            />
+          )}
+        />
       )}
     </Screen>
   );

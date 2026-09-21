@@ -605,8 +605,9 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
   /**
    * Persists (or re-arms) one pro's job-alert row. The row is the record of an
-   * offer — the "past jobs" list is built from it — so it is written whether or
-   * not a push could actually be delivered; `delivered` records the push outcome.
+   * offer and the source the scheduler resolves when the job leaves the open
+   * pool — so it is written whether or not a push could actually be delivered;
+   * `delivered` records the push outcome.
    *
    * When `rearm` is set the existing row is un-resolved (resolvedAt → null) so
    * the repeating scheduler can page the pro again. The repeat counter is
@@ -767,8 +768,8 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           logger.warn(
             `[Push] Skipping pro ${pro.id} for job ${info.jobId}: ${!pro.jobAlertsEnabled ? 'alerts disabled' : 'no push token stored'}`,
           );
-          // No push can go out, but the offer is still recorded so the request
-          // shows up in the pro's job history (Past jobs) with its final status.
+          // No push can go out, but the offer is still recorded so the alert
+          // can be re-sent later and the pool knows this pro was paged.
           await upsertAlert(pro.id, infoForRecipient, { ok: false, providerRef: null }, false);
           return;
         }
