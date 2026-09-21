@@ -3,6 +3,7 @@ import { TopTabs } from 'expo-router/js-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, View, type ColorValue, type TextStyle, type ViewStyle } from 'react-native';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Screen, Text } from '@/components/ui';
 import type { MaterialTopTabNavigationOptions } from 'expo-router/js-top-tabs';
 import type { TabNavigationState } from 'expo-router/build/react-navigation/native';
@@ -49,6 +50,7 @@ interface SwipeableTabBarProps {
 }
 
 function SwipeableTabBar({ state, descriptors, navigation }: SwipeableTabBarProps) {
+  const { t } = useTranslation();
   const pendingCount = useIncomingOffersStore((s) => Object.keys(s.offersById).length);
 
   return (
@@ -73,7 +75,7 @@ function SwipeableTabBar({ state, descriptors, navigation }: SwipeableTabBarProp
             accessibilityState={isFocused ? { selected: true } : undefined}
             accessibilityLabel={
               route.name === 'incoming-jobs' && pendingCount > 0
-                ? `${label}, ${pendingCount} pending`
+                ? t('tabs.requestsPending', { label, count: pendingCount })
                 : label
             }
             onPress={() => navigation.navigate(route.name)}
@@ -101,6 +103,7 @@ function SwipeableTabBar({ state, descriptors, navigation }: SwipeableTabBarProp
 }
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
 
   // The signed-in surface of the app: keep every jobs query in step with the
@@ -130,7 +133,7 @@ export default function TabsLayout() {
   if (isLoading) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <LoadingState message="Starting SAMONA Pro" />
+        <LoadingState message={t('boot.starting')} />
       </Screen>
     );
   }
@@ -161,22 +164,22 @@ export default function TabsLayout() {
     >
       <TopTabs.Screen
         name="home"
-        options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
+        options={{ title: t('tabs.home'), tabBarIcon: tabIcon('home-outline', 'home') }}
       />
       <TopTabs.Screen
         name="incoming-jobs"
         options={{
-          title: 'Requests',
+          title: t('tabs.requests'),
           tabBarIcon: tabIcon('file-tray-full-outline', 'file-tray-full'),
         }}
       />
       <TopTabs.Screen
         name="earnings"
-        options={{ title: 'Earnings', tabBarIcon: tabIcon('wallet-outline', 'wallet') }}
+        options={{ title: t('tabs.earnings'), tabBarIcon: tabIcon('wallet-outline', 'wallet') }}
       />
       <TopTabs.Screen
         name="profile"
-        options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
+        options={{ title: t('tabs.profile'), tabBarIcon: tabIcon('person-outline', 'person') }}
       />
     </TopTabs>
   );
