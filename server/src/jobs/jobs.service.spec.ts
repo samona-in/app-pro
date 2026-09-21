@@ -597,9 +597,14 @@ describe('createJobsService.expireStaleJobs', () => {
     await ctx.jobs.expireStaleJobs();
 
     const where = ctx.prisma.job.findMany.mock.calls[0][0].where;
+    // Fresh jobs (expiresAt null) are swept by their createdAt age; re-released
+    // jobs carry an explicit expiresAt and are swept against that instead.
     expect(where).toMatchObject({
       status: JobStatus.REQUESTED,
-      createdAt: { lt: expect.any(Date) },
+      OR: [
+        { expiresAt: { not: null, lt: expect.any(Date) } },
+        { expiresAt: null, createdAt: { lt: expect.any(Date) } },
+      ],
     });
   });
 
@@ -809,6 +814,7 @@ describe('createJobsService.acceptJob', () => {
     const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
     const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
+    const jobDeclineCount = jest.fn().mockResolvedValue(0);
 
     const realtime = {
       emitToUser: jest.fn(),
@@ -832,6 +838,7 @@ describe('createJobsService.acceptJob', () => {
           },
           proProfile: { findFirst: jest.fn().mockResolvedValue({ id: 'pro-1' }) },
           jobStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+          jobDecline: { count: jobDeclineCount },
         }),
       ),
     };
@@ -854,6 +861,7 @@ describe('createJobsService.acceptJob', () => {
       recordCustomerNotification,
       sendCustomerPush,
       updatedRow,
+      jobDeclineCount,
     };
   }
 
@@ -933,6 +941,15 @@ describe('createJobsService.acceptJob', () => {
       status: JobStatus.ACCEPTED,
     });
   });
+
+  it('refuses to claim a job the pro has declined or released back to the pool', async () => {
+    const ctx = buildAccept();
+    ctx.jobDeclineCount.mockResolvedValue(1);
+
+    await expect(ctx.jobs.acceptJob('user-1', 'job-1')).rejects.toThrow(
+      'You have already declined this job.',
+    );
+  });
 });
 
 describe('createJobsService.acceptJobWithOffer', () => {
@@ -962,6 +979,7 @@ describe('createJobsService.acceptJobWithOffer', () => {
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
     const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
     const offerUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const jobDeclineCount = jest.fn().mockResolvedValue(0);
 
     const realtime = {
       emitToUser: jest.fn(),
@@ -988,6 +1006,7 @@ describe('createJobsService.acceptJobWithOffer', () => {
           },
           proProfile: { findFirst: jest.fn().mockResolvedValue({ id: 'pro-1' }) },
           jobStatusHistory: { create: jest.fn().mockResolvedValue({}) },
+          jobDecline: { count: jobDeclineCount },
         }),
       ),
     };
@@ -1903,9 +1922,17 @@ describe('createJobsService.collectCashForPro', () => {
 });
 
 describe('createJobsService.cancelJob', () => {
-  /** An arrived job with both sides assigned — the last stage a job may be cancelled. */
+  /**
+   * An arrived job with both sides assigned.
+   *
+   * The final stage a pro may tear out of — beyond it (IN_PROGRESS onwards)
+   * the job is locked to both parties. A customer may still cancel up to the
+   * same point; a pro-cancel at/under ARRIVED now releases the job to the pool.
+   */
   const arrivedRow = {
     ...jobRow,
+    serviceId: 'svc-1',
+    expiresAt: null,
     proId: 'pro-1',
     status: JobStatus.ARRIVED,
     finalPayPaise: 15_000,
@@ -1930,51 +1957,81 @@ describe('createJobsService.cancelJob', () => {
         row = { ...row, ...args.data };
         return row;
       });
+    // updateMany drives the release path; the mutated row stands in for the
+    // post-transaction re-read (findFirstOrThrow) of the released job.
+    const jobUpdateMany = jest
+      .fn()
+      .mockImplementation(async (args: { data: Record<string, unknown> }) => {
+        row = { ...row, ...args.data };
+        return { count: 1 };
+      });
+    const jobFindFirstOrThrow = jest.fn().mockImplementation(async () => row);
+    const declineUpsert = jest.fn().mockResolvedValue({});
+    const messageDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
     const recordCustomerNotification = jest.fn().mockResolvedValue(undefined);
     const sendCustomerPush = jest.fn().mockResolvedValue(undefined);
     const resolveJobAlerts = jest.fn().mockResolvedValue(undefined);
     const sendAssignedCancellationProPush = jest.fn().mockResolvedValue(undefined);
+    const reAlertEligiblePros = jest.fn().mockResolvedValue(undefined);
+    const findEligiblePros = jest.fn().mockResolvedValue([]);
 
     const prisma = {
       job: { findUnique: jobFindUnique, update: jobUpdate },
       jobStatusHistory: { create: historyCreate },
+      jobDecline: { upsert: declineUpsert },
+      message: { deleteMany: messageDeleteMany },
       proProfile: { findUnique: jest.fn().mockResolvedValue({ isOnline: false }) },
-      $transaction: jest
-        .fn()
-        .mockImplementation(async (fn: (tx: unknown) => unknown) =>
-          fn({ job: { update: jobUpdate }, jobStatusHistory: { create: historyCreate } }),
-        ),
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
+        fn({
+          job: {
+            update: jobUpdate,
+            updateMany: jobUpdateMany,
+            findFirstOrThrow: jobFindFirstOrThrow,
+          },
+          jobStatusHistory: { create: historyCreate },
+          jobDecline: { upsert: declineUpsert },
+          message: { deleteMany: messageDeleteMany },
+        }),
+      ),
     };
 
     const realtime = { emitToUser: jest.fn(), emitToUsers: jest.fn() };
     const storage = {
       jobImagePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`),
+      selfiePublicUrl: jest.fn().mockImplementation((p: string) => `https://cdn/${p}`),
     };
+    const matching = { findEligiblePros };
     const notifications = {
       recordCustomerNotification,
       sendCustomerPush,
       resolveJobAlerts,
       sendAssignedCancellationProPush,
+      reAlertEligiblePros,
     };
 
     const jobs = createJobsService({
       prisma: prisma as never,
       storage: storage as never,
-      matching: {} as never,
+      matching: matching as never,
       realtime: realtime as never,
       notifications: notifications as never,
-      config: { jobExpireTtlMs: 30 * 60_000 } as never,
+      config: { jobExpireTtlMs: 30 * 60_000, jobAlertRearmCooldownMs: 5 * 60_000 } as never,
     } as never);
 
     return {
       jobs,
-      setRow: (next: { status: JobStatus; [k: string]: unknown }) => {
-        row = { ...arrivedRow, ...next } as typeof arrivedRow;
+      setRow: (next: { status?: JobStatus; [k: string]: unknown }) => {
+        row = { ...arrivedRow, ...next } as Omit<typeof arrivedRow, 'status'> & { status: JobStatus };
       },
       jobFindUnique,
       historyCreate,
       jobUpdate,
+      jobUpdateMany,
+      declineUpsert,
+      messageDeleteMany,
       realtime,
+      findEligiblePros,
+      reAlertEligiblePros,
       recordCustomerNotification,
       sendCustomerPush,
       resolveJobAlerts,
@@ -2032,26 +2089,144 @@ describe('createJobsService.cancelJob', () => {
     expect(ctx.recordCustomerNotification).not.toHaveBeenCalled();
   });
 
-  it('lets the pro cancel at ARRIVED and tells the customer', async () => {
+  it('lets the pro release at ARRIVED and tells the customer the booking is re-listed', async () => {
     const ctx = buildCancel();
 
     const result = await ctx.jobs.cancelJob('user-1', 'job-1');
 
     expect(result).toMatchObject({
-      detail: expect.objectContaining({ status: JobStatus.CANCELLED }),
+      detail: expect.objectContaining({ status: JobStatus.REQUESTED }),
+      customerUserId: 'cust-user-1',
+      proUserId: 'user-1',
     });
+    expect(ctx.historyCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromStatus: JobStatus.ARRIVED,
+          toStatus: JobStatus.REQUESTED,
+          changedById: 'user-1',
+        }),
+      }),
+    );
+    // Not a cancellation write — the job is stripped back to a clean open state
+    // with a fresh offer window so another pro can still take the work.
+    const data = ctx.jobUpdateMany.mock.calls[0][0].data;
+    expect(ctx.jobUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'job-1',
+          proId: 'pro-1',
+          status: { in: [JobStatus.ACCEPTED, JobStatus.TRAVELLING, JobStatus.ARRIVED] },
+        }),
+        data: expect.objectContaining({
+          status: JobStatus.REQUESTED,
+          proId: null,
+          agreedPayPaise: null,
+          finalPayPaise: null,
+          verificationOtp: null,
+          startOtpAttempts: 0,
+          cancelledAt: null,
+          completedAt: null,
+        }),
+      }),
+    );
+    expect(data.expiresAt).toBeInstanceOf(Date);
+    // The releasing pro is barred from re-grabbing the job they just handed back.
+    expect(ctx.declineUpsert).toHaveBeenCalledWith({
+      where: { jobId_proId: { jobId: 'job-1', proId: 'pro-1' } },
+      create: { jobId: 'job-1', proId: 'pro-1' },
+      update: {},
+    });
+    // The previous pro's chat is wiped so it never leaks to whoever accepts next.
+    expect(ctx.messageDeleteMany).toHaveBeenCalledWith({ where: { jobId: 'job-1' } });
+    // Both sides see the job as open again in realtime.
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(2);
+    // It is a release, not a cancellation: no offer resolution, no cancel push.
+    expect(ctx.resolveJobAlerts).not.toHaveBeenCalled();
+    expect(ctx.sendAssignedCancellationProPush).not.toHaveBeenCalled();
+    // The customer hears the booking is back in the marketplace — not cancelled.
     expect(ctx.recordCustomerNotification).toHaveBeenCalled();
     expect(ctx.sendCustomerPush).toHaveBeenCalledWith({
       userId: 'cust-user-1',
       jobId: 'job-1',
-      title: 'Booking cancelled',
+      title: 'Finding a new professional',
       body: expect.stringContaining('Electrical'),
       type: 'JOB_STATUS',
     });
-    expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'CANCELLED');
-    // The pro initiated the cancel — no self-notice; the assigned-pro push is
-    // only for cancellations the customer performs.
-    expect(ctx.sendAssignedCancellationProPush).not.toHaveBeenCalled();
+  });
+
+  it('releases from every pre-work state a pro may hold: ACCEPTED, TRAVELLING, ARRIVED', async () => {
+    for (const status of [JobStatus.ACCEPTED, JobStatus.TRAVELLING, JobStatus.ARRIVED]) {
+      const ctx = buildCancel();
+      ctx.setRow({ status, proId: 'pro-1', acceptedAt: new Date('2026-08-28T00:00:00Z') });
+
+      const result = await ctx.jobs.cancelJob('user-1', 'job-1');
+
+      expect(result.detail.status).toBe(JobStatus.REQUESTED);
+      const data = ctx.jobUpdateMany.mock.calls[0][0].data;
+      expect(data.status).toBe(JobStatus.REQUESTED);
+      expect(data.proId).toBeNull();
+      expect(data.expiresAt).toBeInstanceOf(Date);
+      expect(ctx.historyCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ fromStatus: status, toStatus: JobStatus.REQUESTED }),
+        }),
+      );
+    }
+  });
+
+  it('re-offers the released job to other eligible pros with a cooldown-gated alert', async () => {
+    const ctx = buildCancel();
+    ctx.setRow({ status: JobStatus.ACCEPTED, latitude: 12.972, longitude: 77.594 });
+    ctx.findEligiblePros.mockResolvedValue([
+      { proId: 'pro-2', userId: 'user-2', distanceKm: 1.2 },
+      { proId: 'pro-3', userId: 'user-3', distanceKm: 2.4 },
+    ]);
+
+    await ctx.jobs.cancelJob('user-1', 'job-1');
+
+    expect(ctx.findEligiblePros).toHaveBeenCalledWith({
+      serviceId: 'svc-1',
+      latitude: 12.972,
+      longitude: 77.594,
+    });
+    expect(ctx.realtime.emitToUsers).toHaveBeenCalledWith(
+      ['user-2', 'user-3'],
+      REALTIME_EVENTS.JOB_NEW,
+      expect.objectContaining({ id: 'job-1', status: JobStatus.REQUESTED }),
+    );
+    // The re-alert re-arms within the per-pro cooldown so a pro who was just
+    // paged for this job is not bombarded the instant it returns to the pool.
+    expect(ctx.reAlertEligiblePros).toHaveBeenCalledWith(
+      [
+        { proId: 'pro-2', distanceKm: 1.2 },
+        { proId: 'pro-3', distanceKm: 2.4 },
+      ],
+      expect.objectContaining({ jobId: 'job-1', serviceName: 'Electrical' }),
+      5 * 60_000,
+    );
+  });
+
+  it('never re-offers the job back to the releasing pro', async () => {
+    const ctx = buildCancel();
+    ctx.setRow({ status: JobStatus.ARRIVED, latitude: 12.972, longitude: 77.594 });
+    ctx.findEligiblePros.mockResolvedValue([
+      { proId: 'pro-1', userId: 'user-1', distanceKm: 0 },
+      { proId: 'pro-2', userId: 'user-2', distanceKm: 1.2 },
+    ]);
+
+    await ctx.jobs.cancelJob('user-1', 'job-1');
+
+    expect(ctx.realtime.emitToUsers).toHaveBeenCalledWith(
+      ['user-2'],
+      REALTIME_EVENTS.JOB_NEW,
+      expect.anything(),
+    );
+    expect(ctx.reAlertEligiblePros).toHaveBeenCalledWith(
+      [{ proId: 'pro-2', distanceKm: 1.2 }],
+      expect.anything(),
+      5 * 60_000,
+    );
   });
 
   it('blocks cancellation once the work has started, for both sides', async () => {

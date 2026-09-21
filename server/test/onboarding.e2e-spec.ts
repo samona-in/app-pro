@@ -30,6 +30,7 @@ const config: AppConfig = {
   expoAccessToken: null,
   jobAlertRepeatMs: 60_000,
   jobAlertMaxRepeats: 20,
+  jobAlertRearmCooldownMs: 5 * 60_000,
   jobCatchupWindowMs: 2 * 60 * 60_000,
   jobCatchupLimit: 3,
   jobExpireTtlMs: 30 * 60_000,

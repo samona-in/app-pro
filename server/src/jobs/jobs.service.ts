@@ -148,6 +148,8 @@ type JobRow = {
   cancelledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  expiresAt: Date | null;
+  serviceId: string;
   service: Job['service'];
   skill: Job['skill'];
   customSkill: string | null;
@@ -202,9 +204,12 @@ function toJobDto(row: JobRow, storage: StorageService, config: AppConfig): Job 
     // The one deadline a client needs (offer window, countdown) and the sweep
     // that turns the job EXPIRED use the same value: the FCM push already
     // computed this exact moment, so the DTO keeps every surface in step with
-    // it. Computed for every job — a client that no longer needs the deadline
-    // just ignores the field.
-    expiresAt: new Date(row.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
+    // it. Prefer the stored `expiresAt` when present — it is set at creation
+    // and may be reset when a pro releases the job back to the pool — otherwise
+    // derive it from `createdAt` for backward compatibility with older rows.
+    expiresAt: row.expiresAt
+      ? iso(row.expiresAt)
+      : new Date(row.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
   };
@@ -548,10 +553,15 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
-   * Cancels a job. Applies to its customer or its assigned pro.
+   * Cancels a job, or — when the assigned pro acts pre-work — hands it back to
+   * the open pool. Applies to its customer or its assigned pro.
    *
    * The actor is resolved from the verified token; the job is scoped to their
    * own involvement, so neither side can cancel a job they are not part of.
+   *
+   * A pro-initiated release from ACCEPTED/TRAVELLING/ARRIVED returns the job to
+   * the pool (`REQUESTED`) instead of cancelling it, so the work can still be
+   * matched to another eligible pro. Every other cancellation stays terminal.
    */
   async function cancelJob(
     actorUserId: string,
@@ -570,6 +580,12 @@ export function createJobsService(deps: JobsServiceDeps) {
     }
     if (!actorIsCustomer && !row.pro) {
       throw conflict('A professional is not assigned to this job.');
+    }
+
+    // The assigned pro tearing out of a pre-work job releases it to the pool
+    // instead of killing it; the work may still find another professional.
+    if (!actorIsCustomer && canTransition(row.status, JobStatus.REQUESTED)) {
+      return releaseJobToPool(actorUserId, row as unknown as JobRow, row.pro!.userId);
     }
 
     if (!canTransition(row.status, JobStatus.CANCELLED)) {
@@ -671,6 +687,167 @@ export function createJobsService(deps: JobsServiceDeps) {
       detail: actorIsCustomer ? customerDetail : proDetail,
       customerUserId: row.customer.userId,
       proUserId: row.pro?.userId ?? null,
+    };
+  }
+
+  /**
+   * Hands a job back to the open pool when an assigned pro releases it.
+   *
+   * Only reachable from `cancelJob` by a pro actor on an ACCEPTED,
+   * TRAVELLING or ARRIVED job. The job is reset to a clean REQUESTED state
+   * (assignment, price, OTP and timing artifacts cleared, a fresh expiry
+   * window), the chat with the previous pro is deleted so it never leaks to
+   * the next pro, and the job is re-offered to other eligible pros. The
+   * releasing pro is excluded via a `JobDecline` so they cannot re-grab it.
+   *
+   * The transition is guarded by an atomic `updateMany` on the exact
+   * `{ id, proId, status }` state, so a racing duplicate release touches zero
+   * rows and loses to the first commit.
+   */
+  async function releaseJobToPool(
+    actorUserId: string,
+    row: JobRow,
+    proUserId: string,
+  ): Promise<{ detail: JobDetail; customerUserId: string; proUserId: string | null }> {
+    // The release path is only reached with an assigned pro; keep the narrowing
+    // honest for the transaction writes below.
+    if (!row.proId) throw conflict('A professional is not assigned to this job.');
+    const releasingProId: string = row.proId;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + config.jobExpireTtlMs);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const released = await tx.job.updateMany({
+        where: {
+          id: row.id,
+          proId: releasingProId,
+          status: { in: [JobStatus.ACCEPTED, JobStatus.TRAVELLING, JobStatus.ARRIVED] },
+        },
+        data: {
+          status: JobStatus.REQUESTED,
+          proId: null,
+          acceptedAt: null,
+          agreedPayPaise: null,
+          finalPayPaise: null,
+          verificationOtp: null,
+          otpIssuedAt: null,
+          startOtpAttempts: 0,
+          completedAt: null,
+          cancelledAt: null,
+          expiresAt,
+        },
+      });
+      if (released.count !== 1) throw conflict('This job can no longer be released.');
+
+      await tx.jobStatusHistory.create({
+        data: {
+          jobId: row.id,
+          fromStatus: row.status,
+          toStatus: JobStatus.REQUESTED,
+          changedById: actorUserId,
+        },
+      });
+
+      // The releasing pro must not re-grab a job they just handed back. The
+      // available-jobs feed and the atomic claim both filter out declines.
+      await tx.jobDecline.upsert({
+        where: { jobId_proId: { jobId: row.id, proId: releasingProId } },
+        create: { jobId: row.id, proId: releasingProId },
+        update: {},
+      });
+
+      // A job returning to the pool has a clean slate: the previous pro's chat
+      // thread must never surface to whoever accepts the job next.
+      await tx.message.deleteMany({ where: { jobId: row.id } });
+
+      return tx.job.findFirstOrThrow({ where: { id: row.id }, include: jobDetailInclude });
+    });
+
+    // Both parties' screens flip to "open" instantly.
+    const customerDetail = toJobDetail(
+      updated as unknown as JobDetailRow,
+      'customer',
+      storage,
+      config,
+    );
+    const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
+    realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
+
+    // The customer hears their booking is back in the marketplace — not that it
+    // was cancelled — and the page states the outcome in place too.
+    notifyCustomer(notifications, {
+      customerId: updated.customerId,
+      customerUserId: updated.customer.userId,
+      jobId: updated.id,
+      kind: NotificationKind.JOB_STATUS,
+      title: 'Finding a new professional',
+      body: `${updated.service.name} · your booking is back in the marketplace`,
+      route: `/booking/${updated.id}`,
+    });
+
+    // Re-open the job to other eligible pros: a JOB_NEW socket event for online
+    // pros, and a cooldown-gated alert so a pro who was just paged for this
+    // job is not bombarded the instant it returns. Only with a location.
+    if (updated.latitude !== null && updated.longitude !== null) {
+      const eligible = await matching.findEligiblePros({
+        serviceId: updated.serviceId,
+        latitude: updated.latitude,
+        longitude: updated.longitude,
+      });
+      const others = eligible.filter((pro) => pro.userId !== proUserId);
+      if (others.length > 0) {
+        const payload = toJobDto(updated as unknown as JobRow, storage, config);
+        realtime.emitToUsers(
+          others.map((pro) => pro.userId),
+          REALTIME_EVENTS.JOB_NEW,
+          payload,
+        );
+
+        void notifications.reAlertEligiblePros(
+          others.map((pro) => ({ proId: pro.proId, distanceKm: pro.distanceKm })),
+          {
+            jobId: updated.id,
+            serviceName: updated.service.name,
+            serviceCategory: updated.customSkill?.trim() || updated.skill.name,
+            customSkill: updated.customSkill,
+            description: updated.description,
+            basePayPaise: updated.basePayPaise,
+            address: updated.locationLabel,
+            expiresAt: expiresAt.toISOString(),
+          },
+          config.jobAlertRearmCooldownMs,
+        );
+      }
+    }
+
+    // The releasing pro may have missed jobs while committed to this one —
+    // re-nudge them with requests that arrived after they accepted, but only
+    // while they are still online.
+    const proProfile = await prisma.proProfile.findUnique({
+      where: { userId: proUserId },
+      select: { latitude: true, longitude: true, isOnline: true },
+    });
+    if (
+      proProfile &&
+      proProfile.isOnline &&
+      proProfile.latitude !== null &&
+      proProfile.longitude !== null
+    ) {
+      void notifyReadyJobRequests(
+        proUserId,
+        {
+          latitude: proProfile.latitude,
+          longitude: proProfile.longitude,
+        },
+        { createdAfter: row.acceptedAt ?? undefined },
+      );
+    }
+
+    return {
+      detail: proDetail,
+      customerUserId: updated.customer.userId,
+      proUserId,
     };
   }
 
@@ -933,6 +1110,11 @@ export function createJobsService(deps: JobsServiceDeps) {
       });
       if (!row) throw notFound('This job is no longer open.');
 
+      // A pro who declined this job, or released it back to the pool, may not
+      // re-grab it. The check is duplicated atomically into the claim below.
+      const excluded = await tx.jobDecline.count({ where: { jobId, proId: pro.id } });
+      if (excluded > 0) throw conflict('You have already declined this job.');
+
       const busy = await tx.job.count({
         where: { proId: pro.id, status: { in: [...ACTIVE_JOB_STATUSES] } },
       });
@@ -962,9 +1144,16 @@ export function createJobsService(deps: JobsServiceDeps) {
       if (!eligible) throw conflict('This job is outside your service area.');
 
       // The `proId: null` guard makes a double acceptance impossible: a racing
-      // second transaction touches zero rows.
+      // second transaction touches zero rows. The `declines` guard is re-checked
+      // here so an exclusion written between the pre-read and the claim wins
+      // atomically — a declined or released pro never beats a fresh claimer.
       const claimed = await tx.job.updateMany({
-        where: { id: row.id, status: JobStatus.REQUESTED, proId: null },
+        where: {
+          id: row.id,
+          status: JobStatus.REQUESTED,
+          proId: null,
+          declines: { none: { proId: pro.id } },
+        },
         data: {
           status: JobStatus.ACCEPTED,
           proId: pro.id,
@@ -1567,9 +1756,14 @@ export function createJobsService(deps: JobsServiceDeps) {
   let expireTimer: ReturnType<typeof setInterval> | null = null;
 
   /**
-   * One auto-expiry sweep: flip every REQUESTED job older than
-   * `config.jobExpireTtlMs` to EXPIRED, record the transition, resolve its
-   * alerts and page the counterparties so open overlays close immediately.
+   * One auto-expiry sweep: flip every open REQUESTED job past its deadline to
+   * EXPIRED, record the transition, resolve its alerts and page the
+   * counterparties so open overlays close immediately.
+   *
+   * Freshly-created jobs have `expiresAt = null` and expire based on
+   * `createdAt + jobExpireTtlMs`. Re-released jobs have an explicit
+   * `expiresAt` (reset to `now + jobExpireTtlMs` on release) and are checked
+   * against that value instead.
    *
    * Each row is guarded by an `updateMany` on the exact `{ REQUESTED, proId:
    * null }` state, so a racing acceptance/cancel wins and the job is never
@@ -1577,9 +1771,20 @@ export function createJobsService(deps: JobsServiceDeps) {
    * scanned in this sweep (expired or not), for tests and observability.
    */
   async function expireStaleJobs(): Promise<number> {
-    const cutoff = new Date(Date.now() - config.jobExpireTtlMs);
+    const now = new Date();
+    const ttlMs = config.jobExpireTtlMs;
+    const cutoff = new Date(now.getTime() - ttlMs);
+
+    // A released job carries an explicit expiresAt (set on re-release);
+    // a fresh job has expiresAt = null and should be expired by createdAt.
     const stale = await prisma.job.findMany({
-      where: { status: JobStatus.REQUESTED, createdAt: { lt: cutoff } },
+      where: {
+        status: JobStatus.REQUESTED,
+        OR: [
+          { expiresAt: { not: null, lt: now } },
+          { expiresAt: null, createdAt: { lt: cutoff } },
+        ],
+      },
       select: {
         id: true,
         customerId: true,

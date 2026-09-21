@@ -109,6 +109,19 @@ const envSchema = z.object({
   JOB_ALERT_MAX_REPEATS: z.coerce.number().int().min(0).max(100).default(0),
 
   /**
+   * Minimum gap between two alerts to the same pro for the same job, in ms.
+   * Applied when a job returns to the open pool after a pro releases it: a pro
+   * who was just alerted is not bombarded again until this window has passed.
+   * Defaults to 5 minutes.
+   */
+  JOB_ALERT_REARM_COOLDOWN_MS: z.coerce
+    .number()
+    .int()
+    .min(30_000)
+    .max(3_600_000)
+    .default(5 * 60_000),
+
+  /**
    * How far back a still-open job request is still offered to a pro who comes
    * online after the request was raised (Rapido-style catch-up). Defaults to
    * 2 hours.
@@ -208,6 +221,8 @@ export interface AppConfig {
   jobAlertRepeatMs: number;
   /** Ceiling on repeats for a single job alert. */
   jobAlertMaxRepeats: number;
+  /** Minimum gap between two alerts to the same pro for the same job, in ms. */
+  jobAlertRearmCooldownMs: number;
   /** Catch-up recency window for a pro returning online, in ms. */
   jobCatchupWindowMs: number;
   /** Nearest-first cap of open requests paged to a returning pro. */
@@ -283,6 +298,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     expoAccessToken: env.EXPO_ACCESS_TOKEN ?? null,
     jobAlertRepeatMs: env.JOB_ALERT_REPEAT_MS,
     jobAlertMaxRepeats: env.JOB_ALERT_MAX_REPEATS,
+    jobAlertRearmCooldownMs: env.JOB_ALERT_REARM_COOLDOWN_MS,
     jobCatchupWindowMs: env.JOB_CATCHUP_WINDOW_MS,
     jobCatchupLimit: env.JOB_CATCHUP_LIMIT,
     jobExpireTtlMs: env.JOB_EXPIRE_TTL_MS,
