@@ -62,9 +62,14 @@
     "label": "ఫోన్ నంబర్",
     "hint": "మీ దేశ కోడ్ను చేర్చండి.",
     "sendCode": "SMS పంపండి",
-    "legal": "కొనసాగడం ద్వారా మీరు SAMONA Pro నిబంధనలు మరియు గోప్యతా విధానాన్ని అంగీకరిస్తున్నారు."
+    "legal": "కొనసాగడం ద్వారా మీరు SAMONA Pro నిబంధనలు మరియు గోప్యతా విధానాన్ని అంగీకరిస్తున్నారు.",
+    "tooManyAttempts": "చాలా ప్రయత్నాలు. మరో కోడ్ను అభ్యర్థించే ముందు ఒక నిమిషం వేచి ఉండండి.",
+    "couldNotSend": "కోడ్ పంపలేకపోయాము. మళ్లీ ప్రయత్నించండి.",
+    "wrongCode": "ఆ కోడ్ సరైనది కాదు. మళ్లీ ప్రయత్నించండి.",
+    "signInIncomplete": "ఆ కోడ్తో సైన్-ఇన్ పూర్తి కాలేదు. కొత్త కోడ్ను అభ్యర్థించండి."
   },
   "verify": {
+    "heading": "కోడ్ నమోదు చేయండి",
     "sentToPhone": "{{phone}}కు పంపబడింది.",
     "yourPhone": "మీ ఫోన్",
     "changeNumber": "నంబర్ మార్చండి",
@@ -166,7 +171,8 @@
       "choosePhotoA11y": "ప్రొఫైల్ ఫోటో ఎంచుకోండి",
       "photoCaption": "కస్టమర్లు ఈ ఫోటోను చూస్తారు",
       "aboutYou": "మీ గురించి",
-      "bioPlaceholder": "ఉదా. హైదరాబాద్ అంతటా స్ప్లిట్ మరియు విండో ACలను 8 సంవత్సరాలు రిపేర్ చేస్తున్నాను."
+      "bioPlaceholder": "ఉదా. హైదరాబాద్ అంతటా స్ప్లిట్ మరియు విండో ACలను 8 సంవత్సరాలు రిపేర్ చేస్తున్నాను.",
+      "languagesLabel": "మీరు మాట్లాడే భాషలు"
     },
     "face": {
       "title": "మీరేనని ధృవీకరిద్దాం",
@@ -209,6 +215,9 @@
     "offline": "మీరు ఆఫ్లైన్లో ఉన్నారు",
     "toggling": "మీ అందుబాటును మారుస్తోంది…",
     "goOnlinePrompt": "పని అభ్యర్థనలను స్వీకరించడం ప్రారంభించడానికి ఆన్లైన్లోకి వెళ్లండి.",
+    "fix": "సరిచేయండి",
+    "jobsAccessibility": "ఉద్యోగాలు",
+    "notificationsAccessibility": "నోటిఫికేషన్లు",
     "errorGeneric": "ఏదో పొరపాటు జరిగింది. దయచేసి మళ్లీ ప్రయత్నించండి.",
     "cantGoOnline": "ఆన్లైన్లోకి వెళ్లలేము",
     "cantGoOffline": "ఆఫ్లైన్లోకి వెళ్లలేము",
@@ -257,7 +266,12 @@
     "customerPhotos": "కస్టమర్ ఫోటోలు",
     "photoCount": "({{count}})",
     "beforeStart": "ప్రారంభించే ముందు",
-    "jobDescription": "పని వివరణ"
+    "jobDescription": "పని వివరణ",
+    "checklist": {
+      "inspectIssue": "సమస్యను పరిశీలించండి",
+      "confirmWork": "కస్టమర్తో పనిని నిర్ధారించండి",
+      "startWhenReady": "మీరు సిద్ధంగా ఉన్నప్పుడే ప్రారంభించండి"
+    }
   },
   "activeJob": {
     "loading": "మీ పని లోడ్ అవుతోంది",
@@ -284,7 +298,12 @@
     "title": "చెల్లింపు",
     "amountToCollect": "వసూలు చేయాల్సిన మొత్తం",
     "collectInstruction": "ఈ మొత్తాన్ని {{customerName}} నుండి నగదుగా వసూలు చేసి, పనిని మూసివేయడానికి స్వైప్ చేయండి.",
-    "collectCash": "నగదు స్వీకరించండి"
+    "collectCash": "నగదు స్వీకరించండి",
+    "collecting": "నగదు వసూలు చేస్తున్నాము",
+    "processing": "చెల్లింపు ప్రాసెస్ అవుతోంది",
+    "confirmingPayment": "సమోనాతో చెల్లింపును నిర్ధారిస్తున్నాము…",
+    "paymentCollected": "చెల్లింపు స్వీకరించబడింది",
+    "niceOne": "బాగుంది — మీ తదుపరి పనికి వెళ్లండి."
   },
   "chat": {
     "placeholder": "సందేశాన్ని టైప్ చేయండి",
@@ -297,6 +316,7 @@
     "quickChatA11yCollapse": "క్విక్ చాట్ను మూసివేయండి",
     "quickChatA11yOpen": "క్విక్ చాట్ను తెరవండి",
     "quickChatTitle": "క్విక్ చాట్",
+    "phraseA11y": "{{phrase}}. మీ సందేశానికి జోడించడానికి నొక్కండి",
     "unread_one": "{{count}} చదవని సందేశం",
     "unread_other": "{{count}} చదవని సందేశాలు"
   },
@@ -372,6 +392,14 @@
       "coloros": "Oppo లేదా Realme",
       "nearStock": "Motorola లేదా Pixel",
       "generic": "మీ పరికరం"
+    },
+    "oemGuides": {
+      "miui": "MiUI: Settings → Apps → Manage apps → Samona Pro → Autostart → On. అలాగే Settings → Battery → Background app limits → No restrictions, మరియు ఏదైనా \"battery saver\" జాబితా నుండి Samona Proను తీసివేయండి.",
+      "samsung": "One UI: Settings → Battery → Background usage limits → Never sleeping apps → Samona Proను జోడించండి. అలాగే \"Sleeping apps\" మరియు \"Deep sleeping apps\" నుండి తీసివేయండి.",
+      "oneplus": "OxygenOS: Settings → Battery → Battery optimization → Samona Pro → Don't optimize. Apps → Samona Pro → Battery usage కింద \"Run in background\" ప్రారంభించండి.",
+      "coloros": "ColorOS/OriginOS: Settings → Apps → Samona Pro → Battery → Allow background activity. \"Autostart\" జాబితా ఉంటే, దానిలో కూడా ప్రారంభించండి.",
+      "nearStock": "Near-stock Android: పై నాలుగు తనిఖీలు చాలా సరిపోతాయి. యాప్ మూసివేసినప్పుడు అలర్ట్లు ఆగితే, OEM బ్యాటరీ యాప్లో \"sleeping apps\" జాబితాను తనిఖీ చేయండి.",
+      "generic": "ప్రతి OEM దీన్ని భిన్నంగా మారుస్తుంది. మీ ఫోన్ సెట్టింగ్లలో బ్యాటరీ కింద \"sleeping apps\", \"deep sleep\" లేదా autostart పరిమితి జాబితాలలో Samona Pro లేదని నిర్ధారించుకోండి."
     },
     "forYourPhone": "మీ ఫోన్ కోసం",
     "outOfSleepTitle": "Samona Proను స్లీప్ నుండి బయట ఉంచండి",
@@ -470,7 +498,8 @@
     "noReason": "ఎటువంటి కారణం ఇవ్వబడలేదు. వివరాల కోసం SAMONA మద్దతును సంప్రదించండి.",
     "a11y": {
       "manageServices": "సేవలను నిర్వహించండి",
-      "serviceMarked": "{{service}}, {{mark}}"
+      "serviceMarked": "{{service}}, {{mark}}",
+      "showsRejectionReason": "తిరస్కరణ కారణాన్ని చూపుతుంది"
     }
   },
   "faceCore": {
@@ -484,7 +513,7 @@
     "holdStill": "కదలకుండా ఉండండి…",
     "autoCapture": "ఇది స్వయంచాలకంగా జరుగుతుంది — ఏదీ నొక్కాల్సిన అవసరం లేదు.",
     "permissionTitle": "కెమెరా యాక్సెస్ అవసరం",
-    "permissionMessage": "ఫేస్ వెరిఫికేషన్ మీ కెమెరాను ఉపయోగించాలి. కొనసాగించడానికి కెమెరా యాక్సెస్ను ఆన్ చేయండి.",
+    "permissionMessage": "ముఖాన్ని ప్రత్యక్షంగా తీయడానికి SAMONA Proకు మీ ఫ్రంట్ కెమెరా అవసరం. ఈ ఫోటోను మీరు చేరుకునే ముందే కస్టమర్లు చూస్తారు, కాబట్టి ఎవరు వస్తున్నారో అందరికీ తెలుస్తుంది.",
     "allow": "కెమెరా యాక్సెస్ అనుమతించండి",
     "noFrontTitle": "ఫ్రంట్ కెమెరా కనుగొనబడలేదు",
     "noFrontMessage": "ఫేస్ వెరిఫికేషన్కు ఫ్రంట్ కెమెరా ఉన్న పరికరం అవసరం.",
@@ -512,6 +541,7 @@
   },
   "format": {
     "km": "{{value}} కి.మీ",
+    "m": "{{value}} మీ",
     "minAway": "{{minutes}} నిమిషాల దూరం",
     "relative": {
       "justNow": "ఇప్పుడే",

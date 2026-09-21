@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { openURL } from 'expo-linking';
 import {
   Camera,
@@ -22,6 +23,7 @@ import { UnreadBadge } from '@/components/chat';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { CallMessageButton, JobDetailsContent, VerifyStartSheet } from '@/components/jobs';
 import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
+import type { TranslationKey } from '@/i18n';
 import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
@@ -48,11 +50,11 @@ const SWIPE_ACTION: Partial<Record<Status, ProJobTransitionAction>> = {
 };
 
 /** The label shown on the swipe button for each on-site stage. */
-const SWIPE_LABEL: Partial<Record<Status, string>> = {
-  ACCEPTED: 'On My Way',
-  TRAVELLING: "I've Arrived",
-  ARRIVED: 'Start Work',
-  IN_PROGRESS: 'Work Completed',
+const SWIPE_LABEL: Partial<Record<Status, TranslationKey>> = {
+  ACCEPTED: 'activeJob.swipe.onMyWay',
+  TRAVELLING: 'activeJob.swipe.arrived',
+  ARRIVED: 'activeJob.swipe.startWork',
+  IN_PROGRESS: 'activeJob.swipe.completed',
 };
 
 /**
@@ -121,10 +123,11 @@ function CustomerPin() {
 /** Compact pill that launches turn-by-turn navigation — same footprint and
     visual grammar as the ETA/distance chips in the job-details sheet. */
 function NavigateButton({ onPress }: { onPress: () => void }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Navigate to work spot"
+      accessibilityLabel={t('activeJob.navigateA11y')}
       onPress={onPress}
       className="flex-row items-center rounded-full bg-brand px-3 py-1.5 active:opacity-80"
       style={{
@@ -137,7 +140,7 @@ function NavigateButton({ onPress }: { onPress: () => void }) {
     >
       <Ionicons name="navigate" size={14} color={color['brand-contrast']} />
       <Text variant="footnote" className="ml-1.5 font-semibold text-brand-contrast">
-        Navigate
+        {t('activeJob.navigate')}
       </Text>
     </Pressable>
   );
@@ -162,6 +165,7 @@ function Chip({
 }
 
 export default function ActiveJobScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: jobs, isPending, isFetching, refetch } = useProJobs();
   const transition = useTransitionJob();
@@ -190,11 +194,11 @@ export default function ActiveJobScreen() {
       // the pro is asked to enter it.
       if (action === 'start') setVerifyOpen(true);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Please try again.';
+      const message = error instanceof Error ? error.message : t('common.retry');
       if (action === 'arrived' && message.toLowerCase().includes('must be within')) {
-        Alert.alert('Not at the work spot yet', message);
+        Alert.alert(t('activeJob.notAtSpot'), message);
       } else {
-        Alert.alert('Could not update this job', message);
+        Alert.alert(t('activeJob.couldNotUpdate'), message);
       }
     }
   });
@@ -296,7 +300,7 @@ export default function ActiveJobScreen() {
   if (isPending || (!job && isFetching)) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <LoadingState message="Loading your job" />
+        <LoadingState message={t('activeJob.loading')} />
       </Screen>
     );
   }
@@ -306,8 +310,8 @@ export default function ActiveJobScreen() {
       <Screen edges={[]}>
         <EmptyState
           icon="briefcase-outline"
-          title="Job not found"
-          message="This job is no longer assigned to you, or it has finished."
+          title={t('activeJob.notFound')}
+          message={t('common.notAssigned')}
         />
       </Screen>
     );
@@ -338,11 +342,11 @@ export default function ActiveJobScreen() {
   }
 
   const action = SWIPE_ACTION[job.status];
-  const customerName = job.customer?.displayName ?? 'Customer';
+  const customerName = job.customer?.displayName ?? t('common.customer');
   const address =
-    job.locationLabel ?? job.customer?.locationLabel ?? 'Location shared after you arrive';
+    job.locationLabel ?? job.customer?.locationLabel ?? t('common.locationSharedLater');
   const price = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  const swipeLabel = SWIPE_LABEL[job.status] ?? 'On My Way';
+  const swipeLabel = t(SWIPE_LABEL[job.status] ?? 'activeJob.swipe.onMyWay');
 
   /** Straight dashed connector between the pro's live pin and the work spot,
       drawn until the camera view is replaced by turn-by-turn navigation. */
@@ -371,8 +375,8 @@ export default function ActiveJobScreen() {
       await openURL(url);
     } catch {
       Alert.alert(
-        'Could not open Google Maps',
-        'Make sure you have an app that can open maps links.',
+        t('activeJob.couldNotOpenMaps'),
+        t('activeJob.couldNotOpenMapsBody'),
       );
     }
   }
@@ -390,9 +394,9 @@ export default function ActiveJobScreen() {
         <Stack.Screen
           options={{
             headerShown: true,
-            title: 'Your job details',
+            title: t('activeJob.stackDetailsTitle'),
             headerBackVisible: false,
-            headerBackTitle: 'Back',
+            headerBackTitle: t('common.back'),
             headerTintColor: color['text-primary'],
             headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
             headerStyle: { backgroundColor: color.surface },
@@ -426,9 +430,9 @@ export default function ActiveJobScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'Go To the Working Spot',
+          title: t('activeJob.stackWorkingSpotTitle'),
           headerBackVisible: false,
-          headerBackTitle: 'Back',
+          headerBackTitle: t('common.back'),
           headerTintColor: color['text-primary'],
           headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
           headerStyle: { backgroundColor: color.surface },
@@ -531,17 +535,17 @@ export default function ActiveJobScreen() {
           {proCoords && (job.distanceKm != null || job.estimatedEtaMinutes != null) ? (
             <View className="mt-3 flex-row gap-2">
               {job.estimatedEtaMinutes != null ? (
-                <Chip label={formatEta(job.estimatedEtaMinutes)} icon="time-outline" />
+                <Chip label={formatEta(job.estimatedEtaMinutes, t)} icon="time-outline" />
               ) : null}
               {job.distanceKm != null ? (
-                <Chip label={formatDistance(job.distanceKm)} icon="navigate-outline" />
+                <Chip label={formatDistance(job.distanceKm, t)} icon="navigate-outline" />
               ) : null}
             </View>
           ) : null}
 
           <View className="relative mt-4">
             <Button
-              label="Message customer"
+              label={t('activeJob.messageCustomer')}
               variant="secondary"
               leading={
                 <Ionicons name="chatbubble-outline" size={18} color={color['text-primary']} />

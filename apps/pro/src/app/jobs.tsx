@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { Redirect, router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { AvailableJob, JobDetail } from '@samona/types';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
@@ -27,6 +28,7 @@ import { messageForAcceptError } from '@/utils/job-errors';
  * back to the home toggle.
  */
 export default function JobPoolScreen() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
   const isOnline = checkIsOnline();
@@ -49,7 +51,7 @@ export default function JobPoolScreen() {
         if (result.status !== 'done') {
           // A failed claim (taken / expired) already dropped this job from the
           // pool via realtime; the rest stays actionable.
-          return result.status === 'error' ? messageForAcceptError(result.error) : null;
+          return result.status === 'error' ? messageForAcceptError(result.error, t) : null;
         }
         // Refresh the assigned-jobs cache so the money-owed rule can route, then
         // land on the just-accepted job (or its payment screen when cash is owed).
@@ -68,7 +70,7 @@ export default function JobPoolScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <LoadingState message="Loading job pool" />
+        <LoadingState message={t('jobs.loadingPool')} />
       </Screen>
     );
   }
@@ -87,26 +89,26 @@ export default function JobPoolScreen() {
         <View className="mt-2 flex-1">
           <EmptyState
             icon="power-outline"
-            title="Go online to see jobs"
-            message="Your job pool fills up while you're online. Toggle availability on the home screen."
+            title={t('jobs.emptyOfflineTitle')}
+            message={t('jobs.emptyOfflineMessage')}
           />
         </View>
       ) : isPending ? (
         <View className="mt-2 flex-1">
-          <LoadingState message="Loading your job pool" />
+          <LoadingState message={t('jobs.loadingYourPool')} />
         </View>
       ) : isError ? (
         <ErrorState
-          title="Couldn't load the job pool"
-          message="Check your connection and try again."
+          title={t('jobs.errorTitle')}
+          message={t('jobs.errorMessage')}
           onRetry={() => void refetch()}
         />
       ) : jobs.length === 0 ? (
         <View className="mt-2 flex-1">
           <EmptyState
             icon="briefcase-outline"
-            title="No jobs in your pool right now"
-            message="When an open request matches your services and area, it appears here instantly."
+            title={t('jobs.emptyTitle')}
+            message={t('jobs.emptyMessage')}
           />
         </View>
       ) : (

@@ -3,6 +3,7 @@ import { Alert, Linking, Platform } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
 import { env } from '@/env';
+import { i18nInstance } from '@/i18n';
 import { api } from './api';
 import { checkDeviceReadiness, isDeviceReady } from './device-readiness-state';
 import {
@@ -21,13 +22,17 @@ export {
   reconcileOnlineStatus,
 } from './online-status-state';
 
-/** Message shown when the OS-wide Location Services toggle is off. */
-export const LOCATION_SERVICES_DISABLED_MESSAGE =
-  'Location services are turned off. Turn them on to go online and receive jobs.';
+/**
+ * Message shown when the OS-wide Location Services toggle is off. Resolved per
+ * call so it always matches the current app language; the sentinel check below
+ * compares against the same call so a throw and a compare stay in lockstep.
+ */
+export const LOCATION_SERVICES_DISABLED_MESSAGE = (): string =>
+  i18nInstance.t('onlineStatus.locationDisabledMessage');
 
 /** true when a failure is the OS Location Services toggle being off. */
 export function isLocationServicesDisabledError(message: string | undefined): boolean {
-  return message === LOCATION_SERVICES_DISABLED_MESSAGE;
+  return message === LOCATION_SERVICES_DISABLED_MESSAGE();
 }
 
 let abortController: AbortController | null = null;
@@ -38,8 +43,8 @@ let abortController: AbortController | null = null;
  * sentinel reason the UI routes to the /device-setup fix-it screen.
  */
 export const DEVICE_NOT_READY_REASON = 'device-not-ready';
-export const DEVICE_NOT_READY_MESSAGE =
-  'Some phone settings can block job alerts while the app is closed. Set them up before going online.';
+export const DEVICE_NOT_READY_MESSAGE = (): string =>
+  i18nInstance.t('onlineStatus.deviceNotReadyMessage');
 
 type DeviceNotReadyError = Error & { reason: typeof DEVICE_NOT_READY_REASON };
 
@@ -50,7 +55,7 @@ function isDeviceNotReadyError(error: unknown): error is DeviceNotReadyError {
 }
 
 function newDeviceNotReadyError(): DeviceNotReadyError {
-  const error = new Error(DEVICE_NOT_READY_MESSAGE) as DeviceNotReadyError;
+  const error = new Error(DEVICE_NOT_READY_MESSAGE()) as DeviceNotReadyError;
   error.reason = DEVICE_NOT_READY_REASON;
   return error;
 }
@@ -109,7 +114,7 @@ async function getValidLocation(): Promise<{ latitude: number; longitude: number
     // Surface one clear, actionable reason instead of a raw fatal error.
     const code = (error as { code?: string } | null)?.code;
     if (code && LOCATION_UNAVAILABLE_CODES.has(code)) {
-      throw new Error(LOCATION_SERVICES_DISABLED_MESSAGE);
+      throw new Error(LOCATION_SERVICES_DISABLED_MESSAGE());
     }
     throw error;
   }
@@ -140,18 +145,18 @@ function showLocationServicesPrompt(): void {
   if (alreadyShowing) return;
   locationPromptShowing = true;
   Alert.alert(
-    'Location services off',
-    'Turn on location services to keep receiving job requests near you.',
+    i18nInstance.t('onlineStatus.locationServicesOff'),
+    i18nInstance.t('onlineStatus.locationServicesOnMessage'),
     [
       {
-        text: 'Open Settings',
+        text: i18nInstance.t('common.openSettings'),
         onPress: () => {
           locationPromptShowing = false;
           void Linking.openSettings();
         },
       },
       {
-        text: 'OK',
+        text: i18nInstance.t('common.ok'),
         style: 'cancel',
         onPress: () => {
           locationPromptShowing = false;
@@ -268,7 +273,7 @@ export async function goOnline(token: string): Promise<AvailabilityResult> {
     // toggle cannot be flipped by an app, so that's only a terminal fallback.
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
-      const message = 'Location permission is needed to go online and match with jobs near you.';
+      const message = i18nInstance.t('onlineStatus.permNeeded');
       setStatus('offline', message);
       return { success: false, error: message };
     }
@@ -293,7 +298,8 @@ export async function goOnline(token: string): Promise<AvailabilityResult> {
     setStatus('online');
     return { success: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to go online';
+    const message =
+      error instanceof Error ? error.message : i18nInstance.t('onlineStatus.failedGoOnline');
     setStatus('offline', message);
     disconnectSocket();
     if (isDeviceNotReadyError(error)) {
@@ -321,7 +327,8 @@ export async function goOffline(_token: string): Promise<AvailabilityResult> {
     setStatus('offline');
     return { success: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to go offline';
+    const message =
+      error instanceof Error ? error.message : i18nInstance.t('onlineStatus.failedGoOffline');
     setStatus('offline', message);
     return { success: false, error: message };
   }

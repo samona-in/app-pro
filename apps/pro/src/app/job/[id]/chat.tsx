@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { openURL } from 'expo-linking';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { isChatClosed, type ChatMessage } from '@samona/types';
@@ -16,14 +17,15 @@ import { color } from '@/theme';
  * icon tinted brand.
  */
 function ChatHeaderRight({ phone }: { phone: string | null | undefined }) {
+  const { t } = useTranslation();
   if (!phone) return null;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Call customer"
+      accessibilityLabel={t('chat.callCustomer')}
       onPress={() => {
         void openURL(`tel:${phone}`).catch(() => {
-          Alert.alert('Could not start the call', 'No app on this device can place calls.');
+          Alert.alert(t('chat.couldNotStartCall'), t('chat.couldNotStartCallBody'));
         });
       }}
       className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
@@ -45,6 +47,7 @@ function ChatHeaderRight({ phone }: { phone: string | null | undefined }) {
  * the bottom of the thread body, dropping a phrase into the composer.
  */
 export default function JobChatScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const chat = useMessages(id);
   const { data: jobs } = useProJobs();
@@ -52,7 +55,7 @@ export default function JobChatScreen() {
   const [draft, setDraft] = useState('');
 
   const job = useMemo(() => (jobs ?? []).find((item) => item.id === id), [id, jobs]);
-  const customerName = job?.customer?.displayName ?? 'Customer';
+  const customerName = job?.customer?.displayName ?? t('common.customer');
   const phone = job?.customer?.phone;
   // Once the job is paid, cancelled or expired the conversation is frozen —
   // history stays readable but nobody can send (the server enforces the same).
@@ -71,7 +74,7 @@ export default function JobChatScreen() {
   if (chat.isPending) {
     return (
       <View className="flex-1 bg-surface">
-        <LoadingState message="Loading messages" />
+        <LoadingState message={t('chat.loadingMessages')} />
       </View>
     );
   }
@@ -81,7 +84,7 @@ export default function JobChatScreen() {
       <Stack.Screen
         options={{
           title: customerName,
-          headerBackTitle: 'Back',
+          headerBackTitle: t('common.back'),
           headerLargeTitle: false,
           headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
           headerRight: () => <ChatHeaderRight phone={phone} />,

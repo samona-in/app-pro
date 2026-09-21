@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { NotificationCard } from '@/components/notifications';
 import { Screen } from '@/components/ui';
@@ -10,13 +11,14 @@ import { useNotifications } from '@/hooks';
  * reports how many times it re-paged the Pro.
  */
 export default function Notifications() {
+  const { t } = useTranslation();
   const { data: notifications, isPending } = useNotifications();
 
   return (
     <Screen scrollable edges={['bottom']}>
       {isPending ? (
         <View className="mt-10">
-          <LoadingState message="Loading notifications" />
+          <LoadingState message={t('notificationsScreen.loading')} />
         </View>
       ) : (notifications?.length ?? 0) > 0 ? (
         <View className="mt-4 gap-3">
@@ -28,8 +30,8 @@ export default function Notifications() {
         <View className="mt-10 flex-1">
           <EmptyState
             icon="notifications-outline"
-            title="No notifications yet"
-            message="Job requests, status updates and payout alerts will appear here."
+            title={t('notificationsScreen.emptyTitle')}
+            message={t('notificationsScreen.emptyMessage')}
           />
         </View>
       )}

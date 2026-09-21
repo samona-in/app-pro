@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ONBOARDING_STEPS, type OnboardingStep as StepName } from '@samona/types';
 import { Button, Text } from '@/components/ui';
@@ -56,13 +57,14 @@ export function OnboardingStepLayout({
   title,
   subtitle,
   children,
-  primaryLabel = 'Continue',
+  primaryLabel,
   onPrimary,
   primaryDisabled = false,
   isSaving = false,
   error,
   footer,
 }: OnboardingStepProps) {
+  const { t } = useTranslation();
   return (
     <SafeAreaView
       edges={['top', 'bottom']}
@@ -96,7 +98,7 @@ export function OnboardingStepLayout({
             </Text>
           ) : null}
           <Button
-            label={primaryLabel}
+            label={primaryLabel ?? t('common.continue')}
             size="lg"
             shape="sm"
             loading={isSaving}

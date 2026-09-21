@@ -1,4 +1,5 @@
 import { Redirect, Stack } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
 import { useSession } from '@/hooks';
@@ -15,12 +16,13 @@ import { color } from '@/theme';
  * from the entry route, which sends them home instead.
  */
 export default function OnboardingLayout() {
+  const { t } = useTranslation();
   const { isLoading, isAuthenticated } = useSession();
 
   if (isLoading) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <LoadingState message="Loading your profile" />
+        <LoadingState message={t('onboarding.loadingProfile')} />
       </Screen>
     );
   }

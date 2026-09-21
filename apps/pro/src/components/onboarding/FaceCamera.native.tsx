@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useWindowDimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import {
   Camera,
@@ -9,6 +10,7 @@ import {
   usePhotoOutput,
 } from 'react-native-vision-camera';
 import { useFaceDetector, type FaceGuideStatus } from '@noma4i/vision-camera-face-detector';
+import type { TFunction } from 'i18next';
 import { Button, Text } from '@/components/ui';
 import type { FaceCameraProps } from './FaceCamera';
 
@@ -22,16 +24,16 @@ const CAPTURE_COUNTDOWN_SECONDS = 3;
  */
 const GUIDE_CIRCLE = { centerX: 0.5, centerY: 0.42, size: 0.72 };
 
-function statusMessage(status: FaceGuideStatus): string {
+function statusMessage(status: FaceGuideStatus, t: TFunction): string {
   switch (status) {
     case 'unavailable':
-      return 'Starting camera…';
+      return t('faceCam.starting');
     case 'idle':
-      return 'Position your face inside the circle';
+      return t('faceCam.positionFaceInCircle');
     case 'misaligned':
-      return 'Center your face in the circle';
+      return t('faceCam.centerFace');
     case 'ready':
-      return 'Hold still…';
+      return t('faceCam.holdStill');
   }
 }
 
@@ -41,6 +43,7 @@ function statusMessage(status: FaceGuideStatus): string {
  * to fumble with, and no way to submit a photo of something else.
  */
 export function FaceCamera({ onCaptured }: FaceCameraProps) {
+  const { t } = useTranslation();
   const device = useCameraDevice('front');
   const { hasPermission, requestPermission } = useCameraPermission();
   const photoOutput = usePhotoOutput({ quality: 0.8 });
@@ -113,13 +116,12 @@ export function FaceCamera({ onCaptured }: FaceCameraProps) {
     return (
       <View className="flex-1 items-center justify-center gap-6 bg-black px-8">
         <Text variant="title" className="text-center text-white">
-          Camera access needed
+          {t('faceCam.permissionTitle')}
         </Text>
         <Text variant="body" className="text-center text-white/70">
-          SAMONA Pro needs your front camera to take a live photo of your face. Customers see this
-          photo before you arrive, so everyone knows who to expect.
+          {t('faceCam.permissionMessage')}
         </Text>
-        <Button label="Allow camera access" onPress={() => void requestPermission()} />
+        <Button label={t('faceCam.allow')} onPress={() => void requestPermission()} />
       </View>
     );
   }
@@ -128,10 +130,10 @@ export function FaceCamera({ onCaptured }: FaceCameraProps) {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-black px-8">
         <Text variant="title" className="text-center text-white">
-          No front camera found
+          {t('faceCam.noFrontTitle')}
         </Text>
         <Text variant="body" className="text-center text-white/70">
-          Face verification needs a device with a front camera.
+          {t('faceCam.noFrontMessage')}
         </Text>
       </View>
     );
@@ -141,10 +143,10 @@ export function FaceCamera({ onCaptured }: FaceCameraProps) {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-black px-8">
         <Text variant="title" className="text-center text-white">
-          Face detection unavailable
+          {t('faceCam.noDetectionTitle')}
         </Text>
         <Text variant="body" className="text-center text-white/70">
-          This device doesn't support on-device face detection. Please try another device.
+          {t('faceCam.noDetectionMessage')}
         </Text>
       </View>
     );
@@ -200,10 +202,10 @@ export function FaceCamera({ onCaptured }: FaceCameraProps) {
         pointerEvents="none"
       >
         <Text variant="title" className="text-center text-white">
-          {statusMessage(face.status)}
+          {statusMessage(face.status, t)}
         </Text>
         <Text variant="footnote" className="mt-1 text-center text-white/60">
-          This happens automatically — no need to press anything.
+          {t('faceCam.autoCapture')}
         </Text>
       </View>
     </View>

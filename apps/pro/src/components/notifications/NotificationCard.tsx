@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import type { AppNotification, NotificationKind } from '@samona/types';
 import { Card, Text } from '@/components/ui';
@@ -28,6 +29,7 @@ export function NotificationCard({
   notification: AppNotification;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const { icon, tint } = KIND_ICON[notification.kind];
   const open = notification.resolvedAt === null;
 
@@ -42,7 +44,7 @@ export function NotificationCard({
             {notification.title}
           </Text>
           <Text variant="caption" className="text-text-muted">
-            {formatRelativeTime(notification.createdAt)}
+            {formatRelativeTime(notification.createdAt, t)}
           </Text>
         </View>
         <Text variant="footnote" className="mt-1 leading-4 text-text-secondary">
@@ -50,7 +52,7 @@ export function NotificationCard({
         </Text>
         {notification.repeats > 1 ? (
           <Text variant="caption" className="mt-1.5 text-brand">
-            Repeated {notification.repeats}×
+            {t('notificationsCard.repeated', { count: notification.repeats })}
           </Text>
         ) : null}
       </View>

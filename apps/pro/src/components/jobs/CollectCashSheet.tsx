@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import {
   BottomSheetModal,
@@ -48,6 +49,7 @@ export function CollectCashSheet({
   onDone,
   onClose,
 }: CollectCashSheetProps) {
+  const { t } = useTranslation();
   const sheetRef = useRef<BottomSheet>(null);
 
   // The native sheet always starts closed; open it the moment the parent asks.
@@ -100,13 +102,13 @@ export function CollectCashSheet({
               <Ionicons name="checkmark" size={34} color={color['text-inverse']} />
             </View>
             <Text variant="titleLg" className="mt-5">
-              Payment collected
+              {t('pay.paymentCollected')}
             </Text>
             <Text variant="display" className="mt-1 text-text-primary">
               {amount}
             </Text>
             <Text variant="footnote" className="mt-2 text-text-secondary">
-              Nice one — on to your next job.
+              {t('pay.niceOne')}
             </Text>
           </View>
         ) : (
@@ -120,14 +122,14 @@ export function CollectCashSheet({
               )}
             </View>
             <Text variant="titleLg" className="mt-5">
-              {isPending ? 'Processing payment' : 'Collecting cash'}
+              {isPending ? t('pay.processing') : t('pay.collecting')}
             </Text>
             <Text variant="display" className="mt-1 text-text-primary">
               {amount}
             </Text>
             {isPending ? (
               <Text variant="footnote" className="mt-2 text-text-secondary">
-                Confirming the payment with Samona…
+                {t('pay.confirmingPayment')}
               </Text>
             ) : errorMessage ? (
               <>
@@ -135,7 +137,7 @@ export function CollectCashSheet({
                   {errorMessage}
                 </Text>
                 <View className="mt-5 w-full">
-                  <Button label="Try again" size="lg" onPress={onRetry} />
+                  <Button label={t('common.tryAgain')} size="lg" onPress={onRetry} />
                 </View>
               </>
             ) : null}

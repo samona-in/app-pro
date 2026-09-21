@@ -1,4 +1,5 @@
 import { TextInput, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/components/ui';
 import { color } from '@/theme';
 
@@ -17,6 +18,7 @@ interface Props {
  * (lifted) so the quick-reply list in the thread body can fill it.
  */
 export function ChatFooter({ draft, onChangeDraft, onSend, disabled = false }: Props) {
+  const { t } = useTranslation();
   const trimmed = draft.trim();
   const canSend = trimmed.length > 0 && !disabled;
 
@@ -33,7 +35,7 @@ export function ChatFooter({ draft, onChangeDraft, onSend, disabled = false }: P
         <TextInput
           value={draft}
           onChangeText={onChangeDraft}
-          placeholder="Type a message"
+          placeholder={t('chat.placeholder')}
           placeholderTextColor={color['text-muted']}
           multiline
           maxLength={500}
@@ -45,7 +47,7 @@ export function ChatFooter({ draft, onChangeDraft, onSend, disabled = false }: P
           size={22}
           tint={canSend ? color.brand : color['text-muted']}
           disabled={!canSend}
-          accessibilityLabel="Send message"
+          accessibilityLabel={t('chat.sendA11y')}
           haptic
           onPress={handleSend}
         />

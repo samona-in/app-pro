@@ -1,43 +1,46 @@
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Card, Divider, Screen, Text } from '@/components/ui';
+import type { TranslationKey } from '@/i18n';
 
-const BREAKDOWN = [
-  { label: 'Completed jobs', value: '0' },
-  { label: 'Job earnings', value: '₹0' },
-  { label: 'Tips', value: '₹0' },
-  { label: 'SAMONA fee', value: '₹0' },
-] as const;
+const BREAKDOWN: { labelKey: TranslationKey; value: string }[] = [
+  { labelKey: 'earnings.breakdownRows.completedJobs', value: '0' },
+  { labelKey: 'earnings.breakdownRows.jobEarnings', value: '₹0' },
+  { labelKey: 'earnings.breakdownRows.tips', value: '₹0' },
+  { labelKey: 'earnings.breakdownRows.samonaFee', value: '₹0' },
+];
 
 export default function Earnings() {
+  const { t } = useTranslation();
   return (
     <Screen scrollable>
       <View className="pt-2">
-        <Text variant="titleLg">Earnings</Text>
+        <Text variant="titleLg">{t('tabs.earnings')}</Text>
       </View>
 
       <Card variant="raised" className="mt-4 bg-surface-inverse">
         <Text variant="label" className="text-text-muted">
-          This week
+          {t('earnings.thisWeek')}
         </Text>
         <Text variant="metric" className="mt-1 text-text-inverse">
           ₹0
         </Text>
         <Text variant="footnote" className="mt-1">
-          Payouts land in your account every Monday.
+          {t('earnings.payoutNote')}
         </Text>
       </Card>
 
       <Text variant="title" className="mt-8">
-        Breakdown
+        {t('earnings.breakdown')}
       </Text>
 
       <Card className="mt-3" padded={false}>
         {BREAKDOWN.map((row, index) => (
-          <View key={row.label}>
+          <View key={row.labelKey}>
             {index > 0 ? <Divider /> : null}
             <View className="flex-row items-center justify-between px-4 py-4">
               <Text variant="body" className="text-text-secondary">
-                {row.label}
+                {t(row.labelKey)}
               </Text>
               <Text variant="bodyStrong">{row.value}</Text>
             </View>
@@ -46,7 +49,7 @@ export default function Earnings() {
       </Card>
 
       <Text variant="caption" className="mt-4">
-        Figures are placeholders until the earnings API is connected.
+        {t('earnings.devCaveat')}
       </Text>
     </Screen>
   );

@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { LOCATION_DEFAULTS } from '@samona/config';
 import { OnboardingStepLayout, SelectableCard } from '@/components/onboarding';
 import { useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
@@ -7,6 +8,7 @@ import { useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
 const RADIUS_OPTIONS = [5, 10, 15, 20];
 
 export default function OnboardingRadius() {
+  const { t } = useTranslation();
   const { data: profile } = useProProfile();
   const save = useSaveOnboardingStep();
 
@@ -23,17 +25,17 @@ export default function OnboardingRadius() {
   return (
     <OnboardingStepLayout
       step="radius"
-      title="How far will you travel?"
-      subtitle="Customers outside this distance won't see your profile."
+      title={t('onboarding.radius.title')}
+      subtitle={t('onboarding.radius.subtitle')}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
-      error={save.isError ? 'Could not save your service area. Please try again.' : null}
+      error={save.isError ? t('onboarding.radius.saveError') : null}
     >
       <View className="gap-3">
         {RADIUS_OPTIONS.map((option) => (
           <SelectableCard
             key={option}
-            label={`${option} km`}
+            label={t('format.km', { value: option })}
             single
             selected={radius === option}
             onToggle={() => setRadius(option)}

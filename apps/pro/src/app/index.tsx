@@ -1,4 +1,5 @@
 import { Redirect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
 import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
@@ -24,6 +25,7 @@ import { useProJobs, useSession } from '@/hooks';
  * is the job truly finished (CLAUDE.md workflow).
  */
 export default function Index() {
+  const { t } = useTranslation();
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep, error } = useSession();
   // Only fetch assigned jobs once the Pro is actually eligible for work; a 401
   // on the welcome screen would be pure waste against the rate limiter.
@@ -34,7 +36,7 @@ export default function Index() {
   if (isLoading) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <LoadingState message="Starting SAMONA Pro" />
+        <LoadingState message={t('boot.starting')} />
       </Screen>
     );
   }
@@ -61,7 +63,7 @@ export default function Index() {
   if (jobsQuery.isPending) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <LoadingState message="Checking your active job" />
+        <LoadingState message={t('boot.checkingActiveJob')} />
       </Screen>
     );
   }

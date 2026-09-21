@@ -1,5 +1,6 @@
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { UnreadBadge } from '@/components/chat';
 import { color } from '@/theme';
@@ -13,10 +14,11 @@ import { color } from '@/theme';
  * messages are still unread.
  */
 export function CallMessageButton({ jobId, unread }: { jobId: string; unread: number }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Job actions"
+      accessibilityLabel={t('routes.jobActions')}
       onPress={() => router.push({ pathname: '/job/[id]/contact', params: { id: jobId } })}
       className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
     >

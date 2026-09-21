@@ -62,9 +62,14 @@
     "label": "Phone number",
     "hint": "Include your country code.",
     "sendCode": "Send code",
-    "legal": "By continuing you agree to the SAMONA Pro terms and privacy policy."
+    "legal": "By continuing you agree to the SAMONA Pro terms and privacy policy.",
+    "tooManyAttempts": "Too many attempts. Please wait a minute before requesting another code.",
+    "couldNotSend": "Could not send a code. Please try again.",
+    "wrongCode": "That code is not right. Please try again.",
+    "signInIncomplete": "That code did not complete sign-in. Please request a new one."
   },
   "verify": {
+    "heading": "Enter the code",
     "sentToPhone": "Sent to {{phone}}.",
     "yourPhone": "your phone",
     "changeNumber": "Change number",
@@ -166,7 +171,8 @@
       "choosePhotoA11y": "Choose profile photo",
       "photoCaption": "Customers will see this photo",
       "aboutYou": "About you",
-      "bioPlaceholder": "e.g. 8 years repairing split and window ACs across Hyderabad."
+      "bioPlaceholder": "e.g. 8 years repairing split and window ACs across Hyderabad.",
+      "languagesLabel": "Languages you speak"
     },
     "face": {
       "title": "Let's verify it's you",
@@ -209,6 +215,9 @@
     "offline": "You're offline",
     "toggling": "Toggling your availability…",
     "goOnlinePrompt": "Go online to start receiving job requests.",
+    "fix": "Fix",
+    "jobsAccessibility": "Jobs",
+    "notificationsAccessibility": "Notifications",
     "errorGeneric": "Something went wrong. Please try again.",
     "cantGoOnline": "Can't go online",
     "cantGoOffline": "Can't go offline",
@@ -257,7 +266,12 @@
     "customerPhotos": "Customer photos",
     "photoCount": "({{count}})",
     "beforeStart": "Before you start",
-    "jobDescription": "Job description"
+    "jobDescription": "Job description",
+    "checklist": {
+      "inspectIssue": "Inspect the issue",
+      "confirmWork": "Confirm the work with the customer",
+      "startWhenReady": "Start only when you are ready"
+    }
   },
   "activeJob": {
     "loading": "Loading your job",
@@ -284,7 +298,12 @@
     "title": "Payment",
     "amountToCollect": "Amount to be collected",
     "collectInstruction": "Collect this amount from {{customerName}} in cash, then swipe to close the job.",
-    "collectCash": "Collect cash"
+    "collectCash": "Collect cash",
+    "collecting": "Collecting cash",
+    "processing": "Processing payment",
+    "confirmingPayment": "Confirming the payment with Samona…",
+    "paymentCollected": "Payment collected",
+    "niceOne": "Nice one — on to your next job."
   },
   "chat": {
     "placeholder": "Type a message",
@@ -297,6 +316,7 @@
     "quickChatA11yCollapse": "Collapse quick chat",
     "quickChatA11yOpen": "Open quick chat",
     "quickChatTitle": "Quick chat",
+    "phraseA11y": "{{phrase}}. Tap to add to your message",
     "unread_one": "{{count}} unread message",
     "unread_other": "{{count}} unread messages"
   },
@@ -372,6 +392,14 @@
       "coloros": "Oppo or Realme",
       "nearStock": "Motorola or Pixel",
       "generic": "Your device"
+    },
+    "oemGuides": {
+      "miui": "MiUI: Settings → Apps → Manage apps → Samona Pro → Autostart → On. Also Settings → Battery → Background app limits → No restrictions, and remove Samona Pro from any \"battery saver\" list.",
+      "samsung": "One UI: Settings → Battery → Background usage limits → Never sleeping apps → Add Samona Pro. Also remove it from \"Sleeping apps\" and \"Deep sleeping apps\".",
+      "oneplus": "OxygenOS: Settings → Battery → Battery optimization → Samona Pro → Don't optimize. Under Apps → Samona Pro → Battery usage, enable \"Run in background\".",
+      "coloros": "ColorOS/OriginOS: Settings → Apps → Samona Pro → Battery → Allow background activity. If a \"Autostart\" list exists, enable it there too.",
+      "nearStock": "Near-stock Android: the four checks above are all that matters. If alerts still stop while the app is closed, check the OEM battery app for a \"sleeping apps\" list.",
+      "generic": "Every OEM tweaks this differently. Ensure Samona Pro is not inside a \"sleeping apps\", \"deep sleep\" or autostart restriction list under Battery in your phone settings."
     },
     "forYourPhone": "For your phone",
     "outOfSleepTitle": "Keep Samona Pro out of sleep",
@@ -470,7 +498,8 @@
     "noReason": "No reason was provided. Please reach out to SAMONA support for details.",
     "a11y": {
       "manageServices": "Manage services",
-      "serviceMarked": "{{service}}, {{mark}}"
+      "serviceMarked": "{{service}}, {{mark}}",
+      "showsRejectionReason": "Shows the rejection reason"
     }
   },
   "faceCore": {
@@ -484,7 +513,7 @@
     "holdStill": "Hold still…",
     "autoCapture": "This happens automatically — no need to press anything.",
     "permissionTitle": "Camera access needed",
-    "permissionMessage": "Face verification needs to use your camera. Grant camera access to continue.",
+    "permissionMessage": "SAMONA Pro needs your front camera to take a live photo of your face. Customers see this photo before you arrive, so everyone knows who to expect.",
     "allow": "Allow camera access",
     "noFrontTitle": "No front camera found",
     "noFrontMessage": "Face verification needs a device with a front camera.",
@@ -512,6 +541,7 @@
   },
   "format": {
     "km": "{{value}} km",
+    "m": "{{value}} m",
     "minAway": "{{minutes}} min away",
     "relative": {
       "justNow": "just now",

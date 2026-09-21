@@ -1,16 +1,18 @@
 import { Stack, router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { ErrorState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
 
 export default function NotFound() {
+  const { t } = useTranslation();
   return (
     <>
-      <Stack.Screen options={{ title: 'Not found', headerShown: true }} />
+      <Stack.Screen options={{ title: t('notFound.stackTitle'), headerShown: true }} />
       <Screen edges={[]}>
         <ErrorState
-          title="Page not found"
-          message="That screen does not exist in SAMONA Pro."
-          retryLabel="Go home"
+          title={t('notFound.title')}
+          message={t('notFound.message')}
+          retryLabel={t('notFound.goHome')}
           onRetry={() => router.replace('/')}
         />
       </Screen>

@@ -1,4 +1,5 @@
 import { Pressable, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Text } from '@/components/ui';
 import { color } from '@/theme';
@@ -10,18 +11,19 @@ import { color } from '@/theme';
  * Static placeholders until the earnings API is connected.
  */
 export function TodayStack() {
+  const { t } = useTranslation();
   return (
     <View className="mt-6">
       <View className="flex-row items-center justify-between">
-        <Text variant="title">Today</Text>
+        <Text variant="title">{t('today.title')}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="View earnings details"
+          accessibilityLabel={t('today.viewEarningsA11y')}
           onPress={() => undefined}
           className="flex-row items-center"
         >
           <Text variant="caption" className="text-brand">
-            View details
+            {t('today.viewDetails')}
           </Text>
           <Ionicons name="chevron-forward" size={14} color={color.brand} />
         </Pressable>
@@ -30,7 +32,7 @@ export function TodayStack() {
         <Card className="flex-1 bg-surface-muted">
           <Ionicons name="cash-outline" size={18} color={color['text-secondary']} />
           <Text variant="label" className="mt-1 text-text-muted">
-            Earnings
+            {t('today.earnings')}
           </Text>
           <Text variant="title" className="mt-1">
             ₹0
@@ -39,7 +41,7 @@ export function TodayStack() {
         <Card className="flex-1 bg-surface-muted">
           <Ionicons name="checkmark-done-outline" size={18} color={color['text-secondary']} />
           <Text variant="label" className="mt-1 text-text-muted">
-            Jobs completed
+            {t('today.jobsCompleted')}
           </Text>
           <Text variant="title" className="mt-1">
             0

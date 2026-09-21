@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react';
 import { Image, ScrollView, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import type { JobDetail } from '@samona/types';
 import { Card, Divider, Text } from '@/components/ui';
 import { color } from '@/theme';
+import type { TranslationKey } from '@/i18n';
 import { formatInr } from '@/utils/format';
 
-const INSTRUCTIONS = [
-  'Inspect the issue',
-  'Confirm the work with the customer',
-  'Start only when you are ready',
+const CHECKLIST: TranslationKey[] = [
+  'jobDetails.checklist.inspectIssue',
+  'jobDetails.checklist.confirmWork',
+  'jobDetails.checklist.startWhenReady',
 ];
 
 export interface JobDetailsContentProps {
@@ -35,9 +37,10 @@ export interface JobDetailsContentProps {
  * the card stack grows.
  */
 export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
-  const customerName = job.customer?.displayName ?? 'Customer';
+  const { t } = useTranslation();
+  const customerName = job.customer?.displayName ?? t('common.customer');
   const address =
-    job.locationLabel ?? job.customer?.locationLabel ?? 'Location shared after you arrive';
+    job.locationLabel ?? job.customer?.locationLabel ?? t('common.locationSharedLater');
   const price = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
 
   return (
@@ -83,7 +86,7 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
         <Card className="mt-4 bg-surface-muted">
           <View className="flex-row items-center gap-2">
             <Ionicons name="document-text-outline" size={18} color={color['text-secondary']} />
-            <Text variant="label">Job description</Text>
+            <Text variant="label">{t('jobDetails.jobDescription')}</Text>
           </View>
           <Text variant="body" className="mt-1 ml-[26px]">
             {job.description}
@@ -95,8 +98,8 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
           <Card className="mt-4" padded={false}>
             <View className="flex-row items-center gap-2 px-4 pb-3 pt-4">
               <Ionicons name="images-outline" size={18} color={color['text-secondary']} />
-              <Text variant="label">Customer photos</Text>
-              <Text variant="caption">({job.imageUrls.length})</Text>
+              <Text variant="label">{t('jobDetails.customerPhotos')}</Text>
+              <Text variant="caption">{t('jobDetails.photoCount', { count: job.imageUrls.length })}</Text>
             </View>
             <ScrollView
               horizontal
@@ -118,14 +121,14 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
         <Card className="mt-4 bg-surface-muted">
           <View className="flex-row items-center gap-2">
             <Ionicons name="shield-checkmark-outline" size={18} color={color['text-secondary']} />
-            <Text variant="label">Before you start</Text>
+            <Text variant="label">{t('jobDetails.beforeStart')}</Text>
           </View>
           <View className="mt-3 ml-[26px] gap-1">
-            {INSTRUCTIONS.map((item) => (
-              <View key={item} className="flex-row items-start">
+            {CHECKLIST.map((itemKey) => (
+              <View key={itemKey} className="flex-row items-start">
                 <View className="mr-3 mt-1.5 h-1.5 w-1.5 rounded-full bg-text-secondary" />
                 <Text variant="body" className="flex-1">
-                  {item}
+                  {t(itemKey)}
                 </Text>
               </View>
             ))}

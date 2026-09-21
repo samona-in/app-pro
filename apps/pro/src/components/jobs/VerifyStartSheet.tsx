@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import {
   BottomSheetModal,
@@ -29,6 +30,7 @@ export interface VerifyStartSheetProps {
  * Compose ModalBottomSheet on Android, SwiftUI on iOS.
  */
 export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetProps) {
+  const { t } = useTranslation();
   const verify = useVerifyStart();
   const sheetRef = useRef<BottomSheet>(null);
   const [code, setCode] = useState('');
@@ -82,7 +84,7 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
       onClose();
     } catch (submitError) {
       const message =
-        submitError instanceof Error ? submitError.message : 'Check the code and try again.';
+        submitError instanceof Error ? submitError.message : t('verifyStart.checkCodeError');
       setError(message);
     }
   }
@@ -100,16 +102,15 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
             <Ionicons name="shield-checkmark-outline" size={24} color={color.brand} />
           </View>
           <View className="flex-1">
-            <Text variant="title">Start Work</Text>
+            <Text variant="title">{t('verifyStart.startWork')}</Text>
             <Text variant="footnote" className="text-text-secondary">
-              Ask the customer for their code
+              {t('verifyStart.askForCode')}
             </Text>
           </View>
         </View>
 
         <Text variant="body" className="mt-4 text-text-secondary">
-          The customer got a 4-digit verification code on their screen. Enter it below to confirm
-          you’ve met and are starting.
+          {t('verifyStart.instruction')}
         </Text>
 
         <View className="mt-5">
@@ -125,7 +126,7 @@ export function VerifyStartSheet({ visible, jobId, onClose }: VerifyStartSheetPr
 
         <View className="mt-6">
           <Button
-            label="Verify and Start Work"
+            label={t('verifyStart.verifyAndStart')}
             size="lg"
             disabled={code.length !== 4}
             loading={verify.isPending}

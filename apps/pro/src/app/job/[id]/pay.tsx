@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { EmptyState, LoadingState } from '@/components/feedback';
@@ -19,6 +20,7 @@ import { formatInr } from '@/utils/format';
  * would have taken and is idempotent once paid.
  */
 export default function CollectCashScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: jobs, isPending, isFetching, refetch } = useProJobs();
   const unread = useUnreadMessages();
@@ -43,7 +45,7 @@ export default function CollectCashScreen() {
   if (isPending || (!job && isFetching)) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <LoadingState message="Loading payment" />
+        <LoadingState message={t('pay.loading')} />
       </Screen>
     );
   }
@@ -53,8 +55,8 @@ export default function CollectCashScreen() {
       <Screen edges={[]}>
         <EmptyState
           icon="card-outline"
-          title="Payment not found"
-          message="This job is no longer assigned to you, or it has finished."
+          title={t('pay.notFound')}
+          message={t('common.notAssigned')}
         />
       </Screen>
     );
@@ -68,7 +70,7 @@ export default function CollectCashScreen() {
   }
 
   const amountPaise = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  const customerName = job.customer?.displayName ?? 'Customer';
+  const customerName = job.customer?.displayName ?? t('common.customer');
 
   function onSwipeCollectCash() {
     setCollectOpen(true);
@@ -92,9 +94,9 @@ export default function CollectCashScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'Payment',
+          title: t('pay.title'),
           headerBackVisible: false,
-          headerBackTitle: 'Back',
+          headerBackTitle: t('common.back'),
           headerTintColor: color['text-primary'],
           headerTitleStyle: { fontSize: 16, color: color['text-primary'] },
           headerStyle: { backgroundColor: color.surface },
@@ -111,13 +113,13 @@ export default function CollectCashScreen() {
               <Ionicons name="cash-outline" size={30} color={color.brand} />
             </View>
             <Text variant="bodyLg" className="mt-5 text-text-secondary">
-              Amount to be collected
+              {t('pay.amountToCollect')}
             </Text>
             <Text variant="display" className="mt-1 text-text-primary">
               {formatInr(amountPaise)}
             </Text>
             <Text variant="footnote" className="mt-2 text-center">
-              Collect this amount from {customerName} in cash, then swipe to close the job.
+              {t('pay.collectInstruction', { customerName })}
             </Text>
           </View>
 
@@ -138,7 +140,7 @@ export default function CollectCashScreen() {
             {/* The one action that closes a cash settlement. Disabled while the
                 sheet is up — the sheet owns the exit from that point. */}
             <SwipeToConfirm
-              label="Collect cash"
+              label={t('pay.collectCash')}
               disabled={collectOpen}
               loading={collect.isPending}
               onConfirm={onSwipeCollectCash}
