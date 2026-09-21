@@ -1080,58 +1080,6 @@ export function createJobsService(deps: JobsServiceDeps) {
   }
 
   /**
-   * The pro's job-request history: every request they were offered, newest
-   * first.
-   *
-   * Each `JOB_ALERT` notification records one offer the pro was paged for, so
-   * this is the source of the "past jobs" list — including requests nobody
-   * accepted (the job simply left the open pool). One row per job per pro;
-   * the job DTO carries its final status so the pro sees where each request
-   * landed.
-   */
-  async function listJobHistory(
-    proUserId: string,
-    options: { limit?: number } = {},
-  ): Promise<JobDetail[]> {
-    const pro = await findProByUserId(proUserId);
-
-    const rows = await prisma.notification.findMany({
-      where: { proId: pro.id, kind: 'JOB_ALERT', job: { isNot: null } },
-      orderBy: { createdAt: 'desc' },
-      take: Math.max(1, Math.min(options.limit ?? 50, 50)),
-      include: { job: { include: { ...jobDetailInclude } } },
-    });
-
-    const proPoint =
-      pro.latitude !== null && pro.longitude !== null
-        ? { latitude: pro.latitude, longitude: pro.longitude }
-        : null;
-
-    const results: JobDetail[] = [];
-    for (const row of rows) {
-      if (!row.job) continue;
-      const jobPoint =
-        row.job.latitude !== null && row.job.longitude !== null
-          ? { latitude: row.job.latitude, longitude: row.job.longitude }
-          : null;
-      const km = proPoint && jobPoint ? distanceKm(proPoint, jobPoint) : null;
-      results.push({
-        ...toJobDto(row.job as unknown as JobRow, storage, config),
-        acceptedAt: row.job.acceptedAt ? iso(row.job.acceptedAt) : null,
-        completedAt: row.job.completedAt ? iso(row.job.completedAt) : null,
-        cancelledAt: row.job.cancelledAt ? iso(row.job.cancelledAt) : null,
-        cancelledBy: null,
-        distanceKm: km,
-        estimatedEtaMinutes: km !== null ? etaMinutes(km) : null,
-        verificationOtp: null,
-        customer: null,
-        pro: null,
-      });
-    }
-    return results;
-  }
-
-  /**
    * Accepts an open job atomically. The first eligible pro to claim it wins.
    */
   async function acceptJob(proUserId: string, jobId: string): Promise<JobDetail> {
@@ -1932,7 +1880,6 @@ export function createJobsService(deps: JobsServiceDeps) {
     listAvailableJobs,
     getAvailableJobForPro,
     declineJob,
-    listJobHistory,
     notifyReadyJobRequests,
     acceptJob,
     acceptJobWithOffer,
