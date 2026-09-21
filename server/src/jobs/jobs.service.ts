@@ -646,6 +646,25 @@ export function createJobsService(deps: JobsServiceDeps) {
     // holders so their native overlay/sound/tray entry closes immediately.
     void notifications.resolveJobAlerts(jobId, 'CANCELLED');
 
+    // An open (unassigned) job lives in every alerted pro's available-jobs
+    // pool; page those holders over realtime so their pools drop the dead
+    // request the instant it is cancelled, not on the next refetch. The client
+    // treats the event as a background refresh — no pro was ever assigned, so
+    // no alert, vibration or navigation fires (guarded by `acceptedAt == null`).
+    if (!row.pro) {
+      const alerted = await prisma.notification.findMany({
+        where: { jobId: row.id, kind: NotificationKind.JOB_ALERT },
+        select: { pro: { select: { userId: true } } },
+      });
+      if (alerted.length > 0) {
+        realtime.emitToUsers(
+          alerted.map((n) => n.pro.userId),
+          REALTIME_EVENTS.JOB_STATUS,
+          { ...proDetail, cancelledBy },
+        );
+      }
+    }
+
     // The assigned pro never holds an open offer alert, so the terminal push
     // above can never reach them. A customer-initiated cancellation must still
     // alert them when their app process is dead or the screen is off — send a

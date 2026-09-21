@@ -2025,12 +2025,14 @@ describe('createJobsService.cancelJob', () => {
     const sendAssignedCancellationProPush = jest.fn().mockResolvedValue(undefined);
     const reAlertEligiblePros = jest.fn().mockResolvedValue(undefined);
     const findEligiblePros = jest.fn().mockResolvedValue([]);
+    const notificationFindMany = jest.fn().mockResolvedValue([]);
 
     const prisma = {
       job: { findUnique: jobFindUnique, update: jobUpdate },
       jobStatusHistory: { create: historyCreate },
       jobDecline: { upsert: declineUpsert },
       message: { deleteMany: messageDeleteMany },
+      notification: { findMany: notificationFindMany },
       proProfile: { findUnique: jest.fn().mockResolvedValue({ isOnline: false }) },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
@@ -2087,6 +2089,7 @@ describe('createJobsService.cancelJob', () => {
       sendCustomerPush,
       resolveJobAlerts,
       sendAssignedCancellationProPush,
+      notificationFindMany,
     };
   }
 
@@ -2138,6 +2141,43 @@ describe('createJobsService.cancelJob', () => {
     );
     // The customer cancelling is their own act — no customer notice.
     expect(ctx.recordCustomerNotification).not.toHaveBeenCalled();
+  });
+
+  it('pages every alerted pro in realtime when an open (unassigned) job is cancelled', async () => {
+    const ctx = buildCancel();
+    ctx.setRow({ proId: null, pro: null });
+    ctx.notificationFindMany.mockResolvedValue([
+      { pro: { userId: 'pro-alert-1' } },
+      { pro: { userId: 'pro-alert-2' } },
+    ]);
+
+    const result = await ctx.jobs.cancelJob('cust-user-1', 'job-1');
+
+    expect(result).toMatchObject({ proUserId: null });
+    // Only the customer holds the open request; no assigned pro to page.
+    expect(ctx.realtime.emitToUser).toHaveBeenCalledTimes(1);
+    // The open pool holders are told over realtime so their pools drop the
+    // dead request immediately, and the terminal resolve still runs.
+    expect(ctx.notificationFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { jobId: 'job-1', kind: NotificationKind.JOB_ALERT },
+      }),
+    );
+    expect(ctx.realtime.emitToUsers).toHaveBeenCalledWith(
+      ['pro-alert-1', 'pro-alert-2'],
+      'job:status',
+      expect.objectContaining({
+        id: 'job-1',
+        status: JobStatus.CANCELLED,
+        cancelledBy: 'customer',
+        cancelledAt: expect.any(String),
+        // No pro was ever assigned — the detail carries no pro identity.
+        pro: null,
+      }),
+    );
+    expect(ctx.resolveJobAlerts).toHaveBeenCalledWith('job-1', 'CANCELLED');
+    // Nobody was assigned, so no dedicated assigned-pro push fires.
+    expect(ctx.sendAssignedCancellationProPush).not.toHaveBeenCalled();
   });
 
   it('lets the pro release at ARRIVED and tells the customer the booking is re-listed', async () => {
