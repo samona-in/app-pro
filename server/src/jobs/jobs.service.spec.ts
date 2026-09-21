@@ -2336,6 +2336,28 @@ describe('createJobsService.cancelJob', () => {
     }
   });
 
+  it('locks a pro out of CANCELLED entirely — only the explicit allowlist releases', async () => {
+    // OFFERED permits → CANCELLED in the shared transition table, but a pro is
+    // barred from it: the allowlist (ACCEPTED/TRAVELLING/ARRIVED) is the whole
+    // decision, so a stale-types deployment can never regress a pro cancel.
+    const ctx = buildCancel();
+    ctx.setRow({ status: JobStatus.OFFERED });
+
+    await expect(ctx.jobs.cancelJob('user-1', 'job-1')).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 409,
+    });
+    expect(ctx.historyCreate).not.toHaveBeenCalled();
+    expect(ctx.jobUpdate).not.toHaveBeenCalled();
+    expect(ctx.jobUpdateMany).not.toHaveBeenCalled();
+
+    // The customer at the same status still cancels normally.
+    const customerCtx = buildCancel();
+    customerCtx.setRow({ status: JobStatus.OFFERED });
+    const result = await customerCtx.jobs.cancelJob('cust-user-1', 'job-1');
+    expect(result.detail.status).toBe(JobStatus.CANCELLED);
+  });
+
   it('404s when the job does not exist', async () => {
     const ctx = buildCancel();
     ctx.jobFindUnique.mockResolvedValue(null);
