@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { NativeSyntheticEvent } from 'react-native';
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   Camera,
   Map as MapLibreMap,
@@ -39,6 +40,7 @@ function formatAreaLabel(place: Location.LocationGeocodedAddress): string | null
 }
 
 export default function OnboardingLocation() {
+  const { t } = useTranslation();
   const { data: profile } = useProProfile();
   const save = useSaveOnboardingStep();
 
@@ -100,7 +102,7 @@ export default function OnboardingLocation() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setLocationError('Permission declined — drag the map to your work area instead.');
+        setLocationError(t('onboarding.location.permDeclined'));
         return;
       }
 
@@ -119,7 +121,7 @@ export default function OnboardingLocation() {
         duration: 600,
       });
     } catch {
-      setLocationError('Could not read your location. You can still continue.');
+      setLocationError(t('onboarding.location.readError'));
     } finally {
       setIsLocating(false);
     }
@@ -136,11 +138,11 @@ export default function OnboardingLocation() {
   return (
     <OnboardingStepLayout
       step="location"
-      title="Where do you work?"
-      subtitle="Drag the map so the pin sits on your work area, or use your current location."
+      title={t('onboarding.location.title')}
+      subtitle={t('onboarding.location.subtitle')}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
-      error={save.isError ? 'Could not save your location. Please try again.' : null}
+      error={save.isError ? t('onboarding.location.saveError') : null}
     >
       <View className="overflow-hidden rounded-[5px] border border-border">
         <View className="relative">
@@ -174,23 +176,26 @@ export default function OnboardingLocation() {
 
         <View className="border-t border-border bg-background px-4 py-3">
           <Text variant="footnote" className="text-text-secondary">
-            Service area
+            {t('onboarding.location.serviceAreaLabel')}
           </Text>
           <Text variant="body" className="mt-0.5 text-text-primary" numberOfLines={2}>
             {phase === 'moving'
-              ? 'Release to set this spot'
+              ? t('onboarding.location.releaseToSet')
               : phase === 'resolving'
-                ? 'Finding address…'
+                ? t('onboarding.location.findingAddress')
                 : (label ??
                   (coords
-                    ? `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
-                    : 'Move the map to pick a spot'))}
+                    ? t('onboarding.location.pinCoords', {
+                        lat: coords.latitude.toFixed(4),
+                        lng: coords.longitude.toFixed(4),
+                      })
+                    : t('onboarding.location.moveMap')))}
           </Text>
         </View>
       </View>
 
       <Button
-        label="Use my current location"
+        label={t('onboarding.location.useCurrent')}
         variant="secondary"
         loading={isLocating}
         className="mt-4"

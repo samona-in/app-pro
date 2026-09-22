@@ -1,4 +1,5 @@
 import { Redirect, Stack } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
 import { useAuth } from '@/providers';
@@ -13,6 +14,7 @@ import { color } from '@/theme';
  * auth route while already signed in.
  */
 export default function AuthLayout() {
+  const { t } = useTranslation();
   const { isLoaded, isSignedIn } = useAuth();
 
   // Wait for the persisted session before deciding, or a returning user sees
@@ -20,7 +22,7 @@ export default function AuthLayout() {
   if (!isLoaded) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <LoadingState message="Starting SAMONA Pro" />
+        <LoadingState message={t('boot.starting')} />
       </Screen>
     );
   }

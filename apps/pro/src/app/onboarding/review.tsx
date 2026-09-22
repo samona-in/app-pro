@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   EXPERIENCE_LEVELS,
   GENDER_OPTIONS,
@@ -26,6 +27,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function OnboardingReview() {
+  const { t } = useTranslation();
   const { data: profile } = useProProfile();
   const catalogue = useCatalogue();
   const { refetch } = useSession();
@@ -46,7 +48,7 @@ export default function OnboardingReview() {
   }, [profile, catalogue.data]);
 
   if (!profile || !summary) {
-    return <LoadingState message="Loading your profile" />;
+    return <LoadingState message={t('onboarding.loadingProfile')} />;
   }
 
   const complete = isProProfileComplete(profile);
@@ -68,28 +70,28 @@ export default function OnboardingReview() {
   return (
     <OnboardingStepLayout
       step="review"
-      title={complete ? "You're ready to receive jobs" : 'Almost there'}
+      title={complete ? t('onboarding.review.readyTitle') : t('onboarding.review.almostThere')}
       subtitle={
         complete
-          ? 'Here is what customers will see.'
-          : 'A few details are still missing. Tap below to finish them.'
+          ? t('onboarding.review.readyMessage')
+          : t('onboarding.review.incompleteMessage')
       }
-      primaryLabel={complete ? 'Go to dashboard' : 'Finish remaining steps'}
+      primaryLabel={complete ? t('onboarding.review.goToDashboard') : t('onboarding.review.finishRemaining')}
       onPrimary={() => void onFinish()}
     >
       <Card className="flex-row items-center">
         <Avatar
-          name={profile.displayName ?? 'SAMONA Pro'}
+          name={profile.displayName ?? t('brand.samonaPro')}
           size="lg"
           uri={profile.avatarUrl ?? profile.selfiePhotoUrl}
         />
         <View className="ml-4 flex-1">
-          <Text variant="title">{profile.displayName ?? 'Your name'}</Text>
+          <Text variant="title">{profile.displayName ?? t('onboarding.review.yourName')}</Text>
           <Text variant="footnote" className="mt-0.5 text-text-secondary">
             {summary.experience}
           </Text>
           <Badge
-            label={complete ? 'Ready' : 'Incomplete'}
+            label={complete ? t('onboarding.review.ready') : t('onboarding.review.incomplete')}
             tone={complete ? 'success' : 'warning'}
             className="mt-2"
           />
@@ -97,20 +99,23 @@ export default function OnboardingReview() {
       </Card>
 
       <Card className="mt-4" padded={false}>
-        <SummaryRow label="Gender" value={summary.gender} />
+        <SummaryRow label={t('onboarding.review.gender')} value={summary.gender} />
         <Divider />
-        <SummaryRow label="Services" value={summary.services.join(', ') || '—'} />
+        <SummaryRow label={t('onboarding.review.services')} value={summary.services.join(', ') || '—'} />
         <Divider />
-        <SummaryRow label="Specialties" value={summary.skills.join(', ') || '—'} />
+        <SummaryRow label={t('onboarding.review.specialties')} value={summary.skills.join(', ') || '—'} />
         <Divider />
-        <SummaryRow label="Travels up to" value={`${profile.serviceRadiusKm} km`} />
+        <SummaryRow
+          label={t('onboarding.review.travelsUpTo', { distance: t('format.km', { value: profile.serviceRadiusKm }) })}
+          value=""
+        />
         <Divider />
-        <SummaryRow label="Languages" value={profile.languages.join(', ') || '—'} />
+        <SummaryRow label={t('onboarding.review.languages')} value={profile.languages.join(', ') || '—'} />
       </Card>
 
       {profile.bio ? (
         <Card className="mt-4">
-          <Text variant="label">About you</Text>
+          <Text variant="label">{t('onboarding.review.aboutYou')}</Text>
           <Text variant="body" className="mt-2 text-text-secondary">
             {profile.bio}
           </Text>
@@ -118,7 +123,7 @@ export default function OnboardingReview() {
       ) : null}
 
       <Text variant="caption" className="mt-4 text-text-muted">
-        Documents, payout details and certifications can be added later from your profile.
+        {t('onboarding.review.footerNote')}
       </Text>
     </OnboardingStepLayout>
   );

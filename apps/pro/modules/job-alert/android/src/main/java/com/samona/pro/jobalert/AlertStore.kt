@@ -73,6 +73,13 @@ class AlertStore(context: Context) {
     prefs.edit().putString(KEY_API_URL, url).commit()
   }
 
+  /** The app language (`en` / `te` / `hi`) JS mirrors onto native strings. */
+  fun localeCode(): String? = prefs.getString(KEY_LOCALE, null)
+
+  fun setLocaleCode(code: String) {
+    prefs.edit().putString(KEY_LOCALE, code).commit()
+  }
+
   /** Adds the alert at the front, or replaces the existing copy for that job. True when new. */
   fun addOrReplace(alert: IncomingJobAlert): Boolean {
     val jobs = loadJobs().toMutableList()
@@ -188,6 +195,7 @@ class AlertStore(context: Context) {
     const val KEY_ONLINE = "online"
     const val KEY_DEVICE_ID = "device_id"
     const val KEY_API_URL = "api_url"
+    const val KEY_LOCALE = "locale"
     const val KEY_ASSIGNED_CANCELLATIONS = "assigned_cancellations"
   }
 }

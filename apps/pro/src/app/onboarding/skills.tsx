@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { OnboardingStepLayout, SelectableCard } from '@/components/onboarding';
 import { Text } from '@/components/ui';
 import { useCatalogue, useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
 
 export default function OnboardingSkills() {
+  const { t } = useTranslation();
   const catalogue = useCatalogue();
   const { data: profile } = useProProfile();
   const save = useSaveOnboardingStep();
@@ -35,29 +37,29 @@ export default function OnboardingSkills() {
     router.push('/onboarding/experience');
   }
 
-  if (catalogue.isPending) return <LoadingState message="Loading specialties" />;
+  if (catalogue.isPending) return <LoadingState message={t('onboarding.skills.loading')} />;
   if (catalogue.isError) return <ErrorState onRetry={() => void catalogue.refetch()} />;
 
   return (
     <OnboardingStepLayout
       step="skills"
-      title="What are your specialties?"
-      subtitle="Being specific helps us send you the right jobs."
+      title={t('onboarding.skills.title')}
+      subtitle={t('onboarding.skills.subtitle')}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
       primaryDisabled={selected.length === 0}
-      error={save.isError ? 'Could not save your specialties. Please try again.' : null}
+      error={save.isError ? t('onboarding.skills.saveError') : null}
       footer={
         <Text variant="caption" className="text-center text-text-muted">
-          {selected.length} selected
+          {t('onboarding.skills.nSelected', { count: selected.length })}
         </Text>
       }
     >
       {grouped.length === 0 ? (
         <EmptyState
-          title="Choose a service first"
-          message="Go back a step and pick the services you provide."
-          actionLabel="Back to services"
+          title={t('onboarding.skills.chooseServiceTitle')}
+          message={t('onboarding.skills.chooseServiceMessage')}
+          actionLabel={t('onboarding.skills.backToServices')}
           onAction={() => router.back()}
         />
       ) : (

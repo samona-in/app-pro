@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +13,7 @@ import { color } from '@/theme';
 const LANGUAGES = ['English', 'Hindi', 'Telugu', 'Tamil', 'Kannada', 'Marathi', 'Bengali'];
 
 export default function OnboardingAbout() {
+  const { t } = useTranslation();
   const { data: profile } = useProProfile();
   const save = useSaveOnboardingStep();
   const uploadAvatar = useUploadAvatar();
@@ -58,7 +60,7 @@ export default function OnboardingAbout() {
         },
         onError: () => {
           setPreviewUri(null);
-          Alert.alert('Could not update photo', 'The photo did not upload. Please try again.');
+          Alert.alert(t('onboarding.about.photoAlertTitle'), t('onboarding.about.photoAlertMessage'));
         },
       },
     );
@@ -74,21 +76,21 @@ export default function OnboardingAbout() {
   return (
     <OnboardingStepLayout
       step="about"
-      title="Tell customers about yourself"
-      subtitle="Choose a profile photo and a short introduction. You can skip the rest."
+      title={t('onboarding.about.title')}
+      subtitle={t('onboarding.about.subtitle')}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
-      error={save.isError ? 'Could not save. Please try again.' : null}
+      error={save.isError ? t('onboarding.about.saveError') : null}
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Choose profile photo"
+        accessibilityLabel={t('onboarding.about.choosePhotoA11y')}
         disabled={uploading}
         onPress={() => void pickAvatar()}
         className="mb-6 self-center active:opacity-70"
       >
         <View className="relative">
-          <Avatar name={profile?.displayName ?? 'SAMONA Pro'} uri={avatarUri} size="xl" />
+          <Avatar name={profile?.displayName ?? t('brand.samonaPro')} uri={avatarUri} size="xl" />
           {uploading ? (
             <View className="absolute inset-0 items-center justify-center rounded-full bg-black/40">
               <ActivityIndicator size="small" color="#ffffff" />
@@ -100,15 +102,15 @@ export default function OnboardingAbout() {
           )}
         </View>
         <Text variant="caption" className="mt-2 text-center text-text-secondary">
-          Customers will see this photo
+          {t('onboarding.about.photoCaption')}
         </Text>
       </Pressable>
 
       <Input
-        label="About you"
+        label={t('onboarding.about.aboutYou')}
         value={bio}
         onChangeText={setBio}
-        placeholder="e.g. 8 years repairing split and window ACs across Hyderabad."
+        placeholder={t('onboarding.about.bioPlaceholder')}
         multiline
         numberOfLines={4}
         maxLength={600}
@@ -118,7 +120,7 @@ export default function OnboardingAbout() {
       />
 
       <Text variant="label" className="mt-8">
-        Languages you speak
+        {t('onboarding.about.languagesLabel')}
       </Text>
       <View className="mt-3 gap-3">
         {LANGUAGES.map((language) => (

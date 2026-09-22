@@ -440,6 +440,14 @@ model Notification {
   title       String
   /// The body shown in the push.
   body        String
+  /// i18n key (in the pro app's resources) that composes `title`; null means
+  /// `title` is authoritative. See `messageBodyKey` / `params`.
+  messageKey  String?          @map("message_key")
+  /// i18n key that composes `body`; null means `body` is authoritative.
+  messageBodyKey String?       @map("message_body_key")
+  /// Interpolation values for `messageKey` / `messageBodyKey` (JSON object of
+  /// string values; catalogue data passes through unlocalized).
+  params      Json?            @db.JsonB
   /// The deep-link / route to open when the alert is tapped.
   route       String?
   /// Whether the latest attempt to deliver this alert succeeded.

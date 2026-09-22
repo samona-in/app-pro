@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { requireNativeModule } from 'expo-modules-core';
+import { i18nInstance } from '@/i18n';
 import { env } from '@/env';
 
 /**
@@ -55,6 +56,7 @@ export interface NativeAssignedCancellation {
 
 interface OverlayAlertNativeModule {
   configure(apiUrl: string): Promise<boolean>;
+  setLocale(locale: string): Promise<boolean>;
   getDeviceId(): Promise<string>;
   getPendingJobs(): Promise<PendingNativeJob[]>;
   consumePendingAction(): Promise<Record<string, never> | PendingNativeAction>;
@@ -115,6 +117,9 @@ export async function getNativeDeviceId(): Promise<string> {
  * Points the native overlay/tray redeem calls at this bundle's API. Best
  * effort, called once at startup before a NEW_JOB push can realistically
  * arrive; without it, an overlay tap degrades to the legacy open-app fallback.
+ * Also mirrors the active app language onto the native side (`setLocale`) so
+ * tray/overlay strings (channel names, actions, countdown) match the UI, and
+ * keeps it in sync whenever the user changes language in-session.
  */
 export async function configureJobAlertModule(): Promise<void> {
   const module = getNativeModule();
@@ -123,6 +128,23 @@ export async function configureJobAlertModule(): Promise<void> {
     await module.configure(env.apiUrl);
   } catch {
     // Legacy APK without the module: safe fallback, nothing to configure.
+  }
+  if (!localeSyncRegistered) {
+    localeSyncRegistered = true;
+    i18nInstance.on('languageChanged', () => void setNativeLocale());
+  }
+  await setNativeLocale();
+}
+
+let localeSyncRegistered = false;
+
+async function setNativeLocale(): Promise<void> {
+  const module = getNativeModule();
+  if (!module) return;
+  try {
+    await module.setLocale(i18nInstance.language);
+  } catch {
+    // Best-effort: a stale APK without `setLocale` keeps its own defaults.
   }
 }
 

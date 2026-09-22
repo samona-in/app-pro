@@ -1,0 +1,580 @@
+{
+  "common": {
+    "back": "Back",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "confirm": "Confirm",
+    "done": "Done",
+    "ok": "OK",
+    "retry": "Please try again.",
+    "tryAgain": "Try again",
+    "notNow": "Not now",
+    "openSettings": "Open Settings",
+    "on": "On",
+    "off": "Off",
+    "dash": "—",
+    "customer": "Customer",
+    "loading": "Loading",
+    "somethingWentWrong": "Something went wrong",
+    "couldNotLoad": "We could not load this right now. Please try again.",
+    "locationSharedLater": "Location shared after you arrive",
+    "notAssigned": "This job is no longer assigned to you, or it has finished.",
+    "jobs": "Jobs"
+  },
+  "brand": {
+    "samonaPro": "SAMONA Pro",
+    "samona": "SAMONA"
+  },
+  "boot": {
+    "starting": "Starting SAMONA Pro",
+    "checkingActiveJob": "Checking your active job"
+  },
+  "tabs": {
+    "home": "Home",
+    "requests": "Requests",
+    "earnings": "Earnings",
+    "profile": "Profile",
+    "requestsPending": "{{label}}, {{count}} pending"
+  },
+  "routes": {
+    "jobPool": "Job Pool",
+    "jobActions": "Job actions",
+    "chat": "Chat",
+    "notifications": "Notifications",
+    "jobAlertSetup": "Job alert setup",
+    "language": "Language"
+  },
+  "welcome": {
+    "heading": "Work that comes to you.",
+    "subheading": "SAMONA Pro connects you with customers nearby who need your skills.",
+    "getStarted": "Get started",
+    "haveAccount": "I already have an account",
+    "otpVerify": "We'll verify your phone number with a {{otpLength}}-digit code.",
+    "valueProps": {
+      "jobRequests": "Get job requests from customers near you",
+      "acceptWork": "Accept the work that fits your schedule",
+      "trackEarnings": "Track your earnings as you complete jobs"
+    }
+  },
+  "phone": {
+    "heading": "Enter your phone number",
+    "helper": "We'll text you a {{otpLength}}-digit code to verify it's you.",
+    "label": "Phone number",
+    "hint": "Include your country code.",
+    "sendCode": "Send code",
+    "legal": "By continuing you agree to the SAMONA Pro terms and privacy policy.",
+    "tooManyAttempts": "Too many attempts. Please wait a minute before requesting another code.",
+    "couldNotSend": "Could not send a code. Please try again.",
+    "wrongCode": "That code is not right. Please try again.",
+    "signInIncomplete": "That code did not complete sign-in. Please request a new one."
+  },
+  "verify": {
+    "heading": "Enter the code",
+    "sentToPhone": "Sent to {{phone}}.",
+    "yourPhone": "your phone",
+    "changeNumber": "Change number",
+    "verify": "Verify",
+    "resendCode": "Resend code",
+    "devNoSms": "Testing: no SMS is sent (no Twilio credits)",
+    "devUseTestCode": "Use test code {{code}}"
+  },
+  "validation": {
+    "phoneInvalid": "Enter a valid phone number.",
+    "nameRequired": "Enter your name."
+  },
+  "onboarding": {
+    "stepContinue": "Continue",
+    "loadingProfile": "Loading your profile",
+    "intro": {
+      "title": "Welcome to SAMONA Pro",
+      "subtitle": "Turn your skills into more jobs.",
+      "getStarted": "Get started",
+      "durationNote": "Takes about two minutes. You can stop and pick up where you left off.",
+      "promiseJobs": "Choose the work you want",
+      "promiseArea": "Set where and how far you travel",
+      "promisePay": "Get paid for every completed job"
+    },
+    "name": {
+      "title": "What's your name?",
+      "subtitle": "Customers see this when you accept their job.",
+      "label": "Full name",
+      "placeholder": "e.g. Asha Kumar",
+      "saveError": "Could not save your name. Please try again."
+    },
+    "gender": {
+      "title": "What's your gender?",
+      "subtitle": "Helps us personalise your SAMONA Pro experience.",
+      "saveError": "Could not save your gender. Please try again.",
+      "options": {
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other"
+      }
+    },
+    "services": {
+      "loading": "Loading services",
+      "title": "What services do you provide?",
+      "subtitle": "Pick everything you do. You can change this later.",
+      "saveError": "Could not save your services. Please try again.",
+      "emptyTitle": "No services available",
+      "emptyMessage": "Please try again shortly.",
+      "nSelected_one": "{{count}} selected",
+      "nSelected_other": "{{count}} selected"
+    },
+    "skills": {
+      "loading": "Loading specialties",
+      "title": "What are your specialties?",
+      "subtitle": "Being specific helps us send you the right jobs.",
+      "saveError": "Could not save your specialties. Please try again.",
+      "chooseServiceTitle": "Choose a service first",
+      "chooseServiceMessage": "Go back a step and pick the services you provide.",
+      "backToServices": "Back to services",
+      "nSelected_one": "{{count}} selected",
+      "nSelected_other": "{{count}} selected"
+    },
+    "experience": {
+      "title": "How much experience do you have?",
+      "subtitle": "Customers see this on your profile.",
+      "saveError": "Could not save your experience. Please try again.",
+      "options": {
+        "UNDER_1_YEAR": "Less than 1 year",
+        "ONE_TO_THREE": "1–3 years",
+        "THREE_TO_FIVE": "3–5 years",
+        "FIVE_TO_TEN": "5–10 years",
+        "TEN_PLUS": "10+ years"
+      }
+    },
+    "location": {
+      "permDeclined": "Permission declined — drag the map to your work area instead.",
+      "readError": "Could not read your location. You can still continue.",
+      "title": "Where do you work?",
+      "subtitle": "Drag the map so the pin sits on your work area, or use your current location.",
+      "saveError": "Could not save your location. Please try again.",
+      "serviceAreaLabel": "Service area",
+      "releaseToSet": "Release to set this spot",
+      "findingAddress": "Finding address…",
+      "pinCoords": "{{lat}}, {{lng}}",
+      "moveMap": "Move the map to pick a spot",
+      "useCurrent": "Use my current location"
+    },
+    "radius": {
+      "title": "How far will you travel?",
+      "subtitle": "Customers outside this distance won't see your profile.",
+      "saveError": "Could not save your service area. Please try again."
+    },
+    "about": {
+      "photoAlertTitle": "Could not update photo",
+      "photoAlertMessage": "The photo did not upload. Please try again.",
+      "title": "Tell customers about yourself",
+      "subtitle": "Choose a profile photo and a short introduction. You can skip the rest.",
+      "saveError": "Could not save. Please try again.",
+      "choosePhotoA11y": "Choose profile photo",
+      "photoCaption": "Customers will see this photo",
+      "aboutYou": "About you",
+      "bioPlaceholder": "e.g. 8 years repairing split and window ACs across Hyderabad.",
+      "languagesLabel": "Languages you speak"
+    },
+    "face": {
+      "title": "Let's verify it's you",
+      "subtitle": "We take a quick photo of your face. Customers see it before you arrive, so they know exactly who's coming to their door. It takes a few seconds.",
+      "start": "Start face check",
+      "beforeTitle": "Before we start",
+      "beforeMessage": "Find a well-lit spot, remove hats or sunglasses, and hold your phone at eye level.",
+      "capturedA11y": "Your captured verification photo",
+      "uploadFailed": "Upload failed. Check your connection and try again.",
+      "uploading": "Uploading…",
+      "tryAgain": "Try again",
+      "usePhoto": "Use this photo",
+      "retake": "Retake"
+    },
+    "review": {
+      "readyTitle": "You're ready to receive jobs",
+      "almostThere": "Almost there",
+      "readyMessage": "Here is what customers will see.",
+      "incompleteMessage": "A few details are still missing. Tap below to finish them.",
+      "goToDashboard": "Go to dashboard",
+      "finishRemaining": "Finish remaining steps",
+      "yourName": "Your name",
+      "ready": "Ready",
+      "incomplete": "Incomplete",
+      "gender": "Gender",
+      "services": "Services",
+      "specialties": "Specialties",
+      "travelsUpTo": "Travels up to {{distance}}",
+      "languages": "Languages",
+      "aboutYou": "About you",
+      "footerNote": "Documents, payout details and certifications can be added later from your profile."
+    }
+  },
+  "home": {
+    "statusLoading": "Loading…",
+    "goOnline": "Go online",
+    "goOffline": "Go offline",
+    "availabilityLabel": "Availability",
+    "online": "You're online",
+    "offline": "You're offline",
+    "toggling": "Toggling your availability…",
+    "goOnlinePrompt": "Go online to start receiving job requests.",
+    "fix": "Fix",
+    "jobsAccessibility": "Jobs",
+    "notificationsAccessibility": "Notifications",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "cantGoOnline": "Can't go online",
+    "cantGoOffline": "Can't go offline",
+    "readiness": {
+      "title": "Job alerts may not reach you",
+      "manySettings_one": "One phone setting can block alerts while the app is closed.",
+      "manySettings_other": "{{count}} phone settings can block alerts while the app is closed.",
+      "fixAction": "Fix them to receive every job request."
+    },
+    "incomingRequests": {
+      "title": "Incoming requests",
+      "waiting_one": "{{count}} job is waiting for you",
+      "waiting_other": "{{count}} jobs are waiting for you",
+      "review": "Review"
+    }
+  },
+  "incomingJobs": {
+    "count_one": "{{count}} job",
+    "count_other": "{{count}} jobs",
+    "titleFallback": "New job request",
+    "amountA11y": "{{amount}} — job request",
+    "expiresIn": "Expires in {{time}}",
+    "accept": "Accept",
+    "decline": "Decline",
+    "declineError": "Couldn't decline. Try again."
+  },
+  "jobs": {
+    "accept": "Accept",
+    "loadingPool": "Loading job pool",
+    "loadingYourPool": "Loading your job pool",
+    "emptyOfflineTitle": "Go online to see jobs",
+    "emptyOfflineMessage": "Your job pool fills up while you're online. Toggle availability on the home screen.",
+    "errorTitle": "Couldn't load the job pool",
+    "errorMessage": "Check your connection and try again.",
+    "emptyTitle": "No jobs in your pool right now",
+    "emptyMessage": "When an open request matches your services and area, it appears here instantly."
+  },
+  "jobDetails": {
+    "instructions": {
+      "arrived": "The customer came to the working spot for this job.",
+      "arriveAtSpot": "Go to the working spot — the customer came there for this job.",
+      "travelling": "Drive to the working spot to arrive and start.",
+      "default": "Follow the steps to complete this job."
+    },
+    "customer": "Customer",
+    "customerPhotos": "Customer photos",
+    "photoCount": "({{count}})",
+    "beforeStart": "Before you start",
+    "jobDescription": "Job description",
+    "checklist": {
+      "inspectIssue": "Inspect the issue",
+      "confirmWork": "Confirm the work with the customer",
+      "startWhenReady": "Start only when you are ready"
+    }
+  },
+  "activeJob": {
+    "loading": "Loading your job",
+    "notFound": "Job not found",
+    "couldNotUpdate": "Could not update this job",
+    "navigate": "Navigate",
+    "navigateA11y": "Navigate to work spot",
+    "notAtSpot": "Not at the work spot yet",
+    "messageCustomer": "Message customer",
+    "couldNotOpenMaps": "Could not open Google Maps",
+    "couldNotOpenMapsBody": "Make sure you have an app that can open maps links.",
+    "stackDetailsTitle": "Your job details",
+    "stackWorkingSpotTitle": "Go To the Working Spot",
+    "swipe": {
+      "onMyWay": "On My Way",
+      "arrived": "I've Arrived",
+      "startWork": "Start Work",
+      "completed": "Work Completed"
+    }
+  },
+  "pay": {
+    "loading": "Loading payment",
+    "notFound": "Payment not found",
+    "title": "Payment",
+    "amountToCollect": "Amount to be collected",
+    "collectInstruction": "Collect this amount from {{customerName}} in cash, then swipe to close the job.",
+    "collectCash": "Collect cash",
+    "collecting": "Collecting cash",
+    "processing": "Processing payment",
+    "confirmingPayment": "Confirming the payment with Samona…",
+    "paymentCollected": "Payment collected",
+    "niceOne": "Nice one — on to your next job."
+  },
+  "chat": {
+    "placeholder": "Type a message",
+    "sendA11y": "Send message",
+    "callCustomer": "Call customer",
+    "couldNotStartCall": "Could not start the call",
+    "couldNotStartCallBody": "No app on this device can place calls.",
+    "loadingMessages": "Loading messages",
+    "closed": "This conversation is closed. You can no longer send messages.",
+    "quickChatA11yCollapse": "Collapse quick chat",
+    "quickChatA11yOpen": "Open quick chat",
+    "quickChatTitle": "Quick chat",
+    "phraseA11y": "{{phrase}}. Tap to add to your message",
+    "unread_one": "{{count}} unread message",
+    "unread_other": "{{count}} unread messages"
+  },
+  "contact": {
+    "title": "Contact",
+    "contactCustomer": "Contact customer",
+    "cancelSection": "Cancel",
+    "cancelMyJob": "Cancel my job",
+    "confirmCancelTitle": "Cancel this job?",
+    "confirmCancelBeforeStart": "The job will be cancelled for the customer. You can only cancel before you start the work.",
+    "confirmCancelGeneric": "The job will be cancelled for the customer.",
+    "keepJob": "Keep the job",
+    "cancelJob": "Cancel job",
+    "couldNotCancel": "Could not cancel this job"
+  },
+  "notificationsScreen": {
+    "loading": "Loading notifications",
+    "emptyTitle": "No notifications yet",
+    "emptyMessage": "Job requests, status updates and payout alerts will appear here."
+  },
+  "notificationsCard": {
+    "repeated": "Repeated {{count}}×"
+  },
+  "notifications": {
+    "channels": {
+      "jobAlerts": "Job alerts",
+      "messages": "Messages",
+      "jobCancelled": "Job cancelled"
+    },
+    "newJob": {
+      "title": "New job request",
+      "titleSpecific": "{{service}} job nearby",
+      "body": "{{description}} — {{pay}}. Tap to see and accept."
+    },
+    "jobCancelled": {
+      "title": "Job cancelled",
+      "body": "The customer cancelled this booking."
+    },
+    "paymentReceived": {
+      "title": "Payment received",
+      "titleAmount": "Payment received · {{amount}}",
+      "body": "{{service}} · collected in cash"
+    }
+  },
+  "deviceSetup": {
+    "subtitle": "These settings let Samona show new job requests even when the app is closed or the screen is off. Review each one below.",
+    "items": {
+      "notifications": {
+        "title": "Notifications",
+        "description": "Job alerts arrive as notifications. On Android 14+, also allow the full-screen toggle so a request covers whatever you're doing."
+      },
+      "fullScreen": {
+        "title": "Show alerts over other apps",
+        "description": "A new job request should appear on top of other apps even while the app is closed. Android 14+ requires the full-screen permission to be switched on."
+      },
+      "overlay": {
+        "title": "Show over other apps",
+        "description": "The job-alert overlay draws Accept/Decline over any app while Samona is closed, and a floating Samona icon stays handy while you're online and working in other apps (it hides while the app is open). Grant \"Appear on top\" under Display over other apps so both can show."
+      },
+      "battery": {
+        "title": "Battery — unrestricted",
+        "description": "Battery optimisation can stop the alert from ever arriving. Set Samona Pro to \"Unrestricted\" under Battery."
+      },
+      "backgroundData": {
+        "title": "Background data",
+        "description": "With background data restricted, a phone left untouched may never receive a job alert until you open the app again."
+      }
+    },
+    "oem": {
+      "miui": "Xiaomi, Redmi or POCO",
+      "samsung": "Samsung",
+      "oneplus": "OnePlus",
+      "coloros": "Oppo or Realme",
+      "nearStock": "Motorola or Pixel",
+      "generic": "Your device"
+    },
+    "oemGuides": {
+      "miui": "MiUI: Settings → Apps → Manage apps → Samona Pro → Autostart → On. Also Settings → Battery → Background app limits → No restrictions, and remove Samona Pro from any \"battery saver\" list.",
+      "samsung": "One UI: Settings → Battery → Background usage limits → Never sleeping apps → Add Samona Pro. Also remove it from \"Sleeping apps\" and \"Deep sleeping apps\".",
+      "oneplus": "OxygenOS: Settings → Battery → Battery optimization → Samona Pro → Don't optimize. Under Apps → Samona Pro → Battery usage, enable \"Run in background\".",
+      "coloros": "ColorOS/OriginOS: Settings → Apps → Samona Pro → Battery → Allow background activity. If a \"Autostart\" list exists, enable it there too.",
+      "nearStock": "Near-stock Android: the four checks above are all that matters. If alerts still stop while the app is closed, check the OEM battery app for a \"sleeping apps\" list.",
+      "generic": "Every OEM tweaks this differently. Ensure Samona Pro is not inside a \"sleeping apps\", \"deep sleep\" or autostart restriction list under Battery in your phone settings."
+    },
+    "forYourPhone": "For your phone",
+    "outOfSleepTitle": "Keep Samona Pro out of sleep",
+    "outOfSleepMessage": "Some phones put unused apps to sleep, which stops job alerts. We can't check or change this from the app — set it once in your phone settings.",
+    "checking": "Checking…",
+    "checkAgain": "Check again",
+    "allSet": "All set",
+    "allSetMessage": "Your phone is set up to receive job alerts while the app is closed.",
+    "checkingSettings": "Checking your phone settings…",
+    "statusAllOn": "All settings are on",
+    "statusNeedsAttention": "{{openCount}} of {{total}} settings need attention",
+    "capabilityTitle": "Samona Pro can raise job alerts while the app is closed.",
+    "capabilityMessage": "Tap Fix on a setting below to jump to the exact screen."
+  },
+  "jobAlert": {
+    "accepting": "Accepting the job…",
+    "sendingResponse": "Sending your response…",
+    "checkingJobs": "Checking your jobs"
+  },
+  "profile": {
+    "notSetUpYet": "Profile not set up yet",
+    "verificationPending": "Verification pending",
+    "signOut": "Sign out",
+    "settings": {
+      "servicesSkills": "Services & skills",
+      "availability": "Availability",
+      "serviceArea": "Service area",
+      "documents": "Documents",
+      "jobAlertSetup": "Job alert setup",
+      "payoutDetails": "Payout details",
+      "helpSupport": "Help & support",
+      "language": "Language"
+    },
+    "overlay": {
+      "rowLabel": "Appear on top",
+      "rowCaption": "Lets the job-alert overlay show while the app is closed",
+      "a11y": "Appear on top — job-alert overlay permission"
+    }
+  },
+  "earnings": {
+    "thisWeek": "This week",
+    "payoutNote": "Payouts land in your account every Monday.",
+    "breakdown": "Breakdown",
+    "devCaveat": "Figures are placeholders until the earnings API is connected.",
+    "breakdownRows": {
+      "completedJobs": "Completed jobs",
+      "jobEarnings": "Job earnings",
+      "tips": "Tips",
+      "samonaFee": "SAMONA fee"
+    }
+  },
+  "today": {
+    "title": "Today",
+    "earnings": "Earnings",
+    "jobsCompleted": "Jobs completed",
+    "viewDetails": "View details",
+    "viewEarningsA11y": "View earnings details"
+  },
+  "cancellation": {
+    "title": "Job cancelled",
+    "yourJobCancelled": "Your {{serviceName}} job was cancelled by the customer.",
+    "genericBody": "A customer cancelled the job you were committed to.",
+    "awaitingAck_one": "1 cancelled job is waiting to be acknowledged.",
+    "awaitingAck_other": "{{count}} cancelled jobs are waiting to be acknowledged.",
+    "okay": "Okay"
+  },
+  "jobStatus": {
+    "requested": "New",
+    "offered": "Offered",
+    "accepted": "Accepted",
+    "travelling": "Travelling",
+    "arrived": "Arrived",
+    "inProgress": "In progress",
+    "completed": "Completed",
+    "paymentPending": "Payment pending",
+    "paid": "Paid",
+    "cancelled": "Cancelled",
+    "expired": "Expired"
+  },
+  "verifyStart": {
+    "startWork": "Start Work",
+    "instruction": "The customer got a 4-digit verification code on their screen. Enter it below to confirm you've met and are starting.",
+    "askForCode": "Ask the customer for their code",
+    "verifyAndStart": "Verify and Start Work",
+    "checkCodeError": "Check the code and try again."
+  },
+  "servicesVerification": {
+    "yourServices": "Your services",
+    "addService": "Add service",
+    "manage": "Manage",
+    "mark": {
+      "verified": "verified",
+      "pending": "pending",
+      "rejected": "rejected"
+    },
+    "noReason": "No reason was provided. Please reach out to SAMONA support for details.",
+    "a11y": {
+      "manageServices": "Manage services",
+      "serviceMarked": "{{service}}, {{mark}}",
+      "showsRejectionReason": "Shows the rejection reason"
+    }
+  },
+  "faceCore": {
+    "cameraUnavailable": "Camera not available",
+    "webFallback": "Face verification uses your phone's camera. Please continue in the SAMONA Pro mobile app."
+  },
+  "faceCam": {
+    "starting": "Starting camera…",
+    "positionFaceInCircle": "Position your face inside the circle",
+    "centerFace": "Center your face in the circle",
+    "holdStill": "Hold still…",
+    "autoCapture": "This happens automatically — no need to press anything.",
+    "permissionTitle": "Camera access needed",
+    "permissionMessage": "SAMONA Pro needs your front camera to take a live photo of your face. Customers see this photo before you arrive, so everyone knows who to expect.",
+    "allow": "Allow camera access",
+    "noFrontTitle": "No front camera found",
+    "noFrontMessage": "Face verification needs a device with a front camera.",
+    "noDetectionTitle": "Face detection unavailable",
+    "noDetectionMessage": "This device doesn't support on-device face detection. Please try another device."
+  },
+  "feedback": {
+    "errorTitle": "Something went wrong",
+    "errorMessage": "We could not load this right now. Please try again."
+  },
+  "onlineStatus": {
+    "locationServicesOff": "Location services off",
+    "locationServicesOnMessage": "Turn on location services to keep receiving job requests near you.",
+    "permNeeded": "Location permission is needed to go online and match with jobs near you.",
+    "locationDisabledMessage": "Location services are turned off. Turn them on to go online and receive jobs.",
+    "deviceNotReadyMessage": "Some phone settings can block job alerts while the app is closed. Set them up before going online.",
+    "failedGoOnline": "Failed to go online",
+    "failedGoOffline": "Failed to go offline"
+  },
+  "errors": {
+    "acceptConflict": "Job already taken",
+    "acceptUnavailable": "This request is no longer available",
+    "acceptThrottled": "You're moving fast — try again in a moment.",
+    "acceptNetwork": "Couldn't accept. Check your connection."
+  },
+  "format": {
+    "km": "{{value}} km",
+    "m": "{{value}} m",
+    "minAway": "{{minutes}} min away",
+    "relative": {
+      "justNow": "just now",
+      "m": "{{minutes}}m ago",
+      "h": "{{hours}}h ago",
+      "d": "{{days}}d ago"
+    }
+  },
+  "quickChat": {
+    "presets": {
+      "locationConfirm": "Is your working location as per maps?",
+      "soon": "I'll be there soon",
+      "pleaseWait": "Pls wait",
+      "traffic": "Heavy traffic on my way",
+      "runningLate": "Running a bit late, please wait"
+    }
+  },
+  "notFound": {
+    "stackTitle": "Not found",
+    "title": "Page not found",
+    "message": "That screen does not exist in SAMONA Pro.",
+    "goHome": "Go home"
+  },
+  "ui": {
+    "otp": {
+      "verificationCode": "Verification code"
+    }
+  },
+  "language": {
+    "title": "Language",
+    "subtitle": "Choose the language you see in SAMONA Pro.",
+    "english": "English",
+    "telugu": "తెలుగు",
+    "hindi": "हिन्दी"
+  }
+}

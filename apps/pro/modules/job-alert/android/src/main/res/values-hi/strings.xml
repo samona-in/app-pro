@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Notification channels -->
+  <string name="job_alerts_channel_name">काम की सूचनाएं</string>
+  <string name="job_alerts_channel_desc">आस-पास के ग्राहकों से नए काम के अनुरोध</string>
+  <string name="job_cancelled_channel_name">काम रद्द हुआ</string>
+  <string name="job_cancelled_channel_desc">ग्राहक ने वह काम रद्द कर दिया जिसके लिए आप प्रतिबद्ध थे</string>
+  <string name="online_alerts_channel_name">ऑनलाइन काम की सूचनाएं</string>
+  <string name="online_alerts_channel_desc">SAMONA Pro को बैकग्राउंड में चलाता है ताकि ऑनलाइन रहने पर आपको पास के कामों की सूचना मिले</string>
+  <string name="online_notification_title">SAMONA Pro ऑनलाइन है</string>
+  <string name="online_notification_body">बैकग्राउंड में काम की सूचनाएं मिल रही हैं — खोलने के लिए टैप करें।</string>
+
+  <!-- Tray content -->
+  <string name="alert_default_title">नया काम अनुरोध</string>
+  <string name="alert_default_body">पास में एक ग्राहक को आपकी सेवाओं की जरूरत है।</string>
+  <string name="action_decline">अस्वीकार करें</string>
+  <string name="action_accept">स्वीकार करें</string>
+  <string name="cancellation_title">काम रद्द हुआ</string>
+  <string name="cancellation_body">ग्राहक ने यह बुकिंग रद्द कर दी।</string>
+
+  <!-- Overlay -->
+  <string name="new_job_service_fallback">नया काम</string>
+  <string name="address_shared_later">स्वीकार करने के बाद ग्राहक का स्थान साझा किया जाएगा</string>
+  <string name="offer_expired">ऑफर समाप्त हो गया</string>
+  <string name="offer_expires_in">%1$s में समाप्त होगा</string>
+  <string name="view_all_job_offers">सभी %1$d काम के ऑफ़र देखें →</string>
+  <string name="a11y_job_action">%1$s — %2$s</string>
+
+  <!-- Floating bubble -->
+  <string name="bubble_online">Samona Pro — आप ऑनलाइन हैं। खोलने के लिए टैप करें।</string>
+</resources>

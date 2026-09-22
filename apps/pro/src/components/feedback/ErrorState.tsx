@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Text } from '@/components/ui';
 import { color } from '@/theme';
@@ -17,12 +18,13 @@ export interface ErrorStateProps {
 }
 
 export function ErrorState({
-  title = 'Something went wrong',
-  message = 'We could not load this right now. Please try again.',
+  title,
+  message,
   onRetry,
-  retryLabel = 'Try again',
+  retryLabel,
   className,
 }: ErrorStateProps) {
+  const { t } = useTranslation();
   return (
     <View className={cn('flex-1 items-center justify-center px-6 py-12', className)}>
       <View className="mb-4 h-14 w-14 items-center justify-center rounded-full bg-danger-surface">
@@ -30,15 +32,15 @@ export function ErrorState({
       </View>
 
       <Text variant="title" className="text-center">
-        {title}
+        {title ?? t('feedback.errorTitle')}
       </Text>
       <Text variant="body" className="mt-2 text-center text-text-secondary">
-        {message}
+        {message ?? t('feedback.errorMessage')}
       </Text>
 
       {onRetry ? (
         <Button
-          label={retryLabel}
+          label={retryLabel ?? t('common.tryAgain')}
           variant="secondary"
           onPress={onRetry}
           fullWidth={false}

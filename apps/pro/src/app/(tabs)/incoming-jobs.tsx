@@ -2,6 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, View, type ViewToken } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import type { JobDetail } from '@samona/types';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
@@ -63,6 +65,7 @@ function nearestFirst(offersById: Record<string, PendingOffer>): PendingOffer[] 
  * — so the remaining offers stay actionable.
  */
 export default function IncomingJobsScreen() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const offersById = useIncomingOffersStore((state) => state.offersById);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -141,7 +144,7 @@ export default function IncomingJobsScreen() {
         if (result.status !== 'done') {
           // A failed claim (taken / expired / offline) already dropped just
           // this offer; the screen stays open for the rest.
-          return result.status === 'error' ? messageForAcceptError(result.error) : null;
+          return result.status === 'error' ? messageForAcceptError(result.error, t) : null;
         }
         // Refresh the assigned-jobs cache so the money-owed rule can route, then
         // land on the just-accepted job (or its payment screen when cash is owed).
@@ -157,21 +160,24 @@ export default function IncomingJobsScreen() {
     [queryClient],
   );
 
-  const handleDecline = useCallback(async (offer: PendingOffer): Promise<string | null> => {
-    setBusyJobId(offer.jobId);
-    try {
-      const result = await offerActions.decline(offer.jobId);
-      if (result.status === 'error') return "Couldn't decline. Try again.";
-      return null;
-    } finally {
-      setBusyJobId(null);
-    }
-  }, []);
+  const handleDecline = useCallback(
+    async (offer: PendingOffer): Promise<string | null> => {
+      setBusyJobId(offer.jobId);
+      try {
+        const result = await offerActions.decline(offer.jobId);
+        if (result.status === 'error') return t('incomingJobs.declineError');
+        return null;
+      } finally {
+        setBusyJobId(null);
+      }
+    },
+    [t],
+  );
 
   return (
     <Screen edges={['top']} padded={false}>
       <View className="border-b border-border px-5 pb-2 pt-2">
-        <Text variant="titleLg">{offers.length === 1 ? '1 job' : `${offers.length} jobs`}</Text>
+        <Text variant="titleLg">{t('incomingJobs.count', { count: offers.length })}</Text>
       </View>
 
       <View className="flex-1 flex-row">
@@ -223,16 +229,11 @@ export default function IncomingJobsScreen() {
   );
 }
 
-function formatOfferDistance(meters: number | null): string | null {
+function formatOfferDistance(meters: number | null, t: TFunction): string | null {
   if (meters === null) return null;
-  return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${meters} m`;
-}
-
-function formatCountdown(remainingMs: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `Expires in ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return meters >= 1000
+    ? t('format.km', { value: (meters / 1000).toFixed(1) })
+    : t('format.m', { value: meters });
 }
 
 function formatClock(remainingMs: number): string {
@@ -321,6 +322,7 @@ const SidebarItem = memo(function SidebarItem({
   active: boolean;
   onPress: (jobId: string) => void;
 }) {
+  const { t } = useTranslation();
   const now = useIncomingOffersStore((state) => state.now);
   const amount = offer.amountPaise !== null ? formatInr(Math.round(offer.amountPaise / 100)) : '—';
   const deadline = offerDeadlineMs(offer);
@@ -332,7 +334,7 @@ const SidebarItem = memo(function SidebarItem({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${amount} — job request`}
+      accessibilityLabel={t('incomingJobs.amountA11y', { amount })}
       accessibilityState={{ selected: active }}
       onPress={() => onPress(offer.jobId)}
       className={cn(
@@ -383,6 +385,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
   onAccept: (offer: PendingOffer) => Promise<string | null>;
   onDecline: (offer: PendingOffer) => Promise<string | null>;
 }) {
+  const { t } = useTranslation();
   const now = useIncomingOffersStore((state) => state.now);
   const [error, setError] = useState<string | null>(null);
 
@@ -393,7 +396,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
   }, [error]);
 
   const amountPaise = offer.amountPaise;
-  const distanceLabel = formatOfferDistance(offer.distanceMeters);
+  const distanceLabel = formatOfferDistance(offer.distanceMeters, t);
   const deadline = offerDeadlineMs(offer);
   const remaining = deadline !== null ? Math.max(0, deadline - now) : null;
   const urgent = remaining !== null && remaining > 0 && remaining <= URGENT_THRESHOLD_MS;
@@ -406,7 +409,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-4">
               <Text variant="label" className="text-text-secondary">
-                {offer.serviceName || 'New job request'}
+                {offer.serviceName || t('incomingJobs.titleFallback')}
               </Text>
               {category ? (
                 <Text variant="title" className="mt-0.5">
@@ -425,7 +428,11 @@ const FocusedJobCard = memo(function FocusedJobCard({
             {distanceLabel ? <Badge label={distanceLabel} tone="info" /> : null}
             {remaining !== null ? (
               <Badge
-                label={remaining === 0 ? 'Expired' : formatCountdown(remaining)}
+                label={
+                  remaining === 0
+                    ? t('jobStatus.expired')
+                    : t('incomingJobs.expiresIn', { time: formatClock(remaining) })
+                }
                 tone={remaining === 0 ? 'danger' : urgent ? 'warning' : 'neutral'}
               />
             ) : null}
@@ -446,7 +453,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
           <View className="mt-4 flex-row gap-3">
             <Button
               variant="secondary"
-              label="Decline"
+              label={t('incomingJobs.decline')}
               size="md"
               className="flex-1"
               disabled={busy}
@@ -456,7 +463,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
             />
             <Button
               variant="success"
-              label="Accept"
+              label={t('incomingJobs.accept')}
               size="md"
               className="flex-1"
               loading={busy}

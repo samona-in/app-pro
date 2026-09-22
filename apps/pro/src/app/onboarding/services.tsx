@@ -1,11 +1,13 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { OnboardingStepLayout, SelectableCard } from '@/components/onboarding';
 import { Text } from '@/components/ui';
 import { useCatalogue, useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
 
 export default function OnboardingServices() {
+  const { t } = useTranslation();
   const catalogue = useCatalogue();
   const { data: profile } = useProProfile();
   const save = useSaveOnboardingStep();
@@ -25,7 +27,7 @@ export default function OnboardingServices() {
   }
 
   if (catalogue.isPending) {
-    return <LoadingState message="Loading services" />;
+    return <LoadingState message={t('onboarding.services.loading')} />;
   }
   if (catalogue.isError) {
     return <ErrorState onRetry={() => void catalogue.refetch()} />;
@@ -34,20 +36,20 @@ export default function OnboardingServices() {
   return (
     <OnboardingStepLayout
       step="services"
-      title="What services do you provide?"
-      subtitle="Pick everything you do. You can change this later."
+      title={t('onboarding.services.title')}
+      subtitle={t('onboarding.services.subtitle')}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
       primaryDisabled={selected.length === 0}
-      error={save.isError ? 'Could not save your services. Please try again.' : null}
+      error={save.isError ? t('onboarding.services.saveError') : null}
       footer={
         <Text variant="caption" className="text-center text-text-muted">
-          {selected.length} selected
+          {t('onboarding.services.nSelected', { count: selected.length })}
         </Text>
       }
     >
       {catalogue.data.services.length === 0 ? (
-        <EmptyState title="No services available" message="Please try again shortly." />
+        <EmptyState title={t('onboarding.services.emptyTitle')} message={t('onboarding.services.emptyMessage')} />
       ) : (
         <View className="gap-3">
           {catalogue.data.services.map((service) => (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import type { AvailableJob } from '@samona/types';
 import { Badge, Button, Card, Text } from '@/components/ui';
 import { formatDistance, formatEta, formatInr } from '@/utils/format';
@@ -20,6 +21,7 @@ export function JobPoolCard({
   busy: boolean;
   onAccept: () => Promise<string | null>;
 }) {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,9 +51,9 @@ export function JobPoolCard({
           </View>
 
           <View className="mt-3 flex-row flex-wrap items-center gap-2">
-            <Badge label={formatDistance(job.distanceKm)} tone="info" />
+            <Badge label={formatDistance(job.distanceKm, t)} tone="info" />
             {job.estimatedEtaMinutes !== null ? (
-              <Badge label={formatEta(job.estimatedEtaMinutes)} tone="neutral" />
+              <Badge label={formatEta(job.estimatedEtaMinutes, t)} tone="neutral" />
             ) : null}
           </View>
 
@@ -73,7 +75,7 @@ export function JobPoolCard({
 
           <Button
             variant="success"
-            label="Accept"
+            label={t('jobs.accept')}
             size="md"
             className="mt-4"
             fullWidth

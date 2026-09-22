@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Notification channels -->
+  <string name="job_alerts_channel_name">Job alerts</string>
+  <string name="job_alerts_channel_desc">New job requests from nearby customers</string>
+  <string name="job_cancelled_channel_name">Job cancelled</string>
+  <string name="job_cancelled_channel_desc">A customer cancelled a job you were committed to</string>
+  <string name="online_alerts_channel_name">Online job alerts</string>
+  <string name="online_alerts_channel_desc">Keeps SAMONA Pro running in the background to alert you to nearby jobs while online</string>
+  <string name="online_notification_title">SAMONA Pro is online</string>
+  <string name="online_notification_body">Receiving job alerts in the background — tap to open.</string>
+
+  <!-- Tray content -->
+  <string name="alert_default_title">New job request</string>
+  <string name="alert_default_body">A customer nearby needs your services.</string>
+  <string name="action_decline">Decline</string>
+  <string name="action_accept">Accept</string>
+  <string name="cancellation_title">Job cancelled</string>
+  <string name="cancellation_body">The customer cancelled this booking.</string>
+
+  <!-- Overlay -->
+  <string name="new_job_service_fallback">New job</string>
+  <string name="address_shared_later">Customer location shared after acceptance</string>
+  <string name="offer_expired">Offer expired</string>
+  <string name="offer_expires_in">Expires in %1$s</string>
+  <string name="view_all_job_offers">View all %1$d job offers →</string>
+  <string name="a11y_job_action">%1$s — %2$s</string>
+
+  <!-- Floating bubble -->
+  <string name="bubble_online">Samona Pro — you\'re online. Tap to open.</string>
+</resources>

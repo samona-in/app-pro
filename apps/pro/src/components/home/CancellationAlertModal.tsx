@@ -1,4 +1,5 @@
 import { Modal, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Text } from '@/components/ui';
 import { useJobCancellationStore, selectLatestUnacknowledged } from '@/stores/job-cancellation';
@@ -16,6 +17,7 @@ import { color } from '@/theme';
  * matter how many jobs were cancelled; `Okay` acknowledges them all at once.
  */
 export function CancellationAlertModal() {
+  const { t } = useTranslation();
   const cancellation = useJobCancellationStore(selectLatestUnacknowledged);
   const count = useJobCancellationStore((state) => Object.keys(state.cancellations).length);
   if (!cancellation) return null;
@@ -42,23 +44,23 @@ export function CancellationAlertModal() {
               <Ionicons name="close-circle-outline" size={30} color={color.danger} />
             </View>
             <Text variant="titleLg" className="mt-4 text-center">
-              Job cancelled
+              {t('cancellation.title')}
             </Text>
             <Text variant="body" className="mt-2 text-center text-text-secondary">
               {cancellation.serviceName
-                ? `Your ${cancellation.serviceName} job was cancelled by the customer.`
-                : 'A customer cancelled the job you were committed to.'}
+                ? t('cancellation.yourJobCancelled', { serviceName: cancellation.serviceName })
+                : t('cancellation.genericBody')}
             </Text>
             {count > 1 ? (
               <Text variant="footnote" className="mt-2 text-center text-text-muted">
-                {count} cancelled jobs are waiting to be acknowledged.
+                {t('cancellation.awaitingAck', { count })}
               </Text>
             ) : null}
           </View>
 
           {/* The single, explicit acknowledgement. */}
           <Button
-            label="Okay"
+            label={t('cancellation.okay')}
             size="lg"
             variant="primary"
             className="mt-6 w-full"

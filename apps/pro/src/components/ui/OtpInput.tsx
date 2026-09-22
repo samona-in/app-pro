@@ -6,6 +6,7 @@ import {
   type NativeSyntheticEvent,
   type TextInputKeyPressEventData,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
@@ -41,6 +42,7 @@ export function OtpInput({
   radius = 0,
   focusKey = 0,
 }: OtpInputProps) {
+  const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const hasError = Boolean(error);
@@ -62,7 +64,7 @@ export function OtpInput({
     <View className="w-full">
       <View
         className="relative flex-row justify-between"
-        accessibilityLabel="Verification code"
+        accessibilityLabel={t('ui.otp.verificationCode')}
       >
         {Array.from({ length }, (_, i) => (
           <Pressable key={i} onPress={() => inputRef.current?.focus()}>
@@ -105,7 +107,7 @@ export function OtpInput({
           // keyboard never appears. `opacity-0` keeps it hit-testable and
           // focusable while staying invisible.
           className="absolute inset-0 opacity-0"
-          accessibilityLabel="Verification code"
+          accessibilityLabel={t('ui.otp.verificationCode')}
           placeholderTextColor={color['text-muted']}
         />
       </View>

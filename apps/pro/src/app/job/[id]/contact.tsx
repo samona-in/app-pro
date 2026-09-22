@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Alert, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { JobStatus, isChatClosed, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { Card, Screen, Text } from '@/components/ui';
@@ -57,6 +58,7 @@ function ActionRow({
 }
 
 export default function JobActionsScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const unread = useUnreadMessages();
   const { data: jobs } = useProJobs();
@@ -74,14 +76,12 @@ export default function JobActionsScreen() {
 
   const { run: requestCancel } = useSubmitGuard(() => {
     Alert.alert(
-      'Cancel this job?',
-      job?.locationLabel
-        ? 'The job will be cancelled for the customer. You can only cancel before you start the work.'
-        : 'The job will be cancelled for the customer.',
+      t('contact.confirmCancelTitle'),
+      job?.locationLabel ? t('contact.confirmCancelBeforeStart') : t('contact.confirmCancelGeneric'),
       [
-        { text: 'Keep the job', style: 'cancel' },
+        { text: t('contact.keepJob'), style: 'cancel' },
         {
-          text: 'Cancel job',
+          text: t('contact.cancelJob'),
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -92,8 +92,8 @@ export default function JobActionsScreen() {
                 router.replace('/home');
               } catch (error) {
                 Alert.alert(
-                  'Could not cancel this job',
-                  error instanceof Error ? error.message : 'Please try again.',
+                  t('contact.couldNotCancel'),
+                  error instanceof Error ? error.message : t('common.retry'),
                 );
               }
             })();
@@ -108,12 +108,12 @@ export default function JobActionsScreen() {
       {chatOpen ? (
         <>
           <Text variant="label" className="mt-2">
-            Contact
+            {t('contact.title')}
           </Text>
           <Card className="mt-2" padded={false}>
             <ActionRow
               icon="chatbubble-ellipses-outline"
-              label="Contact customer"
+              label={t('contact.contactCustomer')}
               badge={<UnreadBadge count={unread.countFor(id)} className="mr-2" />}
               onPress={() => router.replace({ pathname: '/job/[id]/chat', params: { id } })}
             />
@@ -124,12 +124,12 @@ export default function JobActionsScreen() {
       {cancellable ? (
         <>
           <Text variant="label" className="mt-6">
-            Cancel
+            {t('contact.cancelSection')}
           </Text>
           <Card className="mt-2" padded={false}>
             <ActionRow
               icon="close-circle-outline"
-              label="Cancel my job"
+              label={t('contact.cancelMyJob')}
               destructive
               onPress={() => void requestCancel()}
             />

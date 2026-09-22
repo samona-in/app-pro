@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { displayNameSchema } from '@samona/validation';
 import { OnboardingStepLayout } from '@/components/onboarding';
 import { Input } from '@/components/ui';
 import { useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
 
 export default function OnboardingName() {
+  const { t } = useTranslation();
   const { data: profile } = useProProfile();
   const save = useSaveOnboardingStep();
   const [name, setName] = useSeededState<string>(profile?.displayName, '');
@@ -14,7 +16,7 @@ export default function OnboardingName() {
   async function onContinue() {
     const parsed = displayNameSchema.safeParse(name);
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Enter your name.');
+      setError(parsed.error.issues[0]?.message ?? t('validation.nameRequired'));
       return;
     }
 
@@ -27,18 +29,18 @@ export default function OnboardingName() {
   return (
     <OnboardingStepLayout
       step="name"
-      title="What's your name?"
-      subtitle="Customers see this when you accept their job."
+      title={t('onboarding.name.title')}
+      subtitle={t('onboarding.name.subtitle')}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
       primaryDisabled={name.trim().length < 2}
-      error={save.isError ? 'Could not save your name. Please try again.' : null}
+      error={save.isError ? t('onboarding.name.saveError') : null}
     >
       <Input
-        label="Full name"
+        label={t('onboarding.name.label')}
         value={name}
         onChangeText={setName}
-        placeholder="e.g. Asha Kumar"
+        placeholder={t('onboarding.name.placeholder')}
         autoCapitalize="words"
         autoComplete="name"
         textContentType="name"

@@ -2,21 +2,24 @@ import { View } from 'react-native';
 import { Pressable, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Avatar, Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import { useDeviceReadiness, useProProfile, useSession } from '@/hooks';
 import { requestOverlayPermission } from '@/services/overlay-alert';
+import type { TranslationKey } from '@/i18n';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const SETTINGS_ROWS: { icon: IoniconName; label: string; route?: string }[] = [
-  { icon: 'construct-outline', label: 'Services & skills' },
-  { icon: 'time-outline', label: 'Availability' },
-  { icon: 'location-outline', label: 'Service area' },
-  { icon: 'document-text-outline', label: 'Documents' },
-  { icon: 'notifications-outline', label: 'Job alert setup', route: '/device-setup' },
-  { icon: 'card-outline', label: 'Payout details' },
-  { icon: 'help-circle-outline', label: 'Help & support' },
+const SETTINGS_ROWS: { icon: IoniconName; labelKey: TranslationKey; route?: string }[] = [
+  { icon: 'construct-outline', labelKey: 'profile.settings.servicesSkills' },
+  { icon: 'time-outline', labelKey: 'profile.settings.availability' },
+  { icon: 'location-outline', labelKey: 'profile.settings.serviceArea' },
+  { icon: 'document-text-outline', labelKey: 'profile.settings.documents' },
+  { icon: 'notifications-outline', labelKey: 'profile.settings.jobAlertSetup', route: '/device-setup' },
+  { icon: 'card-outline', labelKey: 'profile.settings.payoutDetails' },
+  { icon: 'help-circle-outline', labelKey: 'profile.settings.helpSupport' },
+  { icon: 'language-outline', labelKey: 'profile.settings.language', route: '/language' },
 ];
 
 function SettingsRow({ icon, label, route }: { icon: IoniconName; label: string; route?: string }) {
@@ -45,30 +48,36 @@ function SettingsRow({ icon, label, route }: { icon: IoniconName; label: string;
  * the badge updates the moment the pro comes back from granting it.
  */
 function OverlayPermissionRow() {
+  const { t } = useTranslation();
   const { readiness } = useDeviceReadiness();
   const enabled = readiness?.overlayPermissionEnabled ?? false;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Appear on top — job-alert overlay permission"
+      accessibilityLabel={t('profile.overlay.a11y')}
       className="min-h-[56px] flex-row items-center px-4 py-2 active:opacity-60"
       onPress={() => void requestOverlayPermission()}
     >
       <Ionicons name="layers-outline" size={20} color={color['text-secondary']} />
       <View className="ml-3 flex-1 pr-2">
-        <Text variant="body">Appear on top</Text>
+        <Text variant="body">{t('profile.overlay.rowLabel')}</Text>
         <Text variant="footnote" className="mt-0.5 text-text-secondary">
-          Lets the job-alert overlay show while the app is closed
+          {t('profile.overlay.rowCaption')}
         </Text>
       </View>
-      <Badge label={enabled ? 'On' : 'Off'} tone={enabled ? 'success' : 'warning'} withDot />
+      <Badge
+        label={enabled ? t('common.on') : t('common.off')}
+        tone={enabled ? 'success' : 'warning'}
+        withDot
+      />
       <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
     </Pressable>
   );
 }
 
 export default function Profile() {
+  const { t } = useTranslation();
   const { user, signOut } = useSession();
   const { data: proProfile } = useProProfile();
 
@@ -84,29 +93,29 @@ export default function Profile() {
   return (
     <Screen scrollable>
       <View className="pt-2">
-        <Text variant="titleLg">Profile</Text>
+        <Text variant="titleLg">{t('tabs.profile')}</Text>
       </View>
 
       <Card className="mt-4 flex-row items-center">
         <Avatar
-          name={user?.fullName ?? 'SAMONA Pro'}
+          name={user?.fullName ?? t('brand.samonaPro')}
           uri={proProfile?.avatarUrl ?? null}
           size="lg"
         />
         <View className="ml-4 flex-1">
-          <Text variant="title">{user?.fullName ?? 'SAMONA Pro'}</Text>
+          <Text variant="title">{user?.fullName ?? t('brand.samonaPro')}</Text>
           <Text variant="footnote" className="mt-0.5">
-            {user?.phone ?? 'Profile not set up yet'}
+            {user?.phone ?? t('profile.notSetUpYet')}
           </Text>
-          <Badge label="Verification pending" tone="warning" className="mt-2" />
+          <Badge label={t('profile.verificationPending')} tone="warning" className="mt-2" />
         </View>
       </Card>
 
       <Card className="mt-4" padded={false}>
         {SETTINGS_ROWS.map((row, index) => (
-          <View key={row.label}>
+          <View key={row.labelKey}>
             {index > 0 ? <Divider /> : null}
-            <SettingsRow icon={row.icon} label={row.label} route={row.route} />
+            <SettingsRow icon={row.icon} label={t(row.labelKey)} route={row.route} />
           </View>
         ))}
         {Platform.OS === 'android' ? (
@@ -118,7 +127,7 @@ export default function Profile() {
       </Card>
 
       <Button
-        label="Sign out"
+        label={t('profile.signOut')}
         variant="secondary"
         onPress={() => void onSignOut()}
         className="mt-6"

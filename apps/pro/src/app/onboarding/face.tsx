@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { FaceCamera } from '@/components/onboarding/FaceCamera';
 import { OnboardingStepLayout } from '@/components/onboarding/OnboardingStep';
 import { Button, Screen, Text } from '@/components/ui';
@@ -18,6 +19,7 @@ type Stage = 'intro' | 'scan' | 'confirm';
  * "Use this photo"; "Retake" restarts detection instead.
  */
 export default function OnboardingFace() {
+  const { t } = useTranslation();
   const [stage, setStage] = useState<Stage>('intro');
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const { mutate, reset, isPending, isError, isSuccess } = useUploadSelfie();
@@ -49,15 +51,15 @@ export default function OnboardingFace() {
     return (
       <OnboardingStepLayout
         step="face"
-        title="Let's verify it's you"
-        subtitle="We take a quick photo of your face. Customers see it before you arrive, so they know exactly who's coming to their door. It takes a few seconds."
-        primaryLabel="Start face check"
+        title={t('onboarding.face.title')}
+        subtitle={t('onboarding.face.subtitle')}
+        primaryLabel={t('onboarding.face.start')}
         onPrimary={() => setStage('scan')}
       >
         <View className="gap-3 rounded-[5px] border border-border bg-surface-muted p-4">
-          <Text variant="bodyStrong">Before we start</Text>
+          <Text variant="bodyStrong">{t('onboarding.face.beforeTitle')}</Text>
           <Text variant="body" className="text-text-secondary">
-            Find a well-lit spot, remove hats or sunglasses, and hold your phone at eye level.
+            {t('onboarding.face.beforeMessage')}
           </Text>
         </View>
       </OnboardingStepLayout>
@@ -83,7 +85,7 @@ export default function OnboardingFace() {
             source={{ uri: capturedUri }}
             className="aspect-[3/4] w-full rounded-2xl"
             resizeMode="cover"
-            accessibilityLabel="Your captured verification photo"
+            accessibilityLabel={t('onboarding.face.capturedA11y')}
           />
         ) : null}
       </View>
@@ -91,19 +93,19 @@ export default function OnboardingFace() {
       <View className="gap-3 pb-4 pt-6">
         {isError ? (
           <Text variant="footnote" className="text-center text-danger">
-            Upload failed. Check your connection and try again.
+            {t('onboarding.face.uploadFailed')}
           </Text>
         ) : null}
         {!isSuccess ? (
           <Button
-            label={isPending ? 'Uploading…' : isError ? 'Try again' : 'Use this photo'}
+            label={isPending ? t('onboarding.face.uploading') : isError ? t('onboarding.face.tryAgain') : t('onboarding.face.usePhoto')}
             loading={isPending}
             disabled={!capturedUri}
             onPress={onApprove}
           />
         ) : null}
         {!isPending && !isSuccess ? (
-          <Button label="Retake" variant="secondary" onPress={onRetake} />
+          <Button label={t('onboarding.face.retake')} variant="secondary" onPress={onRetake} />
         ) : null}
       </View>
     </Screen>

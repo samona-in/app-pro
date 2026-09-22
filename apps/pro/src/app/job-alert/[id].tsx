@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
 import { jobNotificationService } from '@/services/job-notifications';
@@ -37,6 +38,7 @@ import { occupiedJobRoute } from '@/utils/job-routes';
  * only a settlement-free pro is handed to the accepted job's trip screen.
  */
 export default function JobAlertRoute() {
+  const { t } = useTranslation();
   const { id, action } = useLocalSearchParams<{ id?: string; action?: string }>();
   const { isLoading, isAuthenticated } = useSession();
   const jobsQuery = useProJobs();
@@ -82,10 +84,10 @@ export default function JobAlertRoute() {
         <LoadingState
           message={
             nativeAction === 'accept' && !resolved
-              ? 'Accepting the job…'
+              ? t('jobAlert.accepting')
               : nativeAction === 'decline' && !resolved
-                ? 'Sending your response…'
-                : 'Checking your jobs'
+                ? t('jobAlert.sendingResponse')
+                : t('jobAlert.checkingJobs')
           }
         />
       </Screen>

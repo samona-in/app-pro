@@ -1,4 +1,5 @@
 import { View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
 import { color } from '@/theme';
@@ -8,11 +9,12 @@ import { color } from '@/theme';
  * closed (PAID / CANCELLED / EXPIRED). History stays visible; sending is off.
  */
 export function ConversationClosed() {
+  const { t } = useTranslation();
   return (
     <View className="items-center border-t border-border bg-surface px-4 py-4">
       <Ionicons name="lock-closed-outline" size={18} color={color['text-muted']} />
       <Text variant="footnote" className="mt-1 text-center text-text-secondary">
-        This conversation is closed. You can no longer send messages.
+        {t('chat.closed')}
       </Text>
     </View>
   );

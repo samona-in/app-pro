@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { OTP_LENGTH } from '@samona/config';
 import { Button, OtpInput, Screen, Text } from '@/components/ui';
 import { useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
@@ -14,6 +15,7 @@ import { env } from '@/env';
  * navigation to the tabs here.
  */
 export default function VerifyScreen() {
+  const { t } = useTranslation();
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const { verifyCode, sendCode, isBusy, error, clearError } = usePhoneAuth();
   const [code, setCode] = useState('');
@@ -56,11 +58,11 @@ export default function VerifyScreen() {
   return (
     <Screen edges={['top', 'bottom']} scrollable className="bg-surface">
       <View className="flex-1 justify-center py-10">
-        <Text variant="titleLg">Enter the code</Text>
+        <Text variant="titleLg">{t('verify.heading')}</Text>
         <Text variant="body" className="mt-2 text-text-secondary">
-          Sent to {phone ?? 'your phone'}.{' '}
+          {t('verify.sentToPhone', { phone: phone ?? t('verify.yourPhone') })}{' '}
           <Text variant="body" className="text-brand" onPress={() => router.back()}>
-            Change number
+            {t('verify.changeNumber')}
           </Text>
         </Text>
 
@@ -76,10 +78,10 @@ export default function VerifyScreen() {
       {env.authTestOtp ? (
         <View className="mb-2 gap-2">
           <Text variant="caption" className="text-center text-text-secondary">
-            Testing: no SMS is sent (no Twilio credits)
+            {t('verify.devNoSms')}
           </Text>
           <Button
-            label={`Use test code ${env.authTestOtp}`}
+            label={t('verify.devUseTestCode', { code: env.authTestOtp })}
             variant="ghost"
             disabled={isBusy}
             onPress={() => {
@@ -92,14 +94,14 @@ export default function VerifyScreen() {
 
       <View className="gap-3 pb-4">
         <Button
-          label="Verify"
+          label={t('verify.verify')}
           size="lg"
           loading={isBusy}
           disabled={code.length < OTP_LENGTH}
           onPress={() => void onVerify()}
         />
         <Button
-          label="Resend code"
+          label={t('verify.resendCode')}
           variant="ghost"
           disabled={isBusy}
           onPress={() => void onResend()}

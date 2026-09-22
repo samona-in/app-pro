@@ -1,4 +1,5 @@
 import { ActivityIndicator, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
@@ -11,10 +12,11 @@ export interface LoadingStateProps {
 }
 
 export function LoadingState({ message, size = 'full', className }: LoadingStateProps) {
+  const { t } = useTranslation();
   return (
     <View
       accessibilityRole="progressbar"
-      accessibilityLabel={message ?? 'Loading'}
+      accessibilityLabel={message ?? t('common.loading')}
       className={cn(
         'items-center justify-center',
         size === 'full' ? 'flex-1 py-12' : 'py-6',

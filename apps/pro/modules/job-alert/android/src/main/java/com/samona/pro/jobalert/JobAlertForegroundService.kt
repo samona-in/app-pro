@@ -98,8 +98,8 @@ class JobAlertForegroundService : Service() {
     val notification =
       NotificationCompat.Builder(this, ONLINE_CHANNEL)
         .setSmallIcon(resolveSmallIcon())
-        .setContentTitle("SAMONA Pro is online")
-        .setContentText("Receiving job alerts in the background — tap to open.")
+        .setContentTitle(JobAlertLocale.string(this, R.string.online_notification_title))
+        .setContentText(JobAlertLocale.string(this, R.string.online_notification_body))
         .setContentIntent(contentIntent)
         .setOngoing(true)
         .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -130,8 +130,12 @@ class JobAlertForegroundService : Service() {
     if (manager.getNotificationChannel(ONLINE_CHANNEL) != null) return
 
     val channel =
-      NotificationChannel(ONLINE_CHANNEL, "Online job alerts", NotificationManager.IMPORTANCE_LOW).apply {
-        description = "Keeps SAMONA Pro running in the background to alert you to nearby jobs while online"
+      NotificationChannel(
+        ONLINE_CHANNEL,
+        JobAlertLocale.string(this, R.string.online_alerts_channel_name),
+        NotificationManager.IMPORTANCE_LOW,
+      ).apply {
+        description = JobAlertLocale.string(applicationContext, R.string.online_alerts_channel_desc)
         setShowBadge(false)
       }
     manager.createNotificationChannel(channel)
@@ -145,5 +149,20 @@ class JobAlertForegroundService : Service() {
   companion object {
     const val ACTION_START = "com.samona.pro.jobalert.FOREGROUND_START"
     const val ACTION_STOP = "com.samona.pro.jobalert.FOREGROUND_STOP"
+
+    /**
+     * Renames the online channel when the app language changes mid-session so
+     * the always-visible system notification matches the pro's language. The
+     * re-created channel keeps any user overrides for this channel.
+     */
+    fun updateOnlineChannel(context: Context) {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+      val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      manager.getNotificationChannel(ONLINE_CHANNEL)?.let { channel ->
+        channel.name = JobAlertLocale.string(context, R.string.online_alerts_channel_name)
+        channel.description = JobAlertLocale.string(context, R.string.online_alerts_channel_desc)
+        manager.createNotificationChannel(channel)
+      }
+    }
   }
 }

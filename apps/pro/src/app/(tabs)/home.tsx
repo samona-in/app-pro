@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { CancellationAlertModal } from '@/components/home/CancellationAlertModal';
 import { TodayStack } from '@/components/home/TodayStack';
@@ -39,6 +40,7 @@ import { color } from '@/theme';
  */
 
 function AvailabilityCard() {
+  const { t } = useTranslation();
   const { data: profile } = useProProfile();
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -79,13 +81,17 @@ function AvailabilityCard() {
   const isLoading = status.state === 'loading' || status.isTransitioning;
   const hasError = status.state === 'offline' && !!status.error;
 
-  const label = isLoading ? 'Loading…' : isOnline ? "You're online" : "You're offline";
+  const label = isLoading
+    ? t('home.statusLoading')
+    : isOnline
+      ? t('home.online')
+      : t('home.offline');
 
   const message = isLoading
-    ? 'Toggling your availability…'
+    ? t('home.toggling')
     : isOnline
       ? ''
-      : (status.error ?? 'Go online to start receiving job requests.');
+      : (status.error ?? t('home.goOnlinePrompt'));
 
   const { run } = useSubmitGuard(async () => {
     if (isLoading) return;
@@ -107,14 +113,14 @@ function AvailabilityCard() {
           router.push('/device-setup');
           return;
         }
-        const message = result.error ?? 'Something went wrong. Please try again.';
+        const message = result.error ?? t('home.errorGeneric');
         if (isLocationServicesDisabledError(result.error)) {
-          Alert.alert("Can't go online", message, [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+          Alert.alert(t('home.cantGoOnline'), message, [
+            { text: t('common.notNow'), style: 'cancel' },
+            { text: t('common.openSettings'), onPress: () => void Linking.openSettings() },
           ]);
         } else {
-          Alert.alert(next ? "Can't go online" : "Can't go offline", message);
+          Alert.alert(next ? t('home.cantGoOnline') : t('home.cantGoOffline'), message);
         }
       } else {
         // The toggle succeeded; the server is now the source of truth for other
@@ -123,8 +129,8 @@ function AvailabilityCard() {
       }
     } catch (error) {
       Alert.alert(
-        next ? "Can't go online" : "Can't go offline",
-        error instanceof Error ? error.message : 'Something went wrong. Please try again.',
+        next ? t('home.cantGoOnline') : t('home.cantGoOffline'),
+        error instanceof Error ? error.message : t('home.errorGeneric'),
       );
     }
   });
@@ -143,7 +149,7 @@ function AvailabilityCard() {
               opacity: isOnline ? 0.7 : undefined,
             }}
           >
-            Availability
+            {t('home.availabilityLabel')}
           </Text>
           <Text
             variant="titleLg"
@@ -181,7 +187,7 @@ function AvailabilityCard() {
         ) : (
           <IconButton
             name={isOnline ? 'power' : 'power-outline'}
-            accessibilityLabel={isOnline ? 'Go offline' : 'Go online'}
+            accessibilityLabel={isOnline ? t('home.goOffline') : t('home.goOnline')}
             onPress={() => void run()}
             haptic={false}
             disabled={isLoading}
@@ -201,6 +207,7 @@ function AvailabilityCard() {
  * this banner is the always-visible route to fixing it.
  */
 function ReadinessBanner() {
+  const { t } = useTranslation();
   const { readiness, isReady } = useDeviceReadiness();
   const isOnline = checkIsOnline();
   if (isOnline || readiness === null || isReady) return null;
@@ -211,19 +218,17 @@ function ReadinessBanner() {
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-3">
           <Text variant="label" className="text-warning">
-            Job alerts may not reach you
+            {t('home.readiness.title')}
           </Text>
           <Text variant="footnote" className="mt-1 text-text-secondary">
-            {missing === 1
-              ? 'One phone setting can block alerts while the app is closed.'
-              : `${missing} phone settings can block alerts while the app is closed.`}{' '}
-            Fix them to receive every job request.
+            {t('home.readiness.manySettings', { count: missing })}{' '}
+            {t('home.readiness.fixAction')}
           </Text>
         </View>
         <Button
           variant="secondary"
           size="sm"
-          label="Fix"
+          label={t('home.fix')}
           haptic={false}
           onPress={() => router.push('/device-setup')}
         />
@@ -238,6 +243,7 @@ function ReadinessBanner() {
  * behind a dismissed screen.
  */
 function IncomingRequestsCard() {
+  const { t } = useTranslation();
   const count = useIncomingOffersStore((state) => Object.keys(state.offersById).length);
   if (count === 0) return null;
   return (
@@ -245,16 +251,16 @@ function IncomingRequestsCard() {
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-3">
           <Text variant="label" className="text-brand">
-            Incoming requests
+            {t('home.incomingRequests.title')}
           </Text>
           <Text variant="bodyStrong" className="mt-0.5">
-            {count === 1 ? '1 job is waiting for you' : `${count} jobs are waiting for you`}
+            {t('home.incomingRequests.waiting', { count })}
           </Text>
         </View>
         <Button
           variant="primary"
           size="sm"
-          label="Review"
+          label={t('home.incomingRequests.review')}
           fullWidth={false}
           haptic={false}
           onPress={() => router.push('/incoming-jobs')}
@@ -266,6 +272,7 @@ function IncomingRequestsCard() {
 
 /** Prompt shown when an offline pro tries to act on a job. */
 export default function Home() {
+  const { t } = useTranslation();
   const { data: jobs, isPending } = useProJobs();
   // Money owed wins: a completed but unpaid job (or one awaiting payment) has
   // to be settled before the pro belongs on home — only their own "Collect
@@ -317,12 +324,12 @@ export default function Home() {
           <View className="flex-row items-center gap-2">
             <IconButton
               name="briefcase-outline"
-              accessibilityLabel="Jobs"
+              accessibilityLabel={t('home.jobsAccessibility')}
               onPress={() => router.push('/jobs')}
             />
             <IconButton
               name="notifications-outline"
-              accessibilityLabel="Notifications"
+              accessibilityLabel={t('home.notificationsAccessibility')}
               onPress={() => router.push('/notifications')}
             />
           </View>

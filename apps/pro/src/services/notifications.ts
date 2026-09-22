@@ -5,6 +5,7 @@ import type { AppNotification } from '@samona/types';
 import type { RegisterPushTokenInput, PushSettingsInput } from '@samona/validation';
 import { api } from './api';
 import { env } from '@/env';
+import { i18nInstance } from '@/i18n';
 import { promptForFullScreenIntentOnce } from './full-screen-alert';
 import {
   configureJobAlertModule,
@@ -91,7 +92,7 @@ const PROJECT_ID =
 async function ensureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(JOB_ALERT_CHANNEL, {
-    name: 'Job alerts',
+    name: i18nInstance.t('notifications.channels.jobAlerts'),
     importance: Notifications.AndroidImportance.MAX,
     sound: 'job_alert',
     vibrationPattern: [0, 250, 250, 250],
@@ -100,7 +101,7 @@ async function ensureChannel(): Promise<void> {
     bypassDnd: true,
   });
   await Notifications.setNotificationChannelAsync(CHAT_CHANNEL, {
-    name: 'Messages',
+    name: i18nInstance.t('notifications.channels.messages'),
     importance: Notifications.AndroidImportance.HIGH,
     // Omitting `sound` — not `sound: null`, which is silent — makes the channel
     // use the device's default notification sound.
@@ -108,7 +109,7 @@ async function ensureChannel(): Promise<void> {
     enableVibrate: true,
   });
   await Notifications.setNotificationChannelAsync(CANCELLATION_CHANNEL, {
-    name: 'Job cancelled',
+    name: i18nInstance.t('notifications.channels.jobCancelled'),
     importance: Notifications.AndroidImportance.MAX,
     // Deliberately silent with vibration off: the cancellation ring (a finite
     // repeating pulse) is owned by the native module and the cap is on the

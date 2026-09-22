@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { i18nInstance } from '@/i18n';
 
 export interface Coordinates {
   latitude: number;
@@ -16,7 +17,7 @@ export interface Coordinates {
 export async function readCurrentLocation(): Promise<Coordinates> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
-    throw new Error('Location permission is needed to go online and match with jobs near you.');
+    throw new Error(i18nInstance.t('onlineStatus.permNeeded'));
   }
   const position = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase';
+import { i18nInstance } from '@/i18n';
 
 /**
  * Phone sign-in and sign-up as one flow.
@@ -17,7 +18,7 @@ function friendlyMessage(error: unknown, fallback: string): string {
     // Supabase messages are user-facing, but the rate-limit one is worth
     // rewording: the raw text mentions internals a pro should not see.
     if (error.status === 429) {
-      return 'Too many attempts. Please wait a minute before requesting another code.';
+      return i18nInstance.t('phone.tooManyAttempts');
     }
     return error.message || fallback;
   }
@@ -41,12 +42,12 @@ export function usePhoneAuth() {
       });
 
       if (otpError) {
-        setError(friendlyMessage(otpError, 'Could not send a code. Please try again.'));
+        setError(friendlyMessage(otpError, i18nInstance.t('phone.couldNotSend')));
         return false;
       }
       return true;
     } catch (unexpected) {
-      setError(friendlyMessage(unexpected, 'Could not send a code. Please try again.'));
+      setError(friendlyMessage(unexpected, i18nInstance.t('phone.couldNotSend')));
       return false;
     } finally {
       setIsBusy(false);
@@ -72,16 +73,16 @@ export function usePhoneAuth() {
       });
 
       if (verifyError) {
-        setError(friendlyMessage(verifyError, 'That code is not right. Please try again.'));
+        setError(friendlyMessage(verifyError, i18nInstance.t('phone.wrongCode')));
         return false;
       }
       if (!data.session) {
-        setError('That code did not complete sign-in. Please request a new one.');
+        setError(i18nInstance.t('phone.signInIncomplete'));
         return false;
       }
       return true;
     } catch (unexpected) {
-      setError(friendlyMessage(unexpected, 'That code is not right. Please try again.'));
+      setError(friendlyMessage(unexpected, i18nInstance.t('phone.wrongCode')));
       return false;
     } finally {
       setIsBusy(false);

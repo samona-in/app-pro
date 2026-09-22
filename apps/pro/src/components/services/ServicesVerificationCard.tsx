@@ -1,37 +1,54 @@
 import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
 import { useProProfile } from '@/hooks';
 import { color } from '@/theme';
 import { ProServiceStatus, type ProServiceVerification } from '@samona/types';
 import { ServiceImage } from './ServiceImage';
+import type { TranslationKey } from '@/i18n';
 
 const STATUS_MARK: Record<
   ProServiceStatus,
-  { name: React.ComponentProps<typeof Ionicons>['name']; tint: string; label: string }
+  { name: React.ComponentProps<typeof Ionicons>['name']; tint: string; labelKey: TranslationKey }
 > = {
-  [ProServiceStatus.ACCEPTED]: { name: 'checkmark-circle', tint: color.success, label: 'verified' },
-  [ProServiceStatus.PENDING]: { name: 'time', tint: color.warning, label: 'pending' },
-  [ProServiceStatus.REJECTED]: { name: 'close-circle', tint: color.danger, label: 'rejected' },
+  [ProServiceStatus.ACCEPTED]: {
+    name: 'checkmark-circle',
+    tint: color.success,
+    labelKey: 'servicesVerification.mark.verified',
+  },
+  [ProServiceStatus.PENDING]: {
+    name: 'time',
+    tint: color.warning,
+    labelKey: 'servicesVerification.mark.pending',
+  },
+  [ProServiceStatus.REJECTED]: {
+    name: 'close-circle',
+    tint: color.danger,
+    labelKey: 'servicesVerification.mark.rejected',
+  },
 };
 
 function ServiceTile({ service }: { service: ProServiceVerification }) {
+  const { t } = useTranslation();
   const mark = STATUS_MARK[service.status];
   const isRejected = service.status === ProServiceStatus.REJECTED;
 
   function showReason() {
     const reason = service.rejectionReason?.trim();
-    Alert.alert(
-      service.name,
-      reason || 'No reason was provided. Please reach out to SAMONA support for details.',
-    );
+    Alert.alert(service.name, reason || t('servicesVerification.noReason'));
   }
 
   return (
     <Pressable
       accessibilityRole={isRejected ? 'button' : undefined}
-      accessibilityLabel={`${service.name}, ${mark.label}`}
-      accessibilityHint={isRejected ? 'Shows the rejection reason' : undefined}
+      accessibilityLabel={t('servicesVerification.a11y.serviceMarked', {
+        service: service.name,
+        mark: t(mark.labelKey),
+      })}
+      accessibilityHint={
+        isRejected ? t('servicesVerification.a11y.showsRejectionReason') : undefined
+      }
       onPress={isRejected ? showReason : undefined}
       className="w-24 items-center active:opacity-70"
     >
@@ -54,10 +71,11 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
 
 /** Placeholder tile for adding a service; linked up later. */
 function AddServiceTile() {
+  const { t } = useTranslation();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Add service"
+      accessibilityLabel={t('servicesVerification.addService')}
       onPress={() => undefined}
       className="w-24 items-center active:opacity-70"
     >
@@ -65,7 +83,7 @@ function AddServiceTile() {
         <Ionicons name="add" size={28} color={color['text-secondary']} />
       </View>
       <Text variant="caption" numberOfLines={2} className="mt-1.5 text-center text-text-secondary">
-        Add service
+        {t('servicesVerification.addService')}
       </Text>
     </Pressable>
   );
@@ -81,6 +99,7 @@ function AddServiceTile() {
  * rejected. Tapping a rejected service reveals its reason.
  */
 export function ServicesVerificationCard() {
+  const { t } = useTranslation();
   const { data: profile } = useProProfile();
   const services = profile?.proServices ?? [];
 
@@ -89,15 +108,15 @@ export function ServicesVerificationCard() {
   return (
     <View className="mt-6">
       <View className="flex-row items-center justify-between">
-        <Text variant="title">Your services</Text>
+        <Text variant="title">{t('servicesVerification.yourServices')}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Manage services"
+          accessibilityLabel={t('servicesVerification.a11y.manageServices')}
           onPress={() => undefined}
           className="flex-row items-center"
         >
           <Text variant="caption" className="text-brand">
-            Manage
+            {t('servicesVerification.manage')}
           </Text>
           <Ionicons name="chevron-forward" size={14} color={color.brand} />
         </Pressable>
