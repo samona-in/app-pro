@@ -42,7 +42,8 @@
     "chat": "Chat",
     "notifications": "Notifications",
     "jobAlertSetup": "Job alert setup",
-    "language": "Language"
+    "language": "Language",
+    "helpSupport": "Help & support"
   },
   "welcome": {
     "heading": "Work that comes to you.",
@@ -437,6 +438,101 @@
       "rowLabel": "Appear on top",
       "rowCaption": "Lets the job-alert overlay show while the app is closed",
       "a11y": "Appear on top — job-alert overlay permission"
+    }
+  },
+  "helpSupport": {
+    "sections": {
+      "contactUs": "Contact us",
+      "reportIssue": "Report an issue",
+      "faq": "FAQ",
+      "about": "About"
+    },
+    "rows": {
+      "callSupport": "Call support",
+      "whatsapp": "WhatsApp",
+      "emailUs": "Email us",
+      "reportAnIssue": "Report an issue",
+      "appVersion": "App version",
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy"
+    },
+    "errors": {
+      "callFailedTitle": "Could not start the call",
+      "callFailedMessage": "No app on this device can place calls.",
+      "whatsappFailedTitle": "Could not open WhatsApp",
+      "whatsappFailedMessage": "No app on this device can open WhatsApp.",
+      "emailFailedTitle": "Could not open email",
+      "emailFailedMessage": "No app on this device can send email.",
+      "pageFailedTitle": "Could not open page",
+      "pageFailedMessage": "Check your connection and try again."
+    },
+    "faq": {
+      "categories": {
+        "onlineOffline": "Going online & offline",
+        "jobsOffers": "Jobs & offers",
+        "earnings": "Earnings & payouts",
+        "cancellations": "Cancellations",
+        "jobAlerts": "Job alerts & device setup",
+        "verification": "Verification & documents"
+      },
+      "entries": {
+        "onlineOffline": {
+          "goingOnline": {
+            "q": "How do I go online to get job requests?",
+            "a": "Tap the big ON button on the home tab and stay within your service area. Only nearby requested jobs that match your skills are shown to you."
+          },
+          "exactLocation": {
+            "q": "Will customers see me at my exact location?",
+            "a": "No. Customers see your approximate area and distance, not your precise location. Your exact location is only used for matching and navigation."
+          }
+        },
+        "jobsOffers": {
+          "acceptDecline": {
+            "q": "How do I accept or decline a job?",
+            "a": "When a request arrives, open it and choose Accept or Decline. Accepting a job locks it to you and starts the journey to the customer."
+          },
+          "decline": {
+            "q": "What happens if I decline a job?",
+            "a": "Declining does not hurt your rating. The request is passed to other nearby professionals who offer that service."
+          }
+        },
+        "earnings": {
+          "whenPaid": {
+            "q": "When do I get paid?",
+            "a": "Your earnings for completed jobs are shown in the Earnings tab and payouts are transferred to your bank account every Monday."
+          },
+          "breakdown": {
+            "q": "Where can I see my earnings breakdown?",
+            "a": "Open the Earnings tab to see completed jobs, job earnings, tips and the SAMONA fee for each payout cycle."
+          }
+        },
+        "cancellations": {
+          "customer": {
+            "q": "What if a customer cancels a job?",
+            "a": "If a customer cancels a job you are committed to, you are notified right away and it moves to your cancelled list for acknowledgement."
+          },
+          "afterAccept": {
+            "q": "Can I cancel after accepting a job?",
+            "a": "Yes, but try to avoid it — cancelling after acceptance is disruptive for the customer. Repeated cancellations may affect which jobs are offered to you."
+          }
+        },
+        "jobAlerts": {
+          "missing": {
+            "q": "Why did I not receive a job alert?",
+            "a": "Alerts depend on notification and overlay permissions. Visit Job alert setup in your Profile and make sure your device is allowed to run in the background."
+          },
+          "toggle": {
+            "q": "How do I turn job alerts on or off?",
+            "a": "Use the Job alert setup screen in your Profile. Enabling it lets notifications show even when the app is closed; disabling it stops new alert popups."
+          }
+        },
+        "verification": {
+          "profile": {
+            "q": "How is my profile verified?",
+            "a": "During onboarding you complete identity, face and document verification together with your skills and service area. Your profile shows a verification badge once this is approved."
+          }
+        }
+      }
     }
   },
   "earnings": {
