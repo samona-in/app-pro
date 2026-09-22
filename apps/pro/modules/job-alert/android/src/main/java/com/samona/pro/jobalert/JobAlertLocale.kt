@@ -23,9 +23,8 @@ import java.util.Locale
 object JobAlertLocale {
   private fun toLocale(code: String?): Locale =
     when (code) {
-      "te" -> Locale("te")
-      "hi" -> Locale("hi")
-      else -> Locale("en")
+      "te", "hi" -> Locale.forLanguageTag(code)
+      else -> Locale.forLanguageTag("en")
     }
 
   /** The stored app locale when present, otherwise the device's first locale. */

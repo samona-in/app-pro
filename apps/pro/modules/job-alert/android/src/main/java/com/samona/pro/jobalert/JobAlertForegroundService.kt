@@ -135,7 +135,7 @@ class JobAlertForegroundService : Service() {
         JobAlertLocale.string(this, R.string.online_alerts_channel_name),
         NotificationManager.IMPORTANCE_LOW,
       ).apply {
-        description = JobAlertLocale.string(this, R.string.online_alerts_channel_desc)
+        description = JobAlertLocale.string(applicationContext, R.string.online_alerts_channel_desc)
         setShowBadge(false)
       }
     manager.createNotificationChannel(channel)
