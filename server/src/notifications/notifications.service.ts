@@ -142,6 +142,23 @@ function jobAlertTitle(info: JobAlertInfo): string {
   return `${info.customSkill ?? info.serviceName} job nearby`;
 }
 
+/** The pro app's i18n keys + params that compose a job-alert row's copy. */
+function jobAlertMessage(info: JobAlertInfo): {
+  messageKey: string;
+  messageBodyKey: string;
+  params: Record<string, string>;
+} {
+  return {
+    messageKey: 'notifications.newJob.titleSpecific',
+    messageBodyKey: 'notifications.newJob.body',
+    params: {
+      service: info.customSkill ?? info.serviceName,
+      description: info.description,
+      pay: formatPay(info.basePayPaise),
+    },
+  };
+}
+
 function jobAlertBody(info: JobAlertInfo): string {
   return `${info.description} — ${formatPay(info.basePayPaise)}. Tap to see and accept.`;
 }
@@ -307,6 +324,9 @@ type NotificationRow = {
   kind: NotificationKind;
   title: string;
   body: string;
+  messageKey: string | null;
+  messageBodyKey: string | null;
+  params: Record<string, string> | null;
   route: string | null;
   delivered: boolean;
   repeats: number;
@@ -320,6 +340,9 @@ function toDto(row: NotificationRow): AppNotification {
     kind: row.kind,
     title: row.title,
     body: row.body,
+    messageKey: row.messageKey,
+    messageBodyKey: row.messageBodyKey,
+    params: row.params,
     route: row.route,
     delivered: row.delivered,
     repeats: row.repeats,
@@ -543,8 +566,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     const client = getFcmClient();
     if (!client) {
       logger.warn(
-        '[Push] FCM is not configured — skipping assigned-cancellation push for job ' +
-          `${jobId}.`,
+        '[Push] FCM is not configured — skipping assigned-cancellation push for job ' + `${jobId}.`,
       );
       return;
     }
@@ -630,6 +652,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         kind: NotificationKind.JOB_ALERT,
         title: jobAlertTitle(info),
         body: jobAlertBody(info),
+        ...jobAlertMessage(info),
         route: notificationRoute(info.jobId),
         delivered: result.ok,
         providerRef: result.providerRef,
@@ -1335,7 +1358,9 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         },
       });
       if (!result.ok) {
-        logger.warn(`[Push] Customer ${type} push to ${input.userId} on job ${input.jobId} not delivered.`);
+        logger.warn(
+          `[Push] Customer ${type} push to ${input.userId} on job ${input.jobId} not delivered.`,
+        );
       }
       return;
     }
@@ -1347,7 +1372,9 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       'EXPO',
     );
     if (!result.ok) {
-      logger.warn(`[Push] Customer ${type} push to ${input.userId} on job ${input.jobId} not delivered.`);
+      logger.warn(
+        `[Push] Customer ${type} push to ${input.userId} on job ${input.jobId} not delivered.`,
+      );
     }
   }
 

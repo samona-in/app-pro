@@ -49,6 +49,26 @@ class JobAlertBackgroundModule : Module() {
     }
 
     /**
+     * Mirrors the app language (`en` / `te` / `hi`) onto native job-alert
+     * strings. Persisted so a push that arrives while the process is dead
+     * (which never sees JS) is still presented in the pro's language; existing
+     * notification channels are renamed in place when the user switches
+     * language in-session.
+     */
+    AsyncFunction("setLocale") { locale: String, promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.resolve(false)
+        return@AsyncFunction
+      }
+      AlertStore(context).setLocaleCode(locale.trim().take(2).ifBlank { "en" })
+      AlertNotifications.updateChannelNames(context)
+      JobAlertForegroundService.updateOnlineChannel(context)
+      FloatingBubble.applyLocale(context)
+      promise.resolve(true)
+    }
+
+    /**
      * The stable per-install device id, minted and persisted on first call.
      * Sending the same value the native overlay later redeems with is what
      * binds an offer token to one physical device.

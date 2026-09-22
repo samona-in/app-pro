@@ -231,7 +231,7 @@ object JobAlertOverlay {
       }
     val service =
       TextView(context).apply {
-        text = alert.serviceName.ifBlank { "New job" }
+        text = serviceLabel(context, alert)
         setTextColor(JobAlertTheme.TEXT_PRIMARY)
         textSize = 22f
         typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -279,7 +279,9 @@ object JobAlertOverlay {
 
     val address =
         TextView(context).apply {
-          text = alert.address.ifBlank { "Customer location shared after acceptance" }
+          text = alert.address.ifBlank {
+            JobAlertLocale.string(context, R.string.address_shared_later)
+          }
           setTextColor(JobAlertTheme.TEXT_SECONDARY)
           textSize = 15f
           setPadding(0, dp(2), 0, 0)
@@ -302,7 +304,7 @@ object JobAlertOverlay {
     if (pendingCount > 1) {
       viewAll =
         TextView(context).apply {
-          text = "View all $pendingCount job offers →"
+          text = JobAlertLocale.string(context, R.string.view_all_job_offers, pendingCount)
           setTextColor(JobAlertTheme.BRAND_CONTOUR)
           textSize = 14f
           typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -322,14 +324,26 @@ object JobAlertOverlay {
     card.addView(actions)
 
     val accept =
-      actionButton(context, alert, "accept", "Accept", JobAlertTheme.SUCCESS)
+      actionButton(
+        context,
+        alert,
+        "accept",
+        JobAlertLocale.string(context, R.string.action_accept),
+        JobAlertTheme.SUCCESS,
+      )
     acceptButton = accept
 
     // Decline is the round ring button: tapping it declines, and its border
     // fills red as the offer window drains (see [RingButtonView]).
     val decline =
       RingButtonView(context).apply {
-        contentDescription = "${alert.serviceName.ifBlank { "job" }} — Decline"
+        contentDescription =
+          JobAlertLocale.string(
+            context,
+            R.string.a11y_job_action,
+            serviceLabel(context, alert),
+            JobAlertLocale.string(context, R.string.action_decline),
+          )
         setOnClickListener {
           val pending = pendingActionIntent(context, alert, "decline")
           runCatching { pending.send() }
@@ -348,7 +362,7 @@ object JobAlertOverlay {
 
     if (countdown != null && deadline != null) {
       countdownTextView = countdown
-      startCountdown(countdown, deadline)
+      startCountdown(context, countdown, deadline)
     }
 
     root.addView(card)
@@ -370,6 +384,20 @@ object JobAlertOverlay {
     return root
   }
 
+  /**
+   * The displayed service name, or a localized generic label when the alert
+   * carried no service. Catalogue data stays as-is; only the fallback is
+   * translated.
+   */
+  private fun serviceLabel(context: Context, alert: IncomingJobAlert): String {
+    val name = alert.serviceName.trim()
+    return if (name.isNotBlank()) {
+      name
+    } else {
+      JobAlertLocale.string(context, R.string.new_job_service_fallback)
+    }
+  }
+
   private fun actionButton(
     context: Context,
     alert: IncomingJobAlert,
@@ -386,7 +414,8 @@ object JobAlertOverlay {
       textSize = 16f
       typeface = android.graphics.Typeface.DEFAULT_BOLD
       background = gradient(dp(12).toFloat(), color)
-      contentDescription = "${alert.serviceName.ifBlank { "job" }} — $label"
+      contentDescription =
+        JobAlertLocale.string(context, R.string.a11y_job_action, serviceLabel(context, alert), label)
       // When the alert carried an offer token the receiver redeems it directly
       // over the API; otherwise it records the choice for the in-app ring.
       // Everything downstream lives in JobAlertActionReceiver, so this stays a
@@ -435,20 +464,22 @@ object JobAlertOverlay {
    * Ticks the "Expires in mm:ss" line once a second until the deadline, while
    * the red ring fills in step — empty on arrival, fully red at expiry.
    */
-  private fun startCountdown(textView: TextView, deadlineMillis: Long) {
+  private fun startCountdown(context: Context, textView: TextView, deadlineMillis: Long) {
     val totalMillis = (deadlineMillis - System.currentTimeMillis()).coerceAtLeast(1L)
     val runnable =
       object : Runnable {
         override fun run() {
           val remaining = deadlineMillis - System.currentTimeMillis()
           if (remaining <= 0) {
-              textView.text = "Offer expired"
+              textView.text =
+                JobAlertLocale.string(context, R.string.offer_expired)
               textView.setTextColor(JobAlertTheme.DANGER)
               ringButton?.setProgress(1f)
             lockButtons()
             return
           }
-          textView.text = "Expires in ${formatCountdown(remaining)}"
+          textView.text =
+            JobAlertLocale.string(context, R.string.offer_expires_in, formatCountdown(remaining))
           ringButton?.setProgress(1f - remaining.toFloat() / totalMillis)
           handler.removeCallbacks(this)
           handler.postDelayed(this, 500L)

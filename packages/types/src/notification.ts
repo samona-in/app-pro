@@ -25,6 +25,23 @@ export interface AppNotification {
   body: string;
   /** The deep-link route to open on tap; null when there is none. */
   route: string | null;
+  /**
+   * i18n key (in the recipient app's translation resources) that composes the
+   * `title` line, with `params` as interpolation placeholders. Null on rows the
+   * server composed in an unlocalized form; the client falls back to `title`.
+   */
+  messageKey: string | null;
+  /**
+   * i18n key that composes the `body` line. See `messageKey` for the contract;
+   * the fallback value is `body`.
+   */
+  messageBodyKey: string | null;
+  /**
+   * Interpolation values for `messageKey` / `messageBodyKey`. Catalogue data
+   * (service names, amounts) is passed through as-is — only the static copy is
+   * localized, mirroring how the native overlay composes its own strings.
+   */
+  params: Record<string, string> | null;
   /** Whether the latest delivery attempt succeeded. */
   delivered: boolean;
   /** How many times this same alert has re-paged the pro. */

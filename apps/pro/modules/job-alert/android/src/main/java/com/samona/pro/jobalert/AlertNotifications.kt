@@ -25,14 +25,9 @@ import androidx.core.app.NotificationManagerCompat
  */
 object AlertNotifications {
   const val CHANNEL_ID = "incoming_jobs"
-  const val CHANNEL_NAME = "Job alerts"
 
   /** Dedicated channel for "customer cancelled your job" heads-ups. */
   const val CANCELLATION_CHANNEL_ID = "job_cancelled"
-  const val CANCELLATION_CHANNEL_NAME = "Job cancelled"
-
-  private const val DEFAULT_TITLE = "New job request"
-  private const val DEFAULT_BODY = "A customer nearby needs your services."
 
   fun ensureChannel(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -41,8 +36,8 @@ object AlertNotifications {
 
     val soundRawId = context.resources.getIdentifier("job_alert", "raw", context.packageName)
     val channel =
-      NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_MAX).apply {
-        description = "New job requests from nearby customers"
+      NotificationChannel(CHANNEL_ID, JobAlertLocale.string(context, R.string.job_alerts_channel_name), NotificationManager.IMPORTANCE_MAX).apply {
+        description = JobAlertLocale.string(context, R.string.job_alerts_channel_desc)
         enableVibration(true)
         vibrationPattern = longArrayOf(0, 250, 250, 250)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) setBypassDnd(true)
@@ -71,13 +66,44 @@ object AlertNotifications {
     if (manager.getNotificationChannel(CANCELLATION_CHANNEL_ID) != null) return
 
     val channel =
-      NotificationChannel(CANCELLATION_CHANNEL_ID, CANCELLATION_CHANNEL_NAME, NotificationManager.IMPORTANCE_MAX).apply {
-        description = "A customer cancelled a job you were committed to"
+      NotificationChannel(CANCELLATION_CHANNEL_ID, JobAlertLocale.string(context, R.string.job_cancelled_channel_name), NotificationManager.IMPORTANCE_MAX).apply {
+        description = JobAlertLocale.string(context, R.string.job_cancelled_channel_desc)
         enableVibration(false)
         setSound(null, null)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) setBypassDnd(true)
       }
     manager.createNotificationChannel(channel)
+  }
+
+  /**
+   * Re-arms the existing channels' user-visible name/description in the active
+   * locale, then ensures both channels still exist. Called when the app
+   * language changes so a channel created in one language is not left stale for
+   * a pro who switches mid-session; user settings (sound/vibration) are
+   * preserved because the same channel object is re-created, not deleted.
+   */
+  fun updateChannelNames(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    fun rename(id: String, name: String, description: String) {
+      manager.getNotificationChannel(id)?.let { channel ->
+        channel.name = name
+        channel.description = description
+        manager.createNotificationChannel(channel)
+      }
+    }
+    rename(
+      CHANNEL_ID,
+      JobAlertLocale.string(context, R.string.job_alerts_channel_name),
+      JobAlertLocale.string(context, R.string.job_alerts_channel_desc),
+    )
+    rename(
+      CANCELLATION_CHANNEL_ID,
+      JobAlertLocale.string(context, R.string.job_cancelled_channel_name),
+      JobAlertLocale.string(context, R.string.job_cancelled_channel_desc),
+    )
+    ensureChannel(context)
+    ensureCancellationChannel(context)
   }
 
   fun cancel(context: Context, jobId: String) {
@@ -102,8 +128,8 @@ object AlertNotifications {
     }
     ensureChannel(context)
 
-    val title = alert.title.ifBlank { DEFAULT_TITLE }
-    val body = buildBody(alert)
+    val title = buildAlertTitle(context, alert)
+    val body = buildBody(context, alert)
 
     val contentIntent = pendingContentIntent(context, alert)
     val builder =
@@ -119,8 +145,8 @@ object AlertNotifications {
         .setShowWhen(true)
         .setOnlyAlertOnce(true)
         .setContentIntent(contentIntent)
-        .addAction(0, "Decline", actionPendingIntent(context, alert, "decline"))
-        .addAction(0, "Accept", actionPendingIntent(context, alert, "accept"))
+        .addAction(0, JobAlertLocale.string(context, R.string.action_decline), actionPendingIntent(context, alert, "decline"))
+        .addAction(0, JobAlertLocale.string(context, R.string.action_accept), actionPendingIntent(context, alert, "accept"))
     if (fullScreen) builder.setFullScreenIntent(contentIntent, true)
 
     NotificationManagerCompat.from(context).notify(alert.jobId.hashCode(), builder.build())
@@ -144,8 +170,8 @@ object AlertNotifications {
     val builder =
       NotificationCompat.Builder(context, CANCELLATION_CHANNEL_ID)
         .setSmallIcon(smallIcon(context))
-        .setContentTitle("Job cancelled")
-        .setContentText("The customer cancelled this booking.")
+        .setContentTitle(JobAlertLocale.string(context, R.string.cancellation_title))
+        .setContentText(JobAlertLocale.string(context, R.string.cancellation_body))
         .setPriority(NotificationCompat.PRIORITY_MAX)
         .setCategory(NotificationCompat.CATEGORY_STATUS)
         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -195,7 +221,23 @@ object AlertNotifications {
     )
   }
 
-  private fun buildBody(alert: IncomingJobAlert): String {
+  /**
+   * The tray title is the requested service's display name (catalogue data,
+   * identical across languages) so a dead-process alert is presented in the
+   * pro's language without server copy; the server-composed `alert.title` is
+   * kept only as a fallback. A blank-less alert falls back to the generic
+   * localized "New job request".
+   */
+  private fun buildAlertTitle(context: Context, alert: IncomingJobAlert): String {
+    val name = alert.serviceName.trim()
+    return if (name.isNotBlank()) {
+      name
+    } else {
+      alert.title.ifBlank { JobAlertLocale.string(context, R.string.alert_default_title) }
+    }
+  }
+
+  private fun buildBody(context: Context, alert: IncomingJobAlert): String {
     val category = alert.categoryLabel()
     val headline =
       when {
@@ -210,7 +252,9 @@ object AlertNotifications {
         if (alert.address.isNotBlank()) add(alert.address)
         if (meta.isNotBlank()) add(meta)
       }
-    return lines.joinToString("\n").ifBlank { DEFAULT_BODY }
+    return lines.joinToString("\n").ifBlank {
+      JobAlertLocale.string(context, R.string.alert_default_body)
+    }
   }
 
   /**

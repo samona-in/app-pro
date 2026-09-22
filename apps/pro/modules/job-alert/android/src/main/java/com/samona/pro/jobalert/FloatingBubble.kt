@@ -98,6 +98,20 @@ object FloatingBubble {
     synchronized(lock) { hideLocked() }
   }
 
+  /**
+   * Re-applies the a11y label when the app language changes mid-session. The
+   * bubble is long-lived (unlike the transient overlay), so without this it
+   * would keep announcing the old language until the next reconcile.
+   */
+  fun applyLocale(context: Context) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      handler.post { applyLocale(context) }
+      return
+    }
+    bubbleView?.contentDescription =
+      JobAlertLocale.string(context, R.string.bubble_online)
+  }
+
   private fun showLocked(context: Context) {
     if (bubbleView != null) return
     val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
@@ -130,7 +144,7 @@ object FloatingBubble {
           setStroke(dp(2), JobAlertTheme.BRAND)
         }
       elevation = JobAlertTheme.CARD_ELEVATION
-      contentDescription = "Samona Pro — you're online. Tap to open."
+      contentDescription = JobAlertLocale.string(context, R.string.bubble_online)
     }
 
     // API 26+ overlays that draw over any app; earlier releases use the legacy
