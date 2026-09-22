@@ -85,6 +85,10 @@ export default function Profile() {
   const { user, signOut } = useSession();
   const { data: proProfile } = useProProfile();
 
+  // The pro's own display name (set during onboarding) is authoritative; the
+  // shared identity row may not have one. Never fall back to a placeholder name.
+  const profileName = proProfile?.displayName?.trim() || user?.fullName?.trim() || '';
+
   /**
    * Supabase clears the persisted session; the tabs layout guard observes the
    * signed-out state and redirects to the auth stack, so there is no manual
@@ -102,16 +106,22 @@ export default function Profile() {
 
       <Card className="mt-4 flex-row items-center">
         <Avatar
-          name={user?.fullName ?? t('brand.samonaPro')}
+          name={profileName || t('brand.samonaPro')}
           uri={proProfile?.avatarUrl ?? null}
           size="lg"
         />
         <View className="ml-4 flex-1">
-          <Text variant="title">{user?.fullName ?? t('brand.samonaPro')}</Text>
+          {profileName ? <Text variant="title">{profileName}</Text> : null}
           <Text variant="footnote" className="mt-0.5">
             {user?.phone ?? t('profile.notSetUpYet')}
           </Text>
-          <Badge label={t('profile.verificationPending')} tone="warning" className="mt-2" />
+          <Badge
+            label={
+              proProfile?.isVerified ? t('profile.verified') : t('profile.verificationPending')
+            }
+            tone={proProfile?.isVerified ? 'success' : 'warning'}
+            className="mt-2"
+          />
         </View>
       </Card>
 

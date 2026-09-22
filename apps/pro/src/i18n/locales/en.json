@@ -423,6 +423,7 @@
   "profile": {
     "notSetUpYet": "Profile not set up yet",
     "verificationPending": "Verification pending",
+    "verified": "Verified",
     "signOut": "Sign out",
     "settings": {
       "servicesSkills": "Services & skills",

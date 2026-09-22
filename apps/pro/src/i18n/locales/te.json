@@ -423,6 +423,7 @@
   "profile": {
     "notSetUpYet": "ప్రొఫైల్ ఇంకా సెట్ చేయబడలేదు",
     "verificationPending": "ధృవీకరణ పెండింగ్లో ఉంది",
+    "verified": "ధృవీకరించబడింది",
     "signOut": "సైన్ అవుట్",
     "settings": {
       "servicesSkills": "సేవలు & నైపుణ్యాలు",

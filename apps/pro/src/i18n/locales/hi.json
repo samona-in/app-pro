@@ -423,6 +423,7 @@
   "profile": {
     "notSetUpYet": "प्रोफ़ाइल अभी सेट नहीं हुई",
     "verificationPending": "सत्यापन लंबित",
+    "verified": "सत्यापित",
     "signOut": "साइन आउट",
     "settings": {
       "servicesSkills": "सेवाएं और कौशल",
