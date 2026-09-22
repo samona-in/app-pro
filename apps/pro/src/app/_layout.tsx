@@ -125,6 +125,17 @@ export default function RootLayout() {
               headerStyle: { backgroundColor: color.surface },
             }}
           />
+          <Stack.Screen
+            name="help-support"
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: t('routes.helpSupport'),
+              headerBackTitle: t('common.back'),
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+            }}
+          />
         </Stack>
       </KeyboardProvider>
     </AppProviders>

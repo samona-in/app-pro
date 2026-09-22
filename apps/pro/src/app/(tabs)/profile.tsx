@@ -16,9 +16,13 @@ const SETTINGS_ROWS: { icon: IoniconName; labelKey: TranslationKey; route?: stri
   { icon: 'time-outline', labelKey: 'profile.settings.availability' },
   { icon: 'location-outline', labelKey: 'profile.settings.serviceArea' },
   { icon: 'document-text-outline', labelKey: 'profile.settings.documents' },
-  { icon: 'notifications-outline', labelKey: 'profile.settings.jobAlertSetup', route: '/device-setup' },
+  {
+    icon: 'notifications-outline',
+    labelKey: 'profile.settings.jobAlertSetup',
+    route: '/device-setup',
+  },
   { icon: 'card-outline', labelKey: 'profile.settings.payoutDetails' },
-  { icon: 'help-circle-outline', labelKey: 'profile.settings.helpSupport' },
+  { icon: 'help-circle-outline', labelKey: 'profile.settings.helpSupport', route: '/help-support' },
   { icon: 'language-outline', labelKey: 'profile.settings.language', route: '/language' },
 ];
 
