@@ -83,7 +83,7 @@ export default function OnboardingReview() {
         <Avatar
           name={profile.displayName ?? t('brand.samonaPro')}
           size="lg"
-          uri={profile.avatarUrl ?? profile.selfiePhotoUrl}
+          uri={profile.selfiePhotoUrl}
         />
         <View className="ml-4 flex-1">
           <Text variant="title">{profile.displayName ?? t('onboarding.review.yourName')}</Text>

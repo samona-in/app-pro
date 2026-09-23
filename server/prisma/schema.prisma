@@ -86,10 +86,6 @@ model ProProfile {
 
   displayName     String?          @map("display_name")
   gender          Gender?
-  /// The pro's own public profile photo, chosen once during onboarding. Kept
-  /// on the surface profile, not the shared identity row, so a person who is
-  /// both a customer and a professional keeps two independent images.
-  avatarUrl       String?          @map("avatar_url")
   bio             String?
   experienceLevel ExperienceLevel? @map("experience_level")
 

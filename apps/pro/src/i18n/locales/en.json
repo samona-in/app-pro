@@ -164,13 +164,9 @@
       "saveError": "Could not save your service area. Please try again."
     },
     "about": {
-      "photoAlertTitle": "Could not update photo",
-      "photoAlertMessage": "The photo did not upload. Please try again.",
       "title": "Tell customers about yourself",
-      "subtitle": "Choose a profile photo and a short introduction. You can skip the rest.",
+      "subtitle": "Write a short introduction so customers know who you are. You can skip it.",
       "saveError": "Could not save. Please try again.",
-      "choosePhotoA11y": "Choose profile photo",
-      "photoCaption": "Customers will see this photo",
       "aboutYou": "About you",
       "bioPlaceholder": "e.g. 8 years repairing split and window ACs across Hyderabad.",
       "languagesLabel": "Languages you speak"

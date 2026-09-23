@@ -72,18 +72,6 @@ function buildServices(overrides: Partial<Services> = {}) {
         avatarUrl: `${AVATAR_BASE}/customers/user-1/avatar-3f9c2175-09f4-4360-b19a-3a5447b9f4f2.jpg`,
       }),
     },
-    pros: {
-      ensureForUser: jest.fn(),
-      findByUserId: jest.fn().mockResolvedValue(null),
-      applyOnboardingPatch: jest.fn().mockResolvedValue({
-        id: 'pp-1',
-        userId: 'user-1',
-        onboardingStatus: 'COMPLETED',
-        displayName: 'Avi',
-        gender: null,
-        avatarUrl: `${AVATAR_BASE}/pros/user-1/avatar-4f8c3175-19f4-5360-c20a-4a6557c9f5f3.jpg`,
-      }),
-    },
     ...overrides,
   } as unknown as Services;
 }
@@ -106,44 +94,6 @@ describe('files routes — avatar', () => {
       'customers/user-1/avatar-3f9c2175-09f4-4360-b19a-3a5447b9f4f2.jpg',
     );
     expect(response.body.uploadUrl).toBeDefined();
-  });
-
-  it('POST /files/avatar/upload-url scopes pro avatars under the pro surface', async () => {
-    const proUser = { ...activeCustomer, appType: 'pro' as const };
-    const services = buildServices({
-      auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
-    });
-    const response = await request(appWith(services))
-      .post('/files/avatar/upload-url')
-      .set('authorization', 'Bearer good.token')
-      .set('x-app-type', 'pro')
-      .expect(200);
-
-    expect(services.storage.createAvatarUpload).toHaveBeenCalledWith('pro', 'user-1');
-    expect(response.body.uploadUrl).toBeDefined();
-  });
-
-  it('POST /files/avatar/complete records the pro avatar on the pro profile', async () => {
-    const proPath = 'pros/user-1/avatar-4f8c3175-19f4-5360-c20a-4a6557c9f5f3.jpg';
-    const proUser = { ...activeCustomer, appType: 'pro' as const };
-    const services = buildServices({
-      auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
-    });
-
-    const response = await request(appWith(services))
-      .post('/files/avatar/complete')
-      .send({ path: proPath })
-      .set('authorization', 'Bearer good.token')
-      .set('x-app-type', 'pro')
-      .expect(200);
-
-    expect(services.storage.avatarExists).toHaveBeenCalledWith(proPath);
-    expect(services.pros.applyOnboardingPatch).toHaveBeenCalledWith('user-1', {
-      avatarUrl: `${AVATAR_BASE}/${proPath}`,
-    });
-    expect(services.customers.applyOnboardingPatch).not.toHaveBeenCalled();
-    expect(services.storage.removeAvatar).toHaveBeenCalledWith(undefined);
-    expect(response.body.avatarUrl).toBe(`${AVATAR_BASE}/${proPath}`);
   });
 
   it('POST /files/avatar/complete records the public URL and removes the previous avatar', async () => {
