@@ -73,7 +73,6 @@ export const onboardingRadiusSchema = z.object({
 export const onboardingAboutSchema = z.object({
   bio: bioSchema.optional(),
   languages: languagesSchema.optional(),
-  avatarUrl: z.url().optional(),
 });
 
 /**
@@ -106,7 +105,6 @@ export const onboardingPatchSchema = z
     locationLabel: z.string().trim().max(120).optional(),
     bio: bioSchema.optional(),
     languages: languagesSchema.optional(),
-    avatarUrl: z.url().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'Nothing to update.',

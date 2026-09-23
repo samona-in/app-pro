@@ -45,8 +45,8 @@ export type CustomerOnboardingPatchInput = z.infer<typeof customerOnboardingPatc
  *
  * The client sends back the object path the API minted in step 1. The server
  * still owns the real check — the path must sit under the caller's own id and
- * its own surface (`customers/` vs `pros/`) — but the schema bounds its shape
- * up-front so foreign paths never reach the storage layer.
+ * its own surface — but the schema bounds its shape up-front so foreign paths
+ * never reach the storage layer.
  */
 export const avatarCompleteSchema = z.strictObject({
   path: z
@@ -54,7 +54,7 @@ export const avatarCompleteSchema = z.strictObject({
     .trim()
     .min(1)
     .max(300)
-    .regex(/^(customers|pros)\/[^/]+\/avatar-[^/]+\.jpg$/i, 'The photo path is not valid.'),
+    .regex(/^customers\/[^/]+\/avatar-[^/]+\.jpg$/i, 'The photo path is not valid.'),
 });
 
 export type AvatarCompleteInput = z.infer<typeof avatarCompleteSchema>;
