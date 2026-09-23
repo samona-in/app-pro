@@ -107,7 +107,7 @@ export default function Profile() {
       <Card className="mt-4 flex-row items-center">
         <Avatar
           name={profileName || t('brand.samonaPro')}
-          uri={proProfile?.avatarUrl ?? null}
+          uri={proProfile?.selfiePhotoUrl ?? null}
           size="lg"
         />
         <View className="ml-4 flex-1">
