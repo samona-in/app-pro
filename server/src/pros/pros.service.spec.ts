@@ -57,7 +57,7 @@ const base: ProProfile = {
   completedJobs: 0,
   hasSelfie: true,
   selfiePhotoUrl:
-    'https://project.supabase.co/storage/v1/object/public/pro-selfies/pros/user-1/selfie.jpg',
+    'https://samona-pro-selfies.s3.ap-south-1.amazonaws.com/pros/user-1/selfie.jpg',
   serviceIds: ['svc-1'],
   skillIds: ['skl-1'],
   proServices: [

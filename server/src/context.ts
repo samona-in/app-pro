@@ -72,8 +72,10 @@ export function createServices(
   redis: Redis | null,
 ): Services {
   const storage = createStorageService({
-    supabaseUrl: config.supabaseUrl,
-    supabaseSecretKey: config.supabaseSecretKey,
+    awsRegion: config.awsRegion,
+    bucketSelfies: config.s3BucketProSelfies,
+    bucketJobImages: config.s3BucketJobImages,
+    bucketAvatars: config.s3BucketAvatars,
   });
   const deps = { prisma, storage };
 

@@ -8,6 +8,10 @@ const base = {
   DIRECT_URL: 'postgresql://localhost:5432/samona',
   REDIS_URL: 'redis://localhost:6379',
   SUPABASE_URL: 'https://project.supabase.co',
+  AWS_REGION: 'ap-south-1',
+  S3_BUCKET_PRO_SELFIES: 'samona-pro-selfies',
+  S3_BUCKET_JOB_IMAGES: 'samona-job-images',
+  S3_BUCKET_AVATARS: 'samona-avatars',
   CORS_ORIGINS: '',
 } as NodeJS.ProcessEnv;
 
@@ -30,13 +34,11 @@ describe('loadConfig', () => {
       ...base,
       SUPABASE_JWKS_URL: '',
       SUPABASE_JWT_SECRET: '',
-      SUPABASE_SECRET_KEY: '',
       GOOGLE_MAPS_API_KEY: '',
     });
 
     expect(config.supabaseJwksUrl).toBeNull();
     expect(config.supabaseJwtSecret).toBeNull();
-    expect(config.supabaseSecretKey).toBeNull();
     expect(config.googleMapsApiKey).toBeNull();
   });
 

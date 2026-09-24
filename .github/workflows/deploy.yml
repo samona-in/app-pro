@@ -1,0 +1,69 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck --workspace=server
+
+      - name: ESLint
+        run: npm run lint --workspace=server --if-present
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: typecheck
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd /srv/samona
+
+            echo "→ Pulling latest code"
+            git pull origin main
+
+            echo "→ Installing dependencies"
+            npm ci --omit=dev
+
+            echo "→ Generating Prisma client"
+            npm run prisma:generate --workspace=server
+
+            echo "→ Building server"
+            npm run build --workspace=server
+
+            echo "→ Running database migrations"
+            npm run prisma:deploy --workspace=server
+
+            echo "→ Reloading application"
+            pm2 reload samona-api --update-env
+
+            echo "✓ Deploy complete"

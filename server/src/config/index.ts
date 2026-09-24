@@ -52,11 +52,20 @@ const envSchema = z.object({
   SUPABASE_JWT_SECRET: optional(z.string()),
 
   /**
-   * Secret API key (`sb_secret_...`). Bypasses row-level security, so it must
-   * never reach a client. Only needed for administrative reads of `auth.users`;
-   * ordinary requests are authorised by the caller's own token.
+   * AWS region where the S3 buckets live, e.g. `ap-south-1`.
+   * The SDK resolves credentials automatically from the EC2 instance role;
+   * no access key is stored in config.
    */
-  SUPABASE_SECRET_KEY: optional(z.string()),
+  AWS_REGION: z.string().min(1, 'AWS_REGION is required.'),
+
+  /** S3 bucket name for Pro face-selfie uploads. */
+  S3_BUCKET_PRO_SELFIES: z.string().min(1, 'S3_BUCKET_PRO_SELFIES is required.'),
+
+  /** S3 bucket name for job reference-image uploads. */
+  S3_BUCKET_JOB_IMAGES: z.string().min(1, 'S3_BUCKET_JOB_IMAGES is required.'),
+
+  /** S3 bucket name for profile avatar uploads. */
+  S3_BUCKET_AVATARS: z.string().min(1, 'S3_BUCKET_AVATARS is required.'),
 
   /** Comma-separated list of allowed browser origins. */
   CORS_ORIGINS: z.string().default(''),
@@ -206,7 +215,14 @@ export interface AppConfig {
   supabaseUrl: string;
   supabaseJwtSecret: string | null;
   supabaseJwksUrl: string | null;
-  supabaseSecretKey: string | null;
+  /** AWS region where the S3 buckets live. */
+  awsRegion: string;
+  /** S3 bucket name for Pro face-selfie uploads. */
+  s3BucketProSelfies: string;
+  /** S3 bucket name for job reference-image uploads. */
+  s3BucketJobImages: string;
+  /** S3 bucket name for profile avatar uploads. */
+  s3BucketAvatars: string;
   corsOrigins: string[];
   googleMapsApiKey: string | null;
   /** Base URL of the OSM-compatible geocoder used by `/locations`. */
@@ -287,7 +303,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     supabaseUrl: env.SUPABASE_URL,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET ?? null,
     supabaseJwksUrl: env.SUPABASE_JWKS_URL ?? null,
-    supabaseSecretKey: env.SUPABASE_SECRET_KEY ?? null,
+    awsRegion: env.AWS_REGION,
+    s3BucketProSelfies: env.S3_BUCKET_PRO_SELFIES,
+    s3BucketJobImages: env.S3_BUCKET_JOB_IMAGES,
+    s3BucketAvatars: env.S3_BUCKET_AVATARS,
     corsOrigins: env.CORS_ORIGINS.split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),
