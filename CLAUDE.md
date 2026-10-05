@@ -198,6 +198,12 @@ storage service re-checks object size on `HEAD` before a domain records the
 object. Sizing has to be enforced where the record is written, or it is not
 enforced at all.
 
+Public object URLs resolve one origin per bucket, each falling back to its own
+regional S3 URL when unset. Not one shared base URL: a CDN distribution fronts a
+single bucket, so selfies, job images and avatars each need their own host. Set
+them independently — that is what lets a bucket move to CloudFront without the
+other two following it.
+
 ## Job State Machine
 
 Jobs must use explicit states.

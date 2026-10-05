@@ -40,15 +40,21 @@ export interface StorageServiceDeps {
   /** Bucket holding per-surface profile avatars. */
   avatarsBucket: string;
   /**
-   * Origin public object URLs are built from, e.g.
-   * `https://pro-selfies.s3.us-east-1.amazonaws.com`.
+   * Origins public object URLs are built from, per bucket. E.g.
+   * `{ selfies: 'https://d111.cloudfront.net' }`.
    *
-   * Separate from the bucket names on purpose: this is the one thing that
-   * changes if objects are ever served through a CDN or a custom domain, and
-   * keeping it out of the URL builder makes that a configuration change rather
-   * than a code change. Falls back to the bucket's own S3 URL when unset.
+   * One per bucket rather than one shared value, because that is how the world
+   * actually works: a CDN distribution fronts exactly one bucket origin, so
+   * selfies, job images and avatars each need their own host. A single shared
+   * base could only ever be right if all three buckets were served from the same
+   * prefix, which is not something a CDN gives us. Each field is optional and
+   * falls back to its own bucket's regional S3 URL.
    */
-  publicBaseUrl: string | null;
+  publicBaseUrls: {
+    selfies: string | null;
+    jobImages: string | null;
+    avatars: string | null;
+  };
   /**
    * The S3 client. Credential-free in production — it resolves credentials from
    * the ambient provider chain, which on Fargate is the task role, so no key
@@ -139,26 +145,75 @@ function avatarPathFor(surface: AvatarSurface, userId: string): string {
  * streams the image straight to the bucket.
  */
 export function createStorageService(deps: StorageServiceDeps) {
-  const { region, selfiesBucket, jobImagesBucket, avatarsBucket, publicBaseUrl, s3 } = deps;
+  const { region, selfiesBucket, jobImagesBucket, avatarsBucket, publicBaseUrls, s3 } = deps;
   const sign = deps.signUploadUrl ?? ((command, options) => getSignedUrl(s3, command, options));
 
-  /** Public origin for one bucket, honouring an explicit base URL if set. */
-  function baseUrlFor(bucket: string): string {
-    return publicBaseUrl ?? `https://${bucket}.s3.${region}.amazonaws.com`;
+  /**
+   * Resolves one bucket's public origin, preferring a configured CDN/custom
+   * origin and falling back to the bucket's own regional S3 URL.
+   *
+   * Trailing slashes are stripped so `https://d111.cloudfront.net/` cannot
+   * produce a double-slashed key. That is not cosmetic: `removeAvatar` matches
+   * on this exact origin as a prefix, and `//pros/1/a.jpg` is a different path
+   * than `/pros/1/a.jpg`, so an unstripped slash would silently disable cleanup.
+   */
+  function resolveOrigin(bucket: string, configured: string | null): string {
+    const trimmed = configured?.trim();
+    return trimmed ? trimmed.replace(/\/+$/, '') : regionalOrigin(bucket);
+  }
+
+  /** A bucket's own regional S3 URL, always available regardless of any CDN. */
+  function regionalOrigin(bucket: string): string {
+    return `https://${bucket}.s3.${region}.amazonaws.com`;
+  }
+
+  // Resolved once, up front: every URL this service hands out — and the
+  // ownership check in removeAvatar below — must agree on the origin.
+  const selfieOrigin = resolveOrigin(selfiesBucket, publicBaseUrls.selfies);
+  const jobImageOrigin = resolveOrigin(jobImagesBucket, publicBaseUrls.jobImages);
+  const avatarOrigin = resolveOrigin(avatarsBucket, publicBaseUrls.avatars);
+
+  /**
+   * The origins a stored avatar URL may legitimately carry.
+   *
+   * The bucket's own S3 URL stays in the set even once a CDN origin is
+   * configured. Moving avatars behind CloudFront does not rewrite the URLs
+   * already in the database, so without this every avatar uploaded before the
+   * move would stop matching and its object would leak on replace — silently,
+   * since a non-match is a `return` rather than an error. Still a closed set,
+   * so a foreign host is rejected exactly as before.
+   */
+  const acceptedAvatarOrigins = publicBaseUrls.avatars
+    ? [avatarOrigin, regionalOrigin(avatarsBucket)]
+    : [avatarOrigin];
+
+  /**
+   * The storage key a stored avatar URL points at, or null when it is not one of
+   * ours. Rejects an empty key: `https://origin/` names no object, and a
+   * `DeleteObject` with an empty key is not a cleanup.
+   */
+  function avatarKeyFrom(publicUrl: string): string | null {
+    for (const origin of acceptedAvatarOrigins) {
+      const prefix = `${origin}/`;
+      if (!publicUrl.startsWith(prefix)) continue;
+      const key = publicUrl.slice(prefix.length);
+      if (key) return key;
+    }
+    return null;
   }
 
   function selfiePublicUrl(path: string): string {
-    return `${baseUrlFor(selfiesBucket)}/${path}`;
+    return `${selfieOrigin}/${path}`;
   }
 
   /** The public read URL for a stored job image. */
   function jobImagePublicUrl(path: string): string {
-    return `${baseUrlFor(jobImagesBucket)}/${path}`;
+    return `${jobImageOrigin}/${path}`;
   }
 
   /** The public read URL for a stored avatar. */
   function avatarPublicUrl(path: string): string {
-    return `${baseUrlFor(avatarsBucket)}/${path}`;
+    return `${avatarOrigin}/${path}`;
   }
 
   /** Mints the short-lived URL a caller PUTs its JPEG to. */
@@ -305,21 +360,17 @@ export function createStorageService(deps: StorageServiceDeps) {
    *
    * Best-effort: the replace is already recorded, so a failed delete is an
    * orphaned object, not an integrity problem — but it is logged loudly, never
-   * swallowed (CLAUDE.md "Error Handling"). URLs outside this bucket are
-   * ignored so a stale or foreign value cannot make us remove something we do
-   * not own.
+   * swallowed (CLAUDE.md "Error Handling"). URLs outside this bucket's accepted
+   * origins are ignored so a stale or foreign value cannot make us remove
+   * something we do not own.
    */
   async function removeAvatar(previousPublicUrl: string | null | undefined): Promise<void> {
-    const prefix = `${baseUrlFor(avatarsBucket)}/`;
-    if (!previousPublicUrl || !previousPublicUrl.startsWith(prefix)) return;
+    if (!previousPublicUrl) return;
+    const key = avatarKeyFrom(previousPublicUrl);
+    if (!key) return;
 
     try {
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: avatarsBucket,
-          Key: previousPublicUrl.slice(prefix.length),
-        }),
-      );
+      await s3.send(new DeleteObjectCommand({ Bucket: avatarsBucket, Key: key }));
     } catch (error) {
       logger.error('Avatar cleanup failed; an orphaned object remains.', error);
     }

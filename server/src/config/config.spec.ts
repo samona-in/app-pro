@@ -25,8 +25,10 @@ describe('loadConfig', () => {
     // Unaccepted jobs do not live forever; 30m open, sweep every 60s.
     expect(config.jobExpireTtlMs).toBe(30 * 60_000);
     expect(config.jobExpireSweepMs).toBe(60_000);
-    // Without an explicit base, public object URLs come from the buckets.
-    expect(config.s3PublicBaseUrl).toBeNull();
+    // Without explicit origins, public object URLs come from the buckets.
+    expect(config.s3PublicBaseUrlSelfies).toBeNull();
+    expect(config.s3PublicBaseUrlJobImages).toBeNull();
+    expect(config.s3PublicBaseUrlAvatars).toBeNull();
   });
 
   it('treats empty optional values as unset', () => {
@@ -36,13 +38,17 @@ describe('loadConfig', () => {
       ...base,
       SUPABASE_JWKS_URL: '',
       SUPABASE_JWT_SECRET: '',
-      S3_PUBLIC_BASE_URL: '',
+      S3_PUBLIC_BASE_URL_SELFIES: '',
+      S3_PUBLIC_BASE_URL_JOB_IMAGES: '',
+      S3_PUBLIC_BASE_URL_AVATARS: '',
       GOOGLE_MAPS_API_KEY: '',
     });
 
     expect(config.supabaseJwksUrl).toBeNull();
     expect(config.supabaseJwtSecret).toBeNull();
-    expect(config.s3PublicBaseUrl).toBeNull();
+    expect(config.s3PublicBaseUrlSelfies).toBeNull();
+    expect(config.s3PublicBaseUrlJobImages).toBeNull();
+    expect(config.s3PublicBaseUrlAvatars).toBeNull();
     expect(config.googleMapsApiKey).toBeNull();
   });
 
@@ -68,13 +74,19 @@ describe('loadConfig', () => {
     expect(() => loadConfig(withoutBucket)).toThrow(/S3_BUCKET_AVATARS/);
   });
 
-  it('honours an explicit public base URL for object URLs', () => {
+  // Each bucket gets its own origin because a CDN distribution fronts exactly
+  // one bucket. Setting only some of them must work, so a bucket can be moved
+  // to the CDN on its own schedule.
+  it('honours a per-bucket public origin independently', () => {
     const config = loadConfig({
       ...base,
-      S3_PUBLIC_BASE_URL: 'https://cdn.example.test',
+      S3_PUBLIC_BASE_URL_SELFIES: 'https://selfies.cdn.example.test',
+      S3_PUBLIC_BASE_URL_AVATARS: 'https://avatars.cdn.example.test',
     });
 
-    expect(config.s3PublicBaseUrl).toBe('https://cdn.example.test');
+    expect(config.s3PublicBaseUrlSelfies).toBe('https://selfies.cdn.example.test');
+    expect(config.s3PublicBaseUrlAvatars).toBe('https://avatars.cdn.example.test');
+    expect(config.s3PublicBaseUrlJobImages).toBeNull();
   });
 
   it('splits and trims CORS origins', () => {

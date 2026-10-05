@@ -48,7 +48,7 @@ function build(send: jest.Mock, overrides: Record<string, unknown> = {}) {
     selfiesBucket: SELFIES,
     jobImagesBucket: JOB_IMAGES,
     avatarsBucket: AVATARS,
-    publicBaseUrl: null,
+    publicBaseUrls: { selfies: null, jobImages: null, avatars: null },
     s3: { send } as unknown as S3Client,
     signUploadUrl: signer().sign,
     ...overrides,
@@ -230,14 +230,71 @@ describe('createStorageService', () => {
       );
     });
 
-    it('routes every bucket through an explicit base URL when one is set', () => {
-      // The single seam for putting a CDN in front later.
-      const storage = build(jest.fn(), { publicBaseUrl: 'https://cdn.test' });
+    // The CloudFront case we are designing for: one distribution per bucket.
+    // A single shared base URL could not express this — it would have to be the
+    // same host for all three, which is why there are three settings.
+    it('routes each bucket through its own CDN origin', () => {
+      const storage = build(jest.fn(), {
+        publicBaseUrls: {
+          selfies: 'https://selfies.cdn.test',
+          jobImages: 'https://jobs.cdn.test',
+          avatars: 'https://avatars.cdn.test',
+        },
+      });
 
       expect(storage.selfiePublicUrl('pros/1/selfie.jpg')).toBe(
-        'https://cdn.test/pros/1/selfie.jpg',
+        'https://selfies.cdn.test/pros/1/selfie.jpg',
       );
-      expect(storage.avatarPublicUrl('pros/1/a.jpg')).toBe('https://cdn.test/pros/1/a.jpg');
+      expect(storage.jobImagePublicUrl('jobs/1/a.jpg')).toBe('https://jobs.cdn.test/jobs/1/a.jpg');
+      expect(storage.avatarPublicUrl('pros/1/a.jpg')).toBe('https://avatars.cdn.test/pros/1/a.jpg');
+    });
+
+    it('mixes a CDN origin with an unset one, so migrating a bucket is incremental', () => {
+      const storage = build(jest.fn(), {
+        publicBaseUrls: {
+          selfies: 'https://selfies.cdn.test',
+          jobImages: null,
+          avatars: null,
+        },
+      });
+
+      expect(storage.selfiePublicUrl('pros/1/selfie.jpg')).toBe(
+        'https://selfies.cdn.test/pros/1/selfie.jpg',
+      );
+      expect(storage.jobImagePublicUrl('jobs/1/a.jpg')).toBe(
+        `https://${JOB_IMAGES}.s3.${REGION}.amazonaws.com/jobs/1/a.jpg`,
+      );
+    });
+
+    // A pasted CDN hostname often arrives with a trailing slash. Left alone it
+    // would yield `https://host//pros/1/a.jpg`, and removeAvatar's prefix check
+    // would stop matching, so avatars would leak on every replace.
+    it('strips a trailing slash from a configured origin', () => {
+      const storage = build(jest.fn(), {
+        publicBaseUrls: {
+          selfies: 'https://selfies.cdn.test/',
+          jobImages: 'https://jobs.cdn.test///',
+          avatars: 'https://avatars.cdn.test',
+        },
+      });
+
+      expect(storage.selfiePublicUrl('pros/1/selfie.jpg')).toBe(
+        'https://selfies.cdn.test/pros/1/selfie.jpg',
+      );
+      expect(storage.jobImagePublicUrl('jobs/1/a.jpg')).toBe('https://jobs.cdn.test/jobs/1/a.jpg');
+    });
+
+    it('treats a blank origin as unset rather than emitting a relative URL', () => {
+      const storage = build(jest.fn(), {
+        publicBaseUrls: { selfies: '   ', jobImages: '', avatars: null },
+      });
+
+      expect(storage.selfiePublicUrl('pros/1/selfie.jpg')).toBe(
+        `https://${SELFIES}.s3.${REGION}.amazonaws.com/pros/1/selfie.jpg`,
+      );
+      expect(storage.jobImagePublicUrl('jobs/1/a.jpg')).toBe(
+        `https://${JOB_IMAGES}.s3.${REGION}.amazonaws.com/jobs/1/a.jpg`,
+      );
     });
   });
 
@@ -264,6 +321,74 @@ describe('createStorageService', () => {
       await storage.removeAvatar(`https://${SELFIES}.s3.${REGION}.amazonaws.com/pros/1/selfie.jpg`);
       await storage.removeAvatar(null);
       await storage.removeAvatar(undefined);
+
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    // With a CDN in front, avatars still clean up: the stored URL is a CDN URL, so
+    // the ownership check has to be against the same origin the URL was minted
+    // from. This is the case that breaks if the origin is ever rebuilt per call.
+    it('still deletes behind a CDN origin', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const storage = build(send, {
+        publicBaseUrls: {
+          selfies: 'https://selfies.cdn.test/',
+          jobImages: null,
+          avatars: 'https://avatars.cdn.test/',
+        },
+      });
+      const url = storage.avatarPublicUrl(`customers/${USER}/avatar-1.jpg`);
+
+      await storage.removeAvatar(url);
+
+      expect(send.mock.calls[0][0].input).toMatchObject({
+        Bucket: AVATARS,
+        Key: `customers/${USER}/avatar-1.jpg`,
+      });
+    });
+
+    // The day avatars move behind CloudFront, every URL already in the database
+    // still points at S3. Cleanup has to keep working for those or every
+    // pre-move avatar leaks on replace — and it leaks silently, because a
+    // non-match is a return, not an error.
+    it('still deletes a URL minted before the CDN origin was configured', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const preCdn = build(send);
+      const staleUrl = preCdn.avatarPublicUrl(`customers/${USER}/avatar-1.jpg`);
+      expect(staleUrl).toContain(`${AVATARS}.s3.${REGION}.amazonaws.com`);
+
+      const afterCdn = build(send, {
+        publicBaseUrls: {
+          selfies: null,
+          jobImages: null,
+          avatars: 'https://avatars.cdn.test/',
+        },
+      });
+      await afterCdn.removeAvatar(staleUrl);
+
+      expect(send.mock.calls[0][0].input).toMatchObject({
+        Bucket: AVATARS,
+        Key: `customers/${USER}/avatar-1.jpg`,
+      });
+    });
+
+    it('still refuses a host that is neither our CDN origin nor our S3 URL', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const storage = build(send, {
+        publicBaseUrls: {
+          selfies: null,
+          jobImages: null,
+          avatars: 'https://avatars.cdn.test',
+        },
+      });
+
+      // A near-miss host must not pass: `avatars.cdn.test.evil.example` merely
+      // starts with our origin as a substring.
+      await storage.removeAvatar('https://avatars.cdn.test.evil.example/customers/1/a.jpg');
+      await storage.removeAvatar(`https://${SELFIES}.s3.${REGION}.amazonaws.com/customers/1/a.jpg`);
+      // Names no object at all, so there is no key to delete.
+      await storage.removeAvatar('https://avatars.cdn.test/');
+      await storage.removeAvatar('https://avatars.cdn.test');
 
       expect(send).not.toHaveBeenCalled();
     });
