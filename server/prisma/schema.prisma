@@ -15,8 +15,9 @@ generator client {
 
 // Prisma 7 takes the connection URL from `prisma.config.ts` (for migrations)
 // and from the driver adapter passed to PrismaClient (at runtime), so no `url`
-// belongs here. Supabase is the managed host; see .env.example for why the
-// pooled and direct URLs differ.
+// belongs here. The database is AWS RDS Postgres; Supabase is the identity
+// provider only. `DIRECT_URL` is an optional Prisma convention that is unused
+// today, since nothing sits between this API and the database.
 datasource db {
   provider = "postgresql"
 }
@@ -30,16 +31,18 @@ datasource db {
 /// profile (`ProProfile` / `CustomerProfile`) is what carries surface data.
 /// `isAdmin` is the only stored privilege, and it is never read from a token.
 ///
-/// Supabase Auth owns credentials and phone verification in the `auth.users`
-/// table of this same database. This row owns domain data. There is no password
-/// column by design — the application never sees or stores a credential.
+/// Supabase Auth owns credentials and phone verification. It is a separate
+/// service: its `auth` schema is not in this database and this API never queries
+/// it. This row owns domain data. There is no password column by design — the
+/// application never sees or stores a credential.
 model Profile {
-  /// Matches `auth.users.id`. Sharing the primary key keeps the join implicit
-  /// and makes any future RLS policy a plain `auth.uid() = id` comparison.
+  /// Equals the Supabase Auth user's id. Sharing the primary key keeps the link
+  /// implicit, so anything holding a Supabase identity and anything holding a
+  /// SAMONA profile agree without a join table.
   ///
-  /// No Prisma relation is declared: `auth.users` belongs to Supabase and must
-  /// not be managed by our migrations. The foreign key is added by hand in the
-  /// migration instead.
+  /// No Prisma relation is declared because there is nothing to declare one to:
+  /// `auth.users` lives in Supabase, not in this database, and must not be
+  /// managed by our migrations.
   id String @id @db.Uuid
 
   /// The only stored privilege. Authoritative; never read from a token claim or

@@ -183,6 +183,25 @@ Prisma 7 takes its connection URL from `server/prisma.config.ts` (for
 migrations) and from the driver adapter in `PrismaService` (at runtime) — not
 from `schema.prisma`.
 
+### Migrations
+
+`server/prisma/migrations/` holds a single baseline migration. It creates every
+table, enum, index and foreign key from `schema.prisma`, then inserts the
+services and skills catalogue (10 services, 79 skills). Running
+`prisma migrate dev` on an empty database therefore leaves you with a working
+marketplace — with services a professional can actually select.
+
+The reference data lives in the migration SQL rather than the datamodel, so it
+is invisible to `schema.prisma`. Anything that regenerates the schema from the
+datamodel alone will drop it; copy it forward by hand if you ever squash again.
+
+The 31-migration Supabase history this baseline replaces is kept in
+`server/prisma/migrations-supabase/` as a record. **Do not run it.** It depends on
+Supabase objects that do not exist on RDS (`auth.users`, the `authenticated`
+role, Storage buckets), and Prisma cannot introspect a database carrying it.
+`prisma.config.ts` points only at `migrations/`, so nothing in the archive is on
+the applied path. See its README for the details.
+
 ---
 
 ## Running the Pro app

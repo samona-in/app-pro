@@ -174,8 +174,9 @@ sign-in method for professionals.
 - The `User` row is the authority on `role`. Never read a role from a token
   claim, a header or a request body. Supabase allows custom claims, and a claim
   we do not issue ourselves is not a basis for authorization.
-- `User.id` equals `auth.users.id`. Sharing the key keeps the join implicit and
-  makes any future RLS policy a plain `auth.uid() = id` comparison.
+- `User.id` equals `auth.users.id`. Sharing the key keeps the join implicit, so
+  anything holding a Supabase identity and anything holding a SAMONA profile
+  agree without a join table.
 - Verify access tokens locally against the project's JWKS. Calling the Auth API
   per request would add a round trip and tie our availability to theirs.
 - Users are provisioned just-in-time on first authenticated request. Everything
@@ -187,6 +188,39 @@ client is used in the app for authentication only, never to query domain tables,
 because this API is the single place authorization is enforced. No pooler sits in
 front of it today, so `DATABASE_URL` and `DIRECT_URL` are the same endpoint and
 `DIRECT_URL` is optional.
+
+`schema.prisma` is the only source of truth for database structure. The database
+carries no row-level security: every protected route authorizes its own request,
+and the database is not reachable by clients. If a table ever needs an RLS
+policy, that is a design decision, not a default.
+
+The migration history is a single baseline in `server/prisma/migrations/`. The
+31-migration chain it replaced lives in `server/prisma/migrations-supabase/` and
+must never be run — it references `auth.users`, the Supabase `authenticated`
+role and the Supabase Storage bucket catalogue, none of which exist on RDS. It is
+kept as a record, and `prisma.config.ts` points at `migrations/` only, so
+nothing in the archive can be applied by accident.
+
+Two things the baseline had to carry by hand, because `schema.prisma` cannot
+express them. When squashing or rewriting migrations, check for both:
+
+- **Reference data.** The services and skills catalogue is `INSERT` rows in the
+  baseline SQL, not part of the datamodel. A regeneration from `schema.prisma`
+  alone produces a schema with no services, and the app cannot onboard anyone.
+- **Data backfills** are for existing rows and are meaningless on an empty
+  database.
+
+After changing `schema.prisma`, verify the baseline still matches rather than
+trusting it:
+
+```
+npm run prisma:deploy --workspace @samona/server   # against an empty database
+npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
+```
+
+The second command must print "This is an empty migration". Set `DIRECT_URL` as
+well as `DATABASE_URL` if a root `.env` exists, because `prisma.config.ts`
+prefers `DIRECT_URL` and the root `.env` is loaded into the environment.
 
 File storage is AWS S3. Uploads are presigned PUTs issued by this API; the bytes
 never pass through a JSON body here. The S3 client carries no credentials in the
