@@ -1,30 +1,71 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { S3Client } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { ApiErrorCode } from '@samona/types';
 import { createHttpError } from '../common/errors';
 import { logger } from '../common/logger';
 
+/** Every object is a JPEG: the app encodes in-app before it ever asks for a URL. */
+const IMAGE_CONTENT_TYPE = 'image/jpeg';
+
+/**
+ * How long a minted upload URL stays usable.
+ *
+ * Long enough for a slow connection to move a few megabytes, far too short for
+ * a leaked URL to still be useful. The ticket is single-use in practice: the
+ * path is either unique per upload, or an overwrite of one the caller owns.
+ */
+const UPLOAD_URL_TTL_SECONDS = 300;
+
+/**
+ * Mints a presigned URL for one upload.
+ *
+ * Injected so tests can drive the handshake without a signing backend; the
+ * default is the AWS SDK's own signer, which needs no credentials of its own
+ * because the client resolves them from the ambient provider chain.
+ */
+export type SignUploadUrl = (
+  command: PutObjectCommand,
+  options: { expiresIn: number },
+) => Promise<string>;
+
 export interface StorageServiceDeps {
-  supabaseUrl: string;
-  /** Service key. Without it no upload URL can be minted and uploads fail. */
-  supabaseSecretKey: string | null;
+  /** Region the buckets live in, e.g. `us-east-1`. */
+  region: string;
+  /** Bucket holding live-captured Pro face photos. */
+  selfiesBucket: string;
+  /** Bucket holding job reference photos. */
+  jobImagesBucket: string;
+  /** Bucket holding per-surface profile avatars. */
+  avatarsBucket: string;
+  /**
+   * Origin public object URLs are built from, e.g.
+   * `https://pro-selfies.s3.us-east-1.amazonaws.com`.
+   *
+   * Separate from the bucket names on purpose: this is the one thing that
+   * changes if objects are ever served through a CDN or a custom domain, and
+   * keeping it out of the URL builder makes that a configuration change rather
+   * than a code change. Falls back to the bucket's own S3 URL when unset.
+   */
+  publicBaseUrl: string | null;
+  /**
+   * The S3 client. Credential-free in production — it resolves credentials from
+   * the ambient provider chain, which on Fargate is the task role, so no key
+   * material lives in the environment.
+   */
+  s3: S3Client;
+  /** Overrides the URL signer. Defaults to the AWS SDK's own. */
+  signUploadUrl?: SignUploadUrl;
 }
 
-/** The public-read bucket holding live-captured Pro face photos. */
-export const SELFIES_BUCKET = 'pro-selfies';
-
-/** Mirrors the bucket's `file_size_limit` — reject before the bytes move. */
+/** Largest selfie the API will accept, in bytes. */
 export const SELFIE_MAX_BYTES = 5 * 1024 * 1024;
 
-export const SELFIE_CONTENT_TYPE = 'image/jpeg';
+/** Largest job reference photo the API will accept, in bytes. */
+export const JOB_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
-/** The public-read bucket holding job reference photos. */
-export const JOB_IMAGES_BUCKET = 'job-images';
-
-/** The public-read bucket holding per-surface profile avatars. */
-export const AVATARS_BUCKET = 'avatars';
-
-/** Mirrors the bucket's `file_size_limit` — reject before the bytes move. */
+/** Largest avatar the API will accept, in bytes. */
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
 /**
@@ -92,71 +133,121 @@ function avatarPathFor(surface: AvatarSurface, userId: string): string {
 /**
  * Object storage access for domain modules.
  *
- * Wraps Supabase Storage behind three small operations so no route talks to
- * the storage client directly. Uploads never pass through this API's JSON
- * bodies (app.ts enforces that): the client gets a short-lived signed upload
- * URL and streams the image straight to the bucket.
+ * Wraps Amazon S3 behind three small operations so no route talks to the
+ * storage client directly. Uploads never pass through this API's JSON bodies
+ * (app.ts enforces that): the client gets a short-lived signed upload URL and
+ * streams the image straight to the bucket.
  */
 export function createStorageService(deps: StorageServiceDeps) {
-  const { supabaseUrl, supabaseSecretKey } = deps;
+  const { region, selfiesBucket, jobImagesBucket, avatarsBucket, publicBaseUrl, s3 } = deps;
+  const sign = deps.signUploadUrl ?? ((command, options) => getSignedUrl(s3, command, options));
 
-  const admin: SupabaseClient | null = supabaseSecretKey
-    ? createClient(supabaseUrl, supabaseSecretKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
-    : null;
-
-  function requireAdmin(): SupabaseClient {
-    if (!admin) {
-      throw createHttpError(
-        500,
-        ApiErrorCode.INTERNAL,
-        'File storage is not configured on this deployment.',
-      );
-    }
-    return admin;
+  /** Public origin for one bucket, honouring an explicit base URL if set. */
+  function baseUrlFor(bucket: string): string {
+    return publicBaseUrl ?? `https://${bucket}.s3.${region}.amazonaws.com`;
   }
 
   function selfiePublicUrl(path: string): string {
-    return `${supabaseUrl}/storage/v1/object/public/${SELFIES_BUCKET}/${path}`;
+    return `${baseUrlFor(selfiesBucket)}/${path}`;
+  }
+
+  /** The public read URL for a stored job image. */
+  function jobImagePublicUrl(path: string): string {
+    return `${baseUrlFor(jobImagesBucket)}/${path}`;
+  }
+
+  /** The public read URL for a stored avatar. */
+  function avatarPublicUrl(path: string): string {
+    return `${baseUrlFor(avatarsBucket)}/${path}`;
+  }
+
+  /** Mints the short-lived URL a caller PUTs its JPEG to. */
+  async function signUpload(bucket: string, key: string): Promise<string> {
+    try {
+      // The content type is signed, so S3 rejects the upload unless the client
+      // sends exactly the header this minted the URL for.
+      return await sign(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          ContentType: IMAGE_CONTENT_TYPE,
+        }),
+        { expiresIn: UPLOAD_URL_TTL_SECONDS },
+      );
+    } catch (cause) {
+      logger.error('Could not mint a signed upload URL.', cause);
+      throw createHttpError(502, ApiErrorCode.INTERNAL, 'Could not start the upload.', { cause });
+    }
+  }
+
+  /**
+   * Whether an object reached the bucket, and rejects it if it is too big.
+   *
+   * `HEAD` is the one call that answers both questions: it 404s when nothing
+   * landed and reports `content-length` when something did.
+   *
+   * The size check is this module's job, not the bucket's. Supabase enforced
+   * `file_size_limit` as bucket metadata, so an oversize PUT was rejected at
+   * the storage layer. S3 has no equivalent — it will happily store a gigabyte
+   * — so the limit that used to be metadata is now enforced here, at the moment
+   * the domain would otherwise record the object. A limit that only exists in
+   * this file is one the server can actually apply.
+   *
+   * Returns `true` only when the object is present *and* acceptable. Throwing
+   * rather than returning `false` on the oversize case is deliberate: a missing
+   * object is retryable and an oversize one is not, and the caller must not be
+   * told to retry something that will never succeed.
+   */
+  async function objectExists(
+    bucket: string,
+    key: string,
+    maxBytes: number,
+    label: string,
+  ): Promise<boolean> {
+    let size: number | undefined;
+    try {
+      const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      size = head.ContentLength;
+    } catch {
+      // A missing key, a denied read and a transport fault are indistinguishable
+      // here, and every one of them means "do not record this object".
+      return false;
+    }
+
+    if (typeof size !== 'number') {
+      // Present but unreportable length: treat as absent rather than trust an
+      // unknown payload.
+      return false;
+    }
+    if (size > maxBytes) {
+      throw createHttpError(
+        422,
+        ApiErrorCode.VALIDATION_FAILED,
+        `That ${label} is larger than the ${Math.floor(maxBytes / (1024 * 1024))} MiB limit.`,
+      );
+    }
+    return true;
   }
 
   /**
    * Mints a signed URL the caller PUTs the JPEG to directly.
    *
-   * `upsert` allows a retake to replace the previous photo through the same
-   * deterministic path rather than failing on it. The URL expires quickly
-   * (storage's default), so it is only usable for this one immediate upload.
+   * `PutObject` overwrites an existing key, which is what lets a retake reuse
+   * the deterministic selfie path instead of failing on it.
    */
   async function createSelfieUpload(userId: string): Promise<{ path: string; uploadUrl: string }> {
     const path = selfiePathFor(userId);
-    const { data, error } = await requireAdmin()
-      .storage.from(SELFIES_BUCKET)
-      .createSignedUploadUrl(path, { upsert: true });
-
-    if (error || !data) {
-      throw createHttpError(502, ApiErrorCode.INTERNAL, 'Could not start the photo upload.', {
-        cause: error,
-      });
-    }
-
-    return { path, uploadUrl: data.signedUrl };
+    return { path, uploadUrl: await signUpload(selfiesBucket, path) };
   }
 
   /**
-   * Whether the object is actually in the bucket.
+   * Whether the object actually reached the bucket before anything is recorded,
+   * so a profile can never point at a photo that was never uploaded.
    *
-   * The bucket is public-read, so a HEAD on the public URL is the existence
-   * probe — no extra credential round-trip, and it proves the exact URL we
-   * will hand out resolves to bytes.
+   * Throws if it arrived but is oversize.
    */
   async function selfieExists(userId: string): Promise<boolean> {
-    try {
-      const response = await fetch(selfiePublicUrl(selfiePathFor(userId)), { method: 'HEAD' });
-      return response.ok;
-    } catch {
-      return false;
-    }
+    return objectExists(selfiesBucket, selfiePathFor(userId), SELFIE_MAX_BYTES, 'photo');
   }
 
   /**
@@ -171,39 +262,18 @@ export function createStorageService(deps: StorageServiceDeps) {
     customerUserId: string,
   ): Promise<{ path: string; uploadUrl: string }> {
     const path = jobImagePathFor(customerUserId);
-    const { data, error } = await requireAdmin()
-      .storage.from(JOB_IMAGES_BUCKET)
-      .createSignedUploadUrl(path, { upsert: true });
-
-    if (error || !data) {
-      throw createHttpError(502, ApiErrorCode.INTERNAL, 'Could not start the image upload.', {
-        cause: error,
-      });
-    }
-
-    return { path, uploadUrl: data.signedUrl };
+    return { path, uploadUrl: await signUpload(jobImagesBucket, path) };
   }
 
   /**
-   * Whether a submitted job-image path points at an object that really
-   * reached storage. Used by the jobs domain before it records a path, so a
-   * job can never reference a photo that was never uploaded.
+   * Whether a submitted job-image path points at an object that really reached
+   * storage.
+   *
+   * Used by the jobs domain before it records a path, so a job can never
+   * reference a photo that was never uploaded.
    */
   async function jobImageExists(path: string): Promise<boolean> {
-    try {
-      const response = await fetch(
-        `${supabaseUrl}/storage/v1/object/public/${JOB_IMAGES_BUCKET}/${path}`,
-        { method: 'HEAD' },
-      );
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  /** The public read URL for a stored job image. */
-  function jobImagePublicUrl(path: string): string {
-    return `${supabaseUrl}/storage/v1/object/public/${JOB_IMAGES_BUCKET}/${path}`;
+    return objectExists(jobImagesBucket, path, JOB_IMAGE_MAX_BYTES, 'photo');
   }
 
   /**
@@ -211,51 +281,26 @@ export function createStorageService(deps: StorageServiceDeps) {
    *
    * The path is unique to this one upload, so every completed replace points at
    * an object that has never been fetched before — a fresh network read rather
-   * than a cached one. `upsert` keeps a retry of the same ticket harmless.
+   * than a cached one.
    */
   async function createAvatarUpload(
     surface: AvatarSurface,
     userId: string,
   ): Promise<{ path: string; uploadUrl: string }> {
     const path = avatarPathFor(surface, userId);
-    const { data, error } = await requireAdmin()
-      .storage.from(AVATARS_BUCKET)
-      .createSignedUploadUrl(path, { upsert: true });
-
-    if (error || !data) {
-      throw createHttpError(502, ApiErrorCode.INTERNAL, 'Could not start the photo upload.', {
-        cause: error,
-      });
-    }
-
-    return { path, uploadUrl: data.signedUrl };
+    return { path, uploadUrl: await signUpload(avatarsBucket, path) };
   }
 
   /**
    * Whether a submitted avatar path points at an object that really reached
-   * storage.
-   *
-   * The same public-read HEAD probe as the selfie: proves the exact URL we will
-   * record resolves to bytes before the profile ever points at it.
+   * storage, checked before the profile ever points at it.
    */
   async function avatarExists(path: string): Promise<boolean> {
-    try {
-      const response = await fetch(avatarPublicUrl(path), { method: 'HEAD' });
-      return response.ok;
-    } catch {
-      return false;
-    }
+    return objectExists(avatarsBucket, path, AVATAR_MAX_BYTES, 'photo');
   }
 
   /**
-   * The public read URL for a stored avatar.
-   */
-  function avatarPublicUrl(path: string): string {
-    return `${supabaseUrl}/storage/v1/object/public/${AVATARS_BUCKET}/${path}`;
-  }
-
-  /**
-   * Deletes a superseded avatar object, extracting its storage path from the
+   * Deletes a superseded avatar object, extracting its storage key from the
    * public URL the profile previously referenced.
    *
    * Best-effort: the replace is already recorded, so a failed delete is an
@@ -265,13 +310,17 @@ export function createStorageService(deps: StorageServiceDeps) {
    * not own.
    */
   async function removeAvatar(previousPublicUrl: string | null | undefined): Promise<void> {
-    const prefix = `${supabaseUrl}/storage/v1/object/public/${AVATARS_BUCKET}/`;
+    const prefix = `${baseUrlFor(avatarsBucket)}/`;
     if (!previousPublicUrl || !previousPublicUrl.startsWith(prefix)) return;
 
-    const { error } = await requireAdmin()
-      .storage.from(AVATARS_BUCKET)
-      .remove([previousPublicUrl.slice(prefix.length)]);
-    if (error) {
+    try {
+      await s3.send(
+        new DeleteObjectCommand({
+          Bucket: avatarsBucket,
+          Key: previousPublicUrl.slice(prefix.length),
+        }),
+      );
+    } catch (error) {
       logger.error('Avatar cleanup failed; an orphaned object remains.', error);
     }
   }

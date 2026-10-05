@@ -8,6 +8,10 @@ const base = {
   DIRECT_URL: 'postgresql://localhost:5432/samona',
   REDIS_URL: 'redis://localhost:6379',
   SUPABASE_URL: 'https://project.supabase.co',
+  S3_REGION: 'us-east-1',
+  S3_BUCKET_SELFIES: 'pro-selfies',
+  S3_BUCKET_JOB_IMAGES: 'job-images',
+  S3_BUCKET_AVATARS: 'avatars',
   CORS_ORIGINS: '',
 } as NodeJS.ProcessEnv;
 
@@ -21,6 +25,8 @@ describe('loadConfig', () => {
     // Unaccepted jobs do not live forever; 30m open, sweep every 60s.
     expect(config.jobExpireTtlMs).toBe(30 * 60_000);
     expect(config.jobExpireSweepMs).toBe(60_000);
+    // Without an explicit base, public object URLs come from the buckets.
+    expect(config.s3PublicBaseUrl).toBeNull();
   });
 
   it('treats empty optional values as unset', () => {
@@ -30,13 +36,13 @@ describe('loadConfig', () => {
       ...base,
       SUPABASE_JWKS_URL: '',
       SUPABASE_JWT_SECRET: '',
-      SUPABASE_SECRET_KEY: '',
+      S3_PUBLIC_BASE_URL: '',
       GOOGLE_MAPS_API_KEY: '',
     });
 
     expect(config.supabaseJwksUrl).toBeNull();
     expect(config.supabaseJwtSecret).toBeNull();
-    expect(config.supabaseSecretKey).toBeNull();
+    expect(config.s3PublicBaseUrl).toBeNull();
     expect(config.googleMapsApiKey).toBeNull();
   });
 
@@ -54,6 +60,21 @@ describe('loadConfig', () => {
     const { DATABASE_URL: _omitted, ...withoutDatabase } = base;
 
     expect(() => loadConfig(withoutDatabase)).toThrow(/DATABASE_URL/);
+  });
+
+  it('refuses to start without bucket names', () => {
+    const { S3_BUCKET_AVATARS: _omitted, ...withoutBucket } = base;
+
+    expect(() => loadConfig(withoutBucket)).toThrow(/S3_BUCKET_AVATARS/);
+  });
+
+  it('honours an explicit public base URL for object URLs', () => {
+    const config = loadConfig({
+      ...base,
+      S3_PUBLIC_BASE_URL: 'https://cdn.example.test',
+    });
+
+    expect(config.s3PublicBaseUrl).toBe('https://cdn.example.test');
   });
 
   it('splits and trims CORS origins', () => {
