@@ -182,11 +182,21 @@ sign-in method for professionals.
   needed is already in the verified token, so provisioning costs one query.
 - Never manage the `auth` schema from our migrations. It belongs to Supabase.
 
-Supabase provides the managed PostgreSQL instance. Prisma remains the data
-access layer; the Supabase client is used in the app for authentication only,
-never to query domain tables, because this API is the single place
-authorization is enforced. Use the pooled (Supavisor, 6543) URL at runtime and
-the direct (5432) URL for migrations.
+PostgreSQL runs on AWS RDS. Prisma remains the data access layer; the Supabase
+client is used in the app for authentication only, never to query domain tables,
+because this API is the single place authorization is enforced. No pooler sits in
+front of it today, so `DATABASE_URL` and `DIRECT_URL` are the same endpoint and
+`DIRECT_URL` is optional.
+
+File storage is AWS S3. Uploads are presigned PUTs issued by this API; the bytes
+never pass through a JSON body here. The S3 client carries no credentials in the
+environment — it resolves them from the ambient provider chain, which on Fargate
+is the task role.
+
+S3 has no bucket-level `file_size_limit` the way Supabase Storage did, so the
+storage service re-checks object size on `HEAD` before a domain records the
+object. Sizing has to be enforced where the record is written, or it is not
+enforced at all.
 
 ## Job State Machine
 

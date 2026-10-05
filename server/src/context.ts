@@ -29,6 +29,7 @@ import {
 import { createReviewsService, type ReviewsService } from './reviews/reviews.service';
 import { createStorageService, type StorageService } from './files/storage.service';
 import type { RealtimeService } from './realtime/gateway';
+import { S3Client } from '@aws-sdk/client-s3';
 
 /**
  * Every domain service, constructed once per process.
@@ -72,8 +73,15 @@ export function createServices(
   redis: Redis | null,
 ): Services {
   const storage = createStorageService({
-    supabaseUrl: config.supabaseUrl,
-    supabaseSecretKey: config.supabaseSecretKey,
+    region: config.s3Region,
+    selfiesBucket: config.s3BucketSelfies,
+    jobImagesBucket: config.s3BucketJobImages,
+    avatarsBucket: config.s3BucketAvatars,
+    publicBaseUrl: config.s3PublicBaseUrl,
+    // No credentials passed: the client resolves them from the ambient
+    // provider chain, which on Fargate is the task role. Constructing it here
+    // keeps key material out of the environment entirely.
+    s3: new S3Client({ region: config.s3Region }),
   });
   const deps = { prisma, storage };
 

@@ -22,10 +22,14 @@ export default defineConfig({
     path: path.join('prisma', 'migrations'),
   },
   // Used by migrate/introspect only. The running app connects through the
-  // driver adapter in `src/database/prisma.service.ts`.
-  // Migrations only. They need a real session, so they use the DIRECT (5432)
-  // Supabase URL rather than the transaction pooler the app runs through.
+  // driver adapter in `src/database/prisma.ts`.
+  //
+  // DIRECT_URL exists so migrations can bypass a transaction pooler, which they
+  // cannot run through. On a deployment with no pooler it is the same endpoint
+  // as DATABASE_URL and is left unset. The empty-string check matters: `.env`
+  // files spell unset optional values as FOO="", and `??` alone would treat
+  // that as a real (empty) datasource URL.
   datasource: {
-    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+    url: process.env.DIRECT_URL || process.env.DATABASE_URL,
   },
 });

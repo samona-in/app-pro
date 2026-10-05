@@ -22,15 +22,18 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
 
   /**
-   * Supabase connection string. Use the *pooled* (Supavisor, port 6543) URL at
-   * runtime — direct Postgres connections are exhausted quickly under load.
+   * PostgreSQL connection string used at runtime. On RDS this is the instance
+   * endpoint directly; if a transaction pooler (PgBouncer, Supavisor) is ever
+   * put in front, point this at the pooler and set `pgbouncer=true`.
    */
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required.'),
   /**
-   * Direct (port 5432) connection, used only by `prisma migrate`. Migrations
-   * need a real session; they cannot run through a transaction pooler.
+   * Direct (unpooled) connection, used only by `prisma migrate`. Optional:
+   * migrations fall back to DATABASE_URL when it is unset, which is correct on
+   * any deployment with no pooler in front. Only needed when DATABASE_URL points
+   * at a pooler, since migrations require a real session.
    */
-  DIRECT_URL: z.string().min(1, 'DIRECT_URL is required for migrations.'),
+  DIRECT_URL: optional(z.string().min(1)),
 
   REDIS_URL: z.string().min(1, 'REDIS_URL is required.'),
 
@@ -52,11 +55,26 @@ const envSchema = z.object({
   SUPABASE_JWT_SECRET: optional(z.string()),
 
   /**
-   * Secret API key (`sb_secret_...`). Bypasses row-level security, so it must
-   * never reach a client. Only needed for administrative reads of `auth.users`;
-   * ordinary requests are authorised by the caller's own token.
+   * Region the object buckets live in. Also determines the shape of a public
+   * object URL, so it must match where the buckets actually are.
    */
-  SUPABASE_SECRET_KEY: optional(z.string()),
+  S3_REGION: z.string().min(1, 'S3_REGION is required.'),
+
+  /** Bucket holding live-captured Pro face photos. */
+  S3_BUCKET_SELFIES: z.string().min(1, 'S3_BUCKET_SELFIES is required.'),
+
+  /** Bucket holding job reference photos. */
+  S3_BUCKET_JOB_IMAGES: z.string().min(1, 'S3_BUCKET_JOB_IMAGES is required.'),
+
+  /** Bucket holding per-surface profile avatars. */
+  S3_BUCKET_AVATARS: z.string().min(1, 'S3_BUCKET_AVATARS is required.'),
+
+  /**
+   * Origin that public object URLs are built from. Optional: defaults to the
+   * buckets' own regional S3 URL. Set it only if objects are served through a
+   * CDN or a custom domain instead.
+   */
+  S3_PUBLIC_BASE_URL: optional(z.string()),
 
   /** Comma-separated list of allowed browser origins. */
   CORS_ORIGINS: z.string().default(''),
@@ -201,12 +219,22 @@ export interface AppConfig {
   port: number;
   isProduction: boolean;
   databaseUrl: string;
-  directUrl: string;
+  /** Unpooled connection for migrations; null when DATABASE_URL is used directly. */
+  directUrl: string | null;
   redisUrl: string;
   supabaseUrl: string;
   supabaseJwtSecret: string | null;
   supabaseJwksUrl: string | null;
-  supabaseSecretKey: string | null;
+  /** Region the object buckets live in. */
+  s3Region: string;
+  /** Bucket holding live-captured Pro face photos. */
+  s3BucketSelfies: string;
+  /** Bucket holding job reference photos. */
+  s3BucketJobImages: string;
+  /** Bucket holding per-surface profile avatars. */
+  s3BucketAvatars: string;
+  /** Origin public object URLs are built from; null uses the buckets' S3 URLs. */
+  s3PublicBaseUrl: string | null;
   corsOrigins: string[];
   googleMapsApiKey: string | null;
   /** Base URL of the OSM-compatible geocoder used by `/locations`. */
@@ -282,12 +310,16 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     port: env.PORT,
     isProduction: env.NODE_ENV === 'production',
     databaseUrl: env.DATABASE_URL,
-    directUrl: env.DIRECT_URL,
+    directUrl: env.DIRECT_URL ?? null,
     redisUrl: env.REDIS_URL,
     supabaseUrl: env.SUPABASE_URL,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET ?? null,
     supabaseJwksUrl: env.SUPABASE_JWKS_URL ?? null,
-    supabaseSecretKey: env.SUPABASE_SECRET_KEY ?? null,
+    s3Region: env.S3_REGION,
+    s3BucketSelfies: env.S3_BUCKET_SELFIES,
+    s3BucketJobImages: env.S3_BUCKET_JOB_IMAGES,
+    s3BucketAvatars: env.S3_BUCKET_AVATARS,
+    s3PublicBaseUrl: env.S3_PUBLIC_BASE_URL ?? null,
     corsOrigins: env.CORS_ORIGINS.split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),

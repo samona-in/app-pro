@@ -131,11 +131,17 @@ cp apps/pro/.env.example apps/pro/.env
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | server | Supabase **pooled** connection (6543), used at runtime |
-| `DIRECT_URL` | server | Supabase **direct** connection (5432), migrations only |
-| `SUPABASE_URL` | server | Project URL, used to fetch the JWKS |
+| `DATABASE_URL` | server | PostgreSQL connection (AWS RDS), used at runtime |
+| `DIRECT_URL` | server | Unpooled connection, migrations only; optional |
+| `SUPABASE_URL` | server | Supabase project URL, used to fetch the JWKS |
+| `SUPABASE_JWKS_URL` | server | JWKS override; derived from `SUPABASE_URL` when unset |
 | `SUPABASE_JWT_SECRET` | server | Only for legacy HS256 projects |
 | `SIGNUP_DEFAULT_ROLE` | server | Role given on first sign-in (`PRO` today) |
+| `S3_REGION` | server | Region the object buckets live in |
+| `S3_BUCKET_SELFIES` | server | Bucket for Pro face photos |
+| `S3_BUCKET_JOB_IMAGES` | server | Bucket for job reference photos |
+| `S3_BUCKET_AVATARS` | server | Bucket for profile avatars |
+| `S3_PUBLIC_BASE_URL` | server | Origin for public object URLs; optional |
 | `EXPO_PUBLIC_SUPABASE_URL` | app | Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | app | Public anon key |
 | `REDIS_URL` | server | Redis connection string |

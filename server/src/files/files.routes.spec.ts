@@ -5,7 +5,7 @@ import type { Services } from '../context';
 import { errorHandler } from '../common/middleware/error-handler';
 import { createFilesRouter } from './files.routes';
 
-const AVATAR_BASE = 'https://project.supabase.co/storage/v1/object/public/avatars';
+const AVATAR_BASE = 'https://avatars.s3.us-east-1.amazonaws.com';
 
 const activeCustomer = {
   id: 'user-1',
@@ -40,7 +40,7 @@ function buildServices(overrides: Partial<Services> = {}) {
       jobImagePublicUrl: jest.fn(),
       createAvatarUpload: jest.fn().mockResolvedValue({
         path: 'customers/user-1/avatar-3f9c2175-09f4-4360-b19a-3a5447b9f4f2.jpg',
-        uploadUrl: 'https://project.supabase.co/storage/v1/object/sign/avatars/...',
+        uploadUrl: 'https://avatars.s3.us-east-1.amazonaws.com/signed?...',
       }),
       avatarExists: jest.fn().mockResolvedValue(true),
       avatarPublicUrl,
