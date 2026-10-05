@@ -70,11 +70,22 @@ const envSchema = z.object({
   S3_BUCKET_AVATARS: z.string().min(1, 'S3_BUCKET_AVATARS is required.'),
 
   /**
-   * Origin that public object URLs are built from. Optional: defaults to the
-   * buckets' own regional S3 URL. Set it only if objects are served through a
-   * CDN or a custom domain instead.
+   * Origin that public selfie URLs are built from. Optional: defaults to the
+   * selfies bucket's own regional S3 URL.
+   *
+   * One origin per bucket, not one for all three. A CDN distribution fronts a
+   * single bucket, so when we put CloudFront in front these have to differ —
+   * `d123.cloudfront.net/selfies` and `d123.cloudfront.net/avatars` are two
+   * distributions, not two prefixes on one. Sharing a single base URL would
+   * have baked that mistake into the URL builder before we found out.
    */
-  S3_PUBLIC_BASE_URL: optional(z.string()),
+  S3_PUBLIC_BASE_URL_SELFIES: optional(z.string()),
+
+  /** Origin for public job-image URLs. See `S3_PUBLIC_BASE_URL_SELFIES`. */
+  S3_PUBLIC_BASE_URL_JOB_IMAGES: optional(z.string()),
+
+  /** Origin for public avatar URLs. See `S3_PUBLIC_BASE_URL_SELFIES`. */
+  S3_PUBLIC_BASE_URL_AVATARS: optional(z.string()),
 
   /** Comma-separated list of allowed browser origins. */
   CORS_ORIGINS: z.string().default(''),
@@ -233,8 +244,12 @@ export interface AppConfig {
   s3BucketJobImages: string;
   /** Bucket holding per-surface profile avatars. */
   s3BucketAvatars: string;
-  /** Origin public object URLs are built from; null uses the buckets' S3 URLs. */
-  s3PublicBaseUrl: string | null;
+  /** Origin for public selfie URLs; null uses the selfies bucket's S3 URL. */
+  s3PublicBaseUrlSelfies: string | null;
+  /** Origin for public job-image URLs; null uses that bucket's S3 URL. */
+  s3PublicBaseUrlJobImages: string | null;
+  /** Origin for public avatar URLs; null uses the avatars bucket's S3 URL. */
+  s3PublicBaseUrlAvatars: string | null;
   corsOrigins: string[];
   googleMapsApiKey: string | null;
   /** Base URL of the OSM-compatible geocoder used by `/locations`. */
@@ -319,7 +334,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     s3BucketSelfies: env.S3_BUCKET_SELFIES,
     s3BucketJobImages: env.S3_BUCKET_JOB_IMAGES,
     s3BucketAvatars: env.S3_BUCKET_AVATARS,
-    s3PublicBaseUrl: env.S3_PUBLIC_BASE_URL ?? null,
+    s3PublicBaseUrlSelfies: env.S3_PUBLIC_BASE_URL_SELFIES ?? null,
+    s3PublicBaseUrlJobImages: env.S3_PUBLIC_BASE_URL_JOB_IMAGES ?? null,
+    s3PublicBaseUrlAvatars: env.S3_PUBLIC_BASE_URL_AVATARS ?? null,
     corsOrigins: env.CORS_ORIGINS.split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),

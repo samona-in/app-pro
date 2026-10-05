@@ -77,7 +77,11 @@ export function createServices(
     selfiesBucket: config.s3BucketSelfies,
     jobImagesBucket: config.s3BucketJobImages,
     avatarsBucket: config.s3BucketAvatars,
-    publicBaseUrl: config.s3PublicBaseUrl,
+    publicBaseUrls: {
+      selfies: config.s3PublicBaseUrlSelfies,
+      jobImages: config.s3PublicBaseUrlJobImages,
+      avatars: config.s3PublicBaseUrlAvatars,
+    },
     // No credentials passed: the client resolves them from the ambient
     // provider chain, which on Fargate is the task role. Constructing it here
     // keeps key material out of the environment entirely.
