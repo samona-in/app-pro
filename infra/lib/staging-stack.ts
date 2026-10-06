@@ -137,13 +137,13 @@ export class SamonaStagingStack extends Stack {
       multiAzEnabled: false,
       atRestEncryptionEnabled: true,
       transitEncryptionEnabled: true,
-      transitEncryptionMode: 'preferred',
+      transitEncryptionMode: 'required',
       authToken: redisAuth.secretValue.unsafeUnwrap(),
       port: 6379,
       cacheSubnetGroupName: new elasticache.CfnSubnetGroup(this, 'CacheSubnets', {
         description: 'SAMONA Redis subnets',
         subnetIds: vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_ISOLATED }).subnetIds,
-      }).cacheSubnetGroupName,
+      }).ref,
       securityGroupIds: [cacheSg.securityGroupId],
     });
 
@@ -185,9 +185,14 @@ export class SamonaStagingStack extends Stack {
 
     // --- Hand-off to the service stack -------------------------------------
     publish('vpc/id', vpc.vpcId);
-    publish(
-      'vpc/public-subnets',
-      vpc.selectSubnets({ subnetType: ec2.SubnetType.PUBLIC }).subnetIds.join(','),
+    // One parameter per subnet, not one comma-joined value. The SSM read is an
+    // unresolved token inside the service stack, so splitting a joined value
+    // there yields a single element holding the whole list — which is how the
+    // ALB once received "subnet-a,subnet-b" and CloudFormation rejected it.
+    // Each subnet as its own parameter resolves to a real ID instead.
+    const publicSubnetIds = vpc.selectSubnets({ subnetType: ec2.SubnetType.PUBLIC }).subnetIds;
+    publicSubnetIds.forEach((subnetId, index) =>
+      publish(`vpc/public-subnet-${index + 1}`, subnetId),
     );
     publish('sg/task', taskSg.securityGroupId);
 
@@ -197,7 +202,11 @@ export class SamonaStagingStack extends Stack {
     publish('db/username', 'samona_admin');
     publish('db/secret-name', database.secret!.secretName);
 
-    publish('redis/host', cache.attrReadEndPointAddresses);
+    // Primary end point addresses are a single string. The read-endpoints
+    // attribute is a CloudFormation list, which resolves with literal square
+    // brackets around the host — `[host]` is not a host to `new URL()`, and
+    // ioredis throws before it can connect.
+    publish('redis/host', cache.attrPrimaryEndPointAddress);
     publish('redis/port', '6379');
     publish('redis/secret-name', redisAuth.secretName);
 
@@ -209,6 +218,11 @@ export class SamonaStagingStack extends Stack {
     publish('s3/bucket-avatars', avatars.bucketName);
 
     publish('ecr/repository-uri', repository.repositoryUri);
+    // The name as its own parameter, not derived from the URI by splitting it:
+    // an SSM read is an unresolved token at synth, so a string operation on it
+    // yields the whole value, not the part after the slash. IAM grants need the
+    // repository ARN, which is only safe to build from the literal name.
+    publish('ecr/repository-name', repository.repositoryName);
 
     new CfnOutput(this, 'EcrRepositoryUri', {
       value: repository.repositoryUri,

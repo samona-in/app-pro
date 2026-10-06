@@ -40,33 +40,50 @@ npx cdk deploy SamonaStagingStack
 
 # 2. Build and push the image to the ECR repository created in step 1.
 #    This must be an arm64 image: the task definition targets Graviton.
-#    tag=$(aws ecr describe-repositories --repository-names samona-staging-server \
-#            --query 'repositories[0].repositoryUri' --output text)
-#    docker buildx build --platform linux/arm64 -f ../server/Dockerfile \
-#      --target runtime -t "$tag:latest" --push ..
+#    repo=072842665972.dkr.ecr.us-east-1.amazonaws.com/samona-staging-server
+#    docker build --platform linux/arm64 --target runtime -t "$repo:latest" \
+#      -f ../server/Dockerfile ..
+#    docker build --platform linux/arm64 --target migrate -t "$repo:migrate" ..
+#    docker push "$repo:latest" && docker push "$repo:migrate"
+#    (Braces are deliberate: zsh parses `$repo:tag` as a history expansion.)
 
 # 3. Apply migrations as a one-off ECS task (see below).
 
 # 4. Service plane.
-npx cdk deploy SamonaStagingServiceStack \
-  --context supabaseUrl=https://<project>.supabase.co
+npx cdk deploy SamonaStagingServiceStack
 ```
 
-`SUPABASE_URL` is passed as context rather than committed: the API verifies
-access tokens against that project's JWKS and cannot serve traffic without it.
-It is not secret — it is the public project URL the auth client itself uses.
+`SUPABASE_URL` is read from the repo's `.env` (the same file the server uses),
+or overridden with `--context supabaseUrl=…` / the `SUPABASE_URL` environment
+variable. It is not secret — it is the public project URL the auth client
+itself uses — but it is not committed either.
 
 ### Migrations
 
-Migrations are not run by the service. A `migrate` target exists in
-`server/Dockerfile` for a one-off ECS task that runs `prisma migrate deploy`
-against RDS with the Prisma CLI present:
+Migrations are not run by the service. The `:migrate` image is the same
+application plus the Prisma CLI, and its task definition is registered by the
+service stack as an output. Run it once after each fresh database:
 
+```bash
+cd infra
+npx cdk deploy SamonaStagingServiceStack | grep -o 'MigrateTaskDefinition = .*'   # the ARN
+
+TASK=$(aws cloudformation describe-stacks --stack-name SamonaStagingServiceStack \
+  --query "Stacks[0].Outputs[?OutputKey=='MigrateTaskDefinition'].OutputValue" \
+  --output text --region us-east-1)
+CLUSTER=$(aws ecs list-clusters --region us-east-1 --query 'clusterArns[]' --output text | tr '\t' '\n' | grep SamonaStagingServiceStack | head -1)
+SG=$(aws ssm get-parameter --name /samona/staging/sg/task --query 'Parameter.Value' --output text --region us-east-1)
+SUBNETS=$(aws ssm get-parameter --name /samona/staging/vpc/public-subnet-1 --query 'Parameter.Value' --output text --region us-east-1),$(aws ssm get-parameter --name /samona/staging/vpc/public-subnet-2 --query 'Parameter.Value' --output text --region us-east-1)
+aws ecs run-task --cluster "$CLUSTER" --task-definition "$TASK" --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}" \
+  --region us-east-1
 ```
-aws ecs run-task --cluster SamonaStagingServiceStack-ApiCluster-Cluster-... \
-  --task-definition samona-staging-api --launch-type FARGATE \
-  --network-configuration 'awsvpcConfiguration={subnets=[...]}'
-```
+
+The task composes `DATABASE_URL` the same way the service does, applies the
+baseline, and stops. The service and the migration task trust the AWS RDS CA via
+`NODE_EXTRA_CA_CERTS`, so a Node driver can verify RDS TLS where the built-in CA
+list would not — the Prisma CLI connects either way because its native engine
+does not go through Node's trust store.
 
 ## Decisions worth knowing before you edit this
 

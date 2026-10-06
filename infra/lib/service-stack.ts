@@ -52,18 +52,18 @@ export class SamonaServiceStack extends Stack {
       // are an adequate stand-in for a field that is never consulted; publishing
       // the real list to SSM only to leave it unreferenced is worse.
       availabilityZones: cdk.Fn.getAzs(),
-      publicSubnetIds: read('vpc/public-subnets').split(','),
+      // One parameter per subnet: an SSM read is an unresolved token at synth,
+      // so a comma-joined value split here would collapse to a single element
+      // holding the whole list. Each read resolves to one real subnet ID.
+      publicSubnetIds: [read('vpc/public-subnet-1'), read('vpc/public-subnet-2')],
     });
 
     // An imported VPC carries no route-table IDs, so selecting by subnetType cannot
     // resolve routes. Naming the subnets explicitly is quieter and more precise.
-    // The length is asserted at deploy time by the ALB health check rather than
-    // here: at synth the SSM value is still an unresolved token, so splitting it
-    // yields one element no matter how many subnets the data stack created.
-    const subnetIds = read('vpc/public-subnets').split(',');
-    const publicSubnets = subnetIds.map((id, index) =>
-      ec2.Subnet.fromSubnetId(this, `PublicSubnet${index}`, id),
-    );
+    const publicSubnets = [
+      ec2.Subnet.fromSubnetId(this, 'PublicSubnet0', read('vpc/public-subnet-1')),
+      ec2.Subnet.fromSubnetId(this, 'PublicSubnet1', read('vpc/public-subnet-2')),
+    ];
 
     const cluster = new ecs.Cluster(this, 'Cluster', { vpc });
 
@@ -76,6 +76,41 @@ export class SamonaServiceStack extends Stack {
     // The task and execution roles are created by the task definition itself;
     // aws-cdk-lib no longer exports TaskRole/ExecutionRole classes.
     const repositoryUri = read('ecr/repository-uri');
+    // Built from the repository NAME parameter, never by splitting the URI: an
+    // SSM read is an unresolved token at synth, so a string operation on the URI
+    // yields the whole thing, not the part after the slash — which IAM accepts
+    // as a literal ARN but that never matches the real repository at pull time.
+    const repositoryArn = `arn:${this.partition}:ecr:${this.region}:${this.account}:repository/${read('ecr/repository-name')}`;
+    const dbSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'DbSecret',
+      read('db/secret-name'),
+    );
+
+    // Shared by the API and the one-off migration task below; the migration task
+    // overrides the image and entrypoint and needs no Redis or app secrets.
+    const environment = {
+      NODE_ENV: 'production',
+      PORT: '4000',
+      LOG_LEVEL: 'info',
+      DB_HOST: read('db/host'),
+      DB_PORT: read('db/port'),
+      DB_NAME: read('db/name'),
+      DB_USER: read('db/username'),
+      REDIS_HOST: read('redis/host'),
+      REDIS_PORT: read('redis/port'),
+      S3_REGION: read('s3/region'),
+      S3_BUCKET_SELFIES: read('s3/bucket-selfies'),
+      S3_BUCKET_JOB_IMAGES: read('s3/bucket-job-images'),
+      S3_BUCKET_AVATARS: read('s3/bucket-avatars'),
+      SUPABASE_URL: supabaseUrl,
+      CORS_ORIGINS: corsOrigins,
+    };
+
+    const platform: ecs.RuntimePlatform = {
+      cpuArchitecture: ecs.CpuArchitecture.ARM64,
+      operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+    };
 
     const definition = new ecs.FargateTaskDefinition(this, 'ApiTask', {
       cpu: 512,
@@ -83,39 +118,18 @@ export class SamonaServiceStack extends Stack {
       // Graviton. Cheaper than x86 at the same size, and the image is built on an
       // arm64 machine so the layers match. An image pushed from an x86 host would
       // not start here — that is the failure to watch for on the push step.
-      runtimePlatform: {
-        cpuArchitecture: ecs.CpuArchitecture.ARM64,
-        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
-      },
+      runtimePlatform: platform,
     });
 
     definition.addContainer('Api', {
       image: ecs.ContainerImage.fromRegistry(`${repositoryUri}:latest`),
       logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'api', logGroup }),
-      environment: {
-        NODE_ENV: 'production',
-        PORT: '4000',
-        LOG_LEVEL: 'info',
-        DB_HOST: read('db/host'),
-        DB_PORT: read('db/port'),
-        DB_NAME: read('db/name'),
-        DB_USER: read('db/username'),
-        REDIS_HOST: read('redis/host'),
-        REDIS_PORT: read('redis/port'),
-        S3_REGION: read('s3/region'),
-        S3_BUCKET_SELFIES: read('s3/bucket-selfies'),
-        S3_BUCKET_JOB_IMAGES: read('s3/bucket-job-images'),
-        S3_BUCKET_AVATARS: read('s3/bucket-avatars'),
-        SUPABASE_URL: supabaseUrl,
-        CORS_ORIGINS: corsOrigins,
-      },
+      environment,
       secrets: {
         // RDS stores its master password as {"username":…,"password":…}. The
         // entrypoint assembles DATABASE_URL from both fields, so the complete
         // connection string never exists anywhere except in a process's memory.
-        DB_SECRET: ecs.Secret.fromSecretsManager(
-          secretsmanager.Secret.fromSecretNameV2(this, 'DbSecret', read('db/secret-name')),
-        ),
+        DB_SECRET: ecs.Secret.fromSecretsManager(dbSecret),
         REDIS_AUTH_TOKEN: ecs.Secret.fromSecretsManager(
           secretsmanager.Secret.fromSecretNameV2(this, 'RedisSecret', read('redis/secret-name')),
         ),
@@ -148,16 +162,61 @@ export class SamonaServiceStack extends Stack {
     // secrets and log driver, so the ECR pull grant has to be added here rather
     // than right after the task definition. The repository URI comes from SSM
     // instead of an imported construct, so the grant is written by hand.
-    definition.executionRole!.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          'ecr:BatchGetImage',
-          'ecr:GetDownloadUrlForLayer',
-          'ecr:BatchCheckLayerAvailability',
-        ],
-        resources: [`${repositoryUri}/*`],
-      }),
-    );
+    const grantEcrPull = (role: iam.IRole) => {
+      role.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          actions: ['ecr:GetAuthorizationToken'],
+          // Range-scoped actions are per-repository, but token retrieval is
+          // account-wide: ECS asks for a token and then checks each repository
+          // against the per-repo grant below. Only this one needs `*`.
+          resources: ['*'],
+        }),
+      );
+      role.addToPrincipalPolicy(
+        new iam.PolicyStatement({
+          actions: [
+            'ecr:BatchGetImage',
+            'ecr:GetDownloadUrlForLayer',
+            'ecr:BatchCheckLayerAvailability',
+          ],
+          resources: [repositoryArn],
+        }),
+      );
+    };
+    grantEcrPull(definition.executionRole!);
+
+    // --- Migration task -----------------------------------------------------
+    // A one-off task for `prisma migrate deploy` against RDS. It shares the API
+    // task's env and the DB secret, but runs the :migrate image — the runtime
+    // image carries no Prisma CLI. Launch it manually:
+    //
+    //   aws ecs run-task --cluster <cluster> --task-definition <arn> \
+    //     --launch-type FARGATE --network-configuration '{"awsvpcConfiguration":
+    //     {"subnets":[...public...],"assignPublicIp":"ENABLED","securityGroups":[...]}}'
+    //
+    // The task definition's execution role (below) grants exactly the same ECR
+    // pull; the network wiring is supplied by the caller, so the parameter stays
+    // out of the template.
+    const migration = new ecs.FargateTaskDefinition(this, 'MigrateTask', {
+      cpu: 512,
+      memoryLimitMiB: 1024,
+      runtimePlatform: platform,
+    });
+    migration.addContainer('Migrate', {
+      image: ecs.ContainerImage.fromRegistry(`${repositoryUri}:migrate`),
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: 'migrate', logGroup }),
+      // SAMONA_START=migrate tells the shared entrypoint to compose DATABASE_URL
+      // and hand off to the Prisma CLI instead of booting the API.
+      environment: { ...environment, SAMONA_START: 'migrate' },
+      secrets: {
+        DB_SECRET: ecs.Secret.fromSecretsManager(dbSecret),
+      },
+    });
+    grantEcrPull(migration.executionRole!);
+    new CfnOutput(this, 'MigrateTaskDefinition', {
+      value: migration.taskDefinitionArn,
+      description: 'ARN for `aws ecs run-task` to apply migrations against RDS',
+    });
 
     // --- Load balancer ------------------------------------------------------
     const alb = new elbv2.ApplicationLoadBalancer(this, 'Alb', {
