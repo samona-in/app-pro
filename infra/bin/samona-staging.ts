@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { SamonaServiceStack } from '../lib/service-stack.js';
 import { SamonaStagingStack } from '../lib/staging-stack.js';
 
@@ -17,17 +19,31 @@ const region = (app.node.tryGetContext('samona:region') as string | undefined) ?
 const stage = (app.node.tryGetContext('samona:stage') as string | undefined) ?? 'staging';
 
 /**
- * SUPABASE_URL is not in the template because it lives in .env and is project
- * specific. Pass it at deploy time:
+ * SUPABASE_URL is what the API verifies access tokens against, so the service
+ * stack cannot be synthesised without it. It is resolved in order:
  *
- *   npm run deploy -- --context supabaseUrl=https://<project>.supabase.co
+ *   1. --context supabaseUrl=… (highest precedence, for CI or an override)
+ *   2. SUPABASE_URL from the environment
+ *   3. the repo's own .env, which is where the server reads it from
  *
- * It is not secret — it is the public project URL, printed by the auth client
- * itself — so context is the right channel, and it keeps the value out of the
- * template and out of a committed defaults file.
+ * Reading .env rather than demanding a flag is deliberate: requiring a context
+ * value for every command would make `cdk list`, `diff` and even `bootstrap`
+ * fail, which is exactly the friction that gets routed around. The value is not
+ * secret — it is the public project URL the auth client itself prints — but it
+ * is not committed either; it belongs to the local .env like the rest.
  */
-const supabaseUrl = (app.node.tryGetContext('supabaseUrl') as string | undefined) ?? '';
-const corsOrigins = (app.node.tryGetContext('corsOrigins') as string | undefined) ?? '';
+const supabaseUrl =
+  firstString([
+    app.node.tryGetContext('supabaseUrl') as string | undefined,
+    process.env.SUPABASE_URL,
+    dotenvValue('SUPABASE_URL'),
+  ]) ?? '';
+const corsOrigins =
+  firstString([
+    app.node.tryGetContext('corsOrigins') as string | undefined,
+    process.env.CORS_ORIGINS,
+    dotenvValue('CORS_ORIGINS'),
+  ]) ?? '';
 
 const env = { account, region };
 const tags = { Project: 'samona', Environment: stage, ManagedBy: 'cdk' };
@@ -74,4 +90,36 @@ for (const [id, reason] of Object.entries(acknowledged)) {
 
 function capitalize(value: string): string {
   return `${value[0]?.toUpperCase() ?? ''}${value.slice(1)}`;
+}
+
+/** First candidate that is a non-empty string, or undefined. */
+function firstString(candidates: readonly (string | undefined)[]): string | undefined {
+  for (const candidate of candidates) {
+    if (candidate !== undefined && candidate.trim().length > 0) return candidate.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Minimal `.env` reader — deliberately not a dependency. It exists so the
+ * infra app reads SUPABASE_URL from the same file the server does, rather than
+ * asking the operator to type it twice. Only the simple `KEY=value` and
+ * `KEY="value"` forms are supported; that is all this repo's .env uses.
+ */
+function dotenvValue(key: string): string | undefined {
+  let contents: string;
+  try {
+    contents = readFileSync(join(__dirname, '..', '..', '.env'), 'utf8');
+  } catch {
+    return undefined;
+  }
+
+  for (const line of contents.split(/\r?\n/)) {
+    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+    if (match === null) continue;
+    if (match[1] !== key) continue;
+    const value = match[2]!.trim().replace(/^(["'])(.*)\1$/, '$2');
+    return value.trim().length > 0 ? value : undefined;
+  }
+  return undefined;
 }
