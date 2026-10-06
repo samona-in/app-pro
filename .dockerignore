@@ -1,0 +1,37 @@
+# Keep the build context to what the image actually needs. Without this, the
+# host's node_modules (several hundred MB) is uploaded on every build and can
+# shadow the container's own install on a native dependency.
+
+node_modules
+**/node_modules
+
+# Build output. Every stage compiles from source.
+dist
+**/dist
+*.tsbuildinfo
+
+# Generated Prisma client. Each build stage runs `prisma generate` itself, and
+# copying the host's copy in first would only mask a broken generation.
+server/src/generated
+**/src/generated
+
+# Mobile workspaces. The server image installs none of them, and the npm install
+# is scoped with --workspace filters, so their sources are dead weight.
+apps/pro
+apps/customer
+
+# Infrastructure app: it builds CloudFormation, it is not part of the runtime.
+infra
+
+.git
+.github
+.gitignore
+**/.DS_Store
+**/.expo
+**/coverage
+**/.turbo
+
+# Never let a real .env reach a build context or an image layer.
+.env
+.env.*
+!.env.example

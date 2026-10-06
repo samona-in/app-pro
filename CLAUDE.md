@@ -654,6 +654,41 @@ Keep README and CLAUDE.md accurate.
 
 Do not add unnecessary documentation for trivial implementation details.
 
+## Deployment (staging)
+
+The staging environment is defined as a CDK app in `infra/` and deployed to
+`072842665972` / `us-east-1`. See `infra/README.md` for the full sequence; the
+shape that matters when changing it:
+
+- **Two stacks, deployed in order.** `SamonaStagingStack` creates the VPC, RDS,
+  Redis, S3, ECR and secrets. The image is then built and pushed. Then
+  `SamonaStagingServiceStack` creates the ALB, cluster, and the single Fargate
+  task. The order is real: ECS cannot pull an image that does not exist, and the
+  ECR repository cannot exist until the first stack deploys.
+- **Handoffs via SSM (`/samona/staging/…`), never CloudFormation exports.**
+  Exports are cross-stack references and removing one deadlocks a deployment in
+  `UPDATE_ROLLBACK_FAILED`. Also: unknown values must be split before they are
+  published (one parameter key per subnet), never inside the consumer — an SSM
+  read is an unresolved token at synth, so a string operation on it yields the
+  whole value, not the part.
+- **One task, no autoscaling.** Socket.IO uses the in-memory adapter and
+  `setInterval` schedulers; a second task would drop realtime events and
+  double-fire jobs. `minHealthyPercent: 0` keeps a deploy from briefly running
+  two. The image tag is mutable, so pushing a new `latest` requires
+  `aws ecs update-service --force-new-deployment` to re-pull it.
+- **URLs are composed in the container, never stored.** `server/docker-entrypoint.mjs`
+  assembles `DATABASE_URL`/`REDIS_URL` from endpoint env vars and Secrets
+  Manager values injected as `DB_SECRET`, `REDIS_AUTH_TOKEN` and runs either the
+  server (`SAMONA_START=server`, default) or `prisma migrate deploy`
+  (`SAMONA_START=migrate`, the `:migrate` image). `SAMONA_LOG_URLS=1` logs the
+  URLs with passwords redacted.
+- **RDS TLS from Node.** RDS certificates chain to an AWS CA that is not in
+  Node's built-in trust store; `NODE_EXTRA_CA_CERTS` points at the RDS CA bundle
+  baked into the image at build time. Without it the Prisma driver adapter (and
+  any Node TLS client) fails with `self-signed certificate in certificate
+  chain`, even though `sslmode=require` is set. `prisma migrate deploy` is not a
+  reliable canary for this: its native engine does not use Node's trust store.
+
 ## Working Style
 
 Before implementing a feature:

@@ -40,6 +40,16 @@ export default tseslint.config(
     },
   },
 
+  // Node ESM scripts that are not CommonJS config files, e.g. the container
+  // entrypoint. `**/*.config.mjs` is ignored above, so only real scripts land here.
+  {
+    files: ['**/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
+
   // Shared rules for every TypeScript file in the repo.
   {
     files: ['**/*.{ts,tsx,mts,cts}'],

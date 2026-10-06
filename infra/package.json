@@ -1,0 +1,28 @@
+{
+  "name": "@samona/infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AWS CDK infrastructure for SAMONA (CDK CLI only — not part of the app build)",
+  "bin": {
+    "samona-infra": "bin/samona-staging.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "typecheck": "tsc --noEmit",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy --require-approval any-change",
+    "bootstrap": "cdk bootstrap"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "aws-cdk": "~2.1144.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "~2.272.0",
+    "constructs": "^10.8.1"
+  }
+}
