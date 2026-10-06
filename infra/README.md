@@ -58,6 +58,12 @@ or overridden with `--context supabaseUrl=…` / the `SUPABASE_URL` environment
 variable. It is not secret — it is the public project URL the auth client
 itself uses — but it is not committed either.
 
+Push-delivery credentials (`samona/staging/fcm` -> `FCM_PROJECT_ID` /
+`FCM_CLIENT_EMAIL` / `FCM_PRIVATE_KEY`, `samona/staging/expo-token` ->
+`EXPO_ACCESS_TOKEN`) live only in Secrets Manager, seeded once from the repo's
+`.env`; the task definition references them by name so no value ever appears in
+a template. `.env` itself stays local and gitignored.
+
 ### Migrations
 
 Migrations are not run by the service. The `:migrate` image is the same
