@@ -143,6 +143,7 @@ COPY --chown=samona:samona --from=build /app/server/dist ./server/dist
 COPY --chown=samona:samona --from=build /app/server/src/generated ./server/src/generated
 COPY --chown=samona:samona --from=build /app/server/prisma ./server/prisma
 COPY --chown=samona:samona server/package.json ./server/
+COPY --chown=samona:samona server/docker-entrypoint.mjs ./server/
 USER samona
 EXPOSE 4000
 # Unauthenticated and reveals nothing about versions or dependencies, so it is
@@ -150,7 +151,10 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["node", "server/dist/index.js"]
+# The entrypoint assembles DATABASE_URL and REDIS_URL from the task's environment
+# and injected secrets, then imports the server in-process — so SIGTERM still
+# reaches Node directly and no second process sits between tini and the app.
+CMD ["node", "server/docker-entrypoint.mjs"]
 
 # --- migrate -----------------------------------------------------------------
 # The same application code, plus the Prisma CLI and everything needed to apply
