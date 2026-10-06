@@ -87,6 +87,20 @@ export class SamonaServiceStack extends Stack {
       read('db/secret-name'),
     );
 
+    // Push-delivery credentials, referenced by name like the DB secret above and
+    // seeded from the repo .env by the operator — never part of a template. FCM
+    // serves Android's raw registration tokens; Expo serves iOS.
+    const fcmSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'FcmSecret',
+      read('fcm/secret-name'),
+    );
+    const expoSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'ExpoSecret',
+      read('expo/secret-name'),
+    );
+
     // Shared by the API and the one-off migration task below; the migration task
     // overrides the image and entrypoint and needs no Redis or app secrets.
     const environment = {
@@ -140,6 +154,12 @@ export class SamonaServiceStack extends Stack {
             read('job-offer/secret-name'),
           ),
         ),
+        // One JSON secret expanded into its three fields (valueFrom arn:key)
+        // for FCM, and the Expo token as the whole secret value.
+        FCM_PROJECT_ID: ecs.Secret.fromSecretsManager(fcmSecret, 'FCM_PROJECT_ID'),
+        FCM_CLIENT_EMAIL: ecs.Secret.fromSecretsManager(fcmSecret, 'FCM_CLIENT_EMAIL'),
+        FCM_PRIVATE_KEY: ecs.Secret.fromSecretsManager(fcmSecret, 'FCM_PRIVATE_KEY'),
+        EXPO_ACCESS_TOKEN: ecs.Secret.fromSecretsManager(expoSecret),
       },
       healthCheck: {
         command: [
