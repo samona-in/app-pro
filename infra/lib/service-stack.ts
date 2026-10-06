@@ -205,6 +205,24 @@ export class SamonaServiceStack extends Stack {
     };
     grantEcrPull(definition.executionRole!);
 
+    // The API mints presigned PUT URLs and verifies objects against the buckets
+    // (HeadObject existence checks via the same signer), so the task role needs
+    // S3. The execution role above only pulls images; S3 belongs on the task
+    // role, scoped to the three buckets whose names come from SSM in the env.
+    definition.taskRole!.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:PutObject', 's3:GetObject', 's3:DeleteObject'],
+        resources: [
+          read('s3/bucket-selfies'),
+          read('s3/bucket-job-images'),
+          read('s3/bucket-avatars'),
+        ].flatMap((bucket) => [
+          `arn:${this.partition}:s3:::${bucket}`,
+          `arn:${this.partition}:s3:::${bucket}/*`,
+        ]),
+      }),
+    );
+
     // --- Migration task -----------------------------------------------------
     // A one-off task for `prisma migrate deploy` against RDS. It shares the API
     // task's env and the DB secret, but runs the :migrate image — the runtime
