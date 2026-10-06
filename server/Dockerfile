@@ -26,6 +26,22 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
+# --- rds CA bundle -----------------------------------------------------------
+# RDS instances present certificates chained to the AWS RDS trust store, which
+# Node's built-in CA list does not include. Without it the driver adapter's
+# TLS verification fails ("self-signed certificate in certificate chain") even
+# though `sslmode=require` is set. The truststore endpoint always serves the
+# current bundle, so a rebuilt image re-points at whatever CA RDS is using now.
+#
+# Node is used instead of curl so no extra package is installed just to fetch
+# one file. Fetching succeeds only if the host is reachable and the write is
+# synchronous, so a failed download fails the build loudly rather than shipping
+# a starved trust store.
+FROM node:22-bookworm-slim AS rds-certs
+ARG RDS_CA_BUNDLE_URL=https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+RUN node -e 'const{writeFileSync}=require("node:fs");(async()=>{const r=await fetch(process.env.RDS_CA_BUNDLE_URL);if(!r.ok)throw new Error("fetch returned "+r.status);writeFileSync("/rds-ca-bundle.pem",await r.text())})().catch(e=>{console.error("failed to fetch RDS CA bundle:",e.message);process.exit(1)})' \
+ && test -s /rds-ca-bundle.pem
+
 # --- dependencies ------------------------------------------------------------
 # Manifests alone, so this layer is reused until a dependency actually changes.
 #
@@ -122,7 +138,9 @@ RUN apt-get update \
  && useradd --system --uid 10001 --create-home --home-dir /home/samona samona
 ENV NODE_ENV=production \
     PORT=4000 \
-    HOME=/home/samona
+    HOME=/home/samona \
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca-bundle.pem
+COPY --chown=samona:samona --from=rds-certs /rds-ca-bundle.pem /etc/ssl/certs/rds-ca-bundle.pem
 COPY --chown=samona:samona --from=prod-deps /app/node_modules ./node_modules
 # npm does not hoist everything: jose is an ESM-only package and the lockfile
 # pins it to server/node_modules. Node resolves from the requiring file upward,
@@ -158,10 +176,17 @@ CMD ["node", "server/docker-entrypoint.mjs"]
 
 # --- migrate -----------------------------------------------------------------
 # The same application code, plus the Prisma CLI and everything needed to apply
-# migrations. Run from /app/server because prisma.config.ts resolves the schema
-# and migrations paths relative to that directory.
+# migrations. It boots the shared entrypoint in migrate mode, so DATABASE_URL is
+# assembled from DB_SECRET exactly the way the runtime does it — one composition
+# path, one set of migration history to keep in sync. The entrypoint runs Prisma
+# with cwd /app/server, where prisma.config.ts and prisma/ live.
 FROM build AS migrate
-WORKDIR /app/server
-ENV NODE_ENV=production
-COPY server/prisma.config.ts ./
-CMD ["npx", "prisma", "migrate", "deploy"]
+WORKDIR /app
+ENV NODE_ENV=production \
+    SAMONA_START=migrate \
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca-bundle.pem
+COPY --from=rds-certs /rds-ca-bundle.pem /etc/ssl/certs/rds-ca-bundle.pem
+COPY server/prisma.config.ts ./server/
+# No tini here: migrate is a one-off task, not a process supervisor, and this
+# image is not built on the runtime stage.
+CMD ["node", "server/docker-entrypoint.mjs"]

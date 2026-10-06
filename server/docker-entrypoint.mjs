@@ -14,7 +14,13 @@
  * Both URLs are left alone when already set, so the same image runs locally with
  * DATABASE_URL/REDIS_URL and in ECS with the decomposed form.
  */
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
+
+/** What this process should run once the URLs are composed. */
+const startJob = process.env.SAMONA_START ?? 'server';
+const serverDir = fileURLToPath(new URL('./', import.meta.url));
 
 const required = (name) => {
   const value = process.env[name];
@@ -78,10 +84,12 @@ const composeRedisUrl = () => {
 process.env.DATABASE_URL ??= composeDatabaseUrl();
 process.env.REDIS_URL ??= composeRedisUrl();
 
+// Migrations need a database but not Redis, so the Redis requirement only
+// applies to the server job.
 if (process.env.DATABASE_URL === undefined) {
   throw new Error('Neither DATABASE_URL nor DB_SECRET was provided; cannot reach the database.');
 }
-if (process.env.REDIS_URL === undefined) {
+if (startJob !== 'migrate' && process.env.REDIS_URL === undefined) {
   throw new Error('Neither REDIS_URL nor REDIS_AUTH_TOKEN was provided; cannot reach Redis.');
 }
 
@@ -118,6 +126,19 @@ console.log(
 if (process.env.SAMONA_LOG_URLS === '1') {
   console.log(`DATABASE_URL=${redact(process.env.DATABASE_URL)}`);
   console.log(`REDIS_URL=${redact(process.env.REDIS_URL)}`);
+}
+
+// One-off migration: hand the composed environment to the Prisma CLI and exit
+// with its status. The migrate image carries the CLI; this branch is what lets
+// that image reuse the same URL-composition path instead of a second one.
+if (startJob === 'migrate') {
+  console.log(`Starting job: prisma migrate deploy (cwd ${serverDir})`);
+  const result = spawnSync('npx', ['prisma', 'migrate', 'deploy'], {
+    cwd: serverDir,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  process.exit(result.status ?? 1);
 }
 
 await import(new URL('./dist/index.js', import.meta.url).href);
