@@ -736,6 +736,11 @@ describe('createJobsService.getAvailableJobForPro', () => {
 
     expect(result.id).toBe('job-1');
     expect(result.distanceKm).toEqual(expect.any(Number));
+    // The single-job fetch uses the same approved-services pool as the feed.
+    expect(ctx.prisma.proService.findMany).toHaveBeenCalledWith({
+      where: { proProfileId: 'pro-1', status: 'ACCEPTED' },
+      select: { serviceId: true },
+    });
     expect(ctx.prisma.job.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -1303,6 +1308,14 @@ describe('createJobsService.declineJob', () => {
     expect(ctx.realtime.emitToUser).toHaveBeenCalledWith('user-1', 'job:offer:ended', {
       jobId: 'job-1',
     });
+    // Deliberately unfiltered on status: a decline only self-excludes and
+    // resolves this pro's alert, so it must still be recordable after an
+    // admin changes the service's verdict — otherwise a stale push alert
+    // would 404 forever instead of being silenced.
+    expect(ctx.prisma.proService.findMany).toHaveBeenCalledWith({
+      where: { proProfileId: 'pro-1' },
+      select: { serviceId: true },
+    });
   });
 
   it('is idempotent for a repeated decline of the same job', async () => {
@@ -1353,7 +1366,13 @@ describe('createJobsService.listAvailableJobs', () => {
     const proServiceFindMany = jest.fn().mockResolvedValue([{ serviceId: 'svc-1' }]);
     // Two candidate jobs: one inside the pro's radius, one far away. The
     // matching predicate is the pool's authority on inclusion.
-    const nearJob = { ...jobRow, id: 'near', serviceId: 'svc-1', latitude: 12.972, longitude: 77.595 };
+    const nearJob = {
+      ...jobRow,
+      id: 'near',
+      serviceId: 'svc-1',
+      latitude: 12.972,
+      longitude: 77.595,
+    };
     const farJob = { ...jobRow, id: 'far', serviceId: 'svc-1', latitude: 13.1, longitude: 77.7 };
     const isProEligible = jest
       .fn()
@@ -1380,6 +1399,12 @@ describe('createJobsService.listAvailableJobs', () => {
 
     await ctx.jobs.listAvailableJobs('user-1');
 
+    // Only admin-approved services feed the pool: PENDING and REJECTED rows
+    // must not surface a job to the pro.
+    expect(ctx.prisma.proService.findMany).toHaveBeenCalledWith({
+      where: { proProfileId: 'pro-1', status: 'ACCEPTED' },
+      select: { serviceId: true },
+    });
     expect(ctx.prisma.job.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -2074,7 +2099,9 @@ describe('createJobsService.cancelJob', () => {
     return {
       jobs,
       setRow: (next: { status?: JobStatus; [k: string]: unknown }) => {
-        row = { ...arrivedRow, ...next } as Omit<typeof arrivedRow, 'status'> & { status: JobStatus };
+        row = { ...arrivedRow, ...next } as Omit<typeof arrivedRow, 'status'> & {
+          status: JobStatus;
+        };
       },
       jobFindUnique,
       historyCreate,

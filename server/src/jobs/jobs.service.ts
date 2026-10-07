@@ -1,6 +1,7 @@
 import {
   JobStatus,
   NotificationKind,
+  ProServiceStatus,
   ACTIVE_JOB_STATUSES,
   canTransition,
   type Job,
@@ -947,7 +948,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     const pro = await findProByUserId(proUserId);
 
     const myServices = await prisma.proService.findMany({
-      where: { proProfileId: pro.id },
+      where: { proProfileId: pro.id, status: ProServiceStatus.ACCEPTED },
       select: { serviceId: true },
     });
     const serviceIds = myServices.map((entry) => entry.serviceId);
@@ -1022,7 +1023,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     const pro = await findProByUserId(proUserId);
 
     const myServices = await prisma.proService.findMany({
-      where: { proProfileId: pro.id },
+      where: { proProfileId: pro.id, status: ProServiceStatus.ACCEPTED },
       select: { serviceId: true },
     });
     const serviceIds = myServices.map((entry) => entry.serviceId);
@@ -1077,6 +1078,11 @@ export function createJobsService(deps: JobsServiceDeps) {
   async function declineJob(proUserId: string, jobId: string): Promise<void> {
     const pro = await findProByUserId(proUserId);
 
+    // Deliberately not filtered to ACCEPTED, unlike the availability pool: a
+    // decline only self-excludes and resolves this pro's own alert. If the
+    // service's status changed after the alert was sent, filtering here would
+    // 404 without recording the decline and strand the repeating push until
+    // the job expires.
     const myServices = await prisma.proService.findMany({
       where: { proProfileId: pro.id },
       select: { serviceId: true },
@@ -1811,10 +1817,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     const stale = await prisma.job.findMany({
       where: {
         status: JobStatus.REQUESTED,
-        OR: [
-          { expiresAt: { not: null, lt: now } },
-          { expiresAt: null, createdAt: { lt: cutoff } },
-        ],
+        OR: [{ expiresAt: { not: null, lt: now } }, { expiresAt: null, createdAt: { lt: cutoff } }],
       },
       select: {
         id: true,
