@@ -136,6 +136,17 @@ export default function RootLayout() {
               headerStyle: { backgroundColor: color.surface },
             }}
           />
+          <Stack.Screen
+            name="manage-services"
+            options={{
+              headerShown: true,
+              title: t('routes.manageServices'),
+              headerBackTitle: t('common.back'),
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+              contentStyle: { backgroundColor: color.background },
+            }}
+          />
         </Stack>
       </KeyboardProvider>
     </AppProviders>

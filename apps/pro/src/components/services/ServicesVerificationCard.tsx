@@ -1,4 +1,5 @@
 import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
@@ -69,14 +70,14 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
   );
 }
 
-/** Placeholder tile for adding a service; linked up later. */
+/** Placeholder tile for adding a service; both tiles open Manage Services. */
 function AddServiceTile() {
   const { t } = useTranslation();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t('servicesVerification.addService')}
-      onPress={() => undefined}
+      onPress={() => router.push('/manage-services')}
       className="w-24 items-center active:opacity-70"
     >
       <View className="h-16 w-16 items-center justify-center rounded-lg border border-dashed border-border bg-surface-muted">
@@ -112,7 +113,7 @@ export function ServicesVerificationCard() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('servicesVerification.a11y.manageServices')}
-          onPress={() => undefined}
+          onPress={() => router.push('/manage-services')}
           className="flex-row items-center"
         >
           <Text variant="caption" className="text-brand">

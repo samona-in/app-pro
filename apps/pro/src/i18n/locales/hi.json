@@ -43,7 +43,8 @@
     "notifications": "सूचनाएं",
     "jobAlertSetup": "जॉब अलर्ट सेटअप",
     "language": "भाषा",
-    "helpSupport": "सहायता और समर्थन"
+    "helpSupport": "सहायता और समर्थन",
+    "manageServices": "सेवाएं प्रबंधित करें"
   },
   "welcome": {
     "heading": "काम जो आपके पास आए।",
@@ -593,6 +594,35 @@
       "manageServices": "सेवाएं प्रबंधित करें",
       "serviceMarked": "{{service}}, {{mark}}",
       "showsRejectionReason": "अस्वीकृति का कारण दिखाता है"
+    }
+  },
+  "manageServices": {
+    "title": "सेवाएं प्रबंधित करें",
+    "subtitle": "अपनी दी जाने वाली सेवाओं का अनुरोध करें। ग्राहकों को दिखने से पहले SAMONA हर अनुरोध की समीक्षा करता है।",
+    "loading": "सेवाएं लोड हो रही हैं…",
+    "requestFailedTitle": "अनुरोध नहीं भेजा गया",
+    "noReason": "कोई कारण नहीं दिया गया। विवरण के लिए SAMONA सहायता से संपर्क करें।",
+    "emptyTitle": "कोई सेवा उपलब्ध नहीं",
+    "emptyMessage": "सूची अभी खाली है। कृपया बाद में देखें।",
+    "status": {
+      "notRequested": "अनुरोध नहीं किया गया",
+      "pending": "समीक्षा में",
+      "approved": "स्वीकृत",
+      "rejected": "अस्वीकृत"
+    },
+    "action": {
+      "request": "अनुरोध करें",
+      "requestAgain": "फिर से अनुरोध करें"
+    },
+    "errors": {
+      "onboarding": "पहले अपनी ऑनबोर्डिंग पूरी करें।",
+      "unavailable": "वह सेवा उपलब्ध नहीं है।",
+      "conflict": "उस सेवा की स्थिति बदल गई है — फिर से प्रयास करें।",
+      "throttled": "आप बहुत तेज़ हैं — थोड़ा रुककर फिर प्रयास करें।",
+      "network": "अनुरोध नहीं भेजा जा सका। अपना कनेक्शन जांचें।"
+    },
+    "a11y": {
+      "row": "{{service}}, {{status}}"
     }
   },
   "faceCore": {
