@@ -201,10 +201,16 @@ export function createProsService(deps: ProsServiceDeps) {
         },
       });
 
-      // Replace rather than merge: the step's selection is the full answer, so
-      // deselecting a service must actually remove it.
+      // The step's selection is the full answer for *which* services, so
+      // deselecting must still remove the row — but rows that stay selected
+      // keep their verification state. Wipe-and-recreate would demote every
+      // ACCEPTED service back to PENDING and silently discard an admin's
+      // rejection reason, so only the difference is written: drop what left,
+      // insert what arrived (PENDING by column default), leave the rest.
       if (patch.serviceIds) {
-        await tx.proService.deleteMany({ where: { proProfileId: existing.id } });
+        await tx.proService.deleteMany({
+          where: { proProfileId: existing.id, serviceId: { notIn: patch.serviceIds } },
+        });
         await tx.proService.createMany({
           data: patch.serviceIds.map((serviceId) => ({
             proProfileId: existing.id,
