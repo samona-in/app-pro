@@ -25,7 +25,7 @@ import { ServiceImage } from '@/components/home/ServiceImage';
 import { useActiveOrders } from '@/hooks';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
-import { jobStatusHint } from './active-job-copy';
+import { jobStatusHint, proDisplayName } from './active-job-copy';
 
 /** The collapsed hint strip. Compact: grab handle + one 44pt touch row. */
 const HINT_HEIGHT = 72;
@@ -39,10 +39,7 @@ function FindingSpinner() {
   const rotation = useSharedValue(0);
 
   useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 900, easing: Easing.linear }),
-      -1,
-    );
+    rotation.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1);
   }, [rotation]);
 
   const style = useAnimatedStyle(() => ({
@@ -145,11 +142,7 @@ function HintHandle({ job, hasMore, extraCount }: HintHandleProps) {
           className="flex-1 flex-row items-center"
         >
           {job.pro ? (
-            <Avatar
-              name={job.pro.displayName ?? 'Professional'}
-              uri={job.pro.photoUrl}
-              size="md"
-            />
+            <Avatar name={proDisplayName(job.pro)} uri={job.pro.photoUrl} size="md" />
           ) : (
             <ServiceImage
               uri={job.service.icon}
@@ -225,7 +218,7 @@ function OrderRow({ job }: { job: JobDetail }) {
       className="flex-row items-center rounded-xl border border-border p-3"
     >
       {job.pro ? (
-        <Avatar name={job.pro.displayName ?? 'Professional'} uri={job.pro.photoUrl} size="md" />
+        <Avatar name={proDisplayName(job.pro)} uri={job.pro.photoUrl} size="md" />
       ) : (
         <ServiceImage
           uri={job.service.icon}
@@ -280,17 +273,14 @@ function ActiveJobSheet({ orders, bottomOffset }: { orders: JobDetail[]; bottomO
   const hasMore = orders.length > 1;
   const sceneHeight = Math.max(0, windowHeight - bottomOffset);
 
-  const snapPoints = useMemo(
-    () => {
-      if (!hasMore) return [HINT_HEIGHT] as number[];
-      const expanded = Math.min(
-        Math.round(sceneHeight * EXPANDED_SCENE_RATIO),
-        Math.max(HINT_HEIGHT + 8, sceneHeight - 120),
-      );
-      return [HINT_HEIGHT, Math.max(HINT_HEIGHT + 8, expanded)] as number[];
-    },
-    [hasMore, sceneHeight],
-  );
+  const snapPoints = useMemo(() => {
+    if (!hasMore) return [HINT_HEIGHT] as number[];
+    const expanded = Math.min(
+      Math.round(sceneHeight * EXPANDED_SCENE_RATIO),
+      Math.max(HINT_HEIGHT + 8, sceneHeight - 120),
+    );
+    return [HINT_HEIGHT, Math.max(HINT_HEIGHT + 8, expanded)] as number[];
+  }, [hasMore, sceneHeight]);
 
   const springConfig = useBottomSheetSpringConfigs({
     damping: 22,

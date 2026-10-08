@@ -1,5 +1,10 @@
 import { JobStatus, type JobDetail } from '@samona/types';
-import { ACTIVE_ORDER_STATUSES, isActiveOrder, jobStatusHint } from '../active-job-copy';
+import {
+  ACTIVE_ORDER_STATUSES,
+  isActiveOrder,
+  jobStatusHint,
+  proDisplayName,
+} from '../active-job-copy';
 
 function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
   return {
@@ -116,5 +121,24 @@ describe('jobStatusHint', () => {
       }),
     );
     expect(hint.title).toBe('Professional • Electrician');
+  });
+
+  it('labels a deleted professional neutrally', () => {
+    expect(proDisplayName(pro)).toBe('Ravi Kumar');
+    expect(proDisplayName(null)).toBe('Deleted Professional');
+    expect(proDisplayName({ ...pro, displayName: null })).toBe('Professional');
+    expect(proDisplayName({ ...pro, isDeleted: true })).toBe('Deleted Professional');
+    expect(proDisplayName({ ...pro, displayName: null, isDeleted: true })).toBe(
+      'Deleted Professional',
+    );
+
+    const hint = jobStatusHint(
+      makeJob({
+        status: JobStatus.TRAVELLING,
+        proId: pro.proId,
+        pro: { ...pro, displayName: null, isDeleted: true },
+      }),
+    );
+    expect(hint.title).toBe('Deleted Professional • Electrician');
   });
 });

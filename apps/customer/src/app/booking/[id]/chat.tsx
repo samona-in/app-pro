@@ -5,13 +5,9 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { openURL } from 'expo-linking';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { isChatClosed, type ChatMessage } from '@samona/types';
-import {
-  ChatFooter,
-  ConversationClosed,
-  MessageBubble,
-  QuickChatPresets,
-} from '@/components/chat';
+import { ChatFooter, ConversationClosed, MessageBubble, QuickChatPresets } from '@/components/chat';
 import { LoadingState } from '@/components/feedback';
+import { proDisplayName } from '@/components/booking';
 import { useBooking, useMessages, useSession } from '@/hooks';
 import { color } from '@/theme';
 
@@ -57,7 +53,7 @@ export default function BookingChatScreen() {
   const { user } = useSession();
   const [draft, setDraft] = useState('');
 
-  const proName = useMemo(() => job?.pro?.displayName ?? 'Professional', [job]);
+  const proName = useMemo(() => proDisplayName(job?.pro ?? null), [job]);
   const phone = job?.pro?.phone;
   // Once the job is paid, cancelled or expired the conversation is frozen —
   // history stays readable but nobody can send (the server enforces the same).

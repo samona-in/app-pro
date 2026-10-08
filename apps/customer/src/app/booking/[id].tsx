@@ -3,7 +3,7 @@ import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { isChatClosed, JobStatus } from '@samona/types';
-import { bookingStatusLabel } from '@/components/booking';
+import { bookingStatusLabel, proDisplayName } from '@/components/booking';
 import { UnreadBadge } from '@/components/chat';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { Avatar, Button, Screen, Text } from '@/components/ui';
@@ -191,9 +191,10 @@ export default function BookingDetail() {
               </Text>
             </View>
           ),
-          headerRight: job.pro && !isChatClosed(job.status)
-            ? () => <CallMessageButton jobId={job.id} unread={unread.countFor(job.id)} />
-            : undefined,
+          headerRight:
+            job.pro && !isChatClosed(job.status)
+              ? () => <CallMessageButton jobId={job.id} unread={unread.countFor(job.id)} />
+              : undefined,
         }}
       />
 
@@ -232,7 +233,7 @@ export default function BookingDetail() {
 
       <View className="py-4 flex-row items-center gap-3">
         {job.pro ? (
-          <Avatar name={job.pro.displayName ?? 'Professional'} uri={job.pro.photoUrl} size="md" />
+          <Avatar name={proDisplayName(job.pro)} uri={job.pro.photoUrl} size="md" />
         ) : (
           <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted">
             <Ionicons name="search-outline" size={18} color={color['text-secondary']} />
@@ -241,14 +242,18 @@ export default function BookingDetail() {
         <View className="flex-1">
           <Text variant="bodyLg" className="font-semibold">
             {job.pro
-              ? (job.pro.displayName ?? 'Professional assigned')
+              ? job.pro.isDeleted
+                ? 'Deleted Professional'
+                : (job.pro.displayName ?? 'Professional assigned')
               : 'Looking for a professional'}
           </Text>
           <Text variant="footnote" className="mt-0.5 text-text-secondary">
             {job.pro
-              ? job.pro.rating !== null
-                ? `Rated ${job.pro.rating.toFixed(1)}`
-                : 'Professional on this job'
+              ? job.pro.isDeleted
+                ? 'This professional is no longer with Samona'
+                : job.pro.rating !== null
+                  ? `Rated ${job.pro.rating.toFixed(1)}`
+                  : 'Professional on this job'
               : 'We notify you when someone accepts'}
           </Text>
         </View>

@@ -60,10 +60,20 @@ export function jobStatusHint(job: JobDetail): JobHintCopy {
     };
   }
 
-  const proName = job.pro?.displayName ?? 'Professional';
   return {
-    title: `${proName} • ${job.service.name}`,
+    title: `${proDisplayName(job.pro)} • ${job.service.name}`,
     stage: JOB_STAGE_WORD[job.status],
     finding: false,
   };
+}
+
+/**
+ * How to label the assigned professional.
+ *
+ * A pro who deleted their account has had their PII stripped: show a neutral
+ * placeholder instead of any name the client may have cached.
+ */
+export function proDisplayName(pro: NonNullable<JobDetail['pro']> | null): string {
+  if (!pro || pro.isDeleted) return 'Deleted Professional';
+  return pro.displayName ?? 'Professional';
 }
