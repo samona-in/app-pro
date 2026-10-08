@@ -1,9 +1,5 @@
 import { JobStatus, type JobDetail } from '@samona/types';
-import {
-  ACTIVE_ORDER_STATUSES,
-  isActiveOrder,
-  jobStatusHint,
-} from '../active-job-copy';
+import { ACTIVE_ORDER_STATUSES, isActiveOrder, jobStatusHint } from '../active-job-copy';
 
 function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
   return {
@@ -34,6 +30,8 @@ function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     pro: null,
     acceptedAt: null,
     completedAt: null,
+    cancelledAt: null,
+    cancelledBy: null,
     ...overrides,
   };
 }
@@ -44,6 +42,7 @@ const pro = {
   rating: 4.8,
   phone: '+919000000000',
   photoUrl: null,
+  isDeleted: false,
 };
 
 describe('isActiveOrder', () => {

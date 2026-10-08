@@ -50,6 +50,11 @@ const config: AppConfig = {
   jobAlertTtlMs: 60_000,
   jobOfferSecret: null,
   jobOfferTtlMs: 90_000,
+  supabaseServiceRoleKey: null,
+  accountDeletionReauthWindowMs: 5 * 60_000,
+  accountDeletionTokenTtlMs: 5 * 60_000,
+  accountDeletionSweepMs: 30_000,
+  accountDeletionMaxAttempts: 5,
 };
 
 const services = {} as Services;

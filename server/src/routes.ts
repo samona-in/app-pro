@@ -47,8 +47,10 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
   // signed-in user out for 15 minutes; it rides the global baseline instead.
   router.use('/auth', createAuthRouter(services));
 
-  // Profile and catalogue reads/writes.
-  router.use('/users', limiters.write, createUsersRouter(services));
+  // Profile and catalogue reads/writes. `/users` also hosts the destructive
+  // deletion routes; they self-limit (the authorization mint rides the auth
+  // tier) and the write tier here confines confirm storms.
+  router.use('/users', limiters.write, createUsersRouter(services, limiters));
   router.use('/pros', limiters.write, createProsRouter(services));
   router.use('/customers', limiters.write, createCustomersRouter(services));
   router.use('/services', createServicesRouter(services));

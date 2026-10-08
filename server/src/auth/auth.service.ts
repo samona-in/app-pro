@@ -19,6 +19,11 @@ export interface LocalUser {
   email: string | null;
   fullName: string | null;
   isActive: boolean;
+  /**
+   * Set on a fully-deleted (FULL_ACCOUNT) tombstone. `requireAuth` rejects
+   * these profiles; non-null here means "account gone, do not resurrect".
+   */
+  deletedAt: Date | null;
   createdAt: Date;
 }
 
@@ -73,11 +78,18 @@ export function createAuthService(deps: AuthServiceDeps) {
     const existing = await deps.prisma.profile.findUnique({ where: { id: token.userId } });
 
     if (existing) {
+      const base = { ...toLocalUser(existing), appType };
+
+      // A tombstone must never be resurrected. Its phone and email are nulled,
+      // so a fresh OTP on that number gets a new identity row; repopping the
+      // contact details here would repopulate PII on a deleted account and
+      // re-attach it to a dead identity. `requireAuth` rejects the result.
+      if (existing.deletedAt) return base;
+
       // Keep the mirrored contact details fresh, but never touch `isAdmin`:
       // provisioning must not be able to change an existing user's privileges.
       const contactChanged = existing.phone !== token.phone || existing.email !== token.email;
 
-      const base = { ...toLocalUser(existing), appType };
       if (!contactChanged) return base;
 
       const updated = await deps.prisma.profile.update({
@@ -133,6 +145,7 @@ export function createAuthService(deps: AuthServiceDeps) {
     email: string | null;
     fullName: string | null;
     isActive: boolean;
+    deletedAt: Date | null;
     createdAt: Date;
   }): LocalUser {
     return {
@@ -142,6 +155,7 @@ export function createAuthService(deps: AuthServiceDeps) {
       email: row.email,
       fullName: row.fullName,
       isActive: row.isActive,
+      deletedAt: row.deletedAt,
       createdAt: row.createdAt,
       appType: null,
     };

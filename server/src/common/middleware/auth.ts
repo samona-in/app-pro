@@ -2,7 +2,7 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { UserRole } from '@samona/types';
 import type { AppType } from '@samona/config';
 import type { AuthService } from '../../auth/auth.service';
-import { bearerToken, type TokenVerifier } from '../../auth/token';
+import { bearerToken, type TokenVerifier, type AuthMethod } from '../../auth/token';
 import { forbidden, unauthenticated } from '../errors';
 
 /** The authenticated principal, derived server-side from a verified token. */
@@ -13,6 +13,13 @@ export interface AuthenticatedUser {
   isAdmin: boolean;
   /** Which surface this request is on, from the `X-App-Type` header. */
   appType: AppType | null;
+  /**
+   * The token's `amr` claim: how this session authenticated, most recent first.
+   * Carried so the account-deletion flow can prove a fresh OTP from the server-
+   * verified token instead of asking for one the client could fabricate. It
+   * describes authentication method and time — it is not a privilege.
+   */
+  amr: AuthMethod[];
 }
 
 declare global {
@@ -65,7 +72,17 @@ export function createRequireAuth({ verifier, authService }: RequireAuthDeps): R
         return;
       }
 
-      req.user = { id: user.id, isAdmin: user.isAdmin, appType: user.appType };
+      // A fully-deleted (FULL_ACCOUNT) tombstone stops here. Its contact rows
+      // are nulled and its Supabase identity is gone; a request behind the old
+      // access token must not touch domain data. Reported as a sign-in failure,
+      // not a deactivation, so the app clears the session instead of showing an
+      // "ask support to reactivate" screen.
+      if (user.deletedAt) {
+        next(unauthenticated('This account has been deleted. Please sign in again.'));
+        return;
+      }
+
+      req.user = { id: user.id, isAdmin: user.isAdmin, appType: user.appType, amr: verified.amr };
       next();
     } catch (error) {
       next(error);
@@ -101,8 +118,7 @@ export function requireRole(...roles: RoleRequirement[]): RequestHandler {
 
     const surface = appType === 'customer' ? 'CUSTOMER' : appType === 'pro' ? 'PRO' : null;
 
-    const allowed =
-      surface !== null && roles.some((role) => role !== 'ADMIN' && role === surface);
+    const allowed = surface !== null && roles.some((role) => role !== 'ADMIN' && role === surface);
 
     if (!allowed) {
       next(forbidden());

@@ -5,8 +5,13 @@ import { JOB_DEFAULTS } from '@samona/config';
 import { createBruteForceGuard } from './common';
 
 import { createAuthService, type AuthService } from './auth/auth.service';
+import { createSupabaseAdminClient } from './auth/supabase-admin';
 import { createTokenVerifier, type TokenVerifier } from './auth/token';
 import { createUsersService, type UsersService } from './users/users.service';
+import {
+  createAccountDeletionService,
+  type AccountDeletionService,
+} from './users/account-deletion.service';
 import { createProsService, type ProsService } from './pros/pros.service';
 
 import { createCustomersService, type CustomersService } from './customers/customers.service';
@@ -59,6 +64,8 @@ export interface Services {
   documents: DocumentsService;
   /** Presigned object-storage access for file uploads (selfies, avatars, documents). */
   storage: StorageService;
+  /** Permanent account deletion: OTP re-auth, single-use authorization, sweeper. */
+  accountDeletion: AccountDeletionService;
 }
 
 /** Shared infrastructure plus the service layer built on top of it. */
@@ -177,5 +184,14 @@ export function createServices(
     reviews: createReviewsService(deps),
     documents: createDocumentsService({ prisma, storage }),
     storage,
+    accountDeletion: createAccountDeletionService({
+      prisma,
+      config,
+      storage,
+      realtime,
+      // Null when no service-role key is configured: FULL_ACCOUNT deletion then
+      // fails the DELETE_AUTH step loudly instead of silently skipping it.
+      supabaseAdmin: createSupabaseAdminClient(config) ?? undefined,
+    }),
   };
 }

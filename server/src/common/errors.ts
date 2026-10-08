@@ -64,3 +64,6 @@ export const notFound = (message = 'Not found.') =>
 
 export const conflict = (message = 'That conflicts with the current state.') =>
   createHttpError(409, ApiErrorCode.CONFLICT, message);
+
+export const gone = (message = 'That is no longer available.') =>
+  createHttpError(410, ApiErrorCode.GONE, message);

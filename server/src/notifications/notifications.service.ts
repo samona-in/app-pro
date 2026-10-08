@@ -1409,7 +1409,16 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         where: {
           kind: NotificationKind.JOB_ALERT,
           resolvedAt: null,
-          pro: { isOnline: true, jobAlertsEnabled: true, pushToken: { not: null } },
+          // A pro who asked to delete (or already deleted) is never paged:
+          // pending deletion means no new work, completed deletion means the
+          // tombstone has no push token with meaning.
+          pro: {
+            isOnline: true,
+            jobAlertsEnabled: true,
+            pushToken: { not: null },
+            deletedAt: null,
+            deletionRequestedAt: null,
+          },
         },
         select: {
           id: true,

@@ -1,7 +1,9 @@
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -214,8 +216,15 @@ function documentPathFor(userId: string, contentType: string): string {
  * streams the image straight to the bucket.
  */
 export function createStorageService(deps: StorageServiceDeps) {
-  const { region, selfiesBucket, jobImagesBucket, avatarsBucket, documentsBucket, publicBaseUrls, s3 } =
-    deps;
+  const {
+    region,
+    selfiesBucket,
+    jobImagesBucket,
+    avatarsBucket,
+    documentsBucket,
+    publicBaseUrls,
+    s3,
+  } = deps;
   const sign = deps.signUploadUrl ?? ((command, options) => getSignedUrl(s3, command, options));
 
   /**
@@ -532,6 +541,48 @@ export function createStorageService(deps: StorageServiceDeps) {
     }
   }
 
+  /**
+   * Deletes every object under a key prefix (e.g. all of one pro's files).
+   *
+   * Used by account deletion to purge the pro's own objects across buckets.
+   * Unlike `removeAvatar`/`removeDocument`, a failure here *throws*: leaving a
+   * selfie or a bank document behind a deleted identity is a privacy leak, not
+   * an orphaned object, so the deletion workflow treats S3 as a retryable step
+   * rather than best-effort. Handles ListObjectsV2 pagination and partial
+   * DeleteObjects failures.
+   */
+  async function removeObjectPrefix(bucket: string, prefix: string): Promise<void> {
+    if (!prefix) return;
+    let continuationToken: string | undefined;
+    do {
+      const listed = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      const keys = (listed.Contents ?? [])
+        .map((object) => object.Key)
+        .filter((key): key is string => typeof key === 'string' && key.length > 0);
+      if (keys.length > 0) {
+        const deleted = await s3.send(
+          new DeleteObjectsCommand({
+            Bucket: bucket,
+            Delete: { Objects: keys.map((Key) => ({ Key })) },
+          }),
+        );
+        if (deleted.Errors && deleted.Errors.length > 0) {
+          const detail = deleted.Errors.map(
+            (e) => `${e.Key ?? '?'}: ${e.Code ?? e.Message ?? 'error'}`,
+          ).join(', ');
+          throw new Error(`S3 delete under "${prefix}" partially failed: ${detail}`);
+        }
+      }
+      continuationToken = listed.NextContinuationToken;
+    } while (continuationToken);
+  }
+
   return {
     createSelfieUpload,
     selfieExists,
@@ -550,6 +601,10 @@ export function createStorageService(deps: StorageServiceDeps) {
     documentContentUrl,
     documentScope: documentScopeFor,
     removeDocument,
+    selfiesBucket,
+    avatarsBucket,
+    documentsBucket,
+    removeObjectPrefix,
   };
 }
 

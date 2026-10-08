@@ -2,7 +2,7 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { ZodType } from 'zod';
 import { validationFailed } from '../errors';
 
-type Target = 'body' | 'query' | 'params';
+type Target = 'body' | 'query' | 'params' | 'headers';
 
 /**
  * Validates part of a request against a Zod schema and replaces it with the
@@ -13,6 +13,9 @@ type Target = 'body' | 'query' | 'params';
  * `@samona/validation` keeps the two in agreement.
  *
  * Usage: `router.post('/', validate(createJobSchema), handler)`
+ *
+ * `req.query` and `req.headers` are getters in Express 5, so they are assigned
+ * through `defineProperty`; body and params are plain own properties.
  */
 export function validate(schema: ZodType, target: Target = 'body'): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
@@ -28,8 +31,18 @@ export function validate(schema: ZodType, target: Target = 'body'): RequestHandl
       return;
     }
 
-    // req.query is a getter in Express 5, so assign through defineProperty.
-    Object.defineProperty(req, target, { value: result.data, writable: true });
+    // req.query and req.headers are getters in Express 5, so assign through
+    // defineProperty. Headers are merged rather than replaced: other interests
+    // (e.g. the `x-request-id` the error handler echoes) share the object.
+    if (target === 'headers') {
+      Object.defineProperty(req, 'headers', {
+        value: { ...req.headers, ...(result.data as Record<string, unknown>) },
+        writable: true,
+        configurable: true,
+      });
+    } else {
+      Object.defineProperty(req, target, { value: result.data, writable: true });
+    }
     next();
   };
 }

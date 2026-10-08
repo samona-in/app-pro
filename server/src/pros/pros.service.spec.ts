@@ -197,6 +197,9 @@ function buildService(row: typeof baseRow) {
         current = { ...current, ...data };
         return current;
       }),
+      // The online/offline gate reads the deletion flags separately from the
+      // profile DTO; a live pro clears both.
+      findUnique: jest.fn().mockResolvedValue({ deletedAt: null, deletionRequestedAt: null }),
     },
   };
 

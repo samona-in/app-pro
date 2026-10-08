@@ -57,6 +57,7 @@ function profileToLocal(
     email: string | null;
     fullName: string | null;
     isActive: boolean;
+    deletedAt: Date | null;
     createdAt: Date;
   },
   appType: LocalUser['appType'],
@@ -68,6 +69,7 @@ function profileToLocal(
     email: row.email,
     fullName: row.fullName,
     isActive: row.isActive,
+    deletedAt: row.deletedAt,
     createdAt: row.createdAt,
     appType,
   };

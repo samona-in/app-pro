@@ -228,6 +228,11 @@ export interface JobDetail extends Job {
     phone: string | null;
     /** The pro's profile photo (their verified selfie), when one exists. */
     photoUrl: string | null;
+    /**
+     * Whether the assigned professional has deleted their account. Their PII
+     * (name, photo, phone) has been stripped; render a neutral placeholder.
+     */
+    isDeleted: boolean;
   } | null;
   /** When the professional accepted the job; null until accepted. */
   acceptedAt: string | null;

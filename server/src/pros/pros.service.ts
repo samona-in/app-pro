@@ -444,6 +444,17 @@ export function createProsService(deps: ProsServiceDeps) {
   ): Promise<ProProfile> {
     const existing = await ensureForUser(userId);
 
+    // A pending deletion locks the pro out of the marketplace: going offline is
+    // the last meaningful availability change, and it is not reversible from
+    // the app once deletion is accepted. A finished tombstone blocks it too.
+    const gate = await deps.prisma.proProfile.findUnique({
+      where: { userId },
+      select: { deletedAt: true, deletionRequestedAt: true },
+    });
+    if (gate?.deletedAt || gate?.deletionRequestedAt) {
+      throw conflict('Your account deletion is in progress. You cannot go back online.');
+    }
+
     const row = await deps.prisma.proProfile.update({
       where: { id: existing.id },
       data: {
