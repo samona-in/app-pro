@@ -89,6 +89,59 @@ describe('loadConfig', () => {
     expect(config.s3PublicBaseUrlJobImages).toBeNull();
   });
 
+  it('accepts a complete S3-compatible endpoint group', () => {
+    const config = loadConfig({
+      ...base,
+      S3_ENDPOINT: 'https://ref.storage.supabase.co/storage/v1/s3',
+      S3_ACCESS_KEY_ID: 'access-key',
+      S3_SECRET_ACCESS_KEY: 'secret',
+      S3_FORCE_PATH_STYLE: 'true',
+    });
+
+    expect(config.s3Endpoint).toBe('https://ref.storage.supabase.co/storage/v1/s3');
+    expect(config.s3Credentials).toEqual({ accessKeyId: 'access-key', secretAccessKey: 'secret' });
+    expect(config.s3ForcePathStyle).toBe(true);
+    // Without the group, the production defaults hold.
+    const unset = loadConfig(base);
+    expect(unset.s3Endpoint).toBeNull();
+    expect(unset.s3Credentials).toBeNull();
+    expect(unset.s3ForcePathStyle).toBe(true);
+  });
+
+  it('defaults force-path-style to false when opted out', () => {
+    const config = loadConfig({
+      ...base,
+      S3_ENDPOINT: 'https://ref.storage.supabase.co/storage/v1/s3',
+      S3_ACCESS_KEY_ID: 'access-key',
+      S3_SECRET_ACCESS_KEY: 'secret',
+      S3_FORCE_PATH_STYLE: 'false',
+    });
+
+    expect(config.s3ForcePathStyle).toBe(false);
+  });
+
+  it('rejects a partial S3-compatible endpoint group', () => {
+    expect(() =>
+      loadConfig({ ...base, S3_ACCESS_KEY_ID: 'access-key', S3_SECRET_ACCESS_KEY: 'secret' }),
+    ).toThrow(/S3_ENDPOINT/);
+    expect(() =>
+      loadConfig({ ...base, S3_ENDPOINT: 'https://ref.storage.supabase.co/storage/v1/s3' }),
+    ).toThrow(/S3_ACCESS_KEY_ID/);
+  });
+
+  it('treats empty S3-compatible endpoint values as unset', () => {
+    const config = loadConfig({
+      ...base,
+      S3_ENDPOINT: '',
+      S3_ACCESS_KEY_ID: '',
+      S3_SECRET_ACCESS_KEY: '',
+      S3_FORCE_PATH_STYLE: '',
+    });
+
+    expect(config.s3Endpoint).toBeNull();
+    expect(config.s3Credentials).toBeNull();
+  });
+
   it('splits and trims CORS origins', () => {
     const config = loadConfig({ ...base, CORS_ORIGINS: 'https://a.test, https://b.test ,' });
 

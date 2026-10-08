@@ -87,6 +87,31 @@ const envSchema = z.object({
   /** Origin for public avatar URLs. See `S3_PUBLIC_BASE_URL_SELFIES`. */
   S3_PUBLIC_BASE_URL_AVATARS: optional(z.string()),
 
+  /**
+   * Custom S3-compatible endpoint for object storage — e.g. Supabase Storage's
+   * S3 gateway (`https://<ref>.storage.supabase.co/storage/v1/s3`).
+   *
+   * Optional. Production talks to real AWS endpoints and resolves credentials
+   * from the ambient provider chain, so no key material lives in the
+   * environment. Local development against Supabase sets this together with
+   * `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY`; all three are required as a
+   * group.
+   */
+  S3_ENDPOINT: optional(z.url({ message: 'S3_ENDPOINT must be a valid URL.' })),
+
+  /** Access key id for an S3-compatible endpoint. Only for local/dev. */
+  S3_ACCESS_KEY_ID: optional(z.string().min(1, 'S3_ACCESS_KEY_ID must not be empty.')),
+
+  /** Secret access key for an S3-compatible endpoint. Only for local/dev. */
+  S3_SECRET_ACCESS_KEY: optional(z.string().min(1, 'S3_SECRET_ACCESS_KEY must not be empty.')),
+
+  /**
+   * Whether to address buckets by path (`<endpoint>/<bucket>/<key>`) rather
+   * than virtual-host style. S3-compatible endpoints require path-style, so
+   * this defaults to true; only meaningful alongside `S3_ENDPOINT`.
+   */
+  S3_FORCE_PATH_STYLE: optional(z.enum(['true', 'false'])),
+
   /** Comma-separated list of allowed browser origins. */
   CORS_ORIGINS: z.string().default(''),
 
@@ -250,6 +275,15 @@ export interface AppConfig {
   s3PublicBaseUrlJobImages: string | null;
   /** Origin for public avatar URLs; null uses the avatars bucket's S3 URL. */
   s3PublicBaseUrlAvatars: string | null;
+  /**
+   * Custom S3-compatible endpoint (Supabase, MinIO); null uses real AWS
+   * endpoints and the ambient credential chain.
+   */
+  s3Endpoint: string | null;
+  /** Access keys for a custom endpoint; null means resolve from the chain. */
+  s3Credentials: { accessKeyId: string; secretAccessKey: string } | null;
+  /** Path-style bucket addressing, which S3-compatible endpoints require. */
+  s3ForcePathStyle: boolean;
   corsOrigins: string[];
   googleMapsApiKey: string | null;
   /** Base URL of the OSM-compatible geocoder used by `/locations`. */
@@ -320,6 +354,28 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
 
   const env = result.data;
 
+  // An S3-compatible endpoint is an all-or-nothing group: signing a request
+  // needs the endpoint, the key id and the secret together, and any partial set
+  // would fail at the first upload in a way that is awkward to diagnose there.
+  const s3Endpoint = env.S3_ENDPOINT ?? null;
+  const s3AccessKeyId = env.S3_ACCESS_KEY_ID ?? null;
+  const s3SecretAccessKey = env.S3_SECRET_ACCESS_KEY ?? null;
+  const s3Configured = s3Endpoint !== null || s3AccessKeyId !== null || s3SecretAccessKey !== null;
+  if (s3Configured) {
+    const missing = [
+      s3Endpoint === null ? 'S3_ENDPOINT' : null,
+      s3AccessKeyId === null ? 'S3_ACCESS_KEY_ID' : null,
+      s3SecretAccessKey === null ? 'S3_SECRET_ACCESS_KEY' : null,
+    ].filter((name): name is string => name !== null);
+    if (missing.length > 0) {
+      throw new Error(
+        `Invalid environment configuration:\n  - ${missing.join(
+          ', ',
+        )}: S3-compatible storage needs S3_ENDPOINT, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY together.`,
+      );
+    }
+  }
+
   return {
     nodeEnv: env.NODE_ENV,
     port: env.PORT,
@@ -337,6 +393,11 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     s3PublicBaseUrlSelfies: env.S3_PUBLIC_BASE_URL_SELFIES ?? null,
     s3PublicBaseUrlJobImages: env.S3_PUBLIC_BASE_URL_JOB_IMAGES ?? null,
     s3PublicBaseUrlAvatars: env.S3_PUBLIC_BASE_URL_AVATARS ?? null,
+    s3Endpoint,
+    s3Credentials: s3Configured
+      ? { accessKeyId: s3AccessKeyId as string, secretAccessKey: s3SecretAccessKey as string }
+      : null,
+    s3ForcePathStyle: env.S3_FORCE_PATH_STYLE !== 'false',
     corsOrigins: env.CORS_ORIGINS.split(',')
       .map((origin) => origin.trim())
       .filter(Boolean),
