@@ -83,8 +83,8 @@ export default function ServiceAreasScreen() {
         </Text>
       </View>
 
-      <Card className="mt-4 pb-6 pt-5">
-        <View className="flex-row items-center px-1">
+      <Card className="mt-4">
+        <View className="flex-row items-center">
           <View className="flex-1 pr-4">
             <Text variant="body" className="font-semibold">
               {t('serviceAreas.current')}

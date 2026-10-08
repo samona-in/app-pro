@@ -45,7 +45,8 @@
     "language": "भाषा",
     "helpSupport": "सहायता और समर्थन",
     "manageServices": "सेवाएं प्रबंधित करें",
-    "documents": "दस्तावेज़"
+    "documents": "दस्तावेज़",
+    "serviceArea": "सेवा क्षेत्र"
   },
   "welcome": {
     "heading": "काम जो आपके पास आए।",

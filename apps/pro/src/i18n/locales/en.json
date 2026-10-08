@@ -45,7 +45,8 @@
     "language": "Language",
     "helpSupport": "Help & support",
     "manageServices": "Manage services",
-    "documents": "Documents"
+    "documents": "Documents",
+    "serviceArea": "Service area"
   },
   "welcome": {
     "heading": "Work that comes to you.",
