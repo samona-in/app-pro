@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { DOCUMENT_TYPES, type DocumentType, type ProDocument } from '@samona/types';
 import { DOCUMENT_CONTENT_TYPES } from '@samona/validation';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
+import { DocumentRejectionReasonSheet } from '@/components/documents/DocumentRejectionReasonSheet';
 import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import { useDeleteDocument, useDocuments, useUploadDocument } from '@/hooks';
 import { formatFileSize, formatRelativeTime } from '@/utils/format';
@@ -39,6 +40,7 @@ export default function DocumentsScreen() {
   const upload = useUploadDocument();
   const remove = useDeleteDocument();
   const [selectedType, setSelectedType] = useState<DocumentType>(DOCUMENT_TYPES[0]!);
+  const [reasonDocument, setReasonDocument] = useState<ProDocument | null>(null);
 
   async function onPickFile() {
     const result = await getDocumentAsync({
@@ -159,8 +161,14 @@ export default function DocumentsScreen() {
           documents={documents}
           busy={remove.isPending}
           onDelete={onDelete}
+          onViewReason={setReasonDocument}
         />
       )}
+      <DocumentRejectionReasonSheet
+        visible={reasonDocument !== null}
+        document={reasonDocument}
+        onClose={() => setReasonDocument(null)}
+      />
     </Screen>
   );
 }
@@ -229,10 +237,12 @@ function DocumentGroups({
   documents,
   busy,
   onDelete,
+  onViewReason,
 }: {
   documents: ProDocument[];
   busy: boolean;
   onDelete: (document: ProDocument) => void;
+  onViewReason: (document: ProDocument) => void;
 }) {
   const { t } = useTranslation();
 
@@ -254,6 +264,7 @@ function DocumentGroups({
                     document={document}
                     busy={busy}
                     onDelete={() => onDelete(document)}
+                    onViewReason={() => onViewReason(document)}
                   />
                 </View>
               ))}
@@ -269,14 +280,18 @@ function DocumentRow({
   document,
   busy,
   onDelete,
+  onViewReason,
 }: {
   document: ProDocument;
   busy: boolean;
   onDelete: () => void;
+  onViewReason: () => void;
 }) {
   const { t } = useTranslation();
   const model = documentRowModel(document.status);
   const statusLabel = t(model.badgeLabelKey);
+
+  const badge = <Badge label={statusLabel} tone={model.badgeTone} />;
 
   return (
     <View
@@ -296,14 +311,26 @@ function DocumentRow({
         <Text variant="footnote" className="mt-0.5">
           {formatFileSize(document.sizeBytes)} · {formatRelativeTime(document.createdAt, t)}
         </Text>
-        {document.status === 'REJECTED' && document.rejectionReason ? (
-          <Text variant="footnote" className="mt-0.5 text-danger" numberOfLines={2}>
-            {t('documents.rejectionReason', { reason: document.rejectionReason })}
-          </Text>
-        ) : null}
       </View>
       <View className="items-end">
-        <Badge label={statusLabel} tone={model.badgeTone} />
+        {model.canViewRejectionReason ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('documents.a11y.viewRejectionReason', {
+              fileName: document.fileName,
+            })}
+            hitSlop={8}
+            onPress={onViewReason}
+            className="flex-row items-center active:opacity-70"
+          >
+            {badge}
+            <View className="ml-1.5">
+              <Ionicons name="information-circle-outline" size={16} color={color.danger} />
+            </View>
+          </Pressable>
+        ) : (
+          badge
+        )}
         {model.canDelete ? (
           <Pressable
             accessibilityRole="button"

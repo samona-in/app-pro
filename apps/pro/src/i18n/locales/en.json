@@ -461,7 +461,11 @@
       "APPROVED": "Approved",
       "REJECTED": "Rejected"
     },
-    "rejectionReason": "Reason: {{reason}}",
+    "sheet": {
+      "title": "Document rejected",
+      "reasonLabel": "Reason",
+      "noReason": "No reason was provided."
+    },
     "delete": "Delete",
     "deleteTitle": "Delete this document?",
     "deleteMessage": "{{fileName}} will be removed from your documents. You can upload it again later.",
@@ -475,7 +479,8 @@
       "unsupported": "Choose a PDF, JPEG or PNG file."
     },
     "a11y": {
-      "deleteRow": "Delete {{fileName}}"
+      "deleteRow": "Delete {{fileName}}",
+      "viewRejectionReason": "View rejection reason for {{fileName}}"
     }
   },
   "helpSupport": {

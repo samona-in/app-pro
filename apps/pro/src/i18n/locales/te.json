@@ -461,7 +461,11 @@
       "APPROVED": "ఆమోదించబడింది",
       "REJECTED": "తిరస్కరించబడింది"
     },
-    "rejectionReason": "కారణం: {{reason}}",
+    "sheet": {
+      "title": "పత్రం తిరస్కరించబడింది",
+      "reasonLabel": "కారణం",
+      "noReason": "ఎటువంటి కారణం ఇవ్వబడలేదు."
+    },
     "delete": "తొలగించు",
     "deleteTitle": "ఈ పత్రాన్ని తొలగించాలా?",
     "deleteMessage": "{{fileName}} మీ పత్రాల నుండి తొలగించబడుతుంది. దీన్ని తర్వాత మళ్లీ అప్‌లోడ్ చేయవచ్చు.",
@@ -475,7 +479,8 @@
       "unsupported": "PDF, JPEG లేదా PNG ఫైల్ ఎంచుకోండి."
     },
     "a11y": {
-      "deleteRow": "{{fileName}} తొలగించు"
+      "deleteRow": "{{fileName}} తొలగించు",
+      "viewRejectionReason": "{{fileName}} యొక్క తిరస్కరణ కారణాన్ని చూడండి"
     }
   },
   "helpSupport": {

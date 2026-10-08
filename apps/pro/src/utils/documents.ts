@@ -17,11 +17,15 @@ export const DOCUMENT_PICKER_TYPES: string[] = [...DOCUMENT_CONTENT_TYPES];
  * Derived purely from the review status so the mapping is testable without
  * rendering. `canDelete` mirrors the server rule: approved rows are locked
  * (they are what the Verified badge is built on), everything else goes.
+ * `canViewRejectionReason` only lights the reason affordance on a rejected
+ * document — the reason is held off the row so every row stays one compact
+ * line regardless of verdict length.
  */
 export interface DocumentRowModel {
   badgeLabelKey: TranslationKey;
   badgeTone: BadgeTone;
   canDelete: boolean;
+  canViewRejectionReason: boolean;
 }
 
 const BY_STATUS: Record<DocumentStatus, DocumentRowModel> = {
@@ -29,16 +33,19 @@ const BY_STATUS: Record<DocumentStatus, DocumentRowModel> = {
     badgeLabelKey: 'documents.status.PENDING',
     badgeTone: 'warning',
     canDelete: true,
+    canViewRejectionReason: false,
   },
   APPROVED: {
     badgeLabelKey: 'documents.status.APPROVED',
     badgeTone: 'success',
     canDelete: false,
+    canViewRejectionReason: false,
   },
   REJECTED: {
     badgeLabelKey: 'documents.status.REJECTED',
     badgeTone: 'danger',
     canDelete: true,
+    canViewRejectionReason: true,
   },
 };
 
