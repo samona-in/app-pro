@@ -85,9 +85,15 @@ export function ServiceRadiusSlider({
   // Animate the resting knob whenever the saved radius changes (a save, a
   // rollback, or a refetch), unless the finger is currently dragging. The
   // prepare snapshot is the knob's target position, so this only reacts when
-  // that position actually moves.
+  // that position actually moves. The geometry is inlined — `travel` and the
+  // utils module run on the JS thread only, so a worklet cannot call them.
   useAnimatedReaction(
-    () => translateFromValue(value, min, max, travel(trackWidth.value)),
+    () => {
+      const track = Math.max(0, trackWidth.value - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
+      if (track <= 0) return 0;
+      const clamped = Math.min(max, Math.max(min, value));
+      return ((clamped - min) / (max - min || 1)) * track;
+    },
     (current, previous) => {
       if (current === previous) return;
       if (dragging.value) return;
