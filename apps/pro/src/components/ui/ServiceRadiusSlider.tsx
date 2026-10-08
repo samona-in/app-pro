@@ -57,6 +57,13 @@ export interface ServiceRadiusSliderProps {
  * not be hit while the finger is still moving. `value` is the saved radius and
  * drives the resting knob position, so a save, rollback or refetch animates
  * the knob to match; during a drag the thumb is owned by the gesture.
+ *
+ * The knob is positioned from the finger's pointer coordinate (`e.x`) relative
+ * to where it grabbed the thumb (`startFingerX`), captured at gesture begin.
+ * `e.x` is a raw coordinate in the handler's view, so a thumb resting at
+ * 16 km stays exactly under the finger at 16 km and follows it in *both*
+ * directions — a leftward drag resolves to a negative delta that moves the
+ * knob toward the minimum, never back toward the value it started from.
  */
 export function ServiceRadiusSlider({
   value,
@@ -72,11 +79,9 @@ export function ServiceRadiusSlider({
   const translateX = useSharedValue(0);
   const trackWidth = useSharedValue(0);
   const dragging = useSharedValue(false);
-  // Where the thumb sat when the gesture began. Pan's `translationX` is the
-  // finger's delta from the touch point, so the knob must travel from its
-  // current position (16 km, say) rather than reset toward zero on the first
-  // movement.
-  const startTranslate = useSharedValue(0);
+  // Where the finger landed and where the thumb sat when the gesture began.
+  const startFingerX = useSharedValue(0);
+  const startKnobTranslate = useSharedValue(0);
   const [liveKm, setLiveKm] = useState(value);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -133,33 +138,33 @@ export function ServiceRadiusSlider({
   const gesture = Gesture.Pan()
     .enabled(!disabled && !loading)
     .activeOffsetX(4)
-    .onBegin(() => {
+    .onBegin((e) => {
       'worklet';
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
       dragging.value = true;
-      startTranslate.value = translateX.value;
+      startFingerX.value = e.x;
+      startKnobTranslate.value = translateX.value;
       runOnJS(setIsDragging)(true);
     })
     .onUpdate((e) => {
       'worklet';
       // The gesture owns the knob from its very first update — before any
-      // `onValueChange`-driven re-render can re-run the reaction below. Doing
-      // this here (and not only in `onBegin`) closes the window in which the
-      // reaction could read a stale `false` and yank the knob back toward the
-      // previous value, which would pin a thumb dragging left. It also makes
-      // the capture idempotent, so `startTranslate` is always the resting
-      // position, never a zero that would snap a 16 km thumb toward 1 km.
+      // re-render can re-run the reaction below with the old value. Doing this
+      // here (and not only in `onBegin`) makes the capture idempotent: an
+      // `onBegin` that is ever delivered late cannot leave `startKnobTranslate`
+      // at a stray zero that would snap a 16 km thumb toward 1 km.
       if (!dragging.value) {
         // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
         dragging.value = true;
-        startTranslate.value = translateX.value;
+        startFingerX.value = e.x;
+        startKnobTranslate.value = translateX.value;
         runOnJS(setIsDragging)(true);
       }
-      const maxTranslate = Math.max(0, trackWidth.value - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
+      const travelPx = Math.max(0, trackWidth.value - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
-      translateX.value = Math.max(
-        0,
-        Math.min(startTranslate.value + e.translationX, maxTranslate),
+      translateX.value = Math.min(
+        travelPx,
+        Math.max(0, startKnobTranslate.value + (e.x - startFingerX.value)),
       );
       // The nearest whole kilometre is derived on the JS thread for the label.
       runOnJS(updateLive)(translateX.value);
