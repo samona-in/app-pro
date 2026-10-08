@@ -34,17 +34,6 @@ function travel(trackWidth: number) {
   return Math.max(0, trackWidth - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
 }
 
-export interface RadiusDebugFrame {
-  phase: 'begin' | 'update' | 'end';
-  pointerX: number;
-  translationX: number;
-  startFingerX: number;
-  startKnob: number;
-  translateX: number;
-  count: number;
-  trackWidth: number;
-}
-
 export interface ServiceRadiusSliderProps {
   /** The currently saved radius; a changed prop animates the knob to it. */
   value: number;
@@ -57,8 +46,6 @@ export interface ServiceRadiusSliderProps {
   onValueChange?: (km: number) => void;
   /** Fired once on release (or an accessibility increment/decrement). */
   onRelease: (km: number) => void;
-  /** TEMP diagnostic: raw values computed on the UI thread each gesture event. */
-  onDebug?: (frame: RadiusDebugFrame) => void;
   accessibilityLabel?: string;
   className?: string;
 }
@@ -86,7 +73,6 @@ export function ServiceRadiusSlider({
   disabled = false,
   onValueChange,
   onRelease,
-  onDebug,
   accessibilityLabel,
   className,
 }: ServiceRadiusSliderProps) {
@@ -96,7 +82,6 @@ export function ServiceRadiusSlider({
   // Where the finger landed and where the thumb sat when the gesture began.
   const startFingerX = useSharedValue(0);
   const startKnobTranslate = useSharedValue(0);
-  const updates = useSharedValue(0);
   const [liveKm, setLiveKm] = useState(value);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -136,12 +121,6 @@ export function ServiceRadiusSlider({
     [onValueChange, min, max, trackWidth],
   );
 
-  // TEMP diagnostic. Called from the UI-thread worklets with the raw numbers
-  // so we can see exactly what the gesture pipeline computes on-device.
-  function emitDebug(frame: RadiusDebugFrame) {
-    onDebug?.(frame);
-  }
-
   // Not memoized on purpose: it commits the radius and is referenced by the
   // gesture below, which is rebuilt every render, so it is never stale.
   function finish(translate: number) {
@@ -165,18 +144,7 @@ export function ServiceRadiusSlider({
       dragging.value = true;
       startFingerX.value = e.x;
       startKnobTranslate.value = translateX.value;
-      updates.value = 0;
       runOnJS(setIsDragging)(true);
-      runOnJS(emitDebug)({
-        phase: 'begin',
-        pointerX: e.x,
-        translationX: e.translationX,
-        startFingerX: startFingerX.value,
-        startKnob: startKnobTranslate.value,
-        translateX: translateX.value,
-        count: 0,
-        trackWidth: trackWidth.value,
-      });
     })
     .onUpdate((e) => {
       'worklet';
@@ -190,10 +158,8 @@ export function ServiceRadiusSlider({
         dragging.value = true;
         startFingerX.value = e.x;
         startKnobTranslate.value = translateX.value;
-        updates.value = 0;
         runOnJS(setIsDragging)(true);
       }
-      updates.value += 1;
       const travelPx = Math.max(0, trackWidth.value - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
       translateX.value = Math.min(
@@ -202,16 +168,6 @@ export function ServiceRadiusSlider({
       );
       // The nearest whole kilometre is derived on the JS thread for the label.
       runOnJS(updateLive)(translateX.value);
-      runOnJS(emitDebug)({
-        phase: 'update',
-        pointerX: e.x,
-        translationX: e.translationX,
-        startFingerX: startFingerX.value,
-        startKnob: startKnobTranslate.value,
-        translateX: translateX.value,
-        count: updates.value,
-        trackWidth: trackWidth.value,
-      });
     })
     .onEnd(() => {
       'worklet';
@@ -222,16 +178,6 @@ export function ServiceRadiusSlider({
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
       translateX.value = withSpring(settled, { damping: 20, stiffness: 300 });
       runOnJS(finish)(settled);
-      runOnJS(emitDebug)({
-        phase: 'end',
-        pointerX: 0,
-        translationX: 0,
-        startFingerX: startFingerX.value,
-        startKnob: startKnobTranslate.value,
-        translateX: settled,
-        count: updates.value,
-        trackWidth: trackWidth.value,
-      });
     });
 
   const knobStyle = useAnimatedStyle(() => ({
