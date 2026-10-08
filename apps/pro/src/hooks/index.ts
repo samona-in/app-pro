@@ -1,4 +1,5 @@
 export { useCatalogue, useProProfile, useSaveOnboardingStep } from './use-onboarding';
+export { useUpdateServiceRadius } from './use-service-radius';
 export { getAppHash, extractOtpCode, useOtpAutoFill } from './use-otp-autofill';
 export { usePhoneAuth } from './use-phone-auth';
 export { PHONE_HINT_DELAY_MS, usePhoneHint } from './use-phone-hint';

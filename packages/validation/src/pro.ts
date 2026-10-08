@@ -129,6 +129,18 @@ export const availabilityPatchSchema = z.object({
 export type AvailabilityPatchInput = z.infer<typeof availabilityPatchSchema>;
 
 /**
+ * `PATCH /pros/me/service-radius` — the Service Areas screen's radius control.
+ *
+ * Same bounds as the onboarding radius step, under its own name so the
+ * settings contract and the onboarding step can evolve independently.
+ */
+export const serviceRadiusPatchSchema = z.object({
+  serviceRadiusKm: serviceRadiusSchema,
+});
+
+export type ServiceRadiusPatchInput = z.infer<typeof serviceRadiusPatchSchema>;
+
+/**
  * `POST /pros/services/:serviceId/request` path.
  *
  * A malformed id must fail validation (422) rather than reach Prisma, which
