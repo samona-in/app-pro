@@ -213,7 +213,7 @@ function UploadCard({
             >
               <Text
                 variant="footnote"
-                className={active ? 'font-semibold text-inverse' : 'text-text-secondary'}
+                className={active ? 'font-semibold text-text-inverse' : 'text-text-secondary'}
               >
                 {t(documentTypeLabelKey(type))}
               </Text>
