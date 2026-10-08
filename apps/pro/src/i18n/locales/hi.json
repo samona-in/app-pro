@@ -589,19 +589,22 @@
       "pending": "लंबित",
       "rejected": "अस्वीकृत"
     },
-    "noReason": "कोई कारण नहीं दिया गया। विवरण के लिए SAMONA सहायता से संपर्क करें।",
     "a11y": {
       "manageServices": "सेवाएं प्रबंधित करें",
       "serviceMarked": "{{service}}, {{mark}}",
       "showsRejectionReason": "अस्वीकृति का कारण दिखाता है"
     }
   },
+  "rejectionSheet": {
+    "title": "सेवा अनुरोध अस्वीकृत",
+    "reasonLabel": "कारण",
+    "noReason": "कोई कारण नहीं दिया गया।"
+  },
   "manageServices": {
     "title": "सेवाएं प्रबंधित करें",
     "subtitle": "अपनी दी जाने वाली सेवाओं का अनुरोध करें। ग्राहकों को दिखने से पहले SAMONA हर अनुरोध की समीक्षा करता है।",
     "loading": "सेवाएं लोड हो रही हैं…",
     "requestFailedTitle": "अनुरोध नहीं भेजा गया",
-    "noReason": "कोई कारण नहीं दिया गया। विवरण के लिए SAMONA सहायता से संपर्क करें।",
     "emptyTitle": "कोई सेवा उपलब्ध नहीं",
     "emptyMessage": "सूची अभी खाली है। कृपया बाद में देखें।",
     "status": {
@@ -622,7 +625,8 @@
       "network": "अनुरोध नहीं भेजा जा सका। अपना कनेक्शन जांचें।"
     },
     "a11y": {
-      "row": "{{service}}, {{status}}"
+      "row": "{{service}}, {{status}}",
+      "viewRejectionReason": "{{service}} के लिए अस्वीकृति का कारण देखें"
     }
   },
   "faceCore": {

@@ -1,4 +1,5 @@
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +8,7 @@ import { useProProfile } from '@/hooks';
 import { color } from '@/theme';
 import { ProServiceStatus, type ProServiceVerification } from '@samona/types';
 import { ServiceImage } from './ServiceImage';
+import { RejectionReasonSheet } from './RejectionReasonSheet';
 import type { TranslationKey } from '@/i18n';
 
 const STATUS_MARK: Record<
@@ -30,15 +32,17 @@ const STATUS_MARK: Record<
   },
 };
 
-function ServiceTile({ service }: { service: ProServiceVerification }) {
+function ServiceTile({
+  service,
+  onViewReason,
+}: {
+  service: ProServiceVerification;
+  /** Opens the rejection-reason sheet; only wired up for rejected tiles. */
+  onViewReason: () => void;
+}) {
   const { t } = useTranslation();
   const mark = STATUS_MARK[service.status];
   const isRejected = service.status === ProServiceStatus.REJECTED;
-
-  function showReason() {
-    const reason = service.rejectionReason?.trim();
-    Alert.alert(service.name, reason || t('servicesVerification.noReason'));
-  }
 
   return (
     <Pressable
@@ -50,7 +54,7 @@ function ServiceTile({ service }: { service: ProServiceVerification }) {
       accessibilityHint={
         isRejected ? t('servicesVerification.a11y.showsRejectionReason') : undefined
       }
-      onPress={isRejected ? showReason : undefined}
+      onPress={isRejected ? onViewReason : undefined}
       className="w-24 items-center active:opacity-70"
     >
       <ServiceImage
@@ -103,8 +107,17 @@ export function ServicesVerificationCard() {
   const { t } = useTranslation();
   const { data: profile } = useProProfile();
   const services = profile?.proServices ?? [];
+  // Data and visibility are kept apart so the sheet still has something to
+  // render while it animates closed.
+  const [reasonService, setReasonService] = useState<ProServiceVerification | null>(null);
+  const [reasonOpen, setReasonOpen] = useState(false);
 
   if (services.length === 0) return null;
+
+  function onViewReason(service: ProServiceVerification) {
+    setReasonService(service);
+    setReasonOpen(true);
+  }
 
   return (
     <View className="mt-6">
@@ -129,10 +142,20 @@ export function ServicesVerificationCard() {
         contentContainerClassName="pr-4"
       >
         {services.map((service) => (
-          <ServiceTile key={service.id} service={service} />
+          <ServiceTile
+            key={service.id}
+            service={service}
+            onViewReason={() => onViewReason(service)}
+          />
         ))}
         <AddServiceTile />
       </ScrollView>
+
+      <RejectionReasonSheet
+        visible={reasonOpen}
+        service={reasonService}
+        onClose={() => setReasonOpen(false)}
+      />
     </View>
   );
 }

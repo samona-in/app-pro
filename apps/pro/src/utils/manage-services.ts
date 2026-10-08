@@ -18,8 +18,8 @@ export interface ServiceRowModel {
   /** Which button the row shows, or null when there is nothing to request. */
   action: 'request' | 'requestAgain' | null;
   actionLabelKey: TranslationKey | null;
-  /** Rejected rows surface the admin's reason beneath the service name. */
-  showRejectionReason: boolean;
+  /** Rejected rows make the status tappable to reveal the admin's reason. */
+  canViewRejectionReason: boolean;
 }
 
 const notRequested: ServiceRowModel = {
@@ -27,7 +27,7 @@ const notRequested: ServiceRowModel = {
   badgeTone: 'neutral',
   action: 'request',
   actionLabelKey: 'manageServices.action.request',
-  showRejectionReason: false,
+  canViewRejectionReason: false,
 };
 
 const BY_STATUS: Record<ProServiceStatus, ServiceRowModel> = {
@@ -36,21 +36,21 @@ const BY_STATUS: Record<ProServiceStatus, ServiceRowModel> = {
     badgeTone: 'warning',
     action: null,
     actionLabelKey: null,
-    showRejectionReason: false,
+    canViewRejectionReason: false,
   },
   ACCEPTED: {
     badgeLabelKey: 'manageServices.status.approved',
     badgeTone: 'success',
     action: null,
     actionLabelKey: null,
-    showRejectionReason: false,
+    canViewRejectionReason: false,
   },
   REJECTED: {
     badgeLabelKey: 'manageServices.status.rejected',
     badgeTone: 'danger',
     action: 'requestAgain',
     actionLabelKey: 'manageServices.action.requestAgain',
-    showRejectionReason: true,
+    canViewRejectionReason: true,
   },
 };
 

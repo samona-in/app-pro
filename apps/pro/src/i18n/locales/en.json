@@ -589,19 +589,22 @@
       "pending": "pending",
       "rejected": "rejected"
     },
-    "noReason": "No reason was provided. Please reach out to SAMONA support for details.",
     "a11y": {
       "manageServices": "Manage services",
       "serviceMarked": "{{service}}, {{mark}}",
       "showsRejectionReason": "Shows the rejection reason"
     }
   },
+  "rejectionSheet": {
+    "title": "Service request rejected",
+    "reasonLabel": "Reason",
+    "noReason": "No reason was provided."
+  },
   "manageServices": {
     "title": "Manage services",
     "subtitle": "Request the services you offer. SAMONA reviews each request before customers can see it.",
     "loading": "Loading services…",
     "requestFailedTitle": "Request not sent",
-    "noReason": "No reason was provided. Please reach out to SAMONA support for details.",
     "emptyTitle": "No services available",
     "emptyMessage": "The service list is empty right now. Please check back later.",
     "status": {
@@ -622,7 +625,8 @@
       "network": "Couldn't send the request. Check your connection."
     },
     "a11y": {
-      "row": "{{service}}, {{status}}"
+      "row": "{{service}}, {{status}}",
+      "viewRejectionReason": "View rejection reason for {{service}}"
     }
   },
   "faceCore": {
