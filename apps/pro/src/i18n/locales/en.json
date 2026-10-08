@@ -610,6 +610,7 @@
     "title": "Service area",
     "subtitle": "How far are you willing to travel for jobs?",
     "current": "Current radius",
+    "caption": "Used to match nearby jobs to you.",
     "loading": "Loading your service area…",
     "saveErrorTitle": "Could not save your service area",
     "saveError": "Check your connection and try again.",

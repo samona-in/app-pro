@@ -83,13 +83,18 @@ export default function ServiceAreasScreen() {
         </Text>
       </View>
 
-      <Card className="mt-4 pb-5 pt-6">
-        <Text variant="title" className="text-center">
-          {t('format.km', { value: displayRadius })}
-        </Text>
-        <Text variant="footnote" className="mt-1 text-center text-text-secondary">
-          {t('serviceAreas.current')}
-        </Text>
+      <Card className="mt-4 pb-6 pt-5">
+        <View className="flex-row items-center px-1">
+          <View className="flex-1 pr-4">
+            <Text variant="body" className="font-semibold">
+              {t('serviceAreas.current')}
+            </Text>
+            <Text variant="footnote" className="mt-0.5 text-text-secondary">
+              {t('serviceAreas.caption')}
+            </Text>
+          </View>
+          <Text variant="titleLg">{t('format.km', { value: displayRadius })}</Text>
+        </View>
 
         <View className="mt-8">
           <ServiceRadiusSlider
