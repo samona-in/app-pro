@@ -49,6 +49,11 @@ export function createMatchingService(deps: MatchingServiceDeps) {
     const candidates = await deps.prisma.proProfile.findMany({
       where: {
         isOnline: true,
+        // A pro who asked to delete is out of the pool from that moment:
+        // deleted tombstones never match, and a pending deletion must not mint
+        // new work to strand on finalization.
+        deletedAt: null,
+        deletionRequestedAt: null,
         onboardingStatus: OnboardingStatus.COMPLETED,
         latitude: { not: null },
         longitude: { not: null },
@@ -104,6 +109,8 @@ export function createMatchingService(deps: MatchingServiceDeps) {
       where: {
         id: proId,
         isOnline: true,
+        deletedAt: null,
+        deletionRequestedAt: null,
         onboardingStatus: OnboardingStatus.COMPLETED,
         latitude: { not: null },
         longitude: { not: null },

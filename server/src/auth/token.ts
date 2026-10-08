@@ -20,11 +20,27 @@ import { logger } from '../common/logger';
  * available across the whole Node range we declare. v5 ships a real CJS build.
  */
 
+/** One authentication method a session used, from the JWT `amr` claim. */
+export interface AuthMethod {
+  /** RFC 8176-style method name, e.g. `otp`, `password`, `oauth`. */
+  method: string;
+  /** Unix seconds when that authentication happened, most recent first. */
+  timestamp: number;
+}
+
 export interface VerifiedToken {
   /** Supabase `auth.users.id`. Our `User.id` matches it. */
   userId: string;
   phone: string | null;
   email: string | null;
+  /**
+   * How this session authenticated, most recent first. Empty when the token
+   * carries no `amr` claim. Consumed by the account-deletion flow to prove the
+   * pro re-authenticated with a fresh OTP (method `otp`) before a single-use
+   * authorization is minted — identity and freshness come from here, never
+   * from claims the client reports.
+   */
+  amr: AuthMethod[];
 }
 
 export interface TokenVerifierDeps {
@@ -96,7 +112,27 @@ export function createTokenVerifier(deps: TokenVerifierDeps) {
       userId,
       phone: claimString(payload, 'phone'),
       email: claimString(payload, 'email'),
+      amr: parseAmr(payload.amr),
     };
+  }
+
+  /**
+   * Reads the `amr` claim defensively. Issued tokens carry
+   * `[{ method, timestamp }]`, most recent first; custom access-token hooks may
+   * emit RFC 8176 bare strings instead, so entries that are not well-formed
+   * objects are skipped rather than failing verification.
+   */
+  function parseAmr(value: unknown): AuthMethod[] {
+    if (!Array.isArray(value)) return [];
+    const methods: AuthMethod[] = [];
+    for (const entry of value) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const { method, timestamp } = entry as Record<string, unknown>;
+      if (typeof method !== 'string' || method.length === 0) continue;
+      if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) continue;
+      methods.push({ method, timestamp });
+    }
+    return methods;
   }
 
   return { verify };

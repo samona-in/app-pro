@@ -129,6 +129,9 @@ const jobDetailInclude = {
       displayName: true,
       rating: true,
       selfiePhotoPath: true,
+      // A deleted pro's tombstone exposes no PII (displayName is nulled), so
+      // the surface shows the customer "Deleted Professional" instead.
+      deletedAt: true,
       profile: { select: { phone: true } },
     },
   },
@@ -176,6 +179,7 @@ type JobDetailRow = JobRow & {
     userId: string;
     displayName: string | null;
     rating: number | null;
+    deletedAt: Date | null;
     profile: { phone: string | null };
     selfiePhotoPath: string | null;
   } | null;
@@ -263,7 +267,11 @@ function toJobDetail(
       forViewer === 'customer' && assigned && row.pro
         ? {
             proId: row.pro.id,
-            displayName: row.pro.displayName,
+            // A tombstoned pro keeps their identity to nothing but a marker:
+            // the customer still sees their history, and that whoever did the
+            // work no longer has a live account.
+            displayName: row.pro.deletedAt ? null : row.pro.displayName,
+            isDeleted: row.pro.deletedAt !== null,
             rating: row.pro.rating,
             phone: row.pro.profile.phone,
             // The pro's verified selfie is their requester-facing face photo.
@@ -1167,8 +1175,11 @@ export function createJobsService(deps: JobsServiceDeps) {
 
       // Accepting requires the pro to be online — an offline pro cannot act on
       // a request. Surfaced as its own, clear error before radius checks.
+      // A pro with a pending or completed deletion is out: a request to delete
+      // stops new work immediately, so finalization is never stranded behind a
+      // fresh booking.
       const online = await tx.proProfile.findFirst({
-        where: { id: pro.id, isOnline: true },
+        where: { id: pro.id, isOnline: true, deletedAt: null, deletionRequestedAt: null },
         select: { id: true },
       });
       if (!online) throw conflict('Go online to accept jobs.');

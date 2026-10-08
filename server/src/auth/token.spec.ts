@@ -53,6 +53,7 @@ describe('token verification', () => {
       userId: '11111111-2222-3333-4444-555555555555',
       phone: '919876543210',
       email: null,
+      amr: [],
     });
   });
 

@@ -6,6 +6,8 @@ export const ApiErrorCode = {
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
+  /** The resource existed but is no longer available (e.g. an already-consumed token). */
+  GONE: 'GONE',
   RATE_LIMITED: 'RATE_LIMITED',
   INTERNAL: 'INTERNAL',
   NETWORK: 'NETWORK',

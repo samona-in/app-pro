@@ -3,6 +3,7 @@ import {
   ACTIVE_ORDER_STATUSES,
   isActiveOrder,
   jobStatusHint,
+  proDisplayName,
 } from '../active-job-copy';
 
 function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
@@ -34,6 +35,8 @@ function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     pro: null,
     acceptedAt: null,
     completedAt: null,
+    cancelledAt: null,
+    cancelledBy: null,
     ...overrides,
   };
 }
@@ -44,6 +47,7 @@ const pro = {
   rating: 4.8,
   phone: '+919000000000',
   photoUrl: null,
+  isDeleted: false,
 };
 
 describe('isActiveOrder', () => {
@@ -117,5 +121,24 @@ describe('jobStatusHint', () => {
       }),
     );
     expect(hint.title).toBe('Professional • Electrician');
+  });
+
+  it('labels a deleted professional neutrally', () => {
+    expect(proDisplayName(pro)).toBe('Ravi Kumar');
+    expect(proDisplayName(null)).toBe('Deleted Professional');
+    expect(proDisplayName({ ...pro, displayName: null })).toBe('Professional');
+    expect(proDisplayName({ ...pro, isDeleted: true })).toBe('Deleted Professional');
+    expect(proDisplayName({ ...pro, displayName: null, isDeleted: true })).toBe(
+      'Deleted Professional',
+    );
+
+    const hint = jobStatusHint(
+      makeJob({
+        status: JobStatus.TRAVELLING,
+        proId: pro.proId,
+        pro: { ...pro, displayName: null, isDeleted: true },
+      }),
+    );
+    expect(hint.title).toBe('Deleted Professional • Electrician');
   });
 });

@@ -66,6 +66,8 @@ async function main(): Promise<void> {
   services.notifications.start();
   // Auto-expiry: start expiring stale REQUESTED jobs once the process is ready.
   services.jobs.startExpireSweep();
+  // Account deletion: finalize deferred and retried deletions on its own cadence.
+  services.accountDeletion.start();
 
   /** Close connections in reverse order of opening, then exit. */
   async function shutdown(signal: string): Promise<void> {
@@ -74,6 +76,7 @@ async function main(): Promise<void> {
     // Stop accepting work before tearing down the resources in-flight requests use.
     services.notifications.stop();
     services.jobs.stopExpireSweep();
+    services.accountDeletion.stop();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     await realtime.close();
     if (redis) await redis.quit().catch(() => undefined);

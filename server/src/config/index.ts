@@ -55,6 +55,18 @@ const envSchema = z.object({
   SUPABASE_JWT_SECRET: optional(z.string()),
 
   /**
+   * Supabase service-role key, used only to administer identities the API
+   * itself created: `DELETE /auth/v1/admin/users/{id}` when an account deletes
+   * itself. Never a client credential — it is server-only, capable of
+   * managing every user, and must not be committed or logged.
+   *
+   * Optional only so the server can still boot and serve non-deletion traffic
+   * without it; a FULL_ACCOUNT deletion fails with a clear error until it is
+   * set rather than silently shrinking to a pro-surface tombstone.
+   */
+  SUPABASE_SERVICE_ROLE_KEY: optional(z.string().min(1)),
+
+  /**
    * Region the object buckets live in. Also determines the shape of a public
    * object URL, so it must match where the buckets actually are.
    */
@@ -256,6 +268,51 @@ const envSchema = z.object({
    * outlive the request it belongs to. Defaults to 90s.
    */
   JOB_OFFER_TTL_MS: z.coerce.number().int().min(5_000).max(600_000).default(90_000),
+
+  /**
+   * Window, in ms, within which a fresh OTP challenge (proven by the access
+   * token's `amr` claim) counts as the re-authentication required before a
+   * deletion authorization is issued. A maximum of 5 minutes on the surface;
+   * the cap exists so a stale session cannot authorize a destructive call.
+   */
+  ACCOUNT_DELETION_REAUTH_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .min(30_000)
+    .max(5 * 60_000)
+    .default(5 * 60_000),
+
+  /**
+   * How long a issued deletion-authorization token stays redeemable, in ms.
+   * The app must confirm within this window or re-verify. Sanely bounded: a
+   * confirmation is seconds, not hours.
+   */
+  ACCOUNT_DELETION_TOKEN_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(30_000)
+    .max(60 * 60_000)
+    .default(5 * 60_000),
+
+  /**
+   * How often the account-deletion sweeper scans for work, in ms. Runs in the
+   * single API task — the AWS network runs exactly one instance — so a
+   * setInterval is the deployment-safe choice (bull queues would need a second
+   * worker that does not exist). Defaults to 30s.
+   */
+  ACCOUNT_DELETION_SWEEP_MS: z.coerce
+    .number()
+    .int()
+    .min(5_000)
+    .max(3_600_000)
+    .default(30_000),
+
+  /**
+   * How many times the sweeper retries a failed deletion before leaving it in
+   * FAILED for manual attention. Bounded so a poisoned record does not hammer
+   * the database forever. Defaults to 5.
+   */
+  ACCOUNT_DELETION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(50).default(5),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -271,6 +328,8 @@ export interface AppConfig {
   supabaseUrl: string;
   supabaseJwtSecret: string | null;
   supabaseJwksUrl: string | null;
+  /** Supabase service-role key used to delete identities; null until configured. */
+  supabaseServiceRoleKey: string | null;
   /** Region the object buckets live in. */
   s3Region: string;
   /** Bucket holding live-captured Pro face photos. */
@@ -332,6 +391,14 @@ export interface AppConfig {
   jobOfferSecret: string | null;
   /** How long a minted job-offer token stays redeemable, in ms. */
   jobOfferTtlMs: number;
+  /** Fresh-OTP re-authentication window for account deletion, in ms. */
+  accountDeletionReauthWindowMs: number;
+  /** How long an issued deletion-authorization token stays redeemable, in ms. */
+  accountDeletionTokenTtlMs: number;
+  /** How often the account-deletion sweeper scans for work, in ms. */
+  accountDeletionSweepMs: number;
+  /** Retry ceiling for a failed deletion before manual attention. */
+  accountDeletionMaxAttempts: number;
 }
 
 /**
@@ -398,6 +465,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     supabaseUrl: env.SUPABASE_URL,
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET ?? null,
     supabaseJwksUrl: env.SUPABASE_JWKS_URL ?? null,
+    supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY ?? null,
     s3Region: env.S3_REGION,
     s3BucketSelfies: env.S3_BUCKET_SELFIES,
     s3BucketJobImages: env.S3_BUCKET_JOB_IMAGES,
@@ -432,5 +500,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     jobAlertTtlMs: env.JOB_ALERT_TTL_MS,
     jobOfferSecret: env.JOB_OFFER_SECRET ?? null,
     jobOfferTtlMs: env.JOB_OFFER_TTL_MS,
+    accountDeletionReauthWindowMs: env.ACCOUNT_DELETION_REAUTH_WINDOW_MS,
+    accountDeletionTokenTtlMs: env.ACCOUNT_DELETION_TOKEN_TTL_MS,
+    accountDeletionSweepMs: env.ACCOUNT_DELETION_SWEEP_MS,
+    accountDeletionMaxAttempts: env.ACCOUNT_DELETION_MAX_ATTEMPTS,
   };
 }

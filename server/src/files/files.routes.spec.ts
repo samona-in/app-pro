@@ -46,6 +46,10 @@ function buildServices(overrides: Partial<Services> = {}) {
       avatarPublicUrl,
       avatarScope: (surface: 'customer' | 'pro', userId: string) => `${surface}s/${userId}/`,
       removeAvatar: jest.fn().mockResolvedValue(undefined),
+      selfiesBucket: 'pro-selfies',
+      avatarsBucket: 'avatars',
+      documentsBucket: 'pro-documents',
+      removeObjectPrefix: jest.fn().mockResolvedValue(undefined),
     },
     customers: {
       ensureForUser: jest.fn(),
@@ -179,6 +183,10 @@ describe('files routes — avatar', () => {
         documentContentUrl: jest.fn(),
         documentScope: (userId: string) => `pros/${userId}/documents/`,
         removeDocument: jest.fn(),
+        selfiesBucket: 'pro-selfies',
+        avatarsBucket: 'avatars',
+        documentsBucket: 'pro-documents',
+        removeObjectPrefix: jest.fn().mockResolvedValue(undefined),
       },
     });
 

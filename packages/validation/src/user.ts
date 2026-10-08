@@ -17,3 +17,15 @@ export const updateProfileSchema = z.object({
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+/**
+ * The single-use deletion authorization travels in the `X-Deletion-Token`
+ * header so `DELETE /users/me` stays a bodyless request and the token never
+ * appears in a URL or a log line. The token itself is 64 hex chars; the shape
+ * only enforces a sane length, nothing about content.
+ */
+export const deletionTokenHeaderSchema = z.object({
+  'x-deletion-token': z.string().trim().min(1).max(128),
+});
+
+export type DeletionTokenHeader = z.infer<typeof deletionTokenHeaderSchema>;

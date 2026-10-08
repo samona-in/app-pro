@@ -103,6 +103,13 @@ export interface RealtimeService {
   emitToUser(userId: string, event: RealtimeEvent, payload: unknown): void;
   /** Fires an event to a list of users in one pass. */
   emitToUsers(userIds: string[], event: RealtimeEvent, payload: unknown): void;
+  /**
+   * Disconnects a user's sockets — all of them, or only those on one surface
+   * (`appType`). Account deletion uses it to drop a deleted identity's sockets
+   * at finalize; `appType: 'pro'` ejects only the Pro app so a surviving
+   * customer session stays live.
+   */
+  disconnectUser(userId: string, options?: { appType?: string }): void;
   close(): Promise<void>;
 }
 
@@ -147,6 +154,7 @@ export function createRealtimeService(config: AppConfig): RealtimeService {
           if (!verified) return next(UNAUTHORIZED);
           const user = await session.authService.syncUser(verified, appType);
           if (!user.isActive) return next(new Error('forbidden'));
+          if (user.deletedAt) return next(UNAUTHORIZED);
           socket.data.user = { id: user.id, isAdmin: user.isAdmin, appType: user.appType };
           next();
         })
@@ -196,6 +204,16 @@ export function createRealtimeService(config: AppConfig): RealtimeService {
     io.to(userIds.map((id) => `user:${id}`)).emit(event, payload);
   }
 
+  function disconnectUser(userId: string, options?: { appType?: string }): void {
+    if (!io) return;
+    for (const socket of io.sockets.sockets.values()) {
+      const user = socket.data?.user as { id?: string; appType?: string | null } | undefined;
+      if (user?.id !== userId) continue;
+      if (options?.appType && user.appType !== options.appType) continue;
+      socket.disconnect(true);
+    }
+  }
+
   async function close(): Promise<void> {
     if (!io) return;
     const server = io;
@@ -203,5 +221,5 @@ export function createRealtimeService(config: AppConfig): RealtimeService {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
-  return { attach, emitToUser, emitToUsers, close };
+  return { attach, emitToUser, emitToUsers, disconnectUser, close };
 }
