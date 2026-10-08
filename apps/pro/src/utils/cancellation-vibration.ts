@@ -24,7 +24,10 @@ export const CANCELLED_VIBRATION_PATTERN = [
 
 export function startCancellationVibration(): void {
   if (Platform.OS === 'android') return;
-  Vibration.vibrate(CANCELLED_VIBRATION_PATTERN, true);
+  // repeat=false: the 9.6s pattern plays once and ends on its own. The modal
+  // stays up until the pro acknowledges; the vibration is capped at ~10s, not
+  // bound to the acknowledge moment.
+  Vibration.vibrate(CANCELLED_VIBRATION_PATTERN, false);
 }
 
 export function stopCancellationVibration(): void {
