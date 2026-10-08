@@ -27,6 +27,7 @@ import {
   type NotificationsService,
 } from './notifications/notifications.service';
 import { createReviewsService, type ReviewsService } from './reviews/reviews.service';
+import { createDocumentsService, type DocumentsService } from './documents/documents.service';
 import { createStorageService, type StorageService } from './files/storage.service';
 import type { RealtimeService } from './realtime/gateway';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -54,7 +55,9 @@ export interface Services {
   earnings: EarningsService;
   notifications: NotificationsService;
   reviews: ReviewsService;
-  /** Supabase Storage access for file uploads (selfies today, files later). */
+  /** Submitted pro documents: upload handshake, review verdicts, presigned reads. */
+  documents: DocumentsService;
+  /** Presigned object-storage access for file uploads (selfies, avatars, documents). */
   storage: StorageService;
 }
 
@@ -77,6 +80,7 @@ export function createServices(
     selfiesBucket: config.s3BucketSelfies,
     jobImagesBucket: config.s3BucketJobImages,
     avatarsBucket: config.s3BucketAvatars,
+    documentsBucket: config.s3BucketDocuments,
     publicBaseUrls: {
       selfies: config.s3PublicBaseUrlSelfies,
       jobImages: config.s3PublicBaseUrlJobImages,
@@ -171,6 +175,7 @@ export function createServices(
     earnings: createEarningsService(deps),
     notifications,
     reviews: createReviewsService(deps),
+    documents: createDocumentsService({ prisma, storage }),
     storage,
   };
 }

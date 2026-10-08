@@ -44,7 +44,8 @@
     "jobAlertSetup": "Job alert setup",
     "language": "Language",
     "helpSupport": "Help & support",
-    "manageServices": "Manage services"
+    "manageServices": "Manage services",
+    "documents": "Documents"
   },
   "welcome": {
     "heading": "Work that comes to you.",
@@ -436,6 +437,45 @@
       "rowLabel": "Appear on top",
       "rowCaption": "Lets the job-alert overlay show while the app is closed",
       "a11y": "Appear on top — job-alert overlay permission"
+    }
+  },
+  "documents": {
+    "title": "Documents",
+    "subtitle": "ID, address and payout documents for verification. Only our review team can see them.",
+    "loading": "Loading your documents…",
+    "emptyTitle": "No documents yet",
+    "emptyMessage": "Start with your ID proof — it is what earns the Verified badge on your profile.",
+    "uploadCardTitle": "Upload a document",
+    "uploadCardCaption": "PDF, JPEG or PNG — up to 10 MB per file.",
+    "uploadButton": "Choose file",
+    "uploading": "Uploading…",
+    "types": {
+      "ID_PROOF": "ID proof",
+      "ADDRESS_PROOF": "Address proof",
+      "PAYOUT_PROOF": "Payout proof",
+      "TRADE_LICENCE": "Trade licence",
+      "CERTIFICATE": "Certificate"
+    },
+    "status": {
+      "PENDING": "In review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected"
+    },
+    "rejectionReason": "Reason: {{reason}}",
+    "delete": "Delete",
+    "deleteTitle": "Delete this document?",
+    "deleteMessage": "{{fileName}} will be removed from your documents. You can upload it again later.",
+    "deleteConfirm": "Delete",
+    "errors": {
+      "uploadFailedTitle": "Upload failed",
+      "deleteFailedTitle": "Could not delete",
+      "network": "We could not reach the server. Check your connection and try again.",
+      "generic": "Something went wrong. Please try again.",
+      "tooLarge": "{{fileName}} is {{size}} — the limit is {{max}} per file.",
+      "unsupported": "Choose a PDF, JPEG or PNG file."
+    },
+    "a11y": {
+      "deleteRow": "Delete {{fileName}}"
     }
   },
   "helpSupport": {

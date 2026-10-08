@@ -1,4 +1,9 @@
-import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { S3Client } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
@@ -19,14 +24,25 @@ const IMAGE_CONTENT_TYPE = 'image/jpeg';
 const UPLOAD_URL_TTL_SECONDS = 300;
 
 /**
+ * How long a minted document read URL stays usable.
+ *
+ * Documents are never public: identity and bank details sit in this bucket,
+ * so every read goes through a short-lived presigned GET minted for the owner
+ * or an admin. Long enough to open a file, far too short for a leaked link to
+ * outlive its usefulness.
+ */
+const DOCUMENT_URL_TTL_SECONDS = 600;
+
+/**
  * Mints a presigned URL for one upload.
  *
  * Injected so tests can drive the handshake without a signing backend; the
  * default is the AWS SDK's own signer, which needs no credentials of its own
- * because the client resolves them from the ambient provider chain.
+ * because the client resolves them from the ambient provider chain. The same
+ * signer mints read URLs (GetObject) as well as upload URLs.
  */
 export type SignUploadUrl = (
-  command: PutObjectCommand,
+  command: PutObjectCommand | GetObjectCommand,
   options: { expiresIn: number },
 ) => Promise<string>;
 
@@ -39,6 +55,12 @@ export interface StorageServiceDeps {
   jobImagesBucket: string;
   /** Bucket holding per-surface profile avatars. */
   avatarsBucket: string;
+  /**
+   * Bucket holding submitted pro documents. Private — no public origin is
+   * configured for it and no public URL is ever built from its path; reads go
+   * through short-lived presigned GETs.
+   */
+  documentsBucket: string;
   /**
    * Origins public object URLs are built from, per bucket. E.g.
    * `{ selfies: 'https://d111.cloudfront.net' }`.
@@ -73,6 +95,9 @@ export const JOB_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
 /** Largest avatar the API will accept, in bytes. */
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+
+/** Largest submitted document the API will accept, in bytes. */
+export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 
 /**
  * The surface an avatar belongs to. A person who is both a customer and a
@@ -137,6 +162,50 @@ function avatarPathFor(surface: AvatarSurface, userId: string): string {
 }
 
 /**
+ * The folder scope one account's documents live under.
+ *
+ * Ownership of a submitted path is a prefix comparison against this — the
+ * client never chooses where its bytes land and can never reference another
+ * pro's documents.
+ */
+function documentScopeFor(userId: string): string {
+  return `pros/${userId}/documents/`;
+}
+
+/**
+ * File extensions the documents bucket accepts, keyed by content type.
+ *
+ * The extension is derived from the (schema-validated) content type rather
+ * than taken from a client-supplied file name, so a name can never steer the
+ * key. An unknown type is refused here as well as in the upload schema: two
+ * checks, one outcome.
+ */
+const DOCUMENT_EXTENSIONS: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+};
+
+/**
+ * A document's storage path.
+ *
+ * Unique per upload, like avatars: documents are immutable records — an edit
+ * is a delete plus a fresh upload — so nothing ever overwrites an object a
+ * review may already have seen.
+ */
+function documentPathFor(userId: string, contentType: string): string {
+  const extension = DOCUMENT_EXTENSIONS[contentType];
+  if (!extension) {
+    throw createHttpError(
+      422,
+      ApiErrorCode.VALIDATION_FAILED,
+      'That file type is not supported. Upload a PDF, JPEG or PNG.',
+    );
+  }
+  return `${documentScopeFor(userId)}${randomUUID()}.${extension}`;
+}
+
+/**
  * Object storage access for domain modules.
  *
  * Wraps Amazon S3 behind three small operations so no route talks to the
@@ -145,7 +214,8 @@ function avatarPathFor(surface: AvatarSurface, userId: string): string {
  * streams the image straight to the bucket.
  */
 export function createStorageService(deps: StorageServiceDeps) {
-  const { region, selfiesBucket, jobImagesBucket, avatarsBucket, publicBaseUrls, s3 } = deps;
+  const { region, selfiesBucket, jobImagesBucket, avatarsBucket, documentsBucket, publicBaseUrls, s3 } =
+    deps;
   const sign = deps.signUploadUrl ?? ((command, options) => getSignedUrl(s3, command, options));
 
   /**
@@ -217,7 +287,11 @@ export function createStorageService(deps: StorageServiceDeps) {
   }
 
   /** Mints the short-lived URL a caller PUTs its JPEG to. */
-  async function signUpload(bucket: string, key: string): Promise<string> {
+  async function signUpload(
+    bucket: string,
+    key: string,
+    contentType = IMAGE_CONTENT_TYPE,
+  ): Promise<string> {
     try {
       // The content type is signed, so S3 rejects the upload unless the client
       // sends exactly the header this minted the URL for.
@@ -225,7 +299,7 @@ export function createStorageService(deps: StorageServiceDeps) {
         new PutObjectCommand({
           Bucket: bucket,
           Key: key,
-          ContentType: IMAGE_CONTENT_TYPE,
+          ContentType: contentType,
         }),
         { expiresIn: UPLOAD_URL_TTL_SECONDS },
       );
@@ -236,10 +310,11 @@ export function createStorageService(deps: StorageServiceDeps) {
   }
 
   /**
-   * Whether an object reached the bucket, and rejects it if it is too big.
+   * What landed for one key, and rejects it if it is too big.
    *
    * `HEAD` is the one call that answers both questions: it 404s when nothing
-   * landed and reports `content-length` when something did.
+   * landed and reports `content-length` (plus the stored content type) when
+   * something did.
    *
    * The size check is this module's job, not the bucket's. Supabase enforced
    * `file_size_limit` as bucket metadata, so an oversize PUT was rejected at
@@ -248,31 +323,34 @@ export function createStorageService(deps: StorageServiceDeps) {
    * the domain would otherwise record the object. A limit that only exists in
    * this file is one the server can actually apply.
    *
-   * Returns `true` only when the object is present *and* acceptable. Throwing
-   * rather than returning `false` on the oversize case is deliberate: a missing
-   * object is retryable and an oversize one is not, and the caller must not be
-   * told to retry something that will never succeed.
+   * Returns null only when the object is absent *or* unreportable — both mean
+   * "do not record this object". Throwing rather than returning null on the
+   * oversize case is deliberate: a missing object is retryable and an oversize
+   * one is not, and the caller must not be told to retry something that will
+   * never succeed.
    */
-  async function objectExists(
+  async function objectInfo(
     bucket: string,
     key: string,
     maxBytes: number,
     label: string,
-  ): Promise<boolean> {
+  ): Promise<{ sizeBytes: number; contentType: string | null } | null> {
     let size: number | undefined;
+    let contentType: string | undefined;
     try {
       const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
       size = head.ContentLength;
+      contentType = head.ContentType;
     } catch {
       // A missing key, a denied read and a transport fault are indistinguishable
       // here, and every one of them means "do not record this object".
-      return false;
+      return null;
     }
 
     if (typeof size !== 'number') {
       // Present but unreportable length: treat as absent rather than trust an
       // unknown payload.
-      return false;
+      return null;
     }
     if (size > maxBytes) {
       throw createHttpError(
@@ -281,7 +359,21 @@ export function createStorageService(deps: StorageServiceDeps) {
         `That ${label} is larger than the ${Math.floor(maxBytes / (1024 * 1024))} MiB limit.`,
       );
     }
-    return true;
+    return { sizeBytes: size, contentType: contentType ?? null };
+  }
+
+  /**
+   * Whether an object reached the bucket, and rejects it if it is too big.
+   *
+   * Returns `true` only when the object is present *and* acceptable.
+   */
+  async function objectExists(
+    bucket: string,
+    key: string,
+    maxBytes: number,
+    label: string,
+  ): Promise<boolean> {
+    return (await objectInfo(bucket, key, maxBytes, label)) !== null;
   }
 
   /**
@@ -376,6 +468,70 @@ export function createStorageService(deps: StorageServiceDeps) {
     }
   }
 
+  /**
+   * Begins the one document upload handshake: a unique path under the caller's
+   * own folder plus a URL signed for exactly the declared content type, so S3
+   * rejects an upload whose header disagrees with what was asked for.
+   *
+   * The caller must have validated `contentType` against the shared allowlist;
+   * `documentPathFor` refuses anything it has no extension for regardless.
+   */
+  async function createDocumentUpload(
+    userId: string,
+    contentType: string,
+  ): Promise<{ path: string; uploadUrl: string }> {
+    const path = documentPathFor(userId, contentType);
+    return { path, uploadUrl: await signUpload(documentsBucket, path, contentType) };
+  }
+
+  /**
+   * What actually landed for a submitted document path: size and content type
+   * read from the object itself, never from what the client claimed.
+   *
+   * Null when nothing landed (the route turns that into a retryable 409);
+   * throws 422 when it arrived but is over the limit — same contract as
+   * `objectExists`, with the details the domain needs to record the row.
+   */
+  async function documentObjectInfo(
+    path: string,
+  ): Promise<{ sizeBytes: number; contentType: string | null } | null> {
+    return objectInfo(documentsBucket, path, DOCUMENT_MAX_BYTES, 'document');
+  }
+
+  /**
+   * Mints the short-lived read URL for one stored document.
+   *
+   * The bucket is private and no public URL variant exists for it: identity
+   * and bank details are in there, so every read is a fresh, expiring,
+   * authenticated signature rather than a stable link.
+   */
+  async function documentContentUrl(path: string): Promise<string> {
+    try {
+      return await sign(new GetObjectCommand({ Bucket: documentsBucket, Key: path }), {
+        expiresIn: DOCUMENT_URL_TTL_SECONDS,
+      });
+    } catch (cause) {
+      logger.error('Could not mint a signed document read URL.', cause);
+      throw createHttpError(502, ApiErrorCode.INTERNAL, 'Could not open the document.', { cause });
+    }
+  }
+
+  /**
+   * Deletes a submitted document's object once its row is gone.
+   *
+   * Best-effort: the row is already deleted, so a failed delete is an orphaned
+   * object, not an integrity problem — but it is logged loudly, never swallowed
+   * (CLAUDE.md "Error Handling").
+   */
+  async function removeDocument(path: string): Promise<void> {
+    if (!path) return;
+    try {
+      await s3.send(new DeleteObjectCommand({ Bucket: documentsBucket, Key: path }));
+    } catch (error) {
+      logger.error('Document cleanup failed; an orphaned object remains.', error);
+    }
+  }
+
   return {
     createSelfieUpload,
     selfieExists,
@@ -389,6 +545,11 @@ export function createStorageService(deps: StorageServiceDeps) {
     avatarPublicUrl,
     avatarScope: avatarScopeFor,
     removeAvatar,
+    createDocumentUpload,
+    documentObjectInfo,
+    documentContentUrl,
+    documentScope: documentScopeFor,
+    removeDocument,
   };
 }
 

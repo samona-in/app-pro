@@ -174,6 +174,11 @@ describe('files routes — avatar', () => {
         avatarPublicUrl,
         avatarScope: (surface: 'customer' | 'pro', userId: string) => `${surface}s/${userId}/`,
         removeAvatar: jest.fn(),
+        createDocumentUpload: jest.fn(),
+        documentObjectInfo: jest.fn(),
+        documentContentUrl: jest.fn(),
+        documentScope: (userId: string) => `pros/${userId}/documents/`,
+        removeDocument: jest.fn(),
       },
     });
 

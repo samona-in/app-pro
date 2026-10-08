@@ -70,6 +70,16 @@ const envSchema = z.object({
   S3_BUCKET_AVATARS: z.string().min(1, 'S3_BUCKET_AVATARS is required.'),
 
   /**
+   * Bucket holding submitted pro documents (identity, address, payout proof,
+   * licences, certificates).
+   *
+   * Deliberately has no `S3_PUBLIC_BASE_URL_*` sibling: documents carry
+   * identity and bank details, so no public read URL is ever built for them —
+   * the API mints short-lived presigned GETs for the owner or an admin.
+   */
+  S3_BUCKET_DOCUMENTS: z.string().min(1, 'S3_BUCKET_DOCUMENTS is required.'),
+
+  /**
    * Origin that public selfie URLs are built from. Optional: defaults to the
    * selfies bucket's own regional S3 URL.
    *
@@ -269,6 +279,8 @@ export interface AppConfig {
   s3BucketJobImages: string;
   /** Bucket holding per-surface profile avatars. */
   s3BucketAvatars: string;
+  /** Bucket holding submitted pro documents; never served publicly. */
+  s3BucketDocuments: string;
   /** Origin for public selfie URLs; null uses the selfies bucket's S3 URL. */
   s3PublicBaseUrlSelfies: string | null;
   /** Origin for public job-image URLs; null uses that bucket's S3 URL. */
@@ -390,6 +402,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     s3BucketSelfies: env.S3_BUCKET_SELFIES,
     s3BucketJobImages: env.S3_BUCKET_JOB_IMAGES,
     s3BucketAvatars: env.S3_BUCKET_AVATARS,
+    s3BucketDocuments: env.S3_BUCKET_DOCUMENTS,
     s3PublicBaseUrlSelfies: env.S3_PUBLIC_BASE_URL_SELFIES ?? null,
     s3PublicBaseUrlJobImages: env.S3_PUBLIC_BASE_URL_JOB_IMAGES ?? null,
     s3PublicBaseUrlAvatars: env.S3_PUBLIC_BASE_URL_AVATARS ?? null,

@@ -66,6 +66,64 @@ export interface ProServiceListItem {
   rejectionReason: string | null;
 }
 
+/**
+ * What a submitted document proves. Mirrors `DocumentType` in the Prisma
+ * schema — keep the two in sync.
+ */
+export const DocumentType = {
+  ID_PROOF: 'ID_PROOF',
+  ADDRESS_PROOF: 'ADDRESS_PROOF',
+  PAYOUT_PROOF: 'PAYOUT_PROOF',
+  TRADE_LICENCE: 'TRADE_LICENCE',
+  CERTIFICATE: 'CERTIFICATE',
+} as const;
+
+export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];
+
+/** Every document type, in the order the app groups them. */
+export const DOCUMENT_TYPES = Object.values(DocumentType);
+
+/**
+ * A document's review outcome. Mirrors `DocumentStatus` in the Prisma schema —
+ * keep the two in sync.
+ *
+ * Deliberately `APPROVED` rather than the `ACCEPTED` used by
+ * `ProServiceStatus`: an "accepted document" reads wrong, and the two enums
+ * never appear in the same expression.
+ */
+export const DocumentStatus = {
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+
+export type DocumentStatus = (typeof DocumentStatus)[keyof typeof DocumentStatus];
+
+/** Every document status, for filtering a caller's own lists. */
+export const DOCUMENT_STATUSES = Object.values(DocumentStatus);
+
+/**
+ * A Pro's submitted document with its review outcome, as returned to the
+ * owning client.
+ *
+ * The storage path is absent by construction: it is server-minted internal
+ * state, and the bytes are reachable only through the authenticated
+ * content-url endpoint — documents carry identity and bank details, so no
+ * public read URL exists for them.
+ */
+export interface ProDocument {
+  id: string;
+  type: DocumentType;
+  status: DocumentStatus;
+  /** The display name the Pro gave the file; never the storage key. */
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
 export const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
   { value: ExperienceLevel.UNDER_1_YEAR, label: 'Less than 1 year' },
   { value: ExperienceLevel.ONE_TO_THREE, label: '1–3 years' },
@@ -143,10 +201,11 @@ export interface ProProfile {
  * app with an unusable profile. Both the API and the app import this, so they
  * cannot disagree.
  *
- * Documents, bank details and certifications are intentionally absent — they
- * are collected later, and requiring them here would block a Pro who is
- * otherwise ready to work. The selfie is different: it is the one proof that
- * the account belongs to a real person, so it gates completion.
+ * Documents are intentionally absent: they are collected after onboarding in
+ * the profile's Documents section, reviewed by an admin, and never gate
+ * completion — requiring them here would block a Pro who is otherwise ready
+ * to work. The selfie is different: it is the one proof that the account
+ * belongs to a real person, so it gates completion.
  */
 export function isProProfileComplete(
   profile: Pick<

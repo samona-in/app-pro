@@ -33,3 +33,12 @@ export function formatRelativeTime(iso: string, t: TFunction): string {
 export function formatChatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 }
+
+/** A file size in the smallest whole unit a person reads easily, e.g. "840 KB", "2.4 MB". */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const kilobytes = bytes / 1024;
+  if (kilobytes < 1024) return `${kilobytes < 10 ? kilobytes.toFixed(1) : Math.round(kilobytes)} KB`;
+  const megabytes = kilobytes / 1024;
+  return `${megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)} MB`;
+}

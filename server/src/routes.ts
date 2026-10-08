@@ -16,6 +16,7 @@ import { createAddressesRouter } from './addresses/addresses.routes';
 import { createEarningsRouter } from './earnings/earnings.routes';
 import { createNotificationsRouter } from './notifications/notifications.routes';
 import { createReviewsRouter } from './reviews/reviews.routes';
+import { createDocumentsRouter } from './documents/documents.routes';
 
 /**
  * Mounts every domain router under the API prefix.
@@ -76,6 +77,11 @@ export function createApiRouter(services: Services, limiters: Limiters): Router 
   // Signed upload URLs hand out write access to object storage — the same
   // "costs money if abused" tier as payments and geocoding.
   router.use('/files', limiters.expensive, createFilesRouter(services));
+
+  // Same rationale as /files: this router mints presigned PUTs and GETs for
+  // the private documents bucket. One tier for the whole router keeps the
+  // list/read routes under the same budget rather than splitting the mount.
+  router.use('/documents', limiters.expensive, createDocumentsRouter(services));
 
   return router;
 }
