@@ -370,6 +370,53 @@ Never trust:
 
 provided by clients without server validation.
 
+## Permanent Account Deletion
+
+Deletion of a professional account is server-driven and irreversible, and it
+is a marketplace problem, not a row problem. The scope is decided **by the
+server** from the account's shape, never by the client:
+
+- `PRO_PROFILE` — the account also has a customer surface. Only the professional
+  surface is removed; the `ProProfile` row becomes a tombstone (PII nulled,
+  keys kept), the customer surface, jobs, ratings and chat survive, and the
+  Supabase Auth identity is untouched.
+- `FULL_ACCOUNT` — no customer surface. The pro surface is removed **and** the
+  Supabase Auth identity is deleted through the Admin API.
+
+The decisions that keep a marketplace honest while honoring erasure:
+
+- `ProProfile` and `Profile` rows are **tombstoned** (surrogate key + deleted
+  timestamp), never hard-deleted, so historical `Job.proId`, reviews, chat and
+  earnings never dangle. `Job.proId` and `Message.senderId` are `Restrict`, so
+  a future hard-delete fork stays impossible by construction.
+- Delete the pro's owned rows (`ProService`, `ProSkill`, `ProDocument`,
+  notifications, offers/declines) and purge S3 objects under `pros/{userId}/`
+  in the selfie, avatar and document buckets. `jobs/{customerId}/` objects are
+  the customer's record and survive.
+- A `Job` that is `ACCEPTED`/`TRAVELLING`/`ARRIVED`/`IN_PROGRESS` blocks
+  finalization: deletion is locked (`isOnline=false`,
+  `deletionRequestedAt=[now]`), the pro finishes those jobs, and the sweeper
+  finalizes when they clear. `COMPLETED`/`PAYMENT_PENDING` never block.
+- Finalization is an idempotent step list (`LOCK → PURGE_S3 → PURGE_DB →
+  DELETE_AUTH → FINALIZE`); each step is recorded only when it finishes so a
+  crash resumes from the last completed step. Retries past the attempt ceiling
+  land in `FAILED` — terminal, surfaced as "contact support", never auto-retried.
+- **Re-authorization is binding and server-enforced**: a fresh OTP proven by the
+  verified token's `amr` claim within `accountDeletionReauthWindowMs` is
+  required before any token is minted. The single-use token is hashed (SHA-256)
+  at rest; `DELETE /users/me` consumes it atomically and a replay is `410`.
+- A tombstoned profile can never re-login or re-onboard: `syncUser` treats it
+  as no-account, auth returns `401`, availability is refused, and matching,
+  offers and claims exclude it.
+- The `X-Deletion-Token` header re-auth rides the same `limiters.auth` and
+  `limiters.write` tiers as every other credential/write call.
+
+The full retention table (what is kept, what is purged, and what still needs
+legal review — ratings, chat, the deletion audit row, earnings once Settlement
+lands) lives in `docs/account-deletion-retention.md`. When changing the
+deletion workflow, read and update that record; it is the contract reviewers
+check against regulation.
+
 ## Abuse Prevention
 
 Every public endpoint must be rate limited. An unlimited endpoint is an

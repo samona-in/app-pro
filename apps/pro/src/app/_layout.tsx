@@ -169,6 +169,31 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: color.background },
             }}
           />
+          <Stack.Screen
+            name="account"
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: t('routes.accountDeletion'),
+              headerBackTitle: t('common.back'),
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+              contentStyle: { backgroundColor: color.background },
+            }}
+          />
+          <Stack.Screen
+            name="account/confirm"
+            options={{
+              headerShown: true,
+              presentation: 'modal',
+              title: t('routes.confirmDeletion'),
+              headerBackTitle: t('common.back'),
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+              contentStyle: { backgroundColor: color.background },
+              gestureEnabled: false,
+            }}
+          />
         </Stack>
       </KeyboardProvider>
     </AppProviders>

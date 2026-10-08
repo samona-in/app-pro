@@ -25,6 +25,8 @@ export const queryKeys = {
   notifications: ['notifications'] as const,
   /** The pro's submitted documents; invalidated on upload and delete. */
   documents: ['documents'] as const,
+  /** Account-deletion state; invalidated whenever the workflow changes. */
+  accountDeletion: ['account-deletion'] as const,
   messages: {
     thread: (jobId: string) => ['messages', 'thread', jobId] as const,
     /** Scoped by user so a signed-out cache is never served to another account. */

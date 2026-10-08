@@ -46,7 +46,9 @@
     "helpSupport": "Help & support",
     "manageServices": "Manage services",
     "documents": "Documents",
-    "serviceArea": "Service area"
+    "serviceArea": "Service area",
+    "accountDeletion": "Account",
+    "confirmDeletion": "Confirm deletion"
   },
   "welcome": {
     "heading": "Work that comes to you.",
@@ -432,7 +434,8 @@
       "jobAlertSetup": "Job alert setup",
       "payoutDetails": "Payout details",
       "helpSupport": "Help & support",
-      "language": "Language"
+      "language": "Language",
+      "deleteAccount": "Delete account"
     },
     "overlay": {
       "rowLabel": "Appear on top",
@@ -760,5 +763,43 @@
     "english": "English",
     "telugu": "తెలుగు",
     "hindi": "हिन्दी"
+  },
+  "accountDeletion": {
+    "title": "Delete account",
+    "subtitle": "Removing your professional profile is permanent and cannot be undone.",
+    "scopeProProfile": "Your customer account and phone number stay — only the professional side is removed.",
+    "scopeFullAccount": "This removes your entire Samona identity, including your phone number, from both apps.",
+    "whatIsRemoved": "Removed",
+    "whatIsRemovedBody": "Services, skills, documents, profile photo and job alerts.",
+    "whatStays": "Kept for your records",
+    "whatStaysBody": "Jobs, chat, earnings record and reviews stay on file for safety and transparency.",
+    "deleteButton": "Delete professional account",
+    "reauthTitle": "Verify your phone to continue",
+    "reauthBody": "For your safety, confirm it is really you. We just sent a code to {{phone}}.",
+    "resendCode": "Resend code",
+    "authorizeButton": "Verify and continue",
+    "pending": "Deletion request pending",
+    "pendingBody": "A deletion request was started but not confirmed. It expires in a few minutes; you can start again after that.",
+    "inProgress": "Deletion in progress",
+    "inProgressBody": "Your account is being deleted. This normally finishes in a few minutes.",
+    "inProgressWithActiveJobs": "{{count}} active job(s) must finish first. Deletion runs automatically the moment they end.",
+    "deleted": "Professional account deleted",
+    "deletedBody": "Your professional account has been removed. Your customer account, if any, is untouched.",
+    "failed": "Deletion needs attention",
+    "failedBody": "Your deletion could not be completed automatically. Please contact support to finish it.",
+    "confirmTitle": "Confirm deletion",
+    "confirmBody": "One last check. This is permanent — there is no way back.",
+    "codeLabel": "Your one-time deletion code",
+    "codeCaption": "Share this code with no one. It will not be shown again.",
+    "codeExpiresAt": "Expires at {{time}}",
+    "confirmButton": "Delete my account forever",
+    "confirmButtonBusy": "Deleting…",
+    "successTitle": "Deletion started",
+    "successDoneBody": "Your professional account has been deleted. Signing you out now.",
+    "successDeferredBody": "You will keep working until your active jobs end; then deletion finishes automatically.",
+    "returnToSignIn": "Return to sign in",
+    "tokenExpired": "That code was already used or has expired. Go back and request a new one.",
+    "alreadyPending": "You already have a deletion request. Go back and cancel it, or wait for it to expire.",
+    "genericError": "Could not complete that step. Check your connection and try again."
   }
 }

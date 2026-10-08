@@ -11,7 +11,12 @@ import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const SETTINGS_ROWS: { icon: IoniconName; labelKey: TranslationKey; route?: string }[] = [
+const SETTINGS_ROWS: {
+  icon: IoniconName;
+  labelKey: TranslationKey;
+  route?: string;
+  destructive?: boolean;
+}[] = [
   {
     icon: 'construct-outline',
     labelKey: 'profile.settings.servicesSkills',
@@ -32,9 +37,25 @@ const SETTINGS_ROWS: { icon: IoniconName; labelKey: TranslationKey; route?: stri
   { icon: 'card-outline', labelKey: 'profile.settings.payoutDetails' },
   { icon: 'help-circle-outline', labelKey: 'profile.settings.helpSupport', route: '/help-support' },
   { icon: 'language-outline', labelKey: 'profile.settings.language', route: '/language' },
+  {
+    icon: 'trash-outline',
+    labelKey: 'profile.settings.deleteAccount',
+    route: '/account',
+    destructive: true,
+  },
 ];
 
-function SettingsRow({ icon, label, route }: { icon: IoniconName; label: string; route?: string }) {
+function SettingsRow({
+  icon,
+  label,
+  route,
+  destructive = false,
+}: {
+  icon: IoniconName;
+  label: string;
+  route?: string;
+  destructive?: boolean;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -44,8 +65,12 @@ function SettingsRow({ icon, label, route }: { icon: IoniconName; label: string;
         if (route) router.push(route);
       }}
     >
-      <Ionicons name={icon} size={20} color={color['text-secondary']} />
-      <Text variant="body" className="ml-3 flex-1">
+      <Ionicons
+        name={icon}
+        size={20}
+        color={destructive ? color.danger : color['text-secondary']}
+      />
+      <Text variant="body" className={`ml-3 flex-1 ${destructive ? 'text-danger' : ''}`}>
         {label}
       </Text>
       <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
