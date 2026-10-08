@@ -45,7 +45,8 @@
     "language": "Language",
     "helpSupport": "Help & support",
     "manageServices": "Manage services",
-    "documents": "Documents"
+    "documents": "Documents",
+    "serviceArea": "Service area"
   },
   "welcome": {
     "heading": "Work that comes to you.",
@@ -605,6 +606,16 @@
     "awaitingAck_one": "1 cancelled job is waiting to be acknowledged.",
     "awaitingAck_other": "{{count}} cancelled jobs are waiting to be acknowledged.",
     "okay": "Okay"
+  },
+  "serviceAreas": {
+    "title": "Service area",
+    "subtitle": "How far are you willing to travel for jobs?",
+    "current": "Current radius",
+    "caption": "Used to match nearby jobs to you.",
+    "loading": "Loading your service area…",
+    "saveErrorTitle": "Could not save your service area",
+    "saveError": "Check your connection and try again.",
+    "sliderA11y": "Service radius"
   },
   "jobStatus": {
     "requested": "New",

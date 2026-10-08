@@ -471,6 +471,30 @@ export function createProsService(deps: ProsServiceDeps) {
     return toProProfile(row as ProProfileRow, deps.storage);
   }
 
+  /**
+   * Updates how far this pro will travel to jobs — the Service Areas screen.
+   *
+   * Scoped to the caller's own row (matched on `userId`, never a
+   * client-supplied id). Bounds live in `serviceRadiusSchema`. No onboarding
+   * status recompute: the column defaults to 10 and every accepted value is
+   * ≥ 1, so `serviceRadiusKm > 0` already holds and completeness — which
+   * only checks that it is positive — cannot change here.
+   */
+  async function setServiceRadius(
+    userId: string,
+    serviceRadiusKm: number,
+  ): Promise<{ serviceRadiusKm: number }> {
+    await ensureForUser(userId);
+
+    const row = await deps.prisma.proProfile.update({
+      where: { userId },
+      data: { serviceRadiusKm },
+      select: { serviceRadiusKm: true },
+    });
+
+    return { serviceRadiusKm: row.serviceRadiusKm };
+  }
+
   return {
     listCatalogue,
     findByUserId,
@@ -478,6 +502,7 @@ export function createProsService(deps: ProsServiceDeps) {
     applyOnboardingPatch,
     setSelfieUploaded,
     setAvailability,
+    setServiceRadius,
     listProServices,
     requestProService,
   };

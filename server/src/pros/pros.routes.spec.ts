@@ -6,9 +6,9 @@ import { errorHandler } from '../common/middleware/error-handler';
 import { createProsRouter } from './pros.routes';
 
 /**
- * HTTP contract for the Manage Services endpoints: auth, role gate, path
+ * HTTP contract for the pros router's endpoints: auth, role gate, path
  * validation and error envelope. The state machine itself is covered in
- * `pro-services.spec.ts`.
+ * `pro-services.spec.ts` and the radius write in `service-radius.spec.ts`.
  */
 
 const proUser = {
@@ -53,6 +53,7 @@ function buildServices(overrides: Partial<Services> = {}) {
       listCatalogue: jest.fn().mockResolvedValue({ services: [], skills: [] }),
       applyOnboardingPatch: jest.fn(),
       setAvailability: jest.fn(),
+      setServiceRadius: jest.fn().mockResolvedValue({ serviceRadiusKm: 5 }),
       setSelfieUploaded: jest.fn(),
       findByUserId: jest.fn(),
     },
@@ -146,5 +147,64 @@ describe('POST /pros/services/:serviceId/request', () => {
     ).expect(409);
 
     expect(response.body.error.code).toBe(ApiErrorCode.CONFLICT);
+  });
+});
+
+describe('PATCH /pros/me/service-radius', () => {
+  it('requires a token', async () => {
+    const services = buildServices();
+    await request(appWith(services)).patch('/pros/me/service-radius').expect(401);
+    expect(services.pros.setServiceRadius).not.toHaveBeenCalled();
+  });
+
+  it('rejects a customer-surface token', async () => {
+    const services = buildServices();
+    (services.auth.syncUser as jest.Mock).mockResolvedValue({ ...proUser, appType: 'customer' });
+
+    const response = await authed(
+      request(appWith(services))
+        .patch('/pros/me/service-radius')
+        .set('x-app-type', 'pro'),
+    ).expect(403);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.FORBIDDEN);
+    expect(services.pros.setServiceRadius).not.toHaveBeenCalled();
+  });
+
+  it('422s a radius outside the allowed bounds', async () => {
+    const services = buildServices();
+    const response = await authed(
+      request(appWith(services))
+        .patch('/pros/me/service-radius')
+        .set('x-app-type', 'pro')
+        .send({ serviceRadiusKm: 500 }),
+    ).expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.pros.setServiceRadius).not.toHaveBeenCalled();
+  });
+
+  it('422s a missing radius rather than defaulting it', async () => {
+    const services = buildServices();
+    const response = await authed(
+      request(appWith(services)).patch('/pros/me/service-radius').set('x-app-type', 'pro').send({}),
+    ).expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.pros.setServiceRadius).not.toHaveBeenCalled();
+  });
+
+  it('passes the token user and the validated radius, answering with the saved value', async () => {
+    const services = buildServices();
+    const response = await authed(
+      request(appWith(services))
+        .patch('/pros/me/service-radius')
+        .set('x-app-type', 'pro')
+        // A client-supplied pro id is stripped by the schema and never read.
+        .send({ serviceRadiusKm: 5, proId: 'someone-else' }),
+    ).expect(200);
+
+    expect(response.body).toEqual({ serviceRadiusKm: 5 });
+    expect(services.pros.setServiceRadius).toHaveBeenCalledWith('user-1', 5);
   });
 });

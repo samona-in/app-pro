@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   onboardingPatchSchema,
   availabilityPatchSchema,
+  serviceRadiusPatchSchema,
   serviceIdParamsSchema,
 } from '@samona/validation';
 import type { Services } from '../context';
@@ -64,6 +65,22 @@ export function createProsRouter(services: Services): Router {
   router.post('/availability', validate(availabilityPatchSchema), async (req, res, next) => {
     try {
       res.json(await services.pros.setAvailability(req.user!.id, req.body));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * The Service Areas screen's radius control.
+   *
+   * The pro id comes from the token; the body carries only the radius, so
+   * there is no way to aim this at another pro's profile. Matching reads the
+   * same column (`distanceKm <= serviceRadiusKm`), so the saved value is what
+   * decides which jobs reach this pro.
+   */
+  router.patch('/me/service-radius', validate(serviceRadiusPatchSchema), async (req, res, next) => {
+    try {
+      res.json(await services.pros.setServiceRadius(req.user!.id, req.body.serviceRadiusKm));
     } catch (error) {
       next(error);
     }

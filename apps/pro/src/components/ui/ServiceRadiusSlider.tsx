@@ -1,0 +1,340 @@
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  View,
+  type AccessibilityActionEvent,
+  type LayoutChangeEvent,
+} from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { Text } from './Text';
+import { color } from '@/theme';
+import { cn } from '@/utils/cn';
+import {
+  MAX_SERVICE_RADIUS_KM,
+  MIN_SERVICE_RADIUS_KM,
+  translateFromValue,
+  valueFromTranslate,
+} from '@/utils/service-radius';
+
+const KNOB_SIZE = 40;
+const TRACK_HEIGHT = 8;
+const TRACK_SIDE_PADDING = 20;
+const KNOB_TOP = 8;
+
+function travel(trackWidth: number) {
+  return Math.max(0, trackWidth - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
+}
+
+export interface RadiusDebugFrame {
+  phase: 'begin' | 'update' | 'end';
+  pointerX: number;
+  translationX: number;
+  startFingerX: number;
+  startKnob: number;
+  translateX: number;
+  count: number;
+  trackWidth: number;
+}
+
+export interface ServiceRadiusSliderProps {
+  /** The currently saved radius; a changed prop animates the knob to it. */
+  value: number;
+  min?: number;
+  max?: number;
+  /** In-flight save: the knob shows a spinner and the gesture is disabled. */
+  loading?: boolean;
+  disabled?: boolean;
+  /** Fired live while the thumb is dragged, with the nearest whole kilometre. */
+  onValueChange?: (km: number) => void;
+  /** Fired once on release (or an accessibility increment/decrement). */
+  onRelease: (km: number) => void;
+  /** TEMP diagnostic: raw values computed on the UI thread each gesture event. */
+  onDebug?: (frame: RadiusDebugFrame) => void;
+  accessibilityLabel?: string;
+  className?: string;
+}
+
+/**
+ * Whole-kilometre service radius slider.
+ *
+ * The value is committed only when the thumb is released — the network must
+ * not be hit while the finger is still moving. `value` is the saved radius and
+ * drives the resting knob position, so a save, rollback or refetch animates
+ * the knob to match; during a drag the thumb is owned by the gesture.
+ *
+ * The knob is positioned from the finger's pointer coordinate (`e.x`) relative
+ * to where it grabbed the thumb (`startFingerX`), captured at gesture begin.
+ * `e.x` is a raw coordinate in the handler's view, so a thumb resting at
+ * 16 km stays exactly under the finger at 16 km and follows it in *both*
+ * directions — a leftward drag resolves to a negative delta that moves the
+ * knob toward the minimum, never back toward the value it started from.
+ */
+export function ServiceRadiusSlider({
+  value,
+  min = MIN_SERVICE_RADIUS_KM,
+  max = MAX_SERVICE_RADIUS_KM,
+  loading = false,
+  disabled = false,
+  onValueChange,
+  onRelease,
+  onDebug,
+  accessibilityLabel,
+  className,
+}: ServiceRadiusSliderProps) {
+  const translateX = useSharedValue(0);
+  const trackWidth = useSharedValue(0);
+  const dragging = useSharedValue(false);
+  // Where the finger landed and where the thumb sat when the gesture began.
+  const startFingerX = useSharedValue(0);
+  const startKnobTranslate = useSharedValue(0);
+  const updates = useSharedValue(0);
+  const [liveKm, setLiveKm] = useState(value);
+  const [isDragging, setIsDragging] = useState(false);
+
+  function onTrackLayout(e: LayoutChangeEvent) {
+    trackWidth.value = e.nativeEvent.layout.width;
+    translateX.value = withTiming(translateFromValue(value, min, max, travel(e.nativeEvent.layout.width)), {
+      duration: 160,
+    });
+  }
+
+  // Animate the resting knob whenever the saved radius changes (a save, a
+  // rollback, or a refetch), unless the finger is currently dragging. The
+  // prepare snapshot is the knob's target position, so this only reacts when
+  // that position actually moves. The geometry is inlined — `travel` and the
+  // utils module run on the JS thread only, so a worklet cannot call them.
+  useAnimatedReaction(
+    () => {
+      const track = Math.max(0, trackWidth.value - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
+      if (track <= 0) return 0;
+      const clamped = Math.min(max, Math.max(min, value));
+      return ((clamped - min) / (max - min || 1)) * track;
+    },
+    (current, previous) => {
+      if (current === previous) return;
+      if (dragging.value) return;
+      translateX.value = withTiming(current, { duration: 160 });
+    },
+    [value, min, max],
+  );
+
+  const updateLive = useCallback(
+    (translate: number) => {
+      const km = valueFromTranslate(translate, min, max, travel(trackWidth.value));
+      setLiveKm(km);
+      onValueChange?.(km);
+    },
+    [onValueChange, min, max, trackWidth],
+  );
+
+  // TEMP diagnostic. Called from the UI-thread worklets with the raw numbers
+  // so we can see exactly what the gesture pipeline computes on-device.
+  function emitDebug(frame: RadiusDebugFrame) {
+    onDebug?.(frame);
+  }
+
+  // Not memoized on purpose: it commits the radius and is referenced by the
+  // gesture below, which is rebuilt every render, so it is never stale.
+  function finish(translate: number) {
+    const km = valueFromTranslate(translate, min, max, travel(trackWidth.value));
+    setLiveKm(km);
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
+    translateX.value = withSpring(translateFromValue(km, min, max, travel(trackWidth.value)), {
+      damping: 20,
+      stiffness: 300,
+    });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    onRelease(km);
+  }
+
+  const gesture = Gesture.Pan()
+    .enabled(!disabled && !loading)
+    .activeOffsetX(4)
+    .onBegin((e) => {
+      'worklet';
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
+      dragging.value = true;
+      startFingerX.value = e.x;
+      startKnobTranslate.value = translateX.value;
+      updates.value = 0;
+      runOnJS(setIsDragging)(true);
+      runOnJS(emitDebug)({
+        phase: 'begin',
+        pointerX: e.x,
+        translationX: e.translationX,
+        startFingerX: startFingerX.value,
+        startKnob: startKnobTranslate.value,
+        translateX: translateX.value,
+        count: 0,
+        trackWidth: trackWidth.value,
+      });
+    })
+    .onUpdate((e) => {
+      'worklet';
+      // The gesture owns the knob from its very first update — before any
+      // re-render can re-run the reaction below with the old value. Doing this
+      // here (and not only in `onBegin`) makes the capture idempotent: an
+      // `onBegin` that is ever delivered late cannot leave `startKnobTranslate`
+      // at a stray zero that would snap a 16 km thumb toward 1 km.
+      if (!dragging.value) {
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
+        dragging.value = true;
+        startFingerX.value = e.x;
+        startKnobTranslate.value = translateX.value;
+        updates.value = 0;
+        runOnJS(setIsDragging)(true);
+      }
+      updates.value += 1;
+      const travelPx = Math.max(0, trackWidth.value - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
+      translateX.value = Math.min(
+        travelPx,
+        Math.max(0, startKnobTranslate.value + (e.x - startFingerX.value)),
+      );
+      // The nearest whole kilometre is derived on the JS thread for the label.
+      runOnJS(updateLive)(translateX.value);
+      runOnJS(emitDebug)({
+        phase: 'update',
+        pointerX: e.x,
+        translationX: e.translationX,
+        startFingerX: startFingerX.value,
+        startKnob: startKnobTranslate.value,
+        translateX: translateX.value,
+        count: updates.value,
+        trackWidth: trackWidth.value,
+      });
+    })
+    .onEnd(() => {
+      'worklet';
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
+      dragging.value = false;
+      runOnJS(setIsDragging)(false);
+      const settled = translateX.value;
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
+      translateX.value = withSpring(settled, { damping: 20, stiffness: 300 });
+      runOnJS(finish)(settled);
+      runOnJS(emitDebug)({
+        phase: 'end',
+        pointerX: 0,
+        translationX: 0,
+        startFingerX: startFingerX.value,
+        startKnob: startKnobTranslate.value,
+        translateX: settled,
+        count: updates.value,
+        trackWidth: trackWidth.value,
+      });
+    });
+
+  const knobStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: TRACK_SIDE_PADDING + translateX.value }],
+  }));
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: translateX.value + KNOB_SIZE / 2,
+  }));
+
+  const bubbleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: TRACK_SIDE_PADDING + translateX.value - 24 }],
+  }));
+
+  function onAccessibilityAction(event: AccessibilityActionEvent) {
+    if (disabled || loading) return;
+    const step = event.nativeEvent.actionName === 'increment' ? 1 : -1;
+    const next = Math.max(min, Math.min(max, value + step));
+    finish(translateFromValue(next, min, max, travel(trackWidth.value)));
+  }
+
+  const inactive = disabled || loading;
+
+  return (
+    <View
+      className={cn('w-full', className)}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="adjustable"
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      accessibilityValue={{ min, max, now: value, text: `${value}` }}
+      onAccessibilityAction={onAccessibilityAction}
+    >
+      <GestureDetector gesture={gesture}>
+        <View onLayout={onTrackLayout} className="h-14 w-full">
+          {/* Live value bubble, rides above the thumb. */}
+          <Animated.View
+            className="absolute h-6 w-12 items-center justify-center rounded-lg bg-brand"
+            style={[bubbleStyle, { position: 'absolute', top: -26 }]}
+          >
+            <Text
+              variant="footnote"
+              className="font-semibold"
+              style={{ color: color['brand-contrast'] }}
+            >
+              {isDragging ? liveKm : value}
+            </Text>
+          </Animated.View>
+
+          {/* Track and its filled portion. */}
+          <View
+            className={cn('rounded-full', inactive && 'opacity-60')}
+            style={{
+              position: 'absolute',
+              left: TRACK_SIDE_PADDING,
+              right: TRACK_SIDE_PADDING,
+              top: (56 - TRACK_HEIGHT) / 2,
+              height: TRACK_HEIGHT,
+              backgroundColor: color['surface-muted'],
+              borderWidth: 1,
+              borderColor: color.border,
+            }}
+          >
+            <Animated.View
+              className="rounded-full"
+              style={[
+                {
+                  top: -1,
+                  bottom: -1,
+                  backgroundColor: inactive ? color['text-muted'] : color.brand,
+                },
+                fillStyle,
+              ]}
+            />
+          </View>
+
+          {/* Draggable thumb. */}
+          <Animated.View
+            className={cn('h-10 w-10 items-center justify-center rounded-full', inactive && 'opacity-80')}
+            style={[
+              {
+                position: 'absolute',
+                top: KNOB_TOP,
+                left: 0,
+                backgroundColor: inactive ? color['surface-muted'] : color.surface,
+                borderWidth: 1,
+                borderColor: inactive ? color.border : color.brand,
+                shadowColor: '#000',
+                shadowOpacity: 0.18,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: 4,
+              },
+              knobStyle,
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={color.brand} />
+            ) : (
+              <View className="h-2 w-2 rounded-full" style={{ backgroundColor: color.brand }} />
+            )}
+          </Animated.View>
+        </View>
+      </GestureDetector>
+    </View>
+  );
+}

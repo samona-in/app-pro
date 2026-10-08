@@ -5,7 +5,7 @@ import type { Services } from '../src/context';
 import { logger } from '../src/common/logger';
 
 /**
- * Onboarding routes across the real middleware chain.
+ * Onboarding and profile routes across the real middleware chain.
  *
  * Services are stubbed, so this asserts the HTTP contract — auth, validation
  * and error shape — without PostgreSQL. The persistence rules are covered by
@@ -60,6 +60,7 @@ const services = {
     listCatalogue: jest.fn(),
     ensureForUser: jest.fn(),
     applyOnboardingPatch: jest.fn(),
+    setServiceRadius: jest.fn().mockResolvedValue({ serviceRadiusKm: 5 }),
   },
   users: { findById: jest.fn() },
 } as unknown as Services;
@@ -166,5 +167,54 @@ describe('Onboarding routes (e2e)', () => {
       .set('authorization', 'Bearer good.token')
       .set('x-app-type', 'pro')
       .expect(200);
+  });
+});
+
+describe('Service radius route (e2e)', () => {
+  function signInAsPro() {
+    (services.tokenVerifier.verify as jest.Mock).mockResolvedValue({
+      userId: 'user-1',
+      phone: null,
+      email: null,
+    });
+    (services.auth.syncUser as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      isAdmin: false,
+      appType: 'pro',
+      isActive: true,
+    });
+  }
+
+  it('refuses the route without a token', async () => {
+    await request(app).patch('/api/v1/pros/me/service-radius').send({ serviceRadiusKm: 5 }).expect(401);
+    expect(services.pros.setServiceRadius).not.toHaveBeenCalled();
+  });
+
+  it('422s a radius outside the allowed bounds with the shared envelope', async () => {
+    signInAsPro();
+
+    const response = await request(app)
+      .patch('/api/v1/pros/me/service-radius')
+      .set('authorization', 'Bearer good.token')
+      .set('x-app-type', 'pro')
+      .send({ serviceRadiusKm: 500 })
+      .expect(422);
+
+    expect(response.body.error.code).toBe('VALIDATION_FAILED');
+    expect(services.pros.setServiceRadius).not.toHaveBeenCalled();
+  });
+
+  it('scopes the write to the token user and ignores a supplied pro id', async () => {
+    signInAsPro();
+
+    const response = await request(app)
+      .patch('/api/v1/pros/me/service-radius')
+      .set('authorization', 'Bearer good.token')
+      .set('x-app-type', 'pro')
+      .send({ serviceRadiusKm: 5, proId: 'someone-else' })
+      .expect(200);
+
+    expect(response.body).toEqual({ serviceRadiusKm: 5 });
+    expect(services.pros.setServiceRadius).toHaveBeenCalledWith('user-1', 5);
   });
 });

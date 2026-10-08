@@ -148,6 +148,17 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="service-areas"
+            options={{
+              headerShown: true,
+              title: t('routes.serviceArea'),
+              headerBackTitle: t('common.back'),
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+              contentStyle: { backgroundColor: color.background },
+            }}
+          />
+          <Stack.Screen
             name="documents"
             options={{
               headerShown: true,
