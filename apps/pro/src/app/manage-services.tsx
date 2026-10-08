@@ -1,10 +1,12 @@
-import { Alert, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { ProServiceListItem } from '@samona/types';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
 import { ServiceImage, isImageUrl } from '@/components/services/ServiceImage';
+import { RejectionReasonSheet } from '@/components/services/RejectionReasonSheet';
 import { useProServices, useRequestProService } from '@/hooks';
 import { messageForRequestError, serviceRowModel } from '@/utils/manage-services';
 import { color } from '@/theme';
@@ -25,6 +27,10 @@ export default function ManageServicesScreen() {
   const { t } = useTranslation();
   const { data: services = [], isPending, isError, refetch } = useProServices();
   const request = useRequestProService();
+  // The rejected row whose reason is being read: data and visibility are kept
+  // apart so the sheet still has something to render while it animates closed.
+  const [reasonService, setReasonService] = useState<ProServiceListItem | null>(null);
+  const [reasonOpen, setReasonOpen] = useState(false);
 
   function onRequest(service: ProServiceListItem) {
     request.mutate(service.id, {
@@ -32,6 +38,11 @@ export default function ManageServicesScreen() {
         Alert.alert(t('manageServices.requestFailedTitle'), messageForRequestError(error, t));
       },
     });
+  }
+
+  function onViewReason(service: ProServiceListItem) {
+    setReasonService(service);
+    setReasonOpen(true);
   }
 
   if (isPending) {
@@ -76,11 +87,18 @@ export default function ManageServicesScreen() {
                 busy={request.isPending}
                 loadingThis={request.isPending && request.variables === service.id}
                 onRequest={() => onRequest(service)}
+                onViewReason={() => onViewReason(service)}
               />
             </View>
           ))}
         </Card>
       )}
+
+      <RejectionReasonSheet
+        visible={reasonOpen}
+        service={reasonService}
+        onClose={() => setReasonOpen(false)}
+      />
     </Screen>
   );
 }
@@ -90,17 +108,21 @@ function ServiceRow({
   busy,
   loadingThis,
   onRequest,
+  onViewReason,
 }: {
   service: ProServiceListItem;
   /** True while any request is in flight — the row's peers are held disabled. */
   busy: boolean;
   loadingThis: boolean;
   onRequest: () => void;
+  /** Opens the rejection-reason sheet; only offered when the verdict is REJECTED. */
+  onViewReason: () => void;
 }) {
   const { t } = useTranslation();
   const model = serviceRowModel(service.status);
-  const reason = service.rejectionReason?.trim();
   const statusLabel = t(model.badgeLabelKey);
+
+  const badge = <Badge label={statusLabel} tone={model.badgeTone} />;
 
   return (
     <View
@@ -117,13 +139,25 @@ function ServiceRow({
           {service.name}
         </Text>
         <View className="mt-1 flex-row items-center">
-          <Badge label={statusLabel} tone={model.badgeTone} />
+          {model.canViewRejectionReason ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('manageServices.a11y.viewRejectionReason', {
+                service: service.name,
+              })}
+              hitSlop={8}
+              onPress={onViewReason}
+              className="flex-row items-center active:opacity-70"
+            >
+              {badge}
+              <View className="ml-1.5">
+                <Ionicons name="information-circle-outline" size={16} color={color.danger} />
+              </View>
+            </Pressable>
+          ) : (
+            badge
+          )}
         </View>
-        {model.showRejectionReason ? (
-          <Text variant="footnote" className="mt-1 text-danger" numberOfLines={2}>
-            {reason || t('manageServices.noReason')}
-          </Text>
-        ) : null}
       </View>
       {model.action && model.actionLabelKey ? (
         <Button
