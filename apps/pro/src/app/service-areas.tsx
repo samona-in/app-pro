@@ -4,9 +4,12 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { LOCATION_DEFAULTS } from '@samona/config';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { Card, Screen, ServiceRadiusSlider, Text } from '@/components/ui';
+import { Card, Screen, ServiceRadiusSlider, type RadiusDebugFrame, Text } from '@/components/ui';
 import { useProProfile, useUpdateServiceRadius } from '@/hooks';
 import { decideRadiusSave } from '@/utils/service-radius';
+
+// TEMP diagnostic overlay for the drag issue. Remove along with onDebug before merge.
+const SHOW_RADIUS_DEBUG = true;
 
 /**
  * Service area — how far this pro will travel to jobs.
@@ -24,6 +27,7 @@ export default function ServiceAreasScreen() {
   const update = useUpdateServiceRadius();
 
   const [radius, setRadius] = useState<number | null>(null);
+  const [debugFrame, setDebugFrame] = useState<RadiusDebugFrame | null>(null);
   // Seed the thumb exactly once; afterwards server data never overwrites a
   // live drag or a pending save.
   const initializedRef = useRef(false);
@@ -121,6 +125,7 @@ export default function ServiceAreasScreen() {
             loading={update.isPending}
             onValueChange={(km) => setRadius(km)}
             onRelease={onRelease}
+            onDebug={setDebugFrame}
             accessibilityLabel={t('serviceAreas.sliderA11y')}
           />
           <View className="mt-1 flex-row justify-between px-5">
@@ -131,6 +136,33 @@ export default function ServiceAreasScreen() {
               {t('format.km', { value: LOCATION_DEFAULTS.maxServiceRadiusKm })}
             </Text>
           </View>
+          {SHOW_RADIUS_DEBUG ? (
+            <View className="mt-3 rounded-lg border border-border bg-surface-muted p-2">
+              <Text variant="caption" className="text-text-muted">
+                debug (drag thumb, read last frame)
+              </Text>
+              {(() => {
+                const f = debugFrame;
+                if (!f) return <Text variant="caption">no gesture yet</Text>;
+                const km = Math.round(
+                  (f.translateX /
+                    Math.max(1, f.trackWidth - 40 - 20 * 2)) *
+                    (LOCATION_DEFAULTS.maxServiceRadiusKm - LOCATION_DEFAULTS.minServiceRadiusKm) +
+                    LOCATION_DEFAULTS.minServiceRadiusKm,
+                );
+                return (
+                  <Text variant="caption" className="text-text-secondary">
+                    {'phase=' + f.phase + ' count=' + f.count + '\n' +
+                      'track=' + f.trackWidth.toFixed(0) + '\n' +
+                      'x=' + f.pointerX.toFixed(0) + ' finger0=' + f.startFingerX.toFixed(0) + '\n' +
+                      'dx=(x-finger0)=' + (f.pointerX - f.startFingerX).toFixed(0) + '\n' +
+                      'knob0=' + f.startKnob.toFixed(0) + ' knob=' + f.translateX.toFixed(0) + '\n' +
+                      'translationX=' + f.translationX.toFixed(0) + ' km~' + km}
+                  </Text>
+                );
+              })()}
+            </View>
+          ) : null}
         </View>
       </Card>
     </Screen>

@@ -7,6 +7,10 @@ export { IconButton, type IconButtonProps } from './IconButton';
 export { Input, type InputProps } from './Input';
 export { OtpInput, type OtpInputProps } from './OtpInput';
 export { Screen, type ScreenProps } from './Screen';
-export { ServiceRadiusSlider, type ServiceRadiusSliderProps } from './ServiceRadiusSlider';
+export {
+  ServiceRadiusSlider,
+  type RadiusDebugFrame,
+  type ServiceRadiusSliderProps,
+} from './ServiceRadiusSlider';
 export { SwipeToConfirm, type SwipeToConfirmProps } from './SwipeToConfirm';
 export { Text, type TextProps } from './Text';
