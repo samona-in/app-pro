@@ -25,6 +25,7 @@ const config: AppConfig = {
   s3BucketSelfies: 'pro-selfies',
   s3BucketJobImages: 'job-images',
   s3BucketAvatars: 'avatars',
+  s3BucketDocuments: 'pro-documents',
   s3PublicBaseUrlSelfies: null,
   s3PublicBaseUrlJobImages: null,
   s3PublicBaseUrlAvatars: null,

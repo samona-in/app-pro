@@ -141,6 +141,7 @@ model ProProfile {
 
   services      ProService[]
   skills        ProSkill[]
+  documents     ProDocument[]
   /// Jobs this professional accepted. Authorised against ProProfile.userId.
   jobs          Job[]
   notifications Notification[]
@@ -304,6 +305,52 @@ model ProSkill {
 
   @@id([proProfileId, skillId])
   @@map("pro_skills")
+}
+
+/// A document a pro submitted for review — identity, address, payout proof,
+/// trade licence or a skill certificate.
+///
+/// Created `PENDING` by the upload handshake and moved only by an admin
+/// review; the pro app reads the status and the rejection reason but never
+/// writes either. Several documents of the same type may coexist (one
+/// certificate per skill), so `type` is not unique.
+///
+/// Documents carry identity and bank details, so the bytes are never public:
+/// `storagePath` points into a private bucket and reads go through a
+/// short-lived presigned URL minted by the API for the owner or an admin.
+/// Mirrors `DocumentType` / `DocumentStatus` in `@samona/types`.
+model ProDocument {
+  id           String         @id @default(uuid()) @db.Uuid
+  proProfileId String         @map("pro_profile_id") @db.Uuid
+
+  type   DocumentType
+  status DocumentStatus @default(PENDING)
+
+  /// Set when an admin rejects the document; shown verbatim to the Pro.
+  rejectionReason String? @map("rejection_reason")
+  /// When the verdict was returned. Null while `PENDING`.
+  reviewedAt DateTime? @map("reviewed_at")
+
+  /// The server-minted S3 key. A client never chooses where bytes land and
+  /// never sees this value back — it is internal state, not a URL.
+  storagePath String @unique @map("storage_path")
+
+  /// The display name the Pro gave the file, bounded by the shared upload
+  /// schema. Shown in the app; never used to build the storage key.
+  fileName    String @map("file_name")
+  /// Read from the object's own HEAD on complete, never trusted from the
+  /// client: the declared content type is only a claim until the bytes land.
+  contentType String @map("content_type")
+  /// Likewise read from HEAD. Enforced against the per-kind limit there.
+  sizeBytes   Int    @map("size_bytes")
+
+  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([proProfileId])
+  @@map("pro_documents")
 }
 
 /// A service request placed by a customer.
@@ -634,6 +681,26 @@ enum OnboardingStatus {
 enum ProServiceStatus {
   PENDING
   ACCEPTED
+  REJECTED
+}
+
+/// What a submitted document proves. Mirrored by `DocumentType` in
+/// `@samona/types` — keep the two in sync.
+enum DocumentType {
+  ID_PROOF
+  ADDRESS_PROOF
+  PAYOUT_PROOF
+  TRADE_LICENCE
+  CERTIFICATE
+  OTHER
+}
+
+/// A document's review outcome. Mirrored by `DocumentStatus` in
+/// `@samona/types` — keep the two in sync. `APPROVED` rather than the
+/// `ACCEPTED` ProServiceStatus uses: an "accepted document" reads wrong.
+enum DocumentStatus {
+  PENDING
+  APPROVED
   REJECTED
 }
 

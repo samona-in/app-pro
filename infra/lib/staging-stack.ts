@@ -171,6 +171,11 @@ export class SamonaStagingStack extends Stack {
     const selfies = bucket('Selfies', 'selfies');
     const jobImages = bucket('JobImages', 'job-images');
     const avatars = bucket('Avatars', 'avatars');
+    // Private by design: documents carry identity and bank details, so no
+    // public base URL is ever configured for this bucket and reads go through
+    // short-lived presigned URLs minted by the API. BLOCK_ALL (above) is what
+    // makes that a guarantee rather than a convention.
+    const documents = bucket('Documents', 'documents');
 
     // --- Image registry -----------------------------------------------------
     const repository = new ecr.Repository(this, 'Repository', {
@@ -216,6 +221,7 @@ export class SamonaStagingStack extends Stack {
     publish('s3/bucket-selfies', selfies.bucketName);
     publish('s3/bucket-job-images', jobImages.bucketName);
     publish('s3/bucket-avatars', avatars.bucketName);
+    publish('s3/bucket-documents', documents.bucketName);
 
     publish('ecr/repository-uri', repository.repositoryUri);
     // The name as its own parameter, not derived from the URI by splitting it:

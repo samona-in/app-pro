@@ -19,7 +19,7 @@ const SETTINGS_ROWS: { icon: IoniconName; labelKey: TranslationKey; route?: stri
   },
   { icon: 'time-outline', labelKey: 'profile.settings.availability' },
   { icon: 'location-outline', labelKey: 'profile.settings.serviceArea' },
-  { icon: 'document-text-outline', labelKey: 'profile.settings.documents' },
+  { icon: 'document-text-outline', labelKey: 'profile.settings.documents', route: '/documents' },
   {
     icon: 'notifications-outline',
     labelKey: 'profile.settings.jobAlertSetup',

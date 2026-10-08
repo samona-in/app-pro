@@ -147,6 +147,17 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: color.background },
             }}
           />
+          <Stack.Screen
+            name="documents"
+            options={{
+              headerShown: true,
+              title: t('routes.documents'),
+              headerBackTitle: t('common.back'),
+              headerTintColor: color['text-primary'],
+              headerStyle: { backgroundColor: color.surface },
+              contentStyle: { backgroundColor: color.background },
+            }}
+          />
         </Stack>
       </KeyboardProvider>
     </AppProviders>

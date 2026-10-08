@@ -44,7 +44,8 @@
     "jobAlertSetup": "जॉब अलर्ट सेटअप",
     "language": "भाषा",
     "helpSupport": "सहायता और समर्थन",
-    "manageServices": "सेवाएं प्रबंधित करें"
+    "manageServices": "सेवाएं प्रबंधित करें",
+    "documents": "दस्तावेज़"
   },
   "welcome": {
     "heading": "काम जो आपके पास आए।",
@@ -436,6 +437,51 @@
       "rowLabel": "ऊपर दिखाई दें",
       "rowCaption": "ऐप बंद होने पर जॉब-अलर्ट ओवरले दिखने देता है",
       "a11y": "ऊपर दिखाई दें — जॉब-अलर्ट ओवरले अनुमति"
+    }
+  },
+  "documents": {
+    "title": "दस्तावेज़",
+    "subtitle": "सत्यापन के लिए ID, पता और भुगतान पहचान दस्तावेज़। केवल हमारी समीक्षा टीम उन्हें देख सकती है।",
+    "loading": "आपके दस्तावेज़ लोड हो रहे हैं…",
+    "emptyTitle": "अभी कोई दस्तावेज़ नहीं",
+    "emptyMessage": "पहले अपना ID प्रमाण अपलोड करें — इसी से आपकी प्रोफ़ाइल पर Verified बैज मिलता है।",
+    "uploadCardTitle": "दस्तावेज़ अपलोड करें",
+    "uploadCardCaption": "PDF, JPEG या PNG — प्रति फ़ाइल अधिकतम 10 MB।",
+    "uploadButton": "फ़ाइल चुनें",
+    "uploading": "अपलोड हो रहा है…",
+    "types": {
+      "ID_PROOF": "ID प्रमाण",
+      "ADDRESS_PROOF": "पते का प्रमाण",
+      "PAYOUT_PROOF": "भुगतान का प्रमाण",
+      "TRADE_LICENCE": "व्यापार लाइसेंस",
+      "CERTIFICATE": "प्रमाणपत्र",
+      "OTHER": "अन्य"
+    },
+    "status": {
+      "PENDING": "समीक्षा में",
+      "APPROVED": "स्वीकृत",
+      "REJECTED": "अस्वीकृत"
+    },
+    "sheet": {
+      "title": "दस्तावेज़ अस्वीकृत",
+      "reasonLabel": "कारण",
+      "noReason": "कोई कारण नहीं दिया गया।"
+    },
+    "delete": "हटाएँ",
+    "deleteTitle": "यह दस्तावेज़ हटाएँ?",
+    "deleteMessage": "{{fileName}} आपके दस्तावेज़ों से हटा दिया जाएगा। आप बाद में इसे फिर अपलोड कर सकते हैं।",
+    "deleteConfirm": "हटाएँ",
+    "errors": {
+      "uploadFailedTitle": "अपलोड विफल रहा",
+      "deleteFailedTitle": "हटाया नहीं जा सका",
+      "network": "हम सर्वर तक नहीं पहुँच सके। अपना कनेक्शन जाँचें और फिर कोशिश करें।",
+      "generic": "कुछ गलत हो गया। कृपया फिर कोशिश करें।",
+      "tooLarge": "{{fileName}} का आकार {{size}} है — प्रति फ़ाइल सीमा {{max}} है।",
+      "unsupported": "कोई PDF, JPEG या PNG फ़ाइल चुनें।"
+    },
+    "a11y": {
+      "deleteRow": "{{fileName}} हटाएँ",
+      "viewRejectionReason": "{{fileName}} के लिए अस्वीकृति का कारण देखें"
     }
   },
   "helpSupport": {

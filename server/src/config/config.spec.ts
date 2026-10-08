@@ -12,6 +12,7 @@ const base = {
   S3_BUCKET_SELFIES: 'pro-selfies',
   S3_BUCKET_JOB_IMAGES: 'job-images',
   S3_BUCKET_AVATARS: 'avatars',
+  S3_BUCKET_DOCUMENTS: 'pro-documents',
   CORS_ORIGINS: '',
 } as NodeJS.ProcessEnv;
 
@@ -72,6 +73,10 @@ describe('loadConfig', () => {
     const { S3_BUCKET_AVATARS: _omitted, ...withoutBucket } = base;
 
     expect(() => loadConfig(withoutBucket)).toThrow(/S3_BUCKET_AVATARS/);
+
+    const { S3_BUCKET_DOCUMENTS: _missing, ...withoutDocuments } = base;
+
+    expect(() => loadConfig(withoutDocuments)).toThrow(/S3_BUCKET_DOCUMENTS/);
   });
 
   // Each bucket gets its own origin because a CDN distribution fronts exactly

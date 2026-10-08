@@ -12,6 +12,7 @@ const REGION = 'us-east-1';
 const SELFIES = 'pro-selfies';
 const JOB_IMAGES = 'job-images';
 const AVATARS = 'avatars';
+const DOCUMENTS = 'pro-documents';
 
 const USER = 'user-1';
 
@@ -48,6 +49,7 @@ function build(send: jest.Mock, overrides: Record<string, unknown> = {}) {
     selfiesBucket: SELFIES,
     jobImagesBucket: JOB_IMAGES,
     avatarsBucket: AVATARS,
+    documentsBucket: DOCUMENTS,
     publicBaseUrls: { selfies: null, jobImages: null, avatars: null },
     s3: { send } as unknown as S3Client,
     signUploadUrl: signer().sign,
