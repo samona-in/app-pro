@@ -72,6 +72,11 @@ export function ServiceRadiusSlider({
   const translateX = useSharedValue(0);
   const trackWidth = useSharedValue(0);
   const dragging = useSharedValue(false);
+  // Where the thumb sat when the gesture began. Pan's `translationX` is the
+  // finger's delta from the touch point, so the knob must travel from its
+  // current position (16 km, say) rather than reset toward zero on the first
+  // movement.
+  const startTranslate = useSharedValue(0);
   const [liveKm, setLiveKm] = useState(value);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -132,13 +137,17 @@ export function ServiceRadiusSlider({
       'worklet';
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
       dragging.value = true;
+      startTranslate.value = translateX.value;
       runOnJS(setIsDragging)(true);
     })
     .onUpdate((e) => {
       'worklet';
       const maxTranslate = Math.max(0, trackWidth.value - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
-      translateX.value = Math.max(0, Math.min(e.translationX, maxTranslate));
+      translateX.value = Math.max(
+        0,
+        Math.min(startTranslate.value + e.translationX, maxTranslate),
+      );
       // The nearest whole kilometre is derived on the JS thread for the label.
       runOnJS(updateLive)(translateX.value);
     })
