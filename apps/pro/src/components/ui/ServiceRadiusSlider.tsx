@@ -142,6 +142,19 @@ export function ServiceRadiusSlider({
     })
     .onUpdate((e) => {
       'worklet';
+      // The gesture owns the knob from its very first update — before any
+      // `onValueChange`-driven re-render can re-run the reaction below. Doing
+      // this here (and not only in `onBegin`) closes the window in which the
+      // reaction could read a stale `false` and yank the knob back toward the
+      // previous value, which would pin a thumb dragging left. It also makes
+      // the capture idempotent, so `startTranslate` is always the resting
+      // position, never a zero that would snap a 16 km thumb toward 1 km.
+      if (!dragging.value) {
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
+        dragging.value = true;
+        startTranslate.value = translateX.value;
+        runOnJS(setIsDragging)(true);
+      }
       const maxTranslate = Math.max(0, trackWidth.value - KNOB_SIZE - TRACK_SIDE_PADDING * 2);
       // eslint-disable-next-line react-hooks/immutability -- Reanimated shared value, see SwipeToConfirm.
       translateX.value = Math.max(
