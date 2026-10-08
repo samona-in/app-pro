@@ -1,15 +1,16 @@
 import {
   isProProfileComplete,
   OnboardingStatus,
+  ProServiceStatus,
   type ExperienceLevel,
   type Gender,
   type ProProfile,
-  type ProServiceStatus,
+  type ProServiceListItem,
 } from '@samona/types';
 import type { OnboardingPatchInput, AvailabilityPatchInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
-import { badRequest } from '../common/errors';
+import { badRequest, conflict, forbidden, notFound } from '../common/errors';
 import type { JobsService } from '../jobs/jobs.service';
 
 export interface ProsServiceDeps {
@@ -201,10 +202,16 @@ export function createProsService(deps: ProsServiceDeps) {
         },
       });
 
-      // Replace rather than merge: the step's selection is the full answer, so
-      // deselecting a service must actually remove it.
+      // The step's selection is the full answer for *which* services, so
+      // deselecting must still remove the row — but rows that stay selected
+      // keep their verification state. Wipe-and-recreate would demote every
+      // ACCEPTED service back to PENDING and silently discard an admin's
+      // rejection reason, so only the difference is written: drop what left,
+      // insert what arrived (PENDING by column default), leave the rest.
       if (patch.serviceIds) {
-        await tx.proService.deleteMany({ where: { proProfileId: existing.id } });
+        await tx.proService.deleteMany({
+          where: { proProfileId: existing.id, serviceId: { notIn: patch.serviceIds } },
+        });
         await tx.proService.createMany({
           data: patch.serviceIds.map((serviceId) => ({
             proProfileId: existing.id,
@@ -284,6 +291,147 @@ export function createProsService(deps: ProsServiceDeps) {
   }
 
   /**
+   * Every active service with this Pro's verification status — the Manage
+   * Services screen.
+   *
+   * The whole catalogue is listed, not just selected rows: `status: null`
+   * means "never requested" and is what the Request button acts on. Scoped to
+   * the caller's own profile, so a Pro can never see anyone else's verdicts.
+   */
+  async function listProServices(userId: string): Promise<ProServiceListItem[]> {
+    const profile = await ensureForUser(userId);
+
+    const [catalogue, rows] = await Promise.all([
+      deps.prisma.service.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: 'asc' },
+        select: { id: true, slug: true, name: true, icon: true },
+      }),
+      deps.prisma.proService.findMany({
+        where: { proProfileId: profile.id },
+        select: { serviceId: true, status: true, rejectionReason: true },
+      }),
+    ]);
+
+    const byService = new Map(rows.map((row) => [row.serviceId, row]));
+
+    return catalogue.map((service) => {
+      const row = byService.get(service.id);
+      return {
+        id: service.id,
+        slug: service.slug,
+        name: service.name,
+        icon: service.icon,
+        status: row?.status ?? null,
+        rejectionReason: row?.rejectionReason ?? null,
+      };
+    });
+  }
+
+  /** The catalogue half of a `ProServiceListItem`; status comes from the row. */
+  function toServiceEntry(service: {
+    id: string;
+    slug: string;
+    name: string;
+    icon: string | null;
+  }): ProServiceListItem {
+    return {
+      id: service.id,
+      slug: service.slug,
+      name: service.name,
+      icon: service.icon,
+      status: null,
+      rejectionReason: null,
+    };
+  }
+
+  /**
+   * Requests verification for one service, or re-requests it after rejection.
+   *
+   * The transition set is deliberately tiny — the client can only ever move a
+   * row *towards* PENDING:
+   *
+   * - no row   → create it as PENDING (`skipDuplicates` absorbs a racing
+   *              double-tap: the loser's insert is dropped, not an error)
+   * - PENDING  → return it unchanged (idempotent; repeat taps are free)
+   * - ACCEPTED → 409; there is nothing to request
+   * - REJECTED → guarded `updateMany` on `status: REJECTED`, so only a still
+   *              rejected row flips back to PENDING. A count of 0 means the
+   *              row changed underneath us (a concurrent tap won, or an admin
+   *              just decided) — read it back and answer for its current
+   *              state instead of overwriting someone else's write.
+   *
+   * Nothing here can produce ACCEPTED; that verdict belongs to an admin.
+   */
+  async function requestProService(userId: string, serviceId: string): Promise<ProServiceListItem> {
+    const profile = await ensureForUser(userId);
+
+    if (profile.onboardingStatus !== OnboardingStatus.COMPLETED) {
+      throw forbidden('Complete your onboarding first.');
+    }
+
+    const service = await deps.prisma.service.findFirst({
+      where: { id: serviceId, isActive: true },
+      select: { id: true, slug: true, name: true, icon: true },
+    });
+    if (!service) throw notFound('That service is not available.');
+
+    const proProfileId = profile.id;
+    const readBack = () =>
+      deps.prisma.proService.findUnique({
+        where: { proProfileId_serviceId: { proProfileId, serviceId } },
+        select: { status: true, rejectionReason: true },
+      });
+
+    const existing = await readBack();
+
+    if (existing?.status === ProServiceStatus.ACCEPTED) {
+      throw conflict('That service is already approved for you.');
+    }
+
+    if (existing?.status === ProServiceStatus.PENDING) {
+      return {
+        ...toServiceEntry(service),
+        status: existing.status,
+        rejectionReason: existing.rejectionReason,
+      };
+    }
+
+    if (existing) {
+      // REJECTED. Flip it only while it still reads REJECTED.
+      const flipped = await deps.prisma.proService.updateMany({
+        where: { proProfileId, serviceId, status: ProServiceStatus.REJECTED },
+        data: { status: ProServiceStatus.PENDING, rejectionReason: null },
+      });
+      if (flipped.count > 0) {
+        return {
+          ...toServiceEntry(service),
+          status: ProServiceStatus.PENDING,
+          rejectionReason: null,
+        };
+      }
+      const current = await readBack();
+      if (!current) throw conflict('That service changed state — try again.');
+      if (current.status === ProServiceStatus.ACCEPTED) {
+        throw conflict('That service is already approved for you.');
+      }
+      return { ...toServiceEntry(service), ...current };
+    }
+
+    // No row yet. skipDuplicates makes the create race-free without parsing
+    // driver-specific unique-violation errors, and the read-back returns
+    // whatever actually landed.
+    await deps.prisma.proService.createMany({
+      data: [{ proProfileId, serviceId }],
+      skipDuplicates: true,
+    });
+
+    const created = await readBack();
+    if (!created) throw conflict('That service changed state — try again.');
+    return { ...toServiceEntry(service), ...created };
+  }
+
+  /**
    * The online/offline switch that gates matching.
    *
    * `isOnline` is server-controlled for a reason: an attacker must not be able
@@ -330,6 +478,8 @@ export function createProsService(deps: ProsServiceDeps) {
     applyOnboardingPatch,
     setSelfieUploaded,
     setAvailability,
+    listProServices,
+    requestProService,
   };
 }
 

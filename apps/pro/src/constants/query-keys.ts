@@ -9,6 +9,8 @@ export const queryKeys = {
   profile: ['profile'] as const,
   proProfile: ['pro-profile'] as const,
   catalogue: ['catalogue'] as const,
+  /** The Manage Services catalogue merged with the caller's own statuses. */
+  proServices: ['pro-services'] as const,
   jobs: {
     all: ['jobs'] as const,
     list: (status?: string) => ['jobs', 'list', status ?? 'all'] as const,

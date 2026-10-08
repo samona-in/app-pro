@@ -43,7 +43,8 @@
     "notifications": "Notifications",
     "jobAlertSetup": "Job alert setup",
     "language": "Language",
-    "helpSupport": "Help & support"
+    "helpSupport": "Help & support",
+    "manageServices": "Manage services"
   },
   "welcome": {
     "heading": "Work that comes to you.",
@@ -593,6 +594,35 @@
       "manageServices": "Manage services",
       "serviceMarked": "{{service}}, {{mark}}",
       "showsRejectionReason": "Shows the rejection reason"
+    }
+  },
+  "manageServices": {
+    "title": "Manage services",
+    "subtitle": "Request the services you offer. SAMONA reviews each request before customers can see it.",
+    "loading": "Loading services…",
+    "requestFailedTitle": "Request not sent",
+    "noReason": "No reason was provided. Please reach out to SAMONA support for details.",
+    "emptyTitle": "No services available",
+    "emptyMessage": "The service list is empty right now. Please check back later.",
+    "status": {
+      "notRequested": "Not requested",
+      "pending": "In review",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "action": {
+      "request": "Request",
+      "requestAgain": "Request again"
+    },
+    "errors": {
+      "onboarding": "Complete your onboarding first.",
+      "unavailable": "That service is not available.",
+      "conflict": "That service changed state — try again.",
+      "throttled": "You're moving fast — try again in a moment.",
+      "network": "Couldn't send the request. Check your connection."
+    },
+    "a11y": {
+      "row": "{{service}}, {{status}}"
     }
   },
   "faceCore": {

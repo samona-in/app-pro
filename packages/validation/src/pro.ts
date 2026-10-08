@@ -127,3 +127,13 @@ export const availabilityPatchSchema = z.object({
 });
 
 export type AvailabilityPatchInput = z.infer<typeof availabilityPatchSchema>;
+
+/**
+ * `POST /pros/services/:serviceId/request` path.
+ *
+ * A malformed id must fail validation (422) rather than reach Prisma, which
+ * rejects it as a 500.
+ */
+export const serviceIdParamsSchema = z.object({
+  serviceId: idSchema,
+});

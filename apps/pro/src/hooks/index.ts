@@ -15,6 +15,7 @@ export {
   useTransitionJob,
   useVerifyStart,
 } from './use-jobs';
+export { useProServices, useRequestProService } from './use-pro-services';
 export { useRealtimeSync } from './use-realtime';
 export { useIncomingOffers, IncomingOffersSync } from './use-incoming-offers';
 export { useJobCancellation, JobCancellationSync } from './use-job-cancellation';

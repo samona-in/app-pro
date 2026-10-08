@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { cn } from '@/utils/cn';
 
 /** True when a stored `services.icon` value is an image URL, not a legacy name. */
-function isImageUrl(value: string): boolean {
+export function isImageUrl(value: string): boolean {
   return (
     value.startsWith('http://') ||
     value.startsWith('https://') ||

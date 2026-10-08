@@ -1,7 +1,11 @@
 import { Router } from 'express';
-import { onboardingPatchSchema, availabilityPatchSchema } from '@samona/validation';
+import {
+  onboardingPatchSchema,
+  availabilityPatchSchema,
+  serviceIdParamsSchema,
+} from '@samona/validation';
 import type { Services } from '../context';
-import { createRequireAuth, requireRole, validate } from '../common';
+import { createRequireAuth, requireRole, validate, routeParamId } from '../common';
 
 /**
  * HTTP surface for the pros domain, mounted at `/pros`.
@@ -64,6 +68,39 @@ export function createProsRouter(services: Services): Router {
       next(error);
     }
   });
+
+  /**
+   * Every active service with the caller's own verification status — the
+   * Manage Services screen. `status: null` marks a service never requested.
+   */
+  router.get('/services', async (req, res, next) => {
+    try {
+      res.json(await services.pros.listProServices(req.user!.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Requests verification for one service (or re-requests after rejection).
+   *
+   * The pro id comes from the token; the service id is validated as a UUID so
+   * a malformed one fails here as a 422 rather than inside Prisma as a 500.
+   * The only transition this can cause is → PENDING: ACCEPTED is admin-only.
+   */
+  router.post(
+    '/services/:serviceId/request',
+    validate(serviceIdParamsSchema, 'params'),
+    async (req, res, next) => {
+      try {
+        res.json(
+          await services.pros.requestProService(req.user!.id, routeParamId(req.params.serviceId)),
+        );
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   return router;
 }

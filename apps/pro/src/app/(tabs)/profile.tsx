@@ -12,7 +12,11 @@ import { color } from '@/theme';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const SETTINGS_ROWS: { icon: IoniconName; labelKey: TranslationKey; route?: string }[] = [
-  { icon: 'construct-outline', labelKey: 'profile.settings.servicesSkills' },
+  {
+    icon: 'construct-outline',
+    labelKey: 'profile.settings.servicesSkills',
+    route: '/manage-services',
+  },
   { icon: 'time-outline', labelKey: 'profile.settings.availability' },
   { icon: 'location-outline', labelKey: 'profile.settings.serviceArea' },
   { icon: 'document-text-outline', labelKey: 'profile.settings.documents' },

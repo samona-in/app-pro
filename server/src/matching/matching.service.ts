@@ -1,4 +1,4 @@
-import { OnboardingStatus, ACTIVE_JOB_STATUSES } from '@samona/types';
+import { OnboardingStatus, ProServiceStatus, ACTIVE_JOB_STATUSES } from '@samona/types';
 import type { PrismaClient } from '../database/prisma';
 import { distanceKm, etaMinutes } from '../common/geo';
 
@@ -52,7 +52,9 @@ export function createMatchingService(deps: MatchingServiceDeps) {
         onboardingStatus: OnboardingStatus.COMPLETED,
         latitude: { not: null },
         longitude: { not: null },
-        services: { some: { serviceId: criteria.serviceId } },
+        // Only an admin-approved service earns requests: PENDING selections
+        // from onboarding and REJECTED ones must not match.
+        services: { some: { serviceId: criteria.serviceId, status: ProServiceStatus.ACCEPTED } },
         // A pro already heading to a job cannot accept another.
         jobs: { none: { status: { in: [...ACTIVE_JOB_STATUSES] } } },
       },
@@ -105,7 +107,7 @@ export function createMatchingService(deps: MatchingServiceDeps) {
         onboardingStatus: OnboardingStatus.COMPLETED,
         latitude: { not: null },
         longitude: { not: null },
-        services: { some: { serviceId: criteria.serviceId } },
+        services: { some: { serviceId: criteria.serviceId, status: ProServiceStatus.ACCEPTED } },
         jobs: { none: { status: { in: [...ACTIVE_JOB_STATUSES] } } },
       },
       select: { id: true, latitude: true, longitude: true, serviceRadiusKm: true },

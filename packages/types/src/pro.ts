@@ -49,6 +49,23 @@ export interface ProServiceVerification {
   rejectionReason: string | null;
 }
 
+/**
+ * One row of the Manage Services screen: every active catalogue service with
+ * the caller's verification status.
+ *
+ * `status` is null when the Pro has never requested the service — the screen
+ * lists the whole catalogue so an unrequested service can be requested from
+ * it, which is why this is not `ProServiceVerification`.
+ */
+export interface ProServiceListItem {
+  id: string;
+  slug: string;
+  name: string;
+  icon: string | null;
+  status: ProServiceStatus | null;
+  rejectionReason: string | null;
+}
+
 export const EXPERIENCE_LEVELS: { value: ExperienceLevel; label: string }[] = [
   { value: ExperienceLevel.UNDER_1_YEAR, label: 'Less than 1 year' },
   { value: ExperienceLevel.ONE_TO_THREE, label: '1–3 years' },
