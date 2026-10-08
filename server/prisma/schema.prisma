@@ -59,6 +59,13 @@ model Profile {
 
   isActive Boolean @default(true)
 
+  /// When the account was deleted. Set on the tombstone row (the row itself is
+  /// never removed — Job.proId and Message.senderId reference it, and RESTRICT
+  /// guards both). A deleted profile has no usable contact details and is
+  /// rejected by `requireAuth`; dual-role accounts keep this null so the customer
+  /// surface keeps working.
+  deletedAt DateTime? @map("deleted_at")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -66,6 +73,8 @@ model Profile {
   customerProfile CustomerProfile?
   /// Chat messages this account sent in a job conversation.
   messages        Message[]
+  /// The account-deletion workflow for this profile, when one exists.
+  accountDeletion AccountDeletion?
 
   @@index([isActive])
   @@map("profiles")
@@ -138,6 +147,16 @@ model ProProfile {
   /// one physical device, so an offer a push was delivered to cannot be
   /// redeemed from any other device. Null for legacy registrations.
   pushDeviceId String? @map("push_device_id")
+
+  /// When the professional asked to delete their account. Set the moment a
+  /// deletion is accepted so new matching, offers and job claims stop
+  /// immediately; the pro keeps working only their already-active jobs until the
+  /// sweeper finalizes. Never reverted once set.
+  deletionRequestedAt DateTime? @map("deletion_requested_at")
+  /// When the tombstone was finalized. Set together with `Profile.deletedAt`
+  /// (FULL scope) or alone (PRO_PROFILE scope). The row survives so historical
+  /// jobs, ratings and cancellations keep their relationship; only PII is gone.
+  deletedAt DateTime? @map("deleted_at")
 
   services      ProService[]
   skills        ProSkill[]
@@ -366,7 +385,10 @@ model Job {
   proId      String? @map("pro_id") @db.Uuid
 
   customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  pro      ProProfile?     @relation(fields: [proId], references: [id], onDelete: SetNull)
+  /// RESTRICT, not SetNull: deleting a pro must never nullify a customer's
+  /// historical job. Pro profiles are tombstones, never hard-deleted, so this
+  /// can never actually fire — it is a guard against a future bug.
+  pro      ProProfile?     @relation(fields: [proId], references: [id], onDelete: Restrict)
 
   serviceId String @map("service_id") @db.Uuid
   skillId   String @map("skill_id") @db.Uuid
@@ -635,10 +657,92 @@ model Message {
   readAt      DateTime? @map("read_at")
 
   job    Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  sender Profile @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  /// RESTRICT, not Cascade: deleting a profile must never wipe chat history the
+  /// other party still needs. Profiles are tombstones, never hard-deleted, so
+  /// this can never actually fire — it is a guard against a future bug.
+  sender Profile @relation(fields: [senderId], references: [id], onDelete: Restrict)
 
   @@index([jobId, sentAt])
   @@map("messages")
+}
+
+/// A durable, resumable record of a professional's account-deletion request.
+///
+/// One row per profile. It holds both sides of the feature:
+///
+/// - the **single-use deletion authorization** minted only after the backend has
+///   verified a fresh OTP (`authTokenHash` / `authTokenExpiresAt` /
+///   `authTokenConsumedAt`), and
+/// - the **workflow state** as deletion runs in idempotent, retry-safe steps
+///   across Prisma, S3 and Supabase Auth (`status`, `step`, `attempts`).
+///
+/// A row is created when the authorization is issued; the raw token is returned
+/// to the client exactly once and every other step works on the hash, which
+/// mirrors the `JobOffer.tokenHash` single-use pattern. Each step records its
+/// completion before moving on, so a crash mid-flight resumes from the last
+/// finished step instead of redoing or skipping work.
+model AccountDeletion {
+  id        String @id @default(uuid()) @db.Uuid
+  profileId String @unique @map("profile_id") @db.Uuid
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Restrict)
+
+  /// Whether the account carries a CustomerProfile. Determines what deletion
+  /// removes: `PRO_PROFILE` keeps the customer surface and Supabase Auth,
+  /// `FULL_ACCOUNT` tears the identity down completely.
+  scope AccountDeletionScope
+
+  status AccountDeletionStatus @default(AUTHORIZED)
+  /// The last workflow step that finished. `null` while nothing has run yet.
+  step   AccountDeletionStep?
+  attempts Int @default(0)
+  lastError String?
+
+  /// SHA-256 of the single-use deletion authorization. The raw token is shown
+  /// to the client once at issue; this hash is all that is ever stored.
+  authTokenHash     String?   @unique @map("auth_token_hash")
+  authTokenExpiresAt DateTime? @map("auth_token_expires_at")
+  authTokenConsumedAt DateTime? @map("auth_token_consumed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("account_deletions")
+}
+
+/// How much of the account a deletion removes.
+///
+/// Decided server-side from the account shape (presence of a CustomerProfile),
+/// never from the client.
+enum AccountDeletionScope {
+  PRO_PROFILE
+  FULL_ACCOUNT
+}
+
+/// The lifecycle of an account-deletion workflow.
+///
+/// `AUTHORIZED` — a fresh OTP was verified and a single-use token issued; the
+/// `DELETE` call has not consumed it yet. `AWAITING_ACTIVE_JOBS` — deletion was
+/// accepted but the pro still has active jobs, so finalization is deferred (new
+/// bookings are already blocked). `IN_PROGRESS` — the sweeper is running steps.
+/// `COMPLETED` / `FAILED` are terminal.
+enum AccountDeletionStatus {
+  AUTHORIZED
+  AWAITING_ACTIVE_JOBS
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+/// The idempotent steps of the workflow, run in order. Each step is recorded
+/// only after it finishes, so a crash resumes from the last finished step.
+enum AccountDeletionStep {
+  LOCK
+  PURGE_S3
+  PURGE_DB
+  DELETE_AUTH
+  FINALIZE
 }
 
 /// How a minted job-offer token was settled. Mirrors the terminal push kinds.
