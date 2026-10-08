@@ -454,7 +454,8 @@
       "ADDRESS_PROOF": "Address proof",
       "PAYOUT_PROOF": "Payout proof",
       "TRADE_LICENCE": "Trade licence",
-      "CERTIFICATE": "Certificate"
+      "CERTIFICATE": "Certificate",
+      "OTHER": "Other"
     },
     "status": {
       "PENDING": "In review",

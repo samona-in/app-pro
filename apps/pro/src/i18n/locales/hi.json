@@ -454,7 +454,8 @@
       "ADDRESS_PROOF": "पते का प्रमाण",
       "PAYOUT_PROOF": "भुगतान का प्रमाण",
       "TRADE_LICENCE": "व्यापार लाइसेंस",
-      "CERTIFICATE": "प्रमाणपत्र"
+      "CERTIFICATE": "प्रमाणपत्र",
+      "OTHER": "अन्य"
     },
     "status": {
       "PENDING": "समीक्षा में",

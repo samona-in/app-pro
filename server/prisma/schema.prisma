@@ -692,6 +692,7 @@ enum DocumentType {
   PAYOUT_PROOF
   TRADE_LICENCE
   CERTIFICATE
+  OTHER
 }
 
 /// A document's review outcome. Mirrored by `DocumentStatus` in

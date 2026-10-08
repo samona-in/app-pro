@@ -454,7 +454,8 @@
       "ADDRESS_PROOF": "చిరునామా రుజువు",
       "PAYOUT_PROOF": "చెల్లింపు రుజువు",
       "TRADE_LICENCE": "వ్యాపార లైసెన్స్",
-      "CERTIFICATE": "ధృవీకరణ పత్రం"
+      "CERTIFICATE": "ధృవీకరణ పత్రం",
+      "OTHER": "ఇతర"
     },
     "status": {
       "PENDING": "సమీక్షలో",

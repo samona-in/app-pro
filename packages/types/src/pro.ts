@@ -76,6 +76,7 @@ export const DocumentType = {
   PAYOUT_PROOF: 'PAYOUT_PROOF',
   TRADE_LICENCE: 'TRADE_LICENCE',
   CERTIFICATE: 'CERTIFICATE',
+  OTHER: 'OTHER',
 } as const;
 
 export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];

@@ -41,6 +41,7 @@ describe('documentTypeLabelKey', () => {
     [DocumentType.PAYOUT_PROOF, 'documents.types.PAYOUT_PROOF'],
     [DocumentType.TRADE_LICENCE, 'documents.types.TRADE_LICENCE'],
     [DocumentType.CERTIFICATE, 'documents.types.CERTIFICATE'],
+    [DocumentType.OTHER, 'documents.types.OTHER'],
   ])('maps %s to its translation key', (type, key) => {
     expect(documentTypeLabelKey(type)).toBe(key);
   });

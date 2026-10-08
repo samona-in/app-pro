@@ -59,6 +59,7 @@ const TYPE_LABEL_KEYS: Record<DocumentType, TranslationKey> = {
   PAYOUT_PROOF: 'documents.types.PAYOUT_PROOF',
   TRADE_LICENCE: 'documents.types.TRADE_LICENCE',
   CERTIFICATE: 'documents.types.CERTIFICATE',
+  OTHER: 'documents.types.OTHER',
 };
 
 /** The human label for one upload type, e.g. ID_PROOF → "ID proof". */
