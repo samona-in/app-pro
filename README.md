@@ -141,6 +141,8 @@ cp apps/pro/.env.example apps/pro/.env
 | `S3_BUCKET_SELFIES` | server | Bucket for Pro face photos |
 | `S3_BUCKET_JOB_IMAGES` | server | Bucket for job reference photos |
 | `S3_BUCKET_AVATARS` | server | Bucket for profile avatars |
+| `S3_ENDPOINT` + `S3_ACCESS_KEY_ID` + `S3_SECRET_ACCESS_KEY` | server | Optional S3-compatible endpoint (Supabase Storage) for local dev; all-or-nothing group |
+| `S3_FORCE_PATH_STYLE` | server | Path-style bucket addressing for S3-compatible endpoints; default `true` |
 | `S3_PUBLIC_BASE_URL_SELFIES` | server | Origin for selfie URLs; optional |
 | `S3_PUBLIC_BASE_URL_JOB_IMAGES` | server | Origin for job-image URLs; optional |
 | `S3_PUBLIC_BASE_URL_AVATARS` | server | Origin for avatar URLs; optional |

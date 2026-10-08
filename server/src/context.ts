@@ -82,10 +82,21 @@ export function createServices(
       jobImages: config.s3PublicBaseUrlJobImages,
       avatars: config.s3PublicBaseUrlAvatars,
     },
-    // No credentials passed: the client resolves them from the ambient
-    // provider chain, which on Fargate is the task role. Constructing it here
-    // keeps key material out of the environment entirely.
-    s3: new S3Client({ region: config.s3Region }),
+    // Production passes no credentials: the client resolves them from the
+    // ambient provider chain, which on Fargate is the task role, so no key
+    // material lives in the environment. Local development can point the same
+    // client at an S3-compatible endpoint (Supabase Storage) with explicit
+    // keys by configuring S3_ENDPOINT + S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY.
+    s3: new S3Client(
+      config.s3Credentials
+        ? {
+            region: config.s3Region,
+            endpoint: config.s3Endpoint ?? undefined,
+            forcePathStyle: config.s3ForcePathStyle,
+            credentials: config.s3Credentials,
+          }
+        : { region: config.s3Region },
+    ),
   });
   const deps = { prisma, storage };
 
