@@ -173,7 +173,8 @@ an approved period. Hardware rules:
    notifications, pro services & skills, declines & offers) needs a recorded
    product/legal decision before its enable flag and period are set together.
    Promoting a report-only category out of that set is likewise a reviewed
-   decision, not a config change.
+   decision, not a config change. The proposed periods, their anchors, legal
+   drivers and the sign-off table live in `docs/retention-schedule.md`.
 
 ## Handling a FAILED deletion
 

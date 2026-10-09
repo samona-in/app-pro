@@ -111,11 +111,14 @@ export function createRetentionHandlers(deps: RetentionHandlersDeps) {
       proDocuments: async (args) => {
         const heldProfiles = await heldProfileIds();
         const heldDocs = await heldDocumentIds();
-        const proWindow: Prisma.ProProfileWhereInput = { deletedAt: { not: null } };
-        const base: Prisma.ProDocumentWhereInput = {
-          createdAt: { lt: args.cutoff },
-          proProfile: proWindow,
+        // Retention clock is account *deletion*, not document age: a pro deleted
+        // after the cutoff keeps their documents. Anchoring on `createdAt` would
+        // purge an old document the moment an account closed, which is exactly
+        // when a fraud/dispute window needs it. Matches proServicesSkills.
+        const proWindow: Prisma.ProProfileWhereInput = {
+          deletedAt: { not: null, lt: args.cutoff },
         };
+        const base: Prisma.ProDocumentWhereInput = { proProfile: proWindow };
 
         const total = await deps.prisma.proDocument.count({ where: base });
         const heldCount = await deps.prisma.proDocument.count({
@@ -177,10 +180,12 @@ export function createRetentionHandlers(deps: RetentionHandlersDeps) {
       /* -------------------------------- Selfies ------------------------------ */
       selfies: async (args) => {
         const heldProfiles = await heldProfileIds();
+        // Clock is account deletion (see proDocuments): a selfie is retained for
+        // the approved window after the profile is tombstoned, not until the
+        // capture date ages out.
         const base: Prisma.ProProfileWhereInput = {
-          deletedAt: { not: null },
+          deletedAt: { not: null, lt: args.cutoff },
           selfiePhotoPath: { not: null },
-          selfieCapturedAt: { lt: args.cutoff },
         };
         const eligibleWhere: Prisma.ProProfileWhereInput = {
           ...base,
