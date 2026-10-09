@@ -246,7 +246,9 @@ export function createRetentionHandlers(deps: RetentionHandlersDeps) {
         // tombstoned pro. An active pro's object is left alone.
         const heldProfiles = new Set(await heldProfileIds());
         const prefix = 'pros/';
-        const cutoffMs = now().getTime() - safetyWindowMs;
+        // Delete only objects older than BOTH the approved period and the safety
+        // window, so a longer period is never silently shortened to the window.
+        const cutoffMs = Math.min(args.cutoff.getTime(), now().getTime() - safetyWindowMs);
 
         const scanned: Array<{ key: string; userId: string; lastModified: Date | null }> = [];
         let token: string | null = null;
@@ -313,7 +315,9 @@ export function createRetentionHandlers(deps: RetentionHandlersDeps) {
       /* ------------------------------ Job images ----------------------------- */
       jobImages: async (args) => {
         const orphan = await deps.orphan.scanJobImages({
-          cutoffMs: now().getTime() - safetyWindowMs,
+          // Delete only orphans older than BOTH the approved period and the
+          // safety window, so a longer period is never silently shortened.
+          cutoffMs: Math.min(args.cutoff.getTime(), now().getTime() - safetyWindowMs),
           dryRun: args.dryRun || !args.canDelete,
           sampleLimit: args.sampleLimit,
           maxScan: args.maxScan,

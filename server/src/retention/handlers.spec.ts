@@ -54,8 +54,8 @@ function makeDeps() {
   return { prisma, storage, legalHolds, orphan };
 }
 
-function handlersFor(deps: ReturnType<typeof makeDeps>) {
-  return createRetentionHandlers({ ...deps, safetyWindowDays: 7 }).handlers;
+function handlersFor(deps: ReturnType<typeof makeDeps>, now?: () => Date) {
+  return createRetentionHandlers({ ...deps, safetyWindowDays: 7, now }).handlers;
 }
 
 describe('retention handlers — retention anchors', () => {
@@ -100,5 +100,70 @@ describe('retention handlers — invariants', () => {
     await handlersFor(deps).messages(args({ canDelete: true, dryRun: false }));
 
     expect(deps.prisma.message.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('retention handlers — the approved period is always respected', () => {
+  const NOW = new Date('2026-06-01T00:00:00.000Z');
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it('jobImages deletes an orphan only when it is older than both the period and the safety window', async () => {
+    const deps = makeDeps();
+    (deps.orphan.scanJobImages as jest.Mock).mockResolvedValue({
+      bucket: 'job-images',
+      prefix: 'jobs/',
+      scannedCount: 1,
+      referencedCount: 0,
+      orphanCount: 1,
+      sampleKeys: ['jobs/c1/a.jpg'],
+      secondCheckPassed: true,
+      deletedCount: 1,
+    });
+
+    await handlersFor(deps, () => NOW).jobImages(
+      args({ cutoff: new Date(NOW.getTime() - 90 * DAY), canDelete: true, dryRun: false }),
+    );
+
+    const passed = (deps.orphan.scanJobImages as jest.Mock).mock.calls[0][0];
+    expect(passed.cutoffMs).toBe(NOW.getTime() - 90 * DAY);
+  });
+
+  it('jobImages never widens a short period to the safety window', async () => {
+    const deps = makeDeps();
+    (deps.orphan.scanJobImages as jest.Mock).mockResolvedValue({
+      bucket: 'job-images',
+      prefix: 'jobs/',
+      scannedCount: 0,
+      referencedCount: 0,
+      orphanCount: 0,
+      sampleKeys: [],
+      secondCheckPassed: true,
+      deletedCount: 0,
+    });
+
+    await handlersFor(deps, () => NOW).jobImages(
+      args({ cutoff: new Date(NOW.getTime() - 3 * DAY), canDelete: true, dryRun: false }),
+    );
+
+    const passed = (deps.orphan.scanJobImages as jest.Mock).mock.calls[0][0];
+    expect(passed.cutoffMs).toBe(NOW.getTime() - 7 * DAY);
+  });
+
+  it('avatarsPro keeps a tombstoned pro’s object newer than the period even if older than the window', async () => {
+    const deps = makeDeps();
+    (deps.storage.listObjects as jest.Mock).mockResolvedValue({
+      objects: [
+        { key: 'pros/u1/avatar-x.jpg', lastModified: new Date(NOW.getTime() - 30 * DAY), size: 10 },
+      ],
+      nextToken: null,
+    });
+    (deps.prisma.proProfile.findMany as jest.Mock).mockResolvedValue([{ userId: 'u1' }]);
+
+    const result = await handlersFor(deps, () => NOW).avatarsPro(
+      args({ cutoff: new Date(NOW.getTime() - 90 * DAY), canDelete: true, dryRun: false }),
+    );
+
+    expect(result.eligibleCount).toBe(0);
+    expect(deps.storage.deleteObjects).not.toHaveBeenCalled();
   });
 });
