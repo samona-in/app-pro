@@ -32,6 +32,9 @@ interface StoredAccount {
   authTokenHash: string | null;
   authTokenExpiresAt: Date | null;
   authTokenConsumedAt: Date | null;
+  holdsCapturedAt: Date | null;
+  profileHeld: boolean;
+  heldDocumentPaths: string[];
 }
 
 /** A small in-memory stand-in for the Prisma surface the service touches. */
@@ -63,6 +66,9 @@ function fakePrisma(initial: {
     authTokenHash: null,
     authTokenExpiresAt: null,
     authTokenConsumedAt: null,
+    holdsCapturedAt: null,
+    profileHeld: false,
+    heldDocumentPaths: [],
     ...d,
   }));
   const profile = {
@@ -548,12 +554,50 @@ describe('createAccountDeletionService', () => {
       expect(storage.keys('avatars')).toEqual([]);
       // The row naming the held object is kept as its durable reference.
       expect(prisma.proDocument.deleteMany).toHaveBeenCalledWith({
-        where: { proProfileId: 'pro-1', id: { notIn: ['doc-held'] } },
+        where: {
+          proProfileId: 'pro-1',
+          storagePath: { notIn: ['pros/user-1/documents/held.pdf'] },
+        },
       });
       // A document-level hold does not preserve the selfie reference.
       expect(prisma.__pros[0]!.selfiePhotoPath ?? null).toBeNull();
       expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
       expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('resolves legal holds once and reuses the frozen snapshot for the DB step', async () => {
+      const prisma = fakePrisma({
+        proDocuments: [
+          { id: 'doc-held', proProfileId: 'pro-1', storagePath: 'pros/user-1/documents/held.pdf' },
+        ],
+      });
+      storage.__objects.push({
+        bucket: 'pro-documents',
+        key: 'pros/user-1/documents/held.pdf',
+      });
+      const legalHolds = fakeLegalHolds({ documents: ['doc-held'] });
+      const admin = { deleteUser: jest.fn().mockResolvedValue(undefined) };
+      const service = createAccountDeletionService({
+        prisma,
+        config: config(),
+        storage,
+        realtime,
+        supabaseAdmin: admin,
+        legalHolds,
+      });
+
+      const { token } = await service.issueAuthorization('user-1', [
+        { method: 'otp', timestamp: secondsFromNow(-60) },
+      ]);
+      await service.deleteAccount('user-1', token);
+
+      // Consulted once, before deletion; PURGE_DB consumed the frozen snapshot
+      // and never re-resolved it. Re-resolving is the TOCTOU this guards.
+      expect(legalHolds.hasAnyActiveHoldForProfile).toHaveBeenCalledTimes(1);
+      expect(legalHolds.listActiveHolderIds).toHaveBeenCalledTimes(1);
+      // The decision is durable on the row, so a retry sees the same value.
+      expect(prisma.__deletions[0]!.holdsCapturedAt).not.toBeNull();
+      expect(prisma.__deletions[0]!.heldDocumentPaths).toEqual(['pros/user-1/documents/held.pdf']);
     });
 
     it('preserves every pro-owned object under a profile-level hold', async () => {

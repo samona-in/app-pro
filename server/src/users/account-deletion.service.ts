@@ -70,6 +70,12 @@ interface DeletionRow {
   attempts: number;
 }
 
+/** The legal-hold decision as it stood when the snapshot was taken. */
+interface HoldSnapshot {
+  profileHeld: boolean;
+  heldDocumentPaths: string[];
+}
+
 /** SHA-256 of a deletion authorization; the only token identity ever stored. */
 function hashDeletionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -119,6 +125,45 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
       select: { id: true, storagePath: true },
     });
     return new Set(docs.filter((doc) => heldDocIds.has(doc.id)).map((doc) => doc.storagePath));
+  }
+
+  /** Resolves the live hold decision from the hold registry right now. */
+  async function resolveHoldSnapshot(profileId: string): Promise<HoldSnapshot> {
+    const profileHeld = deps.legalHolds
+      ? await deps.legalHolds.hasAnyActiveHoldForProfile(profileId)
+      : false;
+    if (profileHeld || !deps.legalHolds) return { profileHeld, heldDocumentPaths: [] };
+
+    const pro = await prisma.proProfile.findUnique({
+      where: { userId: profileId },
+      select: { id: true },
+    });
+    const paths = pro ? [...(await heldDocumentPaths(pro.id))] : [];
+    return { profileHeld, heldDocumentPaths: paths };
+  }
+
+  /**
+   * The frozen hold decision for this deletion, captured exactly once.
+   *
+   * PURGE_S3 captures it before deleting anything; PURGE_DB reads the same
+   * value instead of re-resolving. A hold created between the two steps can no
+   * longer make one step preserve what the other destroyed, and every retry
+   * sees one decision rather than a moving target.
+   */
+  async function ensureHoldSnapshot(profileId: string): Promise<HoldSnapshot> {
+    const row = await prisma.accountDeletion.findUnique({
+      where: { profileId },
+      select: { holdsCapturedAt: true, profileHeld: true, heldDocumentPaths: true },
+    });
+    if (row?.holdsCapturedAt) {
+      return { profileHeld: row.profileHeld, heldDocumentPaths: row.heldDocumentPaths };
+    }
+    const snapshot = await resolveHoldSnapshot(profileId);
+    await prisma.accountDeletion.update({
+      where: { profileId },
+      data: { ...snapshot, holdsCapturedAt: now() },
+    });
+    return snapshot;
   }
 
   function loadAccount(profileId: string) {
@@ -426,31 +471,29 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
         // A profile-level hold protects every object the profile owns; a
         // document-level hold protects only that document's object. Everything
         // unrelated is still purged, so erasure is not stalled wholesale by one
-        // held file. Because S3 runs before PURGE_DB, the durable row that names
-        // a held object is never dropped — only reached when nothing is held.
-        const profileHold = deps.legalHolds
-          ? await deps.legalHolds.hasAnyActiveHoldForProfile(row.profileId)
-          : false;
+        // held file. The hold decision is frozen on the row here, before any
+        // delete, and PURGE_DB consumes that same frozen value — so a hold
+        // created between the two steps cannot make one preserve what the other
+        // destroyed.
+        const { profileHeld, heldDocumentPaths: keptDocumentPaths } = await ensureHoldSnapshot(
+          row.profileId,
+        );
         const prefix = `pros/${row.profileId}/`;
 
-        if (profileHold) {
+        if (profileHeld) {
           logger.warn('Profile-level legal hold: preserving pro-owned objects during deletion.', {
             profileId: row.profileId,
           });
         } else {
-          const pro = await prisma.proProfile.findUnique({
-            where: { userId: row.profileId },
-            select: { id: true },
-          });
-          const keptDocumentPaths = pro ? await heldDocumentPaths(pro.id) : new Set<string>();
           // The pro's own content lives under `pros/{userId}/` in each bucket as
           // a privacy purge; job images belong to the customer and survive.
-          await purgePrefixExcept(deps.storage.selfiesBucket, prefix, keptDocumentPaths);
-          await purgePrefixExcept(deps.storage.avatarsBucket, prefix, keptDocumentPaths);
-          await purgePrefixExcept(deps.storage.documentsBucket, prefix, keptDocumentPaths);
+          const keep = new Set(keptDocumentPaths);
+          await purgePrefixExcept(deps.storage.selfiesBucket, prefix, keep);
+          await purgePrefixExcept(deps.storage.avatarsBucket, prefix, keep);
+          await purgePrefixExcept(deps.storage.documentsBucket, prefix, keep);
         }
 
-        if (deps.audit && profileHold) {
+        if (deps.audit && profileHeld) {
           await deps.audit.record({
             category: 'accountDeletionAudit',
             action: 'HOLD_PRESERVED_S3',
@@ -466,16 +509,12 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
       }
 
       case AccountDeletionStep.PURGE_DB: {
-        // Recompute holds here as well as in PURGE_S3: the two steps are
-        // independently retryable, and a hold may have been created between
-        // them. A row naming a held object is never deleted.
-        const profileHold = deps.legalHolds
-          ? await deps.legalHolds.hasAnyActiveHoldForProfile(row.profileId)
-          : false;
-        const heldDocIds =
-          deps.legalHolds && !profileHold
-            ? new Set(await deps.legalHolds.listActiveHolderIds('DOCUMENT'))
-            : new Set<string>();
+        // Consume the snapshot PURGE_S3 froze rather than re-resolving holds:
+        // re-resolving is the TOCTOU that could drop the row naming an object
+        // PURGE_S3 already deleted, or keep a row whose object it kept.
+        const { profileHeld, heldDocumentPaths: heldPaths } = await ensureHoldSnapshot(
+          row.profileId,
+        );
 
         await prisma.$transaction(async (tx) => {
           const pro = await tx.proProfile.findUnique({
@@ -490,11 +529,11 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
           if (pro) {
             await tx.proService.deleteMany({ where: { proProfileId: pro.id } });
             await tx.proSkill.deleteMany({ where: { proProfileId: pro.id } });
-            if (!profileHold) {
+            if (!profileHeld) {
               // Keep the rows that name held objects: they are the only durable
               // reference to those objects until the hold is released.
               await tx.proDocument.deleteMany({
-                where: { proProfileId: pro.id, id: { notIn: [...heldDocIds] } },
+                where: { proProfileId: pro.id, storagePath: { notIn: heldPaths } },
               });
             }
             await tx.notification.deleteMany({ where: { proId: pro.id } });
@@ -514,7 +553,7 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
                 languages: [],
                 // Preserve the selfie reference under a profile hold so the
                 // held object stays identifiable and manageable.
-                ...(profileHold ? {} : { selfiePhotoPath: null, selfieCapturedAt: null }),
+                ...(profileHeld ? {} : { selfiePhotoPath: null, selfieCapturedAt: null }),
                 pushToken: null,
                 pushPlatform: null,
                 pushProvider: null,

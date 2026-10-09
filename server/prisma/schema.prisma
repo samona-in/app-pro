@@ -698,6 +698,16 @@ model AccountDeletion {
   attempts Int @default(0)
   lastError String?
 
+  /// The legal-hold decision, captured exactly once before the first
+  /// destructive step and consumed by both PURGE_S3 and PURGE_DB. Freezing it
+  /// on the row means a hold created between the two steps can no longer make
+  /// one step preserve what the other deleted. `null` until captured.
+  holdsCapturedAt DateTime? @map("holds_captured_at")
+  /// Whether a profile-level hold protects every object the account owns.
+  profileHeld Boolean @default(false) @map("profile_held")
+  /// Storage paths of a profile's documents an active hold protects.
+  heldDocumentPaths String[] @default([]) @map("held_document_paths")
+
   /// SHA-256 of the single-use deletion authorization. The raw token is shown
   /// to the client once at issue; this hash is all that is ever stored.
   authTokenHash     String?   @unique @map("auth_token_hash")
