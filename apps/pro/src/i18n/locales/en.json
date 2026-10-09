@@ -754,6 +754,10 @@
     "telugu": "తెలుగు",
     "hindi": "हिन्दी"
   },
+  "chooseLanguage": {
+    "title": "Choose your language",
+    "subtitle": "Pick the language you'd like to use in SAMONA Pro. You can change it later in settings."
+  },
   "accountDeletion": {
     "title": "Delete account",
     "subtitle": "Removing your professional profile is permanent and cannot be undone.",

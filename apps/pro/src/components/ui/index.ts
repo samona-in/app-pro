@@ -5,6 +5,7 @@ export { Card, type CardProps } from './Card';
 export { Divider, type DividerProps } from './Divider';
 export { IconButton, type IconButtonProps } from './IconButton';
 export { Input, type InputProps } from './Input';
+export { LanguagePicker, type LanguagePickerProps } from './LanguagePicker';
 export { OtpInput, type OtpInputProps } from './OtpInput';
 export { Screen, type ScreenProps } from './Screen';
 export {
