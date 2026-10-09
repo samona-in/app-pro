@@ -16,10 +16,13 @@ jest.mock('expo-router', () => ({
 
 describe('ChooseLanguage', () => {
   it('commits the selected language and continues to welcome', async () => {
-    const { getByText } = render(<ChooseLanguage />);
+    const { getByLabelText, getByRole } = render(<ChooseLanguage />);
 
-    fireEvent.press(getByText('हिन्दी'));
-    fireEvent.press(getByText('Continue'));
+    // Queried by label: the hero illustration also renders the script names.
+    fireEvent.press(getByLabelText('हिन्दी'));
+    // Queried by role: selecting a language previews it live, so the button
+    // label is no longer guaranteed to be English.
+    fireEvent.press(getByRole('button'));
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/welcome'));
   });

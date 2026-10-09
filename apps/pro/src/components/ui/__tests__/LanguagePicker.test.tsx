@@ -21,4 +21,18 @@ describe('LanguagePicker', () => {
 
     expect(onSelect).toHaveBeenCalledWith('hi');
   });
+
+  it('renders the onboarding cards with a single selected card', () => {
+    const onSelect = jest.fn();
+    const { getByLabelText } = render(
+      <LanguagePicker variant="cards" selected="te" onSelect={onSelect} />,
+    );
+
+    expect(getByLabelText('తెలుగు').props.accessibilityState).toMatchObject({ selected: true });
+    expect(getByLabelText('English').props.accessibilityState).toMatchObject({ selected: false });
+
+    fireEvent.press(getByLabelText('English'));
+
+    expect(onSelect).toHaveBeenCalledWith('en');
+  });
 });

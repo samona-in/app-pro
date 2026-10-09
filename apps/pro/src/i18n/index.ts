@@ -89,6 +89,14 @@ export async function initAppLanguage(): Promise<void> {
   }
 }
 
+/**
+ * Switches the runtime language without persisting or marking it chosen — used
+ * by the first-launch step to preview a selection before Continue commits it.
+ */
+export async function previewLanguage(language: AppLanguage): Promise<void> {
+  await i18n.changeLanguage(language);
+}
+
 /** Switches the active language and persists it for the next launch. */
 export async function changeAppLanguage(language: AppLanguage): Promise<void> {
   await i18n.changeLanguage(language);

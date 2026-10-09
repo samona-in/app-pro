@@ -1,4 +1,10 @@
-import { changeAppLanguage, hasChosenLanguage, initAppLanguage, i18nInstance } from '@/i18n';
+import {
+  changeAppLanguage,
+  hasChosenLanguage,
+  initAppLanguage,
+  i18nInstance,
+  previewLanguage,
+} from '@/i18n';
 import { getLocales } from 'expo-localization';
 import * as SecureStore from 'expo-secure-store';
 
@@ -74,5 +80,20 @@ describe('hasChosenLanguage', () => {
     await SecureStore.deleteItemAsync(LANGUAGE_KEY);
     await initAppLanguage();
     expect(hasChosenLanguage()).toBe(false);
+  });
+});
+
+describe('previewLanguage', () => {
+  beforeEach(async () => {
+    await SecureStore.deleteItemAsync(LANGUAGE_KEY);
+    (getLocales as jest.Mock).mockReturnValue([{ languageCode: 'en', languageTag: 'en-IN' }]);
+  });
+
+  it('switches the runtime language without persisting or marking it chosen', async () => {
+    await initAppLanguage();
+    await previewLanguage('hi');
+    expect(i18nInstance.language).toBe('hi');
+    expect(hasChosenLanguage()).toBe(false);
+    expect(await SecureStore.getItemAsync(LANGUAGE_KEY)).toBeNull();
   });
 });
