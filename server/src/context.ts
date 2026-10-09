@@ -3,6 +3,7 @@ import type { PrismaClient } from './database/prisma';
 import type { Redis } from './database/redis';
 import { JOB_DEFAULTS } from '@samona/config';
 import { createBruteForceGuard } from './common';
+import { logger } from './common/logger';
 
 import { createAuthService, type AuthService } from './auth/auth.service';
 import { createSupabaseAdminClient } from './auth/supabase-admin';
@@ -37,7 +38,7 @@ import { createStorageService, type StorageService } from './files/storage.servi
 import type { RealtimeService } from './realtime/gateway';
 import { S3Client } from '@aws-sdk/client-s3';
 
-import { retentionPolicyFromConfig } from './retention/policy';
+import { retentionPolicyFromConfig, findCategoriesMissingPeriod } from './retention/policy';
 import { createLegalHoldService, type LegalHoldService } from './retention/legal-holds.service';
 import {
   createCleanupAuditService,
@@ -174,6 +175,14 @@ export function createServices(
   // audit, and the sweep engine. The scheduler only ever runs the sweep; it is
   // a no-op until an operator enables it.
   const retentionPolicy = retentionPolicyFromConfig(config.retention);
+  const missingPeriods = findCategoriesMissingPeriod(retentionPolicy);
+  if (missingPeriods.length > 0) {
+    logger.warn(
+      'Retention categories are enabled without a RETENTION_DAYS_* period; they ' +
+        'will be skipped until a period is set (deletion stays disabled).',
+      { categories: missingPeriods },
+    );
+  }
   const legalHolds = createLegalHoldService({ prisma });
   const cleanupAudit = createCleanupAuditService({ prisma });
   const orphan = createOrphanService({

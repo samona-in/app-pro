@@ -65,6 +65,20 @@ export function createRetentionPolicy(deps: RetentionPolicyDeps) {
 
 export type RetentionPolicy = ReturnType<typeof createRetentionPolicy>;
 
+/**
+ * Enabled categories that have no approved period yet.
+ *
+ * A period is the clock a sweep ages records against; with `RETENTION_DAYS_*`
+ * unset there is nothing to compare to, so the category is skipped and deletion
+ * stays disabled. This surfaces that at startup so an operator who turned a
+ * category on does not assume it is running.
+ */
+export function findCategoriesMissingPeriod(policy: RetentionPolicy): RetentionCategory[] {
+  return RETENTION_CATEGORIES.filter(
+    (category) => policy.isCategoryEnabled(category) && !policy.hasPeriod(category),
+  );
+}
+
 /** The retention slice of `AppConfig` the policy is built from. */
 export interface RetentionConfig {
   enabled: boolean;

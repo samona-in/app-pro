@@ -1,4 +1,4 @@
-import { createRetentionPolicy } from './policy';
+import { createRetentionPolicy, findCategoriesMissingPeriod } from './policy';
 import type { RetentionFeatureFlags } from './types';
 
 describe('retention policy', () => {
@@ -80,5 +80,35 @@ describe('retention policy', () => {
     expect(policy.canDeleteCategory('jobsCompleted')).toBe(false);
     // It still reports the period so operators can see what would age out.
     expect(policy.hasPeriod('messages')).toBe(true);
+  });
+
+  it('lists an enabled category that has no approved period', () => {
+    const policy = createRetentionPolicy({
+      config: { proDocuments: 30 },
+      flags: {
+        ...baseFlags,
+        enabled: true,
+        categories: {
+          ...baseFlags.categories,
+          proDocuments: true,
+          selfies: true,
+        } as any,
+      },
+    });
+
+    expect(findCategoriesMissingPeriod(policy)).toEqual(['selfies']);
+  });
+
+  it('lists nothing while the subsystem is disabled', () => {
+    const policy = createRetentionPolicy({
+      config: {},
+      flags: {
+        ...baseFlags,
+        enabled: false,
+        categories: { ...baseFlags.categories, selfies: true } as any,
+      },
+    });
+
+    expect(findCategoriesMissingPeriod(policy)).toEqual([]);
   });
 });

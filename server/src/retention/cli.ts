@@ -3,7 +3,7 @@ import { logger } from '../common/logger';
 import { createPrismaClient } from '../database/prisma';
 import { createRedisClient } from '../database/redis';
 import { createStorageFromConfig } from '../context';
-import { retentionPolicyFromConfig } from './policy';
+import { retentionPolicyFromConfig, findCategoriesMissingPeriod } from './policy';
 import { createLegalHoldService } from './legal-holds.service';
 import { createCleanupAuditService } from './cleanup-audit.service';
 import { createOrphanService } from './orphan.service';
@@ -55,6 +55,14 @@ async function main(): Promise<void> {
   try {
     const storage = createStorageFromConfig(config);
     const policy = retentionPolicyFromConfig(config.retention);
+    const missingPeriods = findCategoriesMissingPeriod(policy);
+    if (missingPeriods.length > 0) {
+      logger.warn(
+        'Retention categories are enabled without a RETENTION_DAYS_* period; ' +
+          'they will be skipped until a period is set (deletion stays disabled).',
+        { categories: missingPeriods },
+      );
+    }
     const legalHolds = createLegalHoldService({ prisma });
     const audit = createCleanupAuditService({ prisma });
     const orphan = createOrphanService({
