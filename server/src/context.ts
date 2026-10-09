@@ -37,6 +37,19 @@ import { createStorageService, type StorageService } from './files/storage.servi
 import type { RealtimeService } from './realtime/gateway';
 import { S3Client } from '@aws-sdk/client-s3';
 
+import { retentionPolicyFromConfig } from './retention/policy';
+import { createLegalHoldService, type LegalHoldService } from './retention/legal-holds.service';
+import {
+  createCleanupAuditService,
+  type CleanupAuditService,
+} from './retention/cleanup-audit.service';
+import { createOrphanService, type OrphanService } from './retention/orphan.service';
+import {
+  createRetentionCleanupService,
+  type RetentionCleanupService,
+} from './retention/cleanup.service';
+import { createRetentionScheduler, type RetentionScheduler } from './retention/scheduler';
+
 /**
  * Every domain service, constructed once per process.
  *
@@ -66,6 +79,16 @@ export interface Services {
   storage: StorageService;
   /** Permanent account deletion: OTP re-auth, single-use authorization, sweeper. */
   accountDeletion: AccountDeletionService;
+  /** Legal holds that protect records from automated and account-deletion purges. */
+  legalHolds: LegalHoldService;
+  /** Append-only, PII-free audit of retention cleanup operations. */
+  cleanupAudit: CleanupAuditService;
+  /** S3 orphan scanner used by the job-image retention category. */
+  orphan: OrphanService;
+  /** The retention sweep engine (dry-run by default; destructive when enabled). */
+  retention: RetentionCleanupService;
+  /** Scheduler that periodically runs the retention sweep. */
+  retentionScheduler: RetentionScheduler;
 }
 
 /** Shared infrastructure plus the service layer built on top of it. */
@@ -76,13 +99,14 @@ export interface AppContext {
   services: Services;
 }
 
-export function createServices(
-  prisma: PrismaClient,
-  config: AppConfig,
-  realtime: RealtimeService,
-  redis: Redis | null,
-): Services {
-  const storage = createStorageService({
+/**
+ * Builds the S3-backed storage service from config.
+ *
+ * Split out so the retention CLI constructs the exact same client as the
+ * server rather than a second, possibly-divergent wiring.
+ */
+export function createStorageFromConfig(config: AppConfig): StorageService {
+  return createStorageService({
     region: config.s3Region,
     selfiesBucket: config.s3BucketSelfies,
     jobImagesBucket: config.s3BucketJobImages,
@@ -109,6 +133,15 @@ export function createServices(
         : { region: config.s3Region },
     ),
   });
+}
+
+export function createServices(
+  prisma: PrismaClient,
+  config: AppConfig,
+  realtime: RealtimeService,
+  redis: Redis | null,
+): Services {
+  const storage = createStorageFromConfig(config);
   const deps = { prisma, storage };
 
   // Order matters: jobs' dispatch drives matching, and jobs notifies through
@@ -134,6 +167,34 @@ export function createServices(
     startOtpGuard: createBruteForceGuard(redis, {
       maxAttempts: JOB_DEFAULTS.startOtpMaxAttempts,
     }),
+  });
+
+  // Retention: a policy built from validated config (all flags off and periods
+  // unset by default), the hold service every purge consults, an append-only
+  // audit, and the sweep engine. The scheduler only ever runs the sweep; it is
+  // a no-op until an operator enables it.
+  const retentionPolicy = retentionPolicyFromConfig(config.retention);
+  const legalHolds = createLegalHoldService({ prisma });
+  const cleanupAudit = createCleanupAuditService({ prisma });
+  const orphan = createOrphanService({
+    prisma,
+    storage,
+    safetyWindowDays: config.retention.safetyWindowDays,
+  });
+  const retention = createRetentionCleanupService({
+    prisma,
+    storage,
+    redis,
+    policy: retentionPolicy,
+    legalHolds,
+    audit: cleanupAudit,
+    orphan,
+  });
+  const retentionScheduler = createRetentionScheduler({
+    cleanup: retention,
+    sweepMs: config.retention.sweepMs,
+    enabled: config.retention.enabled,
+    dryRunDefault: config.retention.dryRunDefault,
   });
 
   return {
@@ -189,9 +250,16 @@ export function createServices(
       config,
       storage,
       realtime,
+      legalHolds,
+      audit: cleanupAudit,
       // Null when no service-role key is configured: FULL_ACCOUNT deletion then
       // fails the DELETE_AUTH step loudly instead of silently skipping it.
       supabaseAdmin: createSupabaseAdminClient(config) ?? undefined,
     }),
+    legalHolds,
+    cleanupAudit,
+    orphan,
+    retention,
+    retentionScheduler,
   };
 }

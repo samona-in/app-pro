@@ -187,6 +187,11 @@ describe('files routes — avatar', () => {
         avatarsBucket: 'avatars',
         documentsBucket: 'pro-documents',
         removeObjectPrefix: jest.fn().mockResolvedValue(undefined),
+        listObjects: jest.fn(),
+        deleteObjects: jest.fn(),
+        deleteObject: jest.fn(),
+        keyFromAvatarUrl: jest.fn(),
+        jobImagesBucket: 'job-images',
       },
     });
 

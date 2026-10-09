@@ -857,9 +857,60 @@ enum SenderRole {
 
 /// The kind of push a professional may receive. Mirrors `NotificationKind` in
 /// `@samona/types` — keep the two in sync.
+
+/// Legal hold holder types
+enum LegalHoldHolderType {
+  PROFILE
+  PRO_PROFILE
+  DOCUMENT
+  JOB
+  CUSTOMER_PROFILE
+  OTHER
+}
+
 enum NotificationKind {
   JOB_ALERT
   JOB_STATUS
   PAYMENT
   SYSTEM
+}
+
+
+/// Retention cleanup audit log - records automated cleanup operations.
+/// No PII is stored; errors are sanitized.
+model CleanupAuditLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  category      String
+  action        String
+  affectedCount Int       @default(0) @map("affected_count")
+  executionMode String    @map("execution_mode") // DRY_RUN or ACTUAL
+  startedAt     DateTime  @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+  success       Boolean
+  error         String?
+  metadata      Json?     @db.JsonB
+  jobId         String?   @map("job_id")
+
+  @@index([category, startedAt])
+  @@map("cleanup_audit_logs")
+}
+
+/// Legal hold to prevent deletion of records
+model LegalHold {
+  id            String              @id @default(uuid()) @db.Uuid
+  holderType    LegalHoldHolderType @map("holder_type")
+  holderId      String              @map("holder_id")
+  reason        String
+  authorizedBy  String              @map("authorized_by")
+  notes         String?
+  active        Boolean             @default(true)
+  releasedAt    DateTime?           @map("released_at")
+  releasedBy    String?             @map("released_by")
+  expiresAt     DateTime?           @map("expires_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  @@index([holderType, holderId, active])
+  @@index([active, expiresAt])
+  @@map("legal_holds")
 }

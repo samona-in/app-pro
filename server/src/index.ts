@@ -68,6 +68,8 @@ async function main(): Promise<void> {
   services.jobs.startExpireSweep();
   // Account deletion: finalize deferred and retried deletions on its own cadence.
   services.accountDeletion.start();
+  // Data retention: no-op unless explicitly enabled; dry-run by default.
+  services.retentionScheduler.start();
 
   /** Close connections in reverse order of opening, then exit. */
   async function shutdown(signal: string): Promise<void> {
@@ -77,6 +79,7 @@ async function main(): Promise<void> {
     services.notifications.stop();
     services.jobs.stopExpireSweep();
     services.accountDeletion.stop();
+    services.retentionScheduler.stop();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     await realtime.close();
     if (redis) await redis.quit().catch(() => undefined);

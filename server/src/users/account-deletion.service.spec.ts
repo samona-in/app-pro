@@ -5,6 +5,8 @@ import type { AppConfig } from '../config';
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
 import type { RealtimeService } from '../realtime/gateway';
+import type { LegalHoldService } from '../retention/legal-holds.service';
+import type { CleanupAuditService } from '../retention/cleanup-audit.service';
 
 /** Same SHA-256 scheme the service uses to identify a token by digest. */
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -16,6 +18,8 @@ interface StoredPro {
   deletionRequestedAt: Date | null;
   isOnline: boolean;
   displayName: string | null;
+  selfiePhotoPath?: string | null;
+  selfieCapturedAt?: Date | null;
 }
 
 interface StoredAccount {
@@ -36,7 +40,9 @@ function fakePrisma(initial: {
   customers?: string[];
   deletions?: Partial<StoredAccount>[];
   blockingJobs?: number;
+  proDocuments?: { id: string; proProfileId: string; storagePath: string }[];
 }) {
+  const proDocuments = initial.proDocuments ?? [];
   const pros: StoredPro[] = (initial.pros ?? [{ id: 'pro-1', userId: 'user-1' }]).map((p) => ({
     id: 'pro-1',
     userId: 'user-1',
@@ -219,10 +225,14 @@ function fakePrisma(initial: {
     },
     proService: { deleteMany: jest.fn(async () => ({ count: 0 })) },
     proSkill: { deleteMany: jest.fn(async () => ({ count: 0 })) },
-    proDocument: { deleteMany: jest.fn(async () => ({ count: 0 })) },
+    proDocument: {
+      findMany: jest.fn(async () => proDocuments),
+      deleteMany: jest.fn(async () => ({ count: 0 })),
+    },
     notification: { deleteMany: jest.fn(async () => ({ count: 0 })) },
     jobDecline: { deleteMany: jest.fn(async () => ({ count: 0 })) },
     jobOffer: { deleteMany: jest.fn(async () => ({ count: 0 })) },
+    cleanupAuditLog: { create: jest.fn(async () => ({})) },
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma as unknown)),
     __updates: updates,
     __pros: pros,
@@ -246,13 +256,79 @@ function config(): AppConfig {
   } as unknown as AppConfig;
 }
 
-const storage = {
-  removeObjectPrefix: jest.fn().mockResolvedValue(undefined),
-} as unknown as StorageService;
+interface StoredObject {
+  bucket: string;
+  key: string;
+}
+
+/**
+ * A stateful stand-in for the storage surface: objects can be seeded, listed
+ * and deleted, so a test can assert exactly which keys survived a purge.
+ */
+function makeStorage(initial: StoredObject[] = []) {
+  const objects: StoredObject[] = [...initial];
+  const api = {
+    selfiesBucket: 'pro-selfies',
+    avatarsBucket: 'avatars',
+    documentsBucket: 'pro-documents',
+    jobImagesBucket: 'job-images',
+    listObjects: jest.fn(async (bucket: string, prefix: string) => ({
+      objects: objects
+        .filter((o) => o.bucket === bucket && o.key.startsWith(prefix))
+        .map((o) => ({ key: o.key, size: 1, lastModified: new Date(0) })),
+      nextToken: undefined,
+    })),
+    deleteObjects: jest.fn(async (bucket: string, keys: string[]) => {
+      for (const key of keys) {
+        const idx = objects.findIndex((o) => o.bucket === bucket && o.key === key);
+        if (idx >= 0) objects.splice(idx, 1);
+      }
+    }),
+    deleteObject: jest.fn(async (bucket: string, key: string) => {
+      const idx = objects.findIndex((o) => o.bucket === bucket && o.key === key);
+      if (idx >= 0) objects.splice(idx, 1);
+    }),
+    removeObjectPrefix: jest.fn().mockResolvedValue(undefined),
+    keyFromAvatarUrl: jest.fn(() => null),
+    __objects: objects,
+    keys(bucket: string): string[] {
+      return objects
+        .filter((o) => o.bucket === bucket)
+        .map((o) => o.key)
+        .sort();
+    },
+  };
+  return api as typeof api & StorageService;
+}
+
+const storage = makeStorage();
 
 const realtime = {
   disconnectUser: jest.fn(),
 } as unknown as RealtimeService;
+
+function fakeLegalHolds(
+  held: { documents?: string[]; profiles?: string[] } = {},
+): LegalHoldService {
+  const documents = new Set(held.documents ?? []);
+  const profiles = new Set(held.profiles ?? []);
+  return {
+    hasActiveHold: jest.fn(
+      async (_type: string, id: string) => documents.has(id) || profiles.has(id),
+    ),
+    hasAnyActiveHoldForProfile: jest.fn(async (id: string) => profiles.has(id)),
+    listActiveHolderIds: jest.fn(async (types: string | readonly string[]) => {
+      const list = Array.isArray(types) ? types : [types];
+      return list.includes('DOCUMENT') ? [...documents] : [...profiles];
+    }),
+    createHold: jest.fn(),
+    releaseHold: jest.fn(),
+  } as unknown as LegalHoldService;
+}
+
+function fakeAudit(): CleanupAuditService {
+  return { record: jest.fn(async () => ({})) } as unknown as CleanupAuditService;
+}
 
 function secondsFromNow(s: number): number {
   return Math.floor((Date.now() + s * 1000) / 1000);
@@ -260,6 +336,7 @@ function secondsFromNow(s: number): number {
 
 describe('createAccountDeletionService', () => {
   beforeEach(() => {
+    storage.__objects.length = 0;
     jest.clearAllMocks();
   });
 
@@ -352,6 +429,12 @@ describe('createAccountDeletionService', () => {
 
     it('deletes the identity too for a full-account deletion', async () => {
       const prisma = fakePrisma({});
+      storage.__objects.push(
+        { bucket: 'pro-selfies', key: 'pros/user-1/selfie.jpg' },
+        { bucket: 'avatars', key: 'pros/user-1/avatar-1.jpg' },
+        { bucket: 'pro-documents', key: 'pros/user-1/documents/id.pdf' },
+        { bucket: 'job-images', key: 'jobs/customer-1/job.jpg' },
+      );
       const admin = { deleteUser: jest.fn().mockResolvedValue(undefined) };
       const service = createAccountDeletionService({
         prisma,
@@ -374,8 +457,11 @@ describe('createAccountDeletionService', () => {
       expect(prisma.__profile.deletedAt).not.toBeNull();
       expect(admin.deleteUser).toHaveBeenCalledWith('user-1');
       expect(realtime.disconnectUser).toHaveBeenCalledWith('user-1', undefined);
-      // The pro's S3 objects are purged as part of the flow.
-      expect(storage.removeObjectPrefix).toHaveBeenCalled();
+      // The pro's S3 objects are purged; the customer's job image is not.
+      expect(storage.keys('pro-selfies')).toEqual([]);
+      expect(storage.keys('avatars')).toEqual([]);
+      expect(storage.keys('pro-documents')).toEqual([]);
+      expect(storage.keys('job-images')).toEqual(['jobs/customer-1/job.jpg']);
       expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
     });
 
@@ -420,7 +506,98 @@ describe('createAccountDeletionService', () => {
       expect(prisma.__pros[0]!.isOnline).toBe(false);
       expect(prisma.__pros[0]!.deletionRequestedAt).not.toBeNull();
       expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.AWAITING_ACTIVE_JOBS);
-      expect(storage.removeObjectPrefix).not.toHaveBeenCalled();
+      expect(storage.listObjects).not.toHaveBeenCalled();
+      expect(prisma.__pros[0]!.deletedAt).toBeNull();
+    });
+
+    it('preserves a document under an active hold and purges everything else', async () => {
+      const prisma = fakePrisma({
+        proDocuments: [
+          { id: 'doc-held', proProfileId: 'pro-1', storagePath: 'pros/user-1/documents/held.pdf' },
+          { id: 'doc-free', proProfileId: 'pro-1', storagePath: 'pros/user-1/documents/free.pdf' },
+        ],
+      });
+      storage.__objects.push(
+        { bucket: 'pro-selfies', key: 'pros/user-1/selfie.jpg' },
+        { bucket: 'avatars', key: 'pros/user-1/avatar-1.jpg' },
+        { bucket: 'pro-documents', key: 'pros/user-1/documents/held.pdf' },
+        { bucket: 'pro-documents', key: 'pros/user-1/documents/free.pdf' },
+      );
+      const legalHolds = fakeLegalHolds({ documents: ['doc-held'] });
+      const audit = fakeAudit();
+      const admin = { deleteUser: jest.fn().mockResolvedValue(undefined) };
+      const service = createAccountDeletionService({
+        prisma,
+        config: config(),
+        storage,
+        realtime,
+        supabaseAdmin: admin,
+        legalHolds,
+        audit,
+      });
+
+      const { token } = await service.issueAuthorization('user-1', [
+        { method: 'otp', timestamp: secondsFromNow(-60) },
+      ]);
+      await service.deleteAccount('user-1', token);
+
+      // Only the held document object survives; the selfie, avatar and the
+      // unheld document are still purged.
+      expect(storage.keys('pro-documents')).toEqual(['pros/user-1/documents/held.pdf']);
+      expect(storage.keys('pro-selfies')).toEqual([]);
+      expect(storage.keys('avatars')).toEqual([]);
+      // The row naming the held object is kept as its durable reference.
+      expect(prisma.proDocument.deleteMany).toHaveBeenCalledWith({
+        where: { proProfileId: 'pro-1', id: { notIn: ['doc-held'] } },
+      });
+      // A document-level hold does not preserve the selfie reference.
+      expect(prisma.__pros[0]!.selfiePhotoPath ?? null).toBeNull();
+      expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('preserves every pro-owned object under a profile-level hold', async () => {
+      const prisma = fakePrisma({
+        pros: [{ selfiePhotoPath: 'pros/user-1/selfie.jpg', selfieCapturedAt: new Date() }],
+        proDocuments: [
+          { id: 'doc-1', proProfileId: 'pro-1', storagePath: 'pros/user-1/documents/id.pdf' },
+        ],
+      });
+      storage.__objects.push(
+        { bucket: 'pro-selfies', key: 'pros/user-1/selfie.jpg' },
+        { bucket: 'avatars', key: 'pros/user-1/avatar-1.jpg' },
+        { bucket: 'pro-documents', key: 'pros/user-1/documents/id.pdf' },
+      );
+      const legalHolds = fakeLegalHolds({ profiles: ['user-1'] });
+      const audit = fakeAudit();
+      const admin = { deleteUser: jest.fn().mockResolvedValue(undefined) };
+      const service = createAccountDeletionService({
+        prisma,
+        config: config(),
+        storage,
+        realtime,
+        supabaseAdmin: admin,
+        legalHolds,
+        audit,
+      });
+
+      const { token } = await service.issueAuthorization('user-1', [
+        { method: 'otp', timestamp: secondsFromNow(-60) },
+      ]);
+      await service.deleteAccount('user-1', token);
+
+      // Nothing under the held profile is removed, and the rows that name the
+      // objects (selfie reference, documents) are kept.
+      expect(storage.keys('pro-selfies')).toEqual(['pros/user-1/selfie.jpg']);
+      expect(storage.keys('avatars')).toEqual(['pros/user-1/avatar-1.jpg']);
+      expect(storage.keys('pro-documents')).toEqual(['pros/user-1/documents/id.pdf']);
+      expect(prisma.proDocument.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.__pros[0]!.selfiePhotoPath).toBe('pros/user-1/selfie.jpg');
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'HOLD_PRESERVED_S3' }),
+      );
+      // Deletion still completes; a hold preserves evidence, it does not stall.
+      expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
     });
   });
 

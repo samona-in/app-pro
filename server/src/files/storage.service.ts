@@ -542,6 +542,75 @@ export function createStorageService(deps: StorageServiceDeps) {
   }
 
   /**
+   * Lists one page of object metadata under a key prefix.
+   *
+   * Unlike `removeObjectPrefix`, this is a read used by retention cleanup to
+   * decide what may be removed: the safety window needs `lastModified`, and
+   * orphan detection needs the key set. One page at a time keeps a large bucket
+   * from being pulled into memory in a single call; the caller follows
+   * `nextToken` until it is null.
+   */
+  async function listObjects(
+    bucket: string,
+    prefix: string,
+    options: { continuationToken?: string; maxKeys?: number } = {},
+  ): Promise<{
+    objects: Array<{ key: string; lastModified: Date | null; size: number | null }>;
+    nextToken: string | null;
+  }> {
+    const listed = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: options.continuationToken,
+        MaxKeys: options.maxKeys,
+      }),
+    );
+    const objects = (listed.Contents ?? [])
+      .map((object) => ({
+        key: object.Key,
+        lastModified: object.LastModified ?? null,
+        size: typeof object.Size === 'number' ? object.Size : null,
+      }))
+      .filter(
+        (object): object is { key: string; lastModified: Date | null; size: number | null } =>
+          typeof object.key === 'string' && object.key.length > 0,
+      );
+    return { objects, nextToken: listed.NextContinuationToken ?? null };
+  }
+
+  /**
+   * Deletes a set of named objects, throwing if any single key fails.
+   *
+   * Retention cleanup uses this rather than the best-effort `removeDocument`:
+   * a partial failure must abort the category so the durable database reference
+   * is not dropped before its storage deletion is confirmed. Empty keys are
+   * ignored — `DeleteObject` with an empty key is not a cleanup.
+   */
+  async function deleteObjects(bucket: string, keys: readonly string[]): Promise<void> {
+    const filtered = keys.filter((key) => key.length > 0);
+    if (filtered.length === 0) return;
+    const deleted = await s3.send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: { Objects: filtered.map((Key) => ({ Key })) },
+      }),
+    );
+    if (deleted.Errors && deleted.Errors.length > 0) {
+      const detail = deleted.Errors.map(
+        (e) => `${e.Key ?? '?'}: ${e.Code ?? e.Message ?? 'error'}`,
+      ).join(', ');
+      throw new Error(`S3 delete partially failed: ${detail}`);
+    }
+  }
+
+  /** Deletes one object, throwing on failure. Same contract as `deleteObjects`. */
+  async function deleteObject(bucket: string, key: string): Promise<void> {
+    if (!key) return;
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  }
+
+  /**
    * Deletes every object under a key prefix (e.g. all of one pro's files).
    *
    * Used by account deletion to purge the pro's own objects across buckets.
@@ -602,9 +671,14 @@ export function createStorageService(deps: StorageServiceDeps) {
     documentScope: documentScopeFor,
     removeDocument,
     selfiesBucket,
+    jobImagesBucket,
     avatarsBucket,
     documentsBucket,
     removeObjectPrefix,
+    listObjects,
+    deleteObjects,
+    deleteObject,
+    keyFromAvatarUrl: avatarKeyFrom,
   };
 }
 
