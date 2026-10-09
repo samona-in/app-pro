@@ -28,6 +28,16 @@ function makeDeps() {
       findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({}),
     },
+    proService: {
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    proSkill: {
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     message: {
       count: jest.fn().mockResolvedValue(0),
       findMany: jest.fn().mockResolvedValue([]),
@@ -75,6 +85,19 @@ describe('retention handlers — retention anchors', () => {
     const where = (deps.prisma.proProfile.count as jest.Mock).mock.calls[0][0].where;
     expect(where.deletedAt).toEqual({ not: null, lt: CUTOFF });
     expect(where.selfieCapturedAt).toBeUndefined();
+  });
+
+  it('proServicesSkills anchors both services and skills on profile deletion', async () => {
+    const deps = makeDeps();
+    await handlersFor(deps).proServicesSkills(args());
+
+    const serviceWhere = (deps.prisma.proService.count as jest.Mock).mock.calls[0][0].where;
+    expect(serviceWhere.proProfile.deletedAt).toEqual({ not: null, lt: CUTOFF });
+    expect(serviceWhere.createdAt).toBeUndefined();
+
+    const skillWhere = (deps.prisma.proSkill.count as jest.Mock).mock.calls[0][0].where;
+    expect(skillWhere.proProfile.deletedAt).toEqual({ not: null, lt: CUTOFF });
+    expect(skillWhere.createdAt).toBeUndefined();
   });
 });
 

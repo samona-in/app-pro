@@ -419,11 +419,15 @@ export function createRetentionHandlers(deps: RetentionHandlersDeps) {
       /* --------------------------- Pro services/skills ----------------------- */
       proServicesSkills: async (args) => {
         const held = await heldProfileIds();
+        // Both components anchor on account *deletion*, not link age (see
+        // proDocuments): a pro who deleted after the cutoff keeps every service
+        // and skill link. Anchoring services on `createdAt` would have purged a
+        // recently-added service the moment an old account closed, and left
+        // services and skills on two different clocks.
         const proWindow: Prisma.ProProfileWhereInput = {
           deletedAt: { not: null, lt: args.cutoff },
         };
         const serviceWhere: Prisma.ProServiceWhereInput = {
-          createdAt: { lt: args.cutoff },
           proProfile: { ...proWindow, userId: { notIn: held } },
         };
         const skillWhere: Prisma.ProSkillWhereInput = {
@@ -435,10 +439,7 @@ export function createRetentionHandlers(deps: RetentionHandlersDeps) {
           (await deps.prisma.proSkill.count({ where: skillWhere }));
         const heldCount =
           (await deps.prisma.proService.count({
-            where: {
-              ...serviceWhere,
-              proProfile: { deletedAt: proWindow.deletedAt, userId: { in: held } },
-            },
+            where: { proProfile: { deletedAt: proWindow.deletedAt, userId: { in: held } } },
           })) +
           (await deps.prisma.proSkill.count({
             where: { proProfile: { deletedAt: proWindow.deletedAt, userId: { in: held } } },
