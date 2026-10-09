@@ -428,11 +428,9 @@
     "signOut": "సైన్ అవుట్",
     "settings": {
       "servicesSkills": "సేవలు & నైపుణ్యాలు",
-      "availability": "అందుబాటు",
       "serviceArea": "సేవా ప్రాంతం",
       "documents": "పత్రాలు",
       "jobAlertSetup": "జాబ్ అలర్ట్ సెటప్",
-      "payoutDetails": "పేఅవుట్ వివరాలు",
       "helpSupport": "సహాయం & మద్దతు",
       "language": "భాష",
       "deleteAccount": "ఖాతా తొలగించండి"
@@ -583,17 +581,9 @@
       }
     }
   },
-  "earnings": {
-    "thisWeek": "ఈ వారం",
-    "payoutNote": "పేఅవుట్లు ప్రతి సోమవారం మీ ఖాతాలో జమ అవుతాయి.",
-    "breakdown": "విభజన",
-    "devCaveat": "ఎర్నింగ్స్ API కనెక్ట్ అయ్యే వరకు గణాంకాలు ప్లేస్హోల్డర్లు.",
-    "breakdownRows": {
-      "completedJobs": "పూర్తి చేసిన పనులు",
-      "jobEarnings": "పని సంపాదన",
-      "tips": "టిప్స్",
-      "samonaFee": "SAMONA ఫీజు"
-    }
+  "comingSoon": {
+    "title": "త్వరలో వస్తుంది",
+    "earnings": "మేము Samona Proలో మీ ఆదాయ వివరాలను తీసుకురావడంపై పని చేస్తున్నాము."
   },
   "today": {
     "title": "ఈరోజు",

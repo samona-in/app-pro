@@ -428,11 +428,9 @@
     "signOut": "साइन आउट",
     "settings": {
       "servicesSkills": "सेवाएं और कौशल",
-      "availability": "उपलब्धता",
       "serviceArea": "सेवा क्षेत्र",
       "documents": "दस्तावेज़",
       "jobAlertSetup": "जॉब अलर्ट सेटअप",
-      "payoutDetails": "भुगतान विवरण",
       "helpSupport": "सहायता और समर्थन",
       "language": "भाषा",
       "deleteAccount": "खाता हटाएं"
@@ -583,17 +581,9 @@
       }
     }
   },
-  "earnings": {
-    "thisWeek": "इस सप्ताह",
-    "payoutNote": "भुगतान हर सोमवार आपके खाते में जमा होते हैं।",
-    "breakdown": "विवरण",
-    "devCaveat": "जब तक कमाई API कनेक्ट नहीं होती, आंकड़े प्लेसहोल्डर हैं।",
-    "breakdownRows": {
-      "completedJobs": "पूरे किए गए काम",
-      "jobEarnings": "काम की कमाई",
-      "tips": "टिप्स",
-      "samonaFee": "SAMONA शुल्क"
-    }
+  "comingSoon": {
+    "title": "जल्द आ रहा है",
+    "earnings": "हम Samona Pro पर आपकी कमाई की जानकारी लाने पर काम कर रहे हैं।"
   },
   "today": {
     "title": "आज",

@@ -22,7 +22,6 @@ const SETTINGS_ROWS: {
     labelKey: 'profile.settings.servicesSkills',
     route: '/manage-services',
   },
-  { icon: 'time-outline', labelKey: 'profile.settings.availability' },
   {
     icon: 'location-outline',
     labelKey: 'profile.settings.serviceArea',
@@ -34,7 +33,6 @@ const SETTINGS_ROWS: {
     labelKey: 'profile.settings.jobAlertSetup',
     route: '/device-setup',
   },
-  { icon: 'card-outline', labelKey: 'profile.settings.payoutDetails' },
   { icon: 'help-circle-outline', labelKey: 'profile.settings.helpSupport', route: '/help-support' },
   { icon: 'language-outline', labelKey: 'profile.settings.language', route: '/language' },
   {
