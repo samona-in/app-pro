@@ -698,6 +698,16 @@ model AccountDeletion {
   attempts Int @default(0)
   lastError String?
 
+  /// The legal-hold decision, captured exactly once before the first
+  /// destructive step and consumed by both PURGE_S3 and PURGE_DB. Freezing it
+  /// on the row means a hold created between the two steps can no longer make
+  /// one step preserve what the other deleted. `null` until captured.
+  holdsCapturedAt DateTime? @map("holds_captured_at")
+  /// Whether a profile-level hold protects every object the account owns.
+  profileHeld Boolean @default(false) @map("profile_held")
+  /// Storage paths of a profile's documents an active hold protects.
+  heldDocumentPaths String[] @default([]) @map("held_document_paths")
+
   /// SHA-256 of the single-use deletion authorization. The raw token is shown
   /// to the client once at issue; this hash is all that is ever stored.
   authTokenHash     String?   @unique @map("auth_token_hash")
@@ -857,9 +867,60 @@ enum SenderRole {
 
 /// The kind of push a professional may receive. Mirrors `NotificationKind` in
 /// `@samona/types` — keep the two in sync.
+
+/// Legal hold holder types
+enum LegalHoldHolderType {
+  PROFILE
+  PRO_PROFILE
+  DOCUMENT
+  JOB
+  CUSTOMER_PROFILE
+  OTHER
+}
+
 enum NotificationKind {
   JOB_ALERT
   JOB_STATUS
   PAYMENT
   SYSTEM
+}
+
+
+/// Retention cleanup audit log - records automated cleanup operations.
+/// No PII is stored; errors are sanitized.
+model CleanupAuditLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  category      String
+  action        String
+  affectedCount Int       @default(0) @map("affected_count")
+  executionMode String    @map("execution_mode") // DRY_RUN or ACTUAL
+  startedAt     DateTime  @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+  success       Boolean
+  error         String?
+  metadata      Json?     @db.JsonB
+  jobId         String?   @map("job_id")
+
+  @@index([category, startedAt])
+  @@map("cleanup_audit_logs")
+}
+
+/// Legal hold to prevent deletion of records
+model LegalHold {
+  id            String              @id @default(uuid()) @db.Uuid
+  holderType    LegalHoldHolderType @map("holder_type")
+  holderId      String              @map("holder_id")
+  reason        String
+  authorizedBy  String              @map("authorized_by")
+  notes         String?
+  active        Boolean             @default(true)
+  releasedAt    DateTime?           @map("released_at")
+  releasedBy    String?             @map("released_by")
+  expiresAt     DateTime?           @map("expires_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  @@index([holderType, holderId, active])
+  @@index([active, expiresAt])
+  @@map("legal_holds")
 }

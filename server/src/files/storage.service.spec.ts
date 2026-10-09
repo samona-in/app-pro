@@ -403,4 +403,91 @@ describe('createStorageService', () => {
       ).resolves.toBeUndefined();
     });
   });
+
+  describe('listObjects', () => {
+    it('maps object metadata and carries the continuation token', async () => {
+      const modified = new Date('2026-01-02T03:04:05Z');
+      const send = jest.fn().mockResolvedValue({
+        Contents: [
+          { Key: `jobs/${USER}/a.jpg`, LastModified: modified, Size: 10 },
+          { Key: undefined },
+          { Key: '', Size: 4 },
+        ],
+        NextContinuationToken: 'next',
+      });
+      const storage = build(send);
+
+      const page = await storage.listObjects(JOB_IMAGES, `jobs/${USER}/`);
+
+      expect(page.objects).toEqual([
+        { key: `jobs/${USER}/a.jpg`, lastModified: modified, size: 10 },
+      ]);
+      expect(page.nextToken).toBe('next');
+      expect(send.mock.calls[0][0].input).toMatchObject({
+        Bucket: JOB_IMAGES,
+        Prefix: `jobs/${USER}/`,
+      });
+    });
+
+    it('reports a null token when the listing is complete', async () => {
+      const storage = build(jest.fn().mockResolvedValue({ Contents: [] }));
+
+      const page = await storage.listObjects(JOB_IMAGES, 'jobs/');
+
+      expect(page.objects).toEqual([]);
+      expect(page.nextToken).toBeNull();
+    });
+  });
+
+  describe('deleteObjects', () => {
+    it('deletes the named keys in one batch', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const storage = build(send);
+
+      await storage.deleteObjects(DOCUMENTS, ['a.pdf', 'b.pdf']);
+
+      expect(send.mock.calls[0][0].input).toMatchObject({
+        Bucket: DOCUMENTS,
+        Delete: { Objects: [{ Key: 'a.pdf' }, { Key: 'b.pdf' }] },
+      });
+    });
+
+    it('ignores empty keys and skips the call when nothing remains', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const storage = build(send);
+
+      await storage.deleteObjects(DOCUMENTS, ['', '']);
+
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('throws on a partial failure so the caller does not drop the reference', async () => {
+      const send = jest.fn().mockResolvedValue({
+        Errors: [{ Key: 'a.pdf', Code: 'AccessDenied' }],
+      });
+      const storage = build(send);
+
+      await expect(storage.deleteObjects(DOCUMENTS, ['a.pdf'])).rejects.toThrow(/partially failed/);
+    });
+  });
+
+  describe('deleteObject', () => {
+    it('deletes one key and throws on failure', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const storage = build(send);
+
+      await storage.deleteObject(DOCUMENTS, 'a.pdf');
+
+      expect(send.mock.calls[0][0].input).toMatchObject({ Bucket: DOCUMENTS, Key: 'a.pdf' });
+    });
+
+    it('no-ops on an empty key', async () => {
+      const send = jest.fn().mockResolvedValue({});
+      const storage = build(send);
+
+      await storage.deleteObject(DOCUMENTS, '');
+
+      expect(send).not.toHaveBeenCalled();
+    });
+  });
 });

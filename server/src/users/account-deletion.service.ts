@@ -13,6 +13,8 @@ import type { PrismaClient } from '../database/prisma';
 import type { RealtimeService } from '../realtime/gateway';
 import type { StorageService } from '../files/storage.service';
 import type { AuthMethod } from '../auth/token';
+import type { LegalHoldService } from '../retention/legal-holds.service';
+import type { CleanupAuditService } from '../retention/cleanup-audit.service';
 import { conflict, forbidden, gone, notFound } from '../common/errors';
 import { logger } from '../common/logger';
 
@@ -30,6 +32,9 @@ export interface AccountDeletionServiceDeps {
   supabaseAdmin?: { deleteUser: (userId: string) => Promise<void> };
   /** Injectable clock for tests. */
   now?: () => Date;
+  legalHolds?: LegalHoldService;
+  /** Append-only retention audit; records preserved-under-hold events. */
+  audit?: CleanupAuditService;
 }
 
 /**
@@ -65,6 +70,12 @@ interface DeletionRow {
   attempts: number;
 }
 
+/** The legal-hold decision as it stood when the snapshot was taken. */
+interface HoldSnapshot {
+  profileHeld: boolean;
+  heldDocumentPaths: string[];
+}
+
 /** SHA-256 of a deletion authorization; the only token identity ever stored. */
 function hashDeletionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -78,6 +89,82 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
   // The set of profile ids currently mid-finalize stops two ticks from racing
   // the same row's steps.
   const inFlight = new Set<string>();
+
+  /**
+   * Deletes every object under `prefix` except those in `keep`.
+   *
+   * Unlike `removeObjectPrefix`, this leaves a named set in place — the objects
+   * a legal hold protects. It lists first and deletes second so a key cannot be
+   * skipped by deleting the page it is on, and it *throws* on a partial failure
+   * so the deletion step is retried rather than recorded as done.
+   */
+  async function purgePrefixExcept(
+    bucket: string,
+    prefix: string,
+    keep: ReadonlySet<string>,
+  ): Promise<void> {
+    const toDelete: string[] = [];
+    let token: string | undefined;
+    do {
+      const page = await deps.storage.listObjects(bucket, prefix, { continuationToken: token });
+      for (const object of page.objects) {
+        if (!keep.has(object.key)) toDelete.push(object.key);
+      }
+      token = page.nextToken ?? undefined;
+    } while (token);
+    if (toDelete.length > 0) await deps.storage.deleteObjects(bucket, toDelete);
+  }
+
+  /** The storage paths of this pro's documents that an active hold protects. */
+  async function heldDocumentPaths(proProfileId: string): Promise<Set<string>> {
+    if (!deps.legalHolds) return new Set();
+    const heldDocIds = new Set(await deps.legalHolds.listActiveHolderIds('DOCUMENT'));
+    if (heldDocIds.size === 0) return new Set();
+    const docs = await prisma.proDocument.findMany({
+      where: { proProfileId },
+      select: { id: true, storagePath: true },
+    });
+    return new Set(docs.filter((doc) => heldDocIds.has(doc.id)).map((doc) => doc.storagePath));
+  }
+
+  /** Resolves the live hold decision from the hold registry right now. */
+  async function resolveHoldSnapshot(profileId: string): Promise<HoldSnapshot> {
+    const profileHeld = deps.legalHolds
+      ? await deps.legalHolds.hasAnyActiveHoldForProfile(profileId)
+      : false;
+    if (profileHeld || !deps.legalHolds) return { profileHeld, heldDocumentPaths: [] };
+
+    const pro = await prisma.proProfile.findUnique({
+      where: { userId: profileId },
+      select: { id: true },
+    });
+    const paths = pro ? [...(await heldDocumentPaths(pro.id))] : [];
+    return { profileHeld, heldDocumentPaths: paths };
+  }
+
+  /**
+   * The frozen hold decision for this deletion, captured exactly once.
+   *
+   * PURGE_S3 captures it before deleting anything; PURGE_DB reads the same
+   * value instead of re-resolving. A hold created between the two steps can no
+   * longer make one step preserve what the other destroyed, and every retry
+   * sees one decision rather than a moving target.
+   */
+  async function ensureHoldSnapshot(profileId: string): Promise<HoldSnapshot> {
+    const row = await prisma.accountDeletion.findUnique({
+      where: { profileId },
+      select: { holdsCapturedAt: true, profileHeld: true, heldDocumentPaths: true },
+    });
+    if (row?.holdsCapturedAt) {
+      return { profileHeld: row.profileHeld, heldDocumentPaths: row.heldDocumentPaths };
+    }
+    const snapshot = await resolveHoldSnapshot(profileId);
+    await prisma.accountDeletion.update({
+      where: { profileId },
+      data: { ...snapshot, holdsCapturedAt: now() },
+    });
+    return snapshot;
+  }
 
   function loadAccount(profileId: string) {
     return prisma.profile.findUnique({
@@ -380,21 +467,55 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
         });
         break;
 
-      case AccountDeletionStep.PURGE_S3:
-        // The pro's own content lives under `pros/{userId}/` in each bucket as a
-        // privacy purge; the job's images (`jobs/{customerUserId}/`) belong to
-        // the customer and survive. Throws on failure so the step retries — a
-        // failed purge must not silently leave a selfie or a bank document
-        // behind a deleted identity.
-        await deps.storage.removeObjectPrefix(deps.storage.selfiesBucket, `pros/${row.profileId}/`);
-        await deps.storage.removeObjectPrefix(deps.storage.avatarsBucket, `pros/${row.profileId}/`);
-        await deps.storage.removeObjectPrefix(
-          deps.storage.documentsBucket,
-          `pros/${row.profileId}/`,
+      case AccountDeletionStep.PURGE_S3: {
+        // A profile-level hold protects every object the profile owns; a
+        // document-level hold protects only that document's object. Everything
+        // unrelated is still purged, so erasure is not stalled wholesale by one
+        // held file. The hold decision is frozen on the row here, before any
+        // delete, and PURGE_DB consumes that same frozen value — so a hold
+        // created between the two steps cannot make one preserve what the other
+        // destroyed.
+        const { profileHeld, heldDocumentPaths: keptDocumentPaths } = await ensureHoldSnapshot(
+          row.profileId,
         );
+        const prefix = `pros/${row.profileId}/`;
+
+        if (profileHeld) {
+          logger.warn('Profile-level legal hold: preserving pro-owned objects during deletion.', {
+            profileId: row.profileId,
+          });
+        } else {
+          // The pro's own content lives under `pros/{userId}/` in each bucket as
+          // a privacy purge; job images belong to the customer and survive.
+          const keep = new Set(keptDocumentPaths);
+          await purgePrefixExcept(deps.storage.selfiesBucket, prefix, keep);
+          await purgePrefixExcept(deps.storage.avatarsBucket, prefix, keep);
+          await purgePrefixExcept(deps.storage.documentsBucket, prefix, keep);
+        }
+
+        if (deps.audit && profileHeld) {
+          await deps.audit.record({
+            category: 'accountDeletionAudit',
+            action: 'HOLD_PRESERVED_S3',
+            affectedCount: 0,
+            executionMode: 'ACTUAL',
+            startedAt: now(),
+            finishedAt: now(),
+            success: true,
+            metadata: { profileId: row.profileId, scope: row.scope, holderType: 'PROFILE' },
+          });
+        }
         break;
+      }
 
       case AccountDeletionStep.PURGE_DB: {
+        // Consume the snapshot PURGE_S3 froze rather than re-resolving holds:
+        // re-resolving is the TOCTOU that could drop the row naming an object
+        // PURGE_S3 already deleted, or keep a row whose object it kept.
+        const { profileHeld, heldDocumentPaths: heldPaths } = await ensureHoldSnapshot(
+          row.profileId,
+        );
+
         await prisma.$transaction(async (tx) => {
           const pro = await tx.proProfile.findUnique({
             where: { userId: row.profileId },
@@ -408,7 +529,13 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
           if (pro) {
             await tx.proService.deleteMany({ where: { proProfileId: pro.id } });
             await tx.proSkill.deleteMany({ where: { proProfileId: pro.id } });
-            await tx.proDocument.deleteMany({ where: { proProfileId: pro.id } });
+            if (!profileHeld) {
+              // Keep the rows that name held objects: they are the only durable
+              // reference to those objects until the hold is released.
+              await tx.proDocument.deleteMany({
+                where: { proProfileId: pro.id, storagePath: { notIn: heldPaths } },
+              });
+            }
             await tx.notification.deleteMany({ where: { proId: pro.id } });
             await tx.jobDecline.deleteMany({ where: { proId: pro.id } });
             await tx.jobOffer.deleteMany({ where: { proId: pro.id } });
@@ -424,8 +551,9 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
                 longitude: null,
                 locationLabel: null,
                 languages: [],
-                selfiePhotoPath: null,
-                selfieCapturedAt: null,
+                // Preserve the selfie reference under a profile hold so the
+                // held object stays identifiable and manageable.
+                ...(profileHeld ? {} : { selfiePhotoPath: null, selfieCapturedAt: null }),
                 pushToken: null,
                 pushPlatform: null,
                 pushProvider: null,

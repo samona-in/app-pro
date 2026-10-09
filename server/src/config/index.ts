@@ -269,12 +269,55 @@ const envSchema = z.object({
    */
   JOB_OFFER_TTL_MS: z.coerce.number().int().min(5_000).max(600_000).default(90_000),
 
-  /**
-   * Window, in ms, within which a fresh OTP challenge (proven by the access
-   * token's `amr` claim) counts as the re-authentication required before a
-   * deletion authorization is issued. A maximum of 5 minutes on the surface;
-   * the cap exists so a stale session cannot authorize a destructive call.
-   */
+  // Data retention & cleanup
+  RETENTION_CLEANUP_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_DRY_RUN_DEFAULT: z.enum(['true', 'false']).default('true'),
+  RETENTION_SAFETY_WINDOW_DAYS: z.coerce.number().int().min(0).max(365).default(7),
+  RETENTION_SWEEP_MS: z.coerce
+    .number()
+    .int()
+    .min(5_000)
+    .max(7 * 24 * 60 * 60 * 1000)
+    .default(24 * 60 * 60 * 1000),
+  RETENTION_LOCK_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(30 * 60 * 1000)
+    .default(5 * 60 * 1000),
+  RETENTION_LOCK_RETRY_MS: z.coerce.number().int().min(100).max(10_000).default(1_000),
+
+  // Category flags (default false) and periods (unset means no deletion)
+  RETENTION_CATEGORY_PRO_DOCUMENTS_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_SELFIES_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_AVATARS_PRO_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_AVATARS_CUSTOMER_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_JOB_IMAGES_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_NOTIFICATIONS_PRO_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_CUSTOMER_NOTIFICATIONS_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_ACCOUNT_DELETION_AUDIT_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_SAVED_ADDRESSES_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_PRO_SERVICES_SKILLS_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_JOB_DECLINES_OFFERS_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_MESSAGES_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_JOBS_COMPLETED_ENABLED: z.enum(['true', 'false']).default('false'),
+  RETENTION_CATEGORY_JOBS_CANCELLED_ENABLED: z.enum(['true', 'false']).default('false'),
+  // Retention periods in days (undefined/unset by default means no automatic deletion)
+  RETENTION_DAYS_PRO_DOCUMENTS: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_SELFIES: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_AVATARS_PRO: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_AVATARS_CUSTOMER: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_JOB_IMAGES: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_NOTIFICATIONS_PRO: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_CUSTOMER_NOTIFICATIONS: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_ACCOUNT_DELETION_AUDIT: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_SAVED_ADDRESSES: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_PRO_SERVICES_SKILLS: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_JOB_DECLINES_OFFERS: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_MESSAGES: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_JOBS_COMPLETED: optional(z.coerce.number().int().positive()),
+  RETENTION_DAYS_JOBS_CANCELLED: optional(z.coerce.number().int().positive()),
+
   ACCOUNT_DELETION_REAUTH_WINDOW_MS: z.coerce
     .number()
     .int()
@@ -300,12 +343,7 @@ const envSchema = z.object({
    * setInterval is the deployment-safe choice (bull queues would need a second
    * worker that does not exist). Defaults to 30s.
    */
-  ACCOUNT_DELETION_SWEEP_MS: z.coerce
-    .number()
-    .int()
-    .min(5_000)
-    .max(3_600_000)
-    .default(30_000),
+  ACCOUNT_DELETION_SWEEP_MS: z.coerce.number().int().min(5_000).max(3_600_000).default(30_000),
 
   /**
    * How many times the sweeper retries a failed deletion before leaving it in
@@ -399,6 +437,53 @@ export interface AppConfig {
   accountDeletionSweepMs: number;
   /** Retry ceiling for a failed deletion before manual attention. */
   accountDeletionMaxAttempts: number;
+  retentionCleanupEnabled: boolean;
+  retentionDryRunDefault: boolean;
+  retentionSafetyWindowDays: number;
+  retentionSweepMs: number;
+  retentionLockTtlMs: number;
+  retentionLockRetryMs: number;
+  retention: {
+    enabled: boolean;
+    dryRunDefault: boolean;
+    safetyWindowDays: number;
+    lockTtlMs: number;
+    lockRetryMs: number;
+    sweepMs: number;
+    categories: Record<
+      | 'proDocuments'
+      | 'selfies'
+      | 'avatarsPro'
+      | 'avatarsCustomer'
+      | 'jobImages'
+      | 'notificationsPro'
+      | 'customerNotifications'
+      | 'accountDeletionAudit'
+      | 'savedAddresses'
+      | 'proServicesSkills'
+      | 'jobDeclinesOffers'
+      | 'messages'
+      | 'jobsCompleted'
+      | 'jobsCancelled',
+      boolean
+    >;
+    periods: {
+      proDocuments?: number;
+      selfies?: number;
+      avatarsPro?: number;
+      avatarsCustomer?: number;
+      jobImages?: number;
+      notificationsPro?: number;
+      customerNotifications?: number;
+      accountDeletionAudit?: number;
+      savedAddresses?: number;
+      proServicesSkills?: number;
+      jobDeclinesOffers?: number;
+      messages?: number;
+      jobsCompleted?: number;
+      jobsCancelled?: number;
+    };
+  };
 }
 
 /**
@@ -503,6 +588,52 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     accountDeletionReauthWindowMs: env.ACCOUNT_DELETION_REAUTH_WINDOW_MS,
     accountDeletionTokenTtlMs: env.ACCOUNT_DELETION_TOKEN_TTL_MS,
     accountDeletionSweepMs: env.ACCOUNT_DELETION_SWEEP_MS,
+    retentionCleanupEnabled: env.RETENTION_CLEANUP_ENABLED === 'true',
+    retentionDryRunDefault: env.RETENTION_DRY_RUN_DEFAULT === 'true',
+    retentionSafetyWindowDays: env.RETENTION_SAFETY_WINDOW_DAYS,
+    retentionSweepMs: env.RETENTION_SWEEP_MS,
+    retentionLockTtlMs: env.RETENTION_LOCK_TTL_MS,
+    retentionLockRetryMs: env.RETENTION_LOCK_RETRY_MS,
+    retention: {
+      enabled: env.RETENTION_CLEANUP_ENABLED === 'true',
+      dryRunDefault: env.RETENTION_DRY_RUN_DEFAULT === 'true',
+      safetyWindowDays: env.RETENTION_SAFETY_WINDOW_DAYS,
+      lockTtlMs: env.RETENTION_LOCK_TTL_MS,
+      lockRetryMs: env.RETENTION_LOCK_RETRY_MS,
+      sweepMs: env.RETENTION_SWEEP_MS,
+      categories: {
+        proDocuments: env.RETENTION_CATEGORY_PRO_DOCUMENTS_ENABLED === 'true',
+        selfies: env.RETENTION_CATEGORY_SELFIES_ENABLED === 'true',
+        avatarsPro: env.RETENTION_CATEGORY_AVATARS_PRO_ENABLED === 'true',
+        avatarsCustomer: env.RETENTION_CATEGORY_AVATARS_CUSTOMER_ENABLED === 'true',
+        jobImages: env.RETENTION_CATEGORY_JOB_IMAGES_ENABLED === 'true',
+        notificationsPro: env.RETENTION_CATEGORY_NOTIFICATIONS_PRO_ENABLED === 'true',
+        customerNotifications: env.RETENTION_CATEGORY_CUSTOMER_NOTIFICATIONS_ENABLED === 'true',
+        accountDeletionAudit: env.RETENTION_CATEGORY_ACCOUNT_DELETION_AUDIT_ENABLED === 'true',
+        savedAddresses: env.RETENTION_CATEGORY_SAVED_ADDRESSES_ENABLED === 'true',
+        proServicesSkills: env.RETENTION_CATEGORY_PRO_SERVICES_SKILLS_ENABLED === 'true',
+        jobDeclinesOffers: env.RETENTION_CATEGORY_JOB_DECLINES_OFFERS_ENABLED === 'true',
+        messages: env.RETENTION_CATEGORY_MESSAGES_ENABLED === 'true',
+        jobsCompleted: env.RETENTION_CATEGORY_JOBS_COMPLETED_ENABLED === 'true',
+        jobsCancelled: env.RETENTION_CATEGORY_JOBS_CANCELLED_ENABLED === 'true',
+      },
+      periods: {
+        proDocuments: env.RETENTION_DAYS_PRO_DOCUMENTS,
+        selfies: env.RETENTION_DAYS_SELFIES,
+        avatarsPro: env.RETENTION_DAYS_AVATARS_PRO,
+        avatarsCustomer: env.RETENTION_DAYS_AVATARS_CUSTOMER,
+        jobImages: env.RETENTION_DAYS_JOB_IMAGES,
+        notificationsPro: env.RETENTION_DAYS_NOTIFICATIONS_PRO,
+        customerNotifications: env.RETENTION_DAYS_CUSTOMER_NOTIFICATIONS,
+        accountDeletionAudit: env.RETENTION_DAYS_ACCOUNT_DELETION_AUDIT,
+        savedAddresses: env.RETENTION_DAYS_SAVED_ADDRESSES,
+        proServicesSkills: env.RETENTION_DAYS_PRO_SERVICES_SKILLS,
+        jobDeclinesOffers: env.RETENTION_DAYS_JOB_DECLINES_OFFERS,
+        messages: env.RETENTION_DAYS_MESSAGES,
+        jobsCompleted: env.RETENTION_DAYS_JOBS_COMPLETED,
+        jobsCancelled: env.RETENTION_DAYS_JOBS_CANCELLED,
+      },
+    },
     accountDeletionMaxAttempts: env.ACCOUNT_DELETION_MAX_ATTEMPTS,
   };
 }
