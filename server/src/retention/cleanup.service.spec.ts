@@ -5,6 +5,7 @@ import type { HandlerArgs, HandlerResult, RetentionHandler } from './handlers';
 import type { LegalHoldService } from './legal-holds.service';
 import type { CleanupAuditService } from './cleanup-audit.service';
 import type { OrphanService } from './orphan.service';
+import type { DistributedLock } from './lock';
 import type { Redis } from '../database/redis';
 
 function config(overrides: Partial<RetentionConfig> = {}): RetentionConfig {
@@ -72,10 +73,35 @@ function fakeRedis(result: string | null = 'OK') {
   } as unknown as Redis;
 }
 
+type FakeLock = DistributedLock & { lose: () => void; stopRenewal: jest.Mock };
+
+/**
+ * A lock stub that lets a test observe acquire/release and trip the keepalive's
+ * lost-callback on demand.
+ */
+function fakeLock(acquired = true): FakeLock {
+  let onLost: (() => void) | undefined;
+  const stop = jest.fn();
+  return {
+    acquire: jest.fn(async () =>
+      acquired ? { token: 'tok-1', acquired: true } : { token: '', acquired: false },
+    ),
+    release: jest.fn(async () => undefined),
+    extend: jest.fn(async () => true),
+    startRenewal: jest.fn((_token: string, cb: () => void) => {
+      onLost = cb;
+      return { stop };
+    }),
+    lose: () => onLost?.(),
+    stopRenewal: stop,
+  } as unknown as FakeLock;
+}
+
 function build(args: {
   cfg?: RetentionConfig;
   handlers?: Record<string, RetentionHandler>;
   redis?: Redis | null;
+  lock?: DistributedLock;
   audit?: ReturnType<typeof fakeAudit>;
 }) {
   const audit = args.audit ?? fakeAudit();
@@ -84,6 +110,7 @@ function build(args: {
     prisma: {} as never,
     storage: {} as never,
     redis: args.redis ?? null,
+    lock: args.lock,
     policy: retentionPolicyFromConfig(args.cfg ?? config()),
     legalHolds,
     audit,
@@ -218,6 +245,88 @@ describe('retention cleanup service', () => {
     // The failure of one category does not stop the next.
     expect(report.categories.find((c) => c.category === 'selfies')!.error).toBeUndefined();
     expect(report.skipped).toBe(false);
+  });
+
+  it('keeps the lock alive for the whole sweep and stops the keepalive after', async () => {
+    const handlers = stubHandlers();
+    const lock = fakeLock();
+    const { service } = build({
+      cfg: config({
+        dryRunDefault: false,
+        categories: categoriesExcept({ proDocuments: true }),
+        periods: { proDocuments: 30 },
+      }),
+      lock,
+      handlers,
+    });
+
+    const report = await service.sweep(false);
+
+    expect(report.skipped).toBe(false);
+    expect(lock.startRenewal).toHaveBeenCalledWith('tok-1', expect.any(Function));
+    expect(lock.stopRenewal).toHaveBeenCalled();
+    expect(lock.release).toHaveBeenCalledWith('tok-1');
+  });
+
+  it('stops destructive work as soon as the lock is lost mid-sweep', async () => {
+    const audit = fakeAudit();
+    const handlers = stubHandlers();
+    const lock = fakeLock();
+    handlers.proDocuments = jest.fn(async () => {
+      // The keepalive reports the lock gone while the first category runs.
+      lock.lose();
+      return {
+        eligibleCount: 1,
+        skippedLegalHold: 0,
+        skippedActiveJob: 0,
+        deletedCount: 1,
+        sample: [],
+        truncated: false,
+      };
+    });
+    const { service } = build({
+      cfg: config({
+        dryRunDefault: false,
+        categories: categoriesExcept({ proDocuments: true, selfies: true }),
+        periods: { proDocuments: 30, selfies: 30 },
+      }),
+      lock,
+      audit,
+      handlers,
+    });
+
+    const report = await service.sweep(false);
+
+    expect(handlers.proDocuments).toHaveBeenCalledTimes(1);
+    expect(handlers.selfies).not.toHaveBeenCalled();
+    const selfies = report.categories.find((c) => c.category === 'selfies')!;
+    expect(selfies.skippedReason).toBe('LOCK_LOST');
+    expect(report.lockLost).toBe(true);
+    // Only the category that ran before the loss is audited.
+    expect(audit.record).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when a concurrent worker already holds the lock', async () => {
+    const handlers = stubHandlers();
+    const redis = {
+      set: jest.fn(async () => null),
+      eval: jest.fn(async () => 1),
+    } as unknown as Redis;
+    const { service } = build({
+      cfg: config({
+        dryRunDefault: false,
+        categories: categoriesExcept({ proDocuments: true }),
+        periods: { proDocuments: 30 },
+      }),
+      redis,
+      handlers,
+    });
+
+    const report = await service.sweep(false);
+
+    expect(report.skipped).toBe(true);
+    expect(report.reason).toBe('LOCK_UNAVAILABLE');
+    expect(handlers.proDocuments).not.toHaveBeenCalled();
   });
 });
 

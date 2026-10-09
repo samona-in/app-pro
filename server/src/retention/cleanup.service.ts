@@ -6,7 +6,7 @@ import type { LegalHoldService } from './legal-holds.service';
 import type { CleanupAuditService } from './cleanup-audit.service';
 import type { OrphanService } from './orphan.service';
 import type { CategoryReport, SweepReport } from './types';
-import { createDistributedLock } from './lock';
+import { createDistributedLock, type DistributedLock } from './lock';
 import {
   createRetentionHandlers,
   DEFAULT_MAX_SCAN,
@@ -24,7 +24,8 @@ export interface RetentionCleanupServiceDeps {
   legalHolds: LegalHoldService;
   audit: CleanupAuditService;
   orphan: OrphanService;
-  /** Override the per-category handlers (tests). */
+  /** Injectable for tests; otherwise built from the policy's lock settings. */
+  lock?: DistributedLock;
   handlers?: Record<string, RetentionHandler>;
   sampleLimit?: number;
   maxScan?: number;
@@ -58,12 +59,14 @@ export function createRetentionCleanupService(deps: RetentionCleanupServiceDeps)
   const sampleLimit = deps.sampleLimit ?? DEFAULT_SAMPLE_LIMIT;
   const maxScan = deps.maxScan ?? DEFAULT_MAX_SCAN;
 
-  const lock = createDistributedLock({
-    redis: deps.redis,
-    lockKey: 'retention:cleanup:lock',
-    ttlMs: deps.policy.flags.lockTtlMs,
-    retryMs: deps.policy.flags.lockRetryMs,
-  });
+  const lock =
+    deps.lock ??
+    createDistributedLock({
+      redis: deps.redis,
+      lockKey: 'retention:cleanup:lock',
+      ttlMs: deps.policy.flags.lockTtlMs,
+      retryMs: deps.policy.flags.lockRetryMs,
+    });
 
   const handlers =
     deps.handlers ??
@@ -81,6 +84,8 @@ export function createRetentionCleanupService(deps: RetentionCleanupServiceDeps)
     const startedAt = now();
 
     let token = '';
+    let lockLost = false;
+    let renewal: { stop: () => void } | null = null;
     if (!dryRun) {
       const attempt = await lock.acquire();
       if (!attempt.acquired) {
@@ -96,6 +101,13 @@ export function createRetentionCleanupService(deps: RetentionCleanupServiceDeps)
         };
       }
       token = attempt.token;
+      // Keep the lock alive for the duration of the sweep. If the keepalive
+      // ever reports the token is no longer ours, stop: a destructive sweep
+      // must not continue without holding the lock.
+      renewal = lock.startRenewal(token, () => {
+        lockLost = true;
+        logger.warn('Retention sweep lost the cleanup lock; stopping further destructive work.');
+      });
     }
 
     try {
@@ -132,6 +144,14 @@ export function createRetentionCleanupService(deps: RetentionCleanupServiceDeps)
 
         // No approved period: nothing ages out, so there is nothing to scan.
         if (expiration === undefined) {
+          categories.push(report);
+          continue;
+        }
+
+        // If the keepalive already reported the lock lost, scan nothing more:
+        // the remaining categories are recorded and the sweep stays safe.
+        if (lockLost) {
+          report.skippedReason = 'LOCK_LOST';
           categories.push(report);
           continue;
         }
@@ -201,12 +221,16 @@ export function createRetentionCleanupService(deps: RetentionCleanupServiceDeps)
       return {
         mode,
         skipped: false,
+        lockLost: lockLost || undefined,
         startedAt: startedAt.toISOString(),
         finishedAt: now().toISOString(),
         categories,
         totals,
       };
     } finally {
+      renewal?.stop();
+      // Releasing only succeeds if we still hold the token; if the lock was
+      // lost, this is a harmless no-op (compare-and-delete).
       if (!dryRun && token) await lock.release(token);
     }
   }

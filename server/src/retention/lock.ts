@@ -76,7 +76,59 @@ export function createDistributedLock(deps: DistributedLockDeps) {
     }
   }
 
-  return { acquire, release, extend, key, ttlMs, retryMs };
+  /**
+   * Keepalive for a held lock.
+   *
+   * The sweep can outlive the lock's TTL. Without renewal the key lapses while
+   * the holder is still working, another worker acquires it, and two processes
+   * delete concurrently. This re-extends on a cadence shorter than the TTL so
+   * the lock cannot lapse while the holder is alive and Redis reachable.
+   *
+   * Interruption is fail-closed: if a re-extend shows the token is no longer
+   * owned, or the call fails, `onLost` fires and the caller must stop its
+   * destructive work. `onLost` runs at most once.
+   */
+  function startRenewal(
+    token: string,
+    onLost: () => void,
+    intervalMs: number = Math.max(1, Math.floor(ttlMs / 2)),
+  ): { stop: () => void } {
+    let stopped = false;
+    let inFlight = false;
+
+    function lose() {
+      if (stopped) return;
+      stopped = true;
+      clearInterval(timer);
+      onLost();
+    }
+
+    function tick() {
+      if (stopped || inFlight) return;
+      inFlight = true;
+      void extend(token)
+        .then((held) => {
+          if (!held) lose();
+        })
+        .catch(() => lose())
+        .finally(() => {
+          inFlight = false;
+        });
+    }
+
+    const timer = setInterval(tick, intervalMs);
+    // The keepalive must never be the reason the process stays alive.
+    if (typeof timer.unref === 'function') timer.unref();
+
+    return {
+      stop: () => {
+        stopped = true;
+        clearInterval(timer);
+      },
+    };
+  }
+
+  return { acquire, release, extend, startRenewal, key, ttlMs, retryMs };
 }
 
 export type DistributedLock = ReturnType<typeof createDistributedLock>;

@@ -113,6 +113,8 @@ export interface CategoryReport {
   truncated: boolean;
   orphan?: OrphanScanReport;
   error?: string;
+  /** Set when the category was not scanned because a sweep-level guard tripped. */
+  skippedReason?: 'LOCK_LOST';
 }
 
 export type SweepMode = 'DRY_RUN' | 'ACTUAL';
@@ -122,6 +124,8 @@ export interface SweepReport {
   mode: SweepMode;
   skipped: boolean;
   reason?: string;
+  /** True when the sweep stopped early because it lost the distributed lock. */
+  lockLost?: boolean;
   startedAt: string;
   finishedAt: string;
   categories: CategoryReport[];
