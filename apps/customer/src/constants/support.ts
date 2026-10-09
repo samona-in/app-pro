@@ -10,8 +10,8 @@ export const SUPPORT_EMAIL = 'samona.official9@gmail.com';
 /** Full international format (no '+'), assumed Indian +91. */
 export const SUPPORT_WHATSAPP = '918143929696';
 
-export const TERMS_URL = 'https://getsamona.vercel.app/terms-and-conditions';
-export const PRIVACY_URL = 'https://getsamona.vercel.app/privacy-policy';
+export const TERMS_URL = 'https://www.samona.in/terms-and-conditions';
+export const PRIVACY_URL = 'https://www.samona.in/privacy-policy';
 export const APP_VERSION = '1.0.0';
 
 /** A drop-in for the FAQ subject so "email us" always carries context. */
