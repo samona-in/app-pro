@@ -36,6 +36,24 @@ function supportedOrEnglish(code: string | null | undefined): AppLanguage {
 
 export const i18nInstance = i18n;
 
+/**
+ * Whether the Pro has explicitly chosen a language, as opposed to the app
+ * falling back to the device locale. Resolved once by `initAppLanguage` before
+ * the first screen mounts, then kept true for the session by
+ * `changeAppLanguage`. Drives the one-time first-launch language step.
+ */
+let hasStoredLanguageChoice = false;
+
+/** True once a language has been explicitly chosen and persisted. */
+export function hasChosenLanguage(): boolean {
+  return hasStoredLanguageChoice;
+}
+
+/** The active language, narrowed to a supported code (device codes can differ). */
+export function activeLanguage(): AppLanguage {
+  return isSupportedLanguage(i18n.language) ? i18n.language : 'en';
+}
+
 void i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
@@ -55,9 +73,12 @@ void i18n.use(initReactI18next).init({
  * is never overwritten by the device.
  */
 export async function initAppLanguage(): Promise<void> {
+  // Reset each run so the flag always reflects storage, never a stale session.
+  hasStoredLanguageChoice = false;
   try {
     const stored = await getStoredLanguage();
     if (isSupportedLanguage(stored)) {
+      hasStoredLanguageChoice = true;
       await i18n.changeLanguage(stored);
       return;
     }
@@ -71,6 +92,9 @@ export async function initAppLanguage(): Promise<void> {
 /** Switches the active language and persists it for the next launch. */
 export async function changeAppLanguage(language: AppLanguage): Promise<void> {
   await i18n.changeLanguage(language);
+  // Mark chosen even if the write fails: the in-session switch already happened,
+  // so the first-launch step must not reappear until the next cold start.
+  hasStoredLanguageChoice = true;
   try {
     await storeLanguage(language);
   } catch {

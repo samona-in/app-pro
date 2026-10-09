@@ -4,10 +4,12 @@ import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
 import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { useProJobs, useSession } from '@/hooks';
+import { hasChosenLanguage } from '@/i18n';
 
 /**
  * Entry route — the single place the post-sign-in decision is made.
  *
+ *   new Pro, no language yet  -> language step
  *   not authenticated        -> phone flow
  *   no/incomplete onboarding -> resume at the first unanswered step
  *   unpaid completed job     -> the cash-settlement screen, not home
@@ -39,6 +41,13 @@ export default function Index() {
         <LoadingState message={t('boot.starting')} />
       </Screen>
     );
+  }
+
+  // A brand-new Pro picks a language before anything else. Only unauthenticated
+  // users are gated: an existing Pro who updated the app and never saved a
+  // language keeps their current experience and can switch from settings.
+  if (!isAuthenticated && !hasChosenLanguage()) {
+    return <Redirect href="/choose-language" />;
   }
 
   if (!isAuthenticated) {
