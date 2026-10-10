@@ -240,6 +240,13 @@ export function createMessagesService(deps: MessagesServiceDeps) {
    * `before` anchors a page of older messages: pass the oldest message id on
    * screen to load the history just before it; omit it to load the newest page,
    * which fills a fresh conversation from the bottom.
+   *
+   * Pages are ordered and windowed by `(sentAt, id)` together, never by `id`
+   * alone. `id` is a random UUID, so `id < before` walks the thread in an order
+   * unrelated to time — re-serving messages already on screen and skipping the
+   * ones between. The cursor is the anchor message's `(sentAt, id)`, a total
+   * order that matches reading order, so consecutive pages neither overlap (no
+   * duplicate ids for the client list) nor leave a gap.
    */
   async function listForParty(
     actorProfileId: string,
@@ -249,12 +256,35 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     const { jobId, before, limit } = query;
     await resolveThread(actorProfileId, jobId, appType);
 
+    // Resolve the anchor to its place in reading order. Scoped to the job, so an
+    // id from another thread can never widen or shift this page.
+    let anchor: { id: string; sentAt: Date } | null = null;
+    if (before) {
+      anchor = await prisma.message.findFirst({
+        where: { id: before, jobId },
+        select: { id: true, sentAt: true },
+      });
+      // The anchor is gone or was never ours: there is nothing to page from.
+      if (!anchor) return { messages: [], nextCursor: null };
+    }
+
     const page = await prisma.message.findMany({
-      where: { jobId, ...(before ? { id: { lt: before } } : {}) },
-      // Newest-first so an anchored older page is bounded by `limit` before it;
+      where: {
+        jobId,
+        ...(anchor
+          ? {
+              OR: [
+                { sentAt: { lt: anchor.sentAt } },
+                { sentAt: anchor.sentAt, id: { lt: anchor.id } },
+              ],
+            }
+          : {}),
+      },
+      // Newest-first so the page is bounded by `limit` before the anchor;
       // reversed to oldest-first for chat reading order, with the oldest id as
-      // the next page's anchor.
-      orderBy: { sentAt: 'desc' },
+      // the next page's anchor. `id` breaks `sentAt` ties, keeping the order
+      // total so the cursor is stable.
+      orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
       take: Math.max(1, Math.min(limit ?? 50, 100)),
     });
 

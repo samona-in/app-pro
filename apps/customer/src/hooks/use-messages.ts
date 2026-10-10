@@ -134,9 +134,15 @@ export function useMessages(jobId: string) {
         limit: LIST_LIMIT,
         before: query.data.nextCursor,
       });
-      queryClient.setQueryData<MessagePage>(threadKey, (old) =>
-        old ? { messages: [...page.messages, ...old.messages], nextCursor: page.nextCursor } : page,
-      );
+      queryClient.setQueryData<MessagePage>(threadKey, (old) => {
+        if (!old) return page;
+        // Never let an id already on screen back in: the list's keys must stay
+        // unique or React re-keys the cells (`ScrollView` runs the children
+        // through `Children.toArray`) and warns on the duplicates.
+        const seen = new Set(old.messages.map((m) => m.id));
+        const older = page.messages.filter((m) => !seen.has(m.id));
+        return { messages: [...older, ...old.messages], nextCursor: page.nextCursor };
+      });
     } finally {
       setIsLoadingOlder(false);
     }
