@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { LOCATION_DEFAULTS } from '@samona/config';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { Divider, Screen, ServiceRadiusSlider, Text } from '@/components/ui';
+import { Screen, ServiceRadiusSlider, Text } from '@/components/ui';
 import { useProProfile, useUpdateServiceRadius } from '@/hooks';
 import { decideRadiusSave } from '@/utils/service-radius';
 
@@ -113,8 +113,6 @@ export default function ServiceAreasScreen() {
           </View>
           <Text variant="titleLg">{t('format.km', { value: shownRadius })}</Text>
         </View>
-
-        <Divider className="-mx-5" />
 
         <View className="mt-8">
           <ServiceRadiusSlider
