@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { LOCATION_DEFAULTS } from '@samona/config';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { Card, Screen, ServiceRadiusSlider, Text } from '@/components/ui';
+import { Divider, Screen, ServiceRadiusSlider, Text } from '@/components/ui';
 import { useProProfile, useUpdateServiceRadius } from '@/hooks';
 import { decideRadiusSave } from '@/utils/service-radius';
 
@@ -69,7 +69,9 @@ export default function ServiceAreasScreen() {
 
   function onRelease(km: number) {
     setRadius(km);
-    if (!decideRadiusSave(km, lastConfirmedRadius.current ?? shownRadius, update.isPending).shouldSave)
+    if (
+      !decideRadiusSave(km, lastConfirmedRadius.current ?? shownRadius, update.isPending).shouldSave
+    )
       return;
     failedRadius.current = null;
     commit(km);
@@ -100,8 +102,8 @@ export default function ServiceAreasScreen() {
         </Text>
       </View>
 
-      <Card className="mt-4">
-        <View className="flex-row items-center">
+      <View className="mt-4">
+        <View className="flex-row items-center py-3">
           <View className="flex-1 pr-4">
             <Text variant="body" className="font-semibold">
               {t('serviceAreas.current')}
@@ -112,6 +114,8 @@ export default function ServiceAreasScreen() {
           </View>
           <Text variant="titleLg">{t('format.km', { value: shownRadius })}</Text>
         </View>
+
+        <Divider className="-mx-5" />
 
         <View className="mt-8">
           <ServiceRadiusSlider
@@ -132,7 +136,7 @@ export default function ServiceAreasScreen() {
             </Text>
           </View>
         </View>
-      </Card>
+      </View>
     </Screen>
   );
 }
