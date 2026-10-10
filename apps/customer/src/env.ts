@@ -23,12 +23,5 @@ export const env = {
    * locally-built APKs can register push tokens too.
    */
   easProjectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID ?? null,
-  /**
-   * Test-only phone sign-in bypass. When set, the verify screen offers to fill
-   * this fixed code and the phone screen offers this number, matching a Supabase
-   * "Test phone number" so no SMS is sent. Leave unset in production.
-   */
-  authTestPhone: process.env.EXPO_PUBLIC_AUTH_TEST_PHONE ?? null,
-  authTestOtp: process.env.EXPO_PUBLIC_AUTH_TEST_OTP ?? null,
   isDev: __DEV__,
 } as const;

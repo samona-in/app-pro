@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { openURL } from 'expo-linking';
 import { useTranslation } from 'react-i18next';
 import { Card, Divider, Screen, Text } from '@/components/ui';
 import {
@@ -16,12 +15,9 @@ import {
   supportEmailUrl,
 } from '@/constants/support';
 import { color } from '@/theme';
+import { openExternalUrl } from '@/utils/open-url';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
-function safeOpen(url: string, failTitle: string, failMessage: string) {
-  void openURL(url).catch(() => Alert.alert(failTitle, failMessage));
-}
 
 function SectionHeading({ children }: { children: string }) {
   return (
@@ -114,7 +110,7 @@ export default function HelpSupport() {
           icon="call-outline"
           label={t('helpSupport.rows.callSupport')}
           onPress={() =>
-            safeOpen(
+            openExternalUrl(
               `tel:${SUPPORT_PHONE}`,
               t('helpSupport.errors.callFailedTitle'),
               t('helpSupport.errors.callFailedMessage'),
@@ -126,7 +122,7 @@ export default function HelpSupport() {
           icon="logo-whatsapp"
           label={t('helpSupport.rows.whatsapp')}
           onPress={() =>
-            safeOpen(
+            openExternalUrl(
               `https://wa.me/${SUPPORT_WHATSAPP}`,
               t('helpSupport.errors.whatsappFailedTitle'),
               t('helpSupport.errors.whatsappFailedMessage'),
@@ -138,7 +134,7 @@ export default function HelpSupport() {
           icon="mail-outline"
           label={t('helpSupport.rows.emailUs')}
           onPress={() =>
-            safeOpen(
+            openExternalUrl(
               supportEmailUrl(),
               t('helpSupport.errors.emailFailedTitle'),
               t('helpSupport.errors.emailFailedMessage'),
@@ -153,7 +149,7 @@ export default function HelpSupport() {
           icon="flag-outline"
           label={t('helpSupport.rows.reportAnIssue')}
           onPress={() =>
-            safeOpen(
+            openExternalUrl(
               supportEmailUrl(SUPPORT_ISSUE_SUBJECT),
               t('helpSupport.errors.emailFailedTitle'),
               t('helpSupport.errors.emailFailedMessage'),
@@ -204,7 +200,7 @@ export default function HelpSupport() {
           icon="document-text-outline"
           label={t('helpSupport.rows.terms')}
           onPress={() =>
-            safeOpen(
+            openExternalUrl(
               TERMS_URL,
               t('helpSupport.errors.pageFailedTitle'),
               t('helpSupport.errors.pageFailedMessage'),
@@ -216,7 +212,7 @@ export default function HelpSupport() {
           icon="shield-checkmark-outline"
           label={t('helpSupport.rows.privacy')}
           onPress={() =>
-            safeOpen(
+            openExternalUrl(
               PRIVACY_URL,
               t('helpSupport.errors.pageFailedTitle'),
               t('helpSupport.errors.pageFailedMessage'),

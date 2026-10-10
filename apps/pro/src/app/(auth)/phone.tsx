@@ -7,7 +7,8 @@ import { phoneSchema } from '@samona/validation';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { usePhoneAuth, usePhoneHint } from '@/hooks';
-import { env } from '@/env';
+import { PRIVACY_URL, TERMS_URL } from '@/constants/support';
+import { openExternalUrl } from '@/utils/open-url';
 
 /**
  * Step 1 of phone authentication: collect the number.
@@ -66,23 +67,46 @@ export default function PhoneScreen() {
           hint={t('phone.hint')}
           containerClassName="mt-8"
         />
-
-        {env.authTestPhone ? (
-          <Text
-            variant="caption"
-            className="mt-3 text-center text-brand"
-            onPress={() => setPhone(env.authTestPhone ?? '')}
-          >
-            Testing: use number {env.authTestPhone}
-          </Text>
-        ) : null}
       </View>
 
       <View className="gap-3 pb-4">
-        <Button label={t('phone.sendCode')} size="lg" loading={isBusy} onPress={() => void onContinue()} />
+        <Button
+          label={t('phone.sendCode')}
+          size="lg"
+          loading={isBusy}
+          onPress={() => void onContinue()}
+        />
         <Text variant="caption" className="text-center">
           {t('phone.legal')}
         </Text>
+        <View className="flex-row justify-center gap-5">
+          <Text
+            variant="caption"
+            className="text-brand"
+            onPress={() =>
+              openExternalUrl(
+                TERMS_URL,
+                t('helpSupport.errors.pageFailedTitle'),
+                t('helpSupport.errors.pageFailedMessage'),
+              )
+            }
+          >
+            {t('helpSupport.rows.terms')}
+          </Text>
+          <Text
+            variant="caption"
+            className="text-brand"
+            onPress={() =>
+              openExternalUrl(
+                PRIVACY_URL,
+                t('helpSupport.errors.pageFailedTitle'),
+                t('helpSupport.errors.pageFailedMessage'),
+              )
+            }
+          >
+            {t('helpSupport.rows.privacy')}
+          </Text>
+        </View>
       </View>
     </Screen>
   );

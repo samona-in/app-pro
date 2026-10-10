@@ -13,9 +13,7 @@
         "EXPO_PUBLIC_API_URL": "https://mobile-pushcart-unsteady.ngrok-free.dev",
         "EXPO_PUBLIC_SUPABASE_URL": "https://mbylupexffssmyiqgwnb.supabase.co",
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_l85O2w4wihFAyH06_oiXHA_6tTyAIwa",
-        "EXPO_PUBLIC_EAS_PROJECT_ID": "bae33e5c-b4d7-489f-a065-40c610d87d20",
-        "EXPO_PUBLIC_AUTH_TEST_PHONE": "+919876543210",
-        "EXPO_PUBLIC_AUTH_TEST_OTP": "111222"
+        "EXPO_PUBLIC_EAS_PROJECT_ID": "bae33e5c-b4d7-489f-a065-40c610d87d20"
       }
     },
     "production": {

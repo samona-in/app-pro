@@ -24,15 +24,6 @@ export const SERVER_ENV_KEYS = {
 export const CLIENT_ENV_KEYS = {
   apiUrl: 'EXPO_PUBLIC_API_URL',
   googleMapsApiKey: 'EXPO_PUBLIC_GOOGLE_MAPS_API_KEY',
-  /**
-   * Test-only bypass for the phone sign-in flow, used when SMS delivery is not
-   * available (no Twilio credits). When set, the verify screen offers to fill a
-   * fixed code (see Supabase Dashboard -> Auth -> Phone -> Test phone numbers)
-   * and the phone screen offers the matching test number. Unset in production
-   * so the real flow is unchanged.
-   */
-  authTestPhone: 'EXPO_PUBLIC_AUTH_TEST_PHONE',
-  authTestOtp: 'EXPO_PUBLIC_AUTH_TEST_OTP',
 } as const;
 
 export type ServerEnvKey = (typeof SERVER_ENV_KEYS)[keyof typeof SERVER_ENV_KEYS];

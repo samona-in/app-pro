@@ -80,9 +80,7 @@
     "yourPhone": "మీ ఫోన్",
     "changeNumber": "నంబర్ మార్చండి",
     "verify": "ధృవీకరించండి",
-    "resendCode": "కోడ్ మళ్లీ పంపండి",
-    "devNoSms": "టెస్టింగ్: SMS పంపబడదు (Twilio క్రెడిట్లు లేవు)",
-    "devUseTestCode": "టెస్ట్ కోడ్ {{code}} ఉపయోగించండి"
+    "resendCode": "కోడ్ మళ్లీ పంపండి"
   },
   "validation": {
     "phoneInvalid": "చెల్లుబాటు అయ్యే ఫోన్ నంబర్ నమోదు చేయండి.",

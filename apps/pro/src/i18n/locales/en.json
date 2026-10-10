@@ -80,9 +80,7 @@
     "yourPhone": "your phone",
     "changeNumber": "Change number",
     "verify": "Verify",
-    "resendCode": "Resend code",
-    "devNoSms": "Testing: no SMS is sent (no Twilio credits)",
-    "devUseTestCode": "Use test code {{code}}"
+    "resendCode": "Resend code"
   },
   "validation": {
     "phoneInvalid": "Enter a valid phone number.",
