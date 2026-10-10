@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { AvailableJob, JobDetail } from '@samona/types';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
-import { Screen } from '@/components/ui';
+import { Divider, Screen } from '@/components/ui';
 import { JobPoolCard } from '@/components/jobs';
 import { offerActions } from '@/services/offer-actions';
 import { queryKeys } from '@/constants';
@@ -13,6 +13,11 @@ import { useJobPool, useSession } from '@/hooks';
 import { isOnline as checkIsOnline } from '@/services/online-status';
 import { occupiedJobRoute } from '@/utils/job-routes';
 import { messageForAcceptError } from '@/utils/job-errors';
+
+/** Full-bleed hairline between pool entries, matching the app's list language. */
+function PoolSeparator() {
+  return <Divider className="-mx-5" />;
+}
 
 /**
  * The pro's job pool — every open, eligible request they can take right now,
@@ -69,7 +74,7 @@ export default function JobPoolScreen() {
 
   if (isLoading) {
     return (
-      <Screen>
+      <Screen edges={['bottom']}>
         <LoadingState message={t('jobs.loadingPool')} />
       </Screen>
     );
@@ -84,7 +89,7 @@ export default function JobPoolScreen() {
   }
 
   return (
-    <Screen>
+    <Screen edges={['bottom']}>
       {!isOnline ? (
         <View className="mt-2 flex-1">
           <EmptyState
@@ -113,10 +118,11 @@ export default function JobPoolScreen() {
         </View>
       ) : (
         <FlatList
-          className="mt-4 flex-1"
+          className="mt-2 flex-1"
           data={jobs}
           keyExtractor={(job) => job.id}
           showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={PoolSeparator}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />
           }
