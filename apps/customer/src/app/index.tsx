@@ -1,6 +1,4 @@
 import { Redirect } from 'expo-router';
-import { LoadingState } from '@/components/feedback';
-import { Screen } from '@/components/ui';
 import { useSession } from '@/hooks';
 
 /**
@@ -13,12 +11,10 @@ import { useSession } from '@/hooks';
 export default function Index() {
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep, error } = useSession();
 
+  // The splash (`SplashGate`) covers this route while it resolves; rendering
+  // nothing avoids a second loading treatment flashing under the handoff.
   if (isLoading) {
-    return (
-      <Screen edges={['top', 'bottom']}>
-        <LoadingState message="Starting SAMONA" />
-      </Screen>
-    );
+    return null;
   }
 
   if (!isAuthenticated) {
