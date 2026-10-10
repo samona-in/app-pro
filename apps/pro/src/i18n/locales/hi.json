@@ -42,13 +42,7 @@
     "chat": "चैट",
     "notifications": "सूचनाएं",
     "jobAlertSetup": "जॉब अलर्ट सेटअप",
-    "language": "भाषा",
-    "helpSupport": "सहायता और समर्थन",
-    "manageServices": "सेवाएं प्रबंधित करें",
-    "documents": "दस्तावेज़",
-    "serviceArea": "सेवा क्षेत्र",
-    "accountDeletion": "खाता",
-    "confirmDeletion": "हटाने की पुष्टि करें"
+    "helpSupport": "सहायता और समर्थन"
   },
   "welcome": {
     "heading": "काम जो आपके पास आए।",

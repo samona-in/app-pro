@@ -109,7 +109,7 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               presentation: 'modal',
-              title: t('routes.jobAlertSetup'),
+              title: '',
               headerBackTitle: t('common.back'),
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },
@@ -120,7 +120,7 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               presentation: 'modal',
-              title: t('routes.language'),
+              title: '',
               headerBackTitle: t('common.back'),
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },
@@ -141,7 +141,7 @@ export default function RootLayout() {
             name="manage-services"
             options={{
               headerShown: true,
-              title: t('routes.manageServices'),
+              title: '',
               headerBackTitle: t('common.back'),
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },
@@ -152,7 +152,7 @@ export default function RootLayout() {
             name="service-areas"
             options={{
               headerShown: true,
-              title: t('routes.serviceArea'),
+              title: '',
               headerBackTitle: t('common.back'),
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },
@@ -163,7 +163,7 @@ export default function RootLayout() {
             name="documents"
             options={{
               headerShown: true,
-              title: t('routes.documents'),
+              title: '',
               headerBackTitle: t('common.back'),
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },
@@ -175,7 +175,7 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               presentation: 'modal',
-              title: t('routes.accountDeletion'),
+              title: '',
               headerBackTitle: t('common.back'),
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },
@@ -187,7 +187,7 @@ export default function RootLayout() {
             options={{
               headerShown: true,
               presentation: 'modal',
-              title: t('routes.confirmDeletion'),
+              title: '',
               headerBackTitle: t('common.back'),
               headerTintColor: color['text-primary'],
               headerStyle: { backgroundColor: color.surface },

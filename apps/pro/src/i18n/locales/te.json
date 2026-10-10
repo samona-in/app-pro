@@ -42,13 +42,7 @@
     "chat": "చాట్",
     "notifications": "నోటిఫికేషన్లు",
     "jobAlertSetup": "జాబ్ అలర్ట్ సెటప్",
-    "language": "భాష",
-    "helpSupport": "సహాయం & మద్దతు",
-    "manageServices": "సేవలను నిర్వహించండి",
-    "documents": "పత్రాలు",
-    "serviceArea": "సేవా ప్రాంతం",
-    "accountDeletion": "ఖాతా",
-    "confirmDeletion": "తొలగింపును ధృవీకరించండి"
+    "helpSupport": "సహాయం & మద్దతు"
   },
   "welcome": {
     "heading": "మీ దగ్గరకు వచ్చే పని.",

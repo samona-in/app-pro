@@ -42,13 +42,7 @@
     "chat": "Chat",
     "notifications": "Notifications",
     "jobAlertSetup": "Job alert setup",
-    "language": "Language",
-    "helpSupport": "Help & support",
-    "manageServices": "Manage services",
-    "documents": "Documents",
-    "serviceArea": "Service area",
-    "accountDeletion": "Account",
-    "confirmDeletion": "Confirm deletion"
+    "helpSupport": "Help & support"
   },
   "welcome": {
     "heading": "Work that comes to you.",
