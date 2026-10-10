@@ -40,6 +40,7 @@ function build({
     message: {
       create: jest.fn().mockResolvedValue(createdMessage),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      findFirst: jest.fn().mockResolvedValue(null),
       findMany: jest.fn().mockResolvedValue([{ id: 'msg-1' }]),
       count: jest.fn().mockResolvedValue(unreadCount),
       groupBy: jest.fn().mockResolvedValue([]),
@@ -155,6 +156,82 @@ describe('createMessagesService.send', () => {
     await expect(
       service.send('intruder', { jobId: 'job-1', content: 'hi' }, 'pro'),
     ).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe('createMessagesService.listForParty', () => {
+  it('anchors an older page on the cursor message’s (sentAt, id), never on id alone', async () => {
+    const { service, prisma } = build();
+    const anchorSentAt = new Date('2026-09-08T00:00:05Z');
+    (prisma.message.findFirst as jest.Mock).mockResolvedValue({
+      id: 'msg-anchor',
+      sentAt: anchorSentAt,
+    });
+    (prisma.message.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'msg-older',
+        jobId: 'job-1',
+        senderId: 'user-1',
+        senderRole: UserRole.PRO,
+        content: 'Earlier',
+        sentAt: new Date('2026-09-08T00:00:01Z'),
+        deliveredAt: null,
+        readAt: null,
+      },
+    ]);
+
+    const page = await service.listForParty(
+      'user-1',
+      { jobId: 'job-1', limit: 50, before: 'msg-anchor' },
+      'customer',
+    );
+
+    // The anchor is resolved within the job, so a foreign id cannot shift it.
+    expect(prisma.message.findFirst).toHaveBeenCalledWith({
+      where: { id: 'msg-anchor', jobId: 'job-1' },
+      select: { id: true, sentAt: true },
+    });
+    // The window is `< (sentAt, id)`, a total order matching reading order.
+    expect(prisma.message.findMany).toHaveBeenCalledWith({
+      where: {
+        jobId: 'job-1',
+        OR: [{ sentAt: { lt: anchorSentAt } }, { sentAt: anchorSentAt, id: { lt: 'msg-anchor' } }],
+      },
+      orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
+      take: 50,
+    });
+    // Reversed to oldest-first; the oldest id becomes the next page's anchor.
+    expect(page.messages.map((m) => m.id)).toEqual(['msg-older']);
+    expect(page.nextCursor).toBe('msg-older');
+  });
+
+  it('loads the newest page, unwindowed, when `before` is omitted', async () => {
+    const { service, prisma } = build();
+    (prisma.message.findMany as jest.Mock).mockResolvedValue([]);
+
+    const page = await service.listForParty('user-1', { jobId: 'job-1', limit: 50 }, 'customer');
+
+    expect(prisma.message.findFirst).not.toHaveBeenCalled();
+    expect(prisma.message.findMany).toHaveBeenCalledWith({
+      where: { jobId: 'job-1' },
+      orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
+      take: 50,
+    });
+    expect(page).toEqual({ messages: [], nextCursor: null });
+  });
+
+  it('returns an empty page when the cursor is not a message in this job', async () => {
+    const { service, prisma } = build();
+    (prisma.message.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const page = await service.listForParty(
+      'user-1',
+      { jobId: 'job-1', limit: 50, before: 'ff000000-0000-4000-8000-000000000000' },
+      'customer',
+    );
+
+    expect(prisma.message.findMany).not.toHaveBeenCalled();
+    expect(page).toEqual({ messages: [], nextCursor: null });
   });
 });
 
