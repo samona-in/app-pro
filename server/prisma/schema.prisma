@@ -662,7 +662,10 @@ model Message {
   /// this can never actually fire — it is a guard against a future bug.
   sender Profile @relation(fields: [senderId], references: [id], onDelete: Restrict)
 
-  @@index([jobId, sentAt])
+  /// Covers the thread read: list by job, newest-first. `id` is carried so the
+  /// `(sent_at, id)` cursor used to page history is index-ordered end to end,
+  /// rather than sorting each equal-`sent_at` tie group afresh.
+  @@index([jobId, sentAt, id])
   @@map("messages")
 }
 
