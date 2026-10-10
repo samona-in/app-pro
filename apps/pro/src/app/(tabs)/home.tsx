@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, View } from 'react-native';
 import { Redirect, router, useFocusEffect } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { CancellationAlertModal } from '@/components/home/CancellationAlertModal';
 import { TodayStack } from '@/components/home/TodayStack';
 import { ServicesVerificationCard } from '@/components/services/ServicesVerificationCard';
-import { Button, IconButton, Screen, Text } from '@/components/ui';
+import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
 import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { useProJobs, useProProfile, useDeviceReadiness, useSubmitGuard } from '@/hooks';
 import { useIncomingOffersStore } from '@/stores';
@@ -27,7 +25,6 @@ import { missingReadinessCount } from '@/services/device-readiness-state';
 import { queryKeys } from '@/constants';
 import { useAuth } from '@/providers';
 import { color } from '@/theme';
-import { cn } from '@/utils/cn';
 
 /**
  * The home screen.
@@ -40,43 +37,7 @@ import { cn } from '@/utils/cn';
  *
  * When offline, an explicit prompt points the pro back online before they can
  * see or act on any job.
- *
- * The layout follows the customer app's list language: a full-width soft band
- * holds the header row and the availability hero, pushed bands carry the call
- * to action and warnings, and daily figures and services read as plain
- * sections — no boxed cards.
  */
-
-/**
- * The home header band: the wordmark and screen actions on top, with the
- * availability hero rendered below them inside the same soft-coloured band.
- * The band bleeds edge-to-edge and sits under the status bar.
- */
-function ProHomeHeader({ children }: { children: ReactNode }) {
-  const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View style={{ paddingTop: insets.top }} className="-mx-5 bg-surface-muted px-5 pb-5">
-      <View className="mt-2 flex-row items-center justify-between">
-        <Wordmark size="sm" />
-        <View className="flex-row items-center gap-2">
-          <IconButton
-            name="briefcase-outline"
-            accessibilityLabel={t('home.jobsAccessibility')}
-            onPress={() => router.push('/jobs')}
-          />
-          <IconButton
-            name="notifications-outline"
-            accessibilityLabel={t('home.notificationsAccessibility')}
-            onPress={() => router.push('/notifications')}
-          />
-        </View>
-      </View>
-      <View className="mt-5">{children}</View>
-    </View>
-  );
-}
 
 function AvailabilityCard() {
   const { t } = useTranslation();
@@ -152,14 +113,14 @@ function AvailabilityCard() {
           router.push('/device-setup');
           return;
         }
-        const text = result.error ?? t('home.errorGeneric');
+        const message = result.error ?? t('home.errorGeneric');
         if (isLocationServicesDisabledError(result.error)) {
-          Alert.alert(t('home.cantGoOnline'), text, [
+          Alert.alert(t('home.cantGoOnline'), message, [
             { text: t('common.notNow'), style: 'cancel' },
             { text: t('common.openSettings'), onPress: () => void Linking.openSettings() },
           ]);
         } else {
-          Alert.alert(next ? t('home.cantGoOnline') : t('home.cantGoOffline'), text);
+          Alert.alert(next ? t('home.cantGoOnline') : t('home.cantGoOffline'), message);
         }
       } else {
         // The toggle succeeded; the server is now the source of truth for other
@@ -175,59 +136,68 @@ function AvailabilityCard() {
   });
 
   return (
-    <View className="flex-row items-center justify-between">
-      <View className="flex-1 pr-4">
-        <Text
-          variant="label"
-          className={cn('uppercase', isOnline && 'text-success')}
-          style={!isOnline ? { color: color['text-muted'] } : undefined}
-        >
-          {t('home.availabilityLabel')}
-        </Text>
-        <View className="mt-1 flex-row items-center">
-          <View
-            className={cn('h-2.5 w-2.5 rounded-full', isOnline ? 'bg-success' : 'bg-offline')}
-          />
-          <Text variant="titleLg" className="ml-2">
-            {label}
-          </Text>
-        </View>
-        {message ? (
+    <Card
+      variant="raised"
+      style={isOnline ? { backgroundColor: color.brand } : { backgroundColor: color.surface }}
+    >
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-4">
           <Text
-            variant="footnote"
-            className="mt-1"
+            variant="label"
             style={{
-              color: isLoading
-                ? color.warning
-                : isOnline
-                  ? color.success
-                  : hasError
-                    ? color.danger
-                    : color['text-secondary'],
+              color: isOnline ? color['brand-contrast'] : color['text-secondary'],
+              opacity: isOnline ? 0.7 : undefined,
             }}
           >
-            {message}
+            {t('home.availabilityLabel')}
           </Text>
-        ) : null}
-      </View>
-
-      {isLoading ? (
-        <View className="h-14 w-14 items-center justify-center">
-          <ActivityIndicator color={color.brand} size="large" />
+          <Text
+            variant="titleLg"
+            className="mt-1"
+            style={{ color: isOnline ? color['brand-contrast'] : color['text-primary'] }}
+          >
+            {label}
+          </Text>
+          {message ? (
+            <Text
+              variant="footnote"
+              className="mt-1"
+              style={{
+                color: isLoading
+                  ? color.warning
+                  : isOnline
+                    ? color.success
+                    : hasError
+                      ? color.danger
+                      : color['text-secondary'],
+              }}
+            >
+              {message}
+            </Text>
+          ) : null}
         </View>
-      ) : (
-        <IconButton
-          name={isOnline ? 'power' : 'power-outline'}
-          accessibilityLabel={isOnline ? t('home.goOffline') : t('home.goOnline')}
-          onPress={() => void run()}
-          haptic={false}
-          disabled={isLoading}
-          tint={isOnline ? color.brand : color['text-primary']}
-          className="h-14 w-14 bg-surface"
-          size={26}
-        />
-      )}
-    </View>
+
+        {isLoading ? (
+          <View className="h-14 w-14 items-center justify-center">
+            <ActivityIndicator
+              color={isOnline ? color['brand-contrast'] : color.brand}
+              size="large"
+            />
+          </View>
+        ) : (
+          <IconButton
+            name={isOnline ? 'power' : 'power-outline'}
+            accessibilityLabel={isOnline ? t('home.goOffline') : t('home.goOnline')}
+            onPress={() => void run()}
+            haptic={false}
+            disabled={isLoading}
+            tint={isOnline ? color.brand : color['text-primary']}
+            className={isOnline ? 'h-14 w-14 bg-brand-contrast' : 'h-14 w-14 bg-surface-muted'}
+            size={26}
+          />
+        )}
+      </View>
+    </Card>
   );
 }
 
@@ -244,7 +214,7 @@ function ReadinessBanner() {
 
   const missing = missingReadinessCount(readiness);
   return (
-    <View className="-mx-5 mt-3 bg-warning-surface px-5 py-3">
+    <Card className="mt-6 border border-warning bg-warning-surface">
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-3">
           <Text variant="label" className="text-warning">
@@ -262,7 +232,7 @@ function ReadinessBanner() {
           onPress={() => router.push('/device-setup')}
         />
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -271,23 +241,20 @@ function ReadinessBanner() {
  * a quiet home entry back into the combined list so no request is ever trapped
  * behind a dismissed screen.
  */
-function IncomingRequestsBand() {
+function IncomingRequestsCard() {
   const { t } = useTranslation();
   const count = useIncomingOffersStore((state) => Object.keys(state.offersById).length);
   if (count === 0) return null;
   return (
-    <View className="-mx-5 mt-3 bg-brand-soft px-5 py-3">
+    <Card className="mt-3 border border-brand-soft bg-brand-soft">
       <View className="flex-row items-center justify-between">
-        <View className="flex-1 flex-row items-center pr-3">
-          <Ionicons name="notifications" size={18} color={color.brand} />
-          <View className="ml-3 flex-1">
-            <Text variant="label" className="text-brand">
-              {t('home.incomingRequests.title')}
-            </Text>
-            <Text variant="bodyStrong" className="mt-0.5">
-              {t('home.incomingRequests.waiting', { count })}
-            </Text>
-          </View>
+        <View className="flex-1 pr-3">
+          <Text variant="label" className="text-brand">
+            {t('home.incomingRequests.title')}
+          </Text>
+          <Text variant="bodyStrong" className="mt-0.5">
+            {t('home.incomingRequests.waiting', { count })}
+          </Text>
         </View>
         <Button
           variant="primary"
@@ -298,12 +265,13 @@ function IncomingRequestsBand() {
           onPress={() => router.push('/incoming-jobs')}
         />
       </View>
-    </View>
+    </Card>
   );
 }
 
 /** Prompt shown when an offline pro tries to act on a job. */
 export default function Home() {
+  const { t } = useTranslation();
   const { data: jobs, isPending } = useProJobs();
   // Money owed wins: a completed but unpaid job (or one awaiting payment) has
   // to be settled before the pro belongs on home — only their own "Collect
@@ -349,19 +317,34 @@ export default function Home() {
 
   return (
     <>
-      {/* edges={[]}: the header band extends under the status bar. */}
-      <Screen scrollable edges={[]}>
-        <ProHomeHeader>
+      <Screen scrollable>
+        <View className="flex-row items-center justify-between pt-2">
+          <Wordmark size="sm" />
+          <View className="flex-row items-center gap-2">
+            <IconButton
+              name="briefcase-outline"
+              accessibilityLabel={t('home.jobsAccessibility')}
+              onPress={() => router.push('/jobs')}
+            />
+            <IconButton
+              name="notifications-outline"
+              accessibilityLabel={t('home.notificationsAccessibility')}
+              onPress={() => router.push('/notifications')}
+            />
+          </View>
+        </View>
+
+        <View className="mt-6">
           <AvailabilityCard />
-        </ProHomeHeader>
+        </View>
 
-        <IncomingRequestsBand />
-
-        <ReadinessBanner />
+        <IncomingRequestsCard />
 
         <TodayStack />
 
         <ServicesVerificationCard />
+
+        <ReadinessBanner />
       </Screen>
       {/* The single acknowledgement for a customer-cancelled job; Home is the
           only route a cancelled job leaves the pro on. */}
