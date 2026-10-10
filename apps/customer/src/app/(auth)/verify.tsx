@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { OTP_LENGTH } from '@samona/config';
-import { Button, Input, Screen, Text } from '@/components/ui';
+import { Button, OtpInput, Screen, Text } from '@/components/ui';
 import { useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
-
-const CODE_PLACEHOLDER = Array.from({ length: OTP_LENGTH }, (_, i) => (i + 1) % 10).join('');
 
 export default function VerifyScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
@@ -52,21 +50,18 @@ export default function VerifyScreen() {
           </Text>
         </Text>
 
-        <Input
-          label="Verification code"
-          value={code}
-          onChangeText={(next) => setCode(next.replace(/\D/g, '').slice(0, OTP_LENGTH))}
-          placeholder={CODE_PLACEHOLDER}
-          keyboardType="number-pad"
-          autoComplete="sms-otp"
-          textContentType="oneTimeCode"
-          maxLength={OTP_LENGTH}
-          autoFocus
-          editable={!isBusy}
-          error={error ?? undefined}
-          containerClassName="mt-8"
-          className="text-title tracking-[8px]"
-        />
+        <View className="mt-8">
+          <OtpInput
+            length={OTP_LENGTH}
+            value={code}
+            onChange={(next) => {
+              clearError();
+              setCode(next);
+            }}
+            editable={!isBusy}
+            error={error ?? undefined}
+          />
+        </View>
       </View>
 
       <View className="gap-3 pb-4">
