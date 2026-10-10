@@ -1,78 +1,41 @@
-import { View } from 'react-native';
-import { Pressable, Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { Avatar, Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
+import { Avatar, Badge, Button, ListRow, Screen, Text } from '@/components/ui';
 import { useDeviceReadiness, useProProfile, useSession } from '@/hooks';
 import { requestOverlayPermission } from '@/services/overlay-alert';
 import type { TranslationKey } from '@/i18n';
-import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const SETTINGS_ROWS: {
+type SettingsRow = {
   icon: IoniconName;
   labelKey: TranslationKey;
-  route?: string;
+  route: string;
   destructive?: boolean;
-}[] = [
-  {
-    icon: 'construct-outline',
-    labelKey: 'profile.settings.servicesSkills',
-    route: '/manage-services',
-  },
-  {
-    icon: 'location-outline',
-    labelKey: 'profile.settings.serviceArea',
-    route: '/service-areas',
-  },
-  { icon: 'document-text-outline', labelKey: 'profile.settings.documents', route: '/documents' },
-  {
-    icon: 'notifications-outline',
-    labelKey: 'profile.settings.jobAlertSetup',
-    route: '/device-setup',
-  },
-  { icon: 'help-circle-outline', labelKey: 'profile.settings.helpSupport', route: '/help-support' },
-  { icon: 'language-outline', labelKey: 'profile.settings.language', route: '/language' },
-  {
-    icon: 'trash-outline',
-    labelKey: 'profile.settings.deleteAccount',
-    route: '/account',
-    destructive: true,
-  },
-];
+};
 
-function SettingsRow({
-  icon,
-  label,
-  route,
-  destructive = false,
-}: {
-  icon: IoniconName;
-  label: string;
-  route?: string;
-  destructive?: boolean;
-}) {
+/**
+ * Settings grouped into plain full-width lists. Work, alerts, support and
+ * account rows each form their own section separated by whitespace, styled as
+ * full-width rows with a leading icon tile — no surrounding card.
+ */
+function SettingsSection({ rows }: { rows: SettingsRow[] }) {
+  const { t } = useTranslation();
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      className="min-h-[56px] flex-row items-center px-4 active:opacity-60"
-      onPress={() => {
-        if (route) router.push(route);
-      }}
-    >
-      <Ionicons
-        name={icon}
-        size={20}
-        color={destructive ? color.danger : color['text-secondary']}
-      />
-      <Text variant="body" className={`ml-3 flex-1 ${destructive ? 'text-danger' : ''}`}>
-        {label}
-      </Text>
-      <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
-    </Pressable>
+    <View>
+      {rows.map((row, index) => (
+        <ListRow
+          key={row.labelKey}
+          icon={row.icon}
+          label={t(row.labelKey)}
+          destructive={row.destructive}
+          showDivider={index < rows.length - 1}
+          onPress={() => router.push(row.route)}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -82,32 +45,27 @@ function SettingsRow({
  * current grant state re-probes whenever the app returns to the foreground, so
  * the badge updates the moment the pro comes back from granting it.
  */
-function OverlayPermissionRow() {
+function OverlayPermissionRow({ showDivider }: { showDivider: boolean }) {
   const { t } = useTranslation();
   const { readiness } = useDeviceReadiness();
   const enabled = readiness?.overlayPermissionEnabled ?? false;
 
   return (
-    <Pressable
-      accessibilityRole="button"
+    <ListRow
+      icon="layers-outline"
+      label={t('profile.overlay.rowLabel')}
+      caption={t('profile.overlay.rowCaption')}
       accessibilityLabel={t('profile.overlay.a11y')}
-      className="min-h-[56px] flex-row items-center px-4 py-2 active:opacity-60"
+      trailing={
+        <Badge
+          label={enabled ? t('common.on') : t('common.off')}
+          tone={enabled ? 'success' : 'warning'}
+          withDot
+        />
+      }
       onPress={() => void requestOverlayPermission()}
-    >
-      <Ionicons name="layers-outline" size={20} color={color['text-secondary']} />
-      <View className="ml-3 flex-1 pr-2">
-        <Text variant="body">{t('profile.overlay.rowLabel')}</Text>
-        <Text variant="footnote" className="mt-0.5 text-text-secondary">
-          {t('profile.overlay.rowCaption')}
-        </Text>
-      </View>
-      <Badge
-        label={enabled ? t('common.on') : t('common.off')}
-        tone={enabled ? 'success' : 'warning'}
-        withDot
-      />
-      <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
-    </Pressable>
+      showDivider={showDivider}
+    />
   );
 }
 
@@ -120,14 +78,41 @@ export default function Profile() {
   // shared identity row may not have one. Never fall back to a placeholder name.
   const profileName = proProfile?.displayName?.trim() || user?.fullName?.trim() || '';
 
-  /**
-   * Supabase clears the persisted session; the tabs layout guard observes the
-   * signed-out state and redirects to the auth stack, so there is no manual
-   * navigation here to race it.
-   */
-  async function onSignOut() {
-    await signOut();
-  }
+  const workRows: SettingsRow[] = [
+    {
+      icon: 'construct-outline',
+      labelKey: 'profile.settings.servicesSkills',
+      route: '/manage-services',
+    },
+    { icon: 'location-outline', labelKey: 'profile.settings.serviceArea', route: '/service-areas' },
+    { icon: 'document-text-outline', labelKey: 'profile.settings.documents', route: '/documents' },
+  ];
+
+  const alertRows: SettingsRow[] = [
+    {
+      icon: 'notifications-outline',
+      labelKey: 'profile.settings.jobAlertSetup',
+      route: '/device-setup',
+    },
+  ];
+
+  const supportRows: SettingsRow[] = [
+    {
+      icon: 'help-circle-outline',
+      labelKey: 'profile.settings.helpSupport',
+      route: '/help-support',
+    },
+    { icon: 'language-outline', labelKey: 'profile.settings.language', route: '/language' },
+  ];
+
+  const accountRows: SettingsRow[] = [
+    {
+      icon: 'trash-outline',
+      labelKey: 'profile.settings.deleteAccount',
+      route: '/account',
+      destructive: true,
+    },
+  ];
 
   return (
     <Screen scrollable>
@@ -135,46 +120,50 @@ export default function Profile() {
         <Text variant="titleLg">{t('tabs.profile')}</Text>
       </View>
 
-      <Card className="mt-4 flex-row items-center">
-        <Avatar
-          name={profileName || t('brand.samonaPro')}
-          uri={proProfile?.selfiePhotoUrl ?? null}
-          size="lg"
-        />
-        <View className="ml-4 flex-1">
-          {profileName ? <Text variant="title">{profileName}</Text> : null}
-          <Text variant="footnote" className="mt-0.5">
-            {user?.phone ?? t('profile.notSetUpYet')}
-          </Text>
-          <Badge
-            label={
-              proProfile?.isVerified ? t('profile.verified') : t('profile.verificationPending')
-            }
-            tone={proProfile?.isVerified ? 'success' : 'warning'}
-            className="mt-2"
+      <View className="-mx-5 mt-2 bg-surface-muted px-5 py-4">
+        <View className="flex-row items-center">
+          <Avatar
+            name={profileName || t('brand.samonaPro')}
+            uri={proProfile?.selfiePhotoUrl ?? null}
+            size="lg"
           />
-        </View>
-      </Card>
-
-      <Card className="mt-4" padded={false}>
-        {SETTINGS_ROWS.map((row, index) => (
-          <View key={row.labelKey}>
-            {index > 0 ? <Divider /> : null}
-            <SettingsRow icon={row.icon} label={t(row.labelKey)} route={row.route} />
+          <View className="ml-4 flex-1">
+            {profileName ? <Text variant="title">{profileName}</Text> : null}
+            <Text variant="footnote" className="mt-0.5 text-text-secondary">
+              {user?.phone ?? t('profile.notSetUpYet')}
+            </Text>
+            <Badge
+              label={
+                proProfile?.isVerified ? t('profile.verified') : t('profile.verificationPending')
+              }
+              tone={proProfile?.isVerified ? 'success' : 'warning'}
+              className="mt-2"
+            />
           </View>
-        ))}
-        {Platform.OS === 'android' ? (
-          <>
-            <Divider />
-            <OverlayPermissionRow />
-          </>
-        ) : null}
-      </Card>
+        </View>
+      </View>
+
+      <View className="mt-6">
+        <SettingsSection rows={workRows} />
+      </View>
+
+      <View className="mt-6">
+        <SettingsSection rows={alertRows} />
+        {Platform.OS === 'android' ? <OverlayPermissionRow showDivider={false} /> : null}
+      </View>
+
+      <View className="mt-6">
+        <SettingsSection rows={supportRows} />
+      </View>
+
+      <View className="mt-6">
+        <SettingsSection rows={accountRows} />
+      </View>
 
       <Button
         label={t('profile.signOut')}
         variant="secondary"
-        onPress={() => void onSignOut()}
+        onPress={() => void signOut()}
         className="mt-6"
       />
     </Screen>
