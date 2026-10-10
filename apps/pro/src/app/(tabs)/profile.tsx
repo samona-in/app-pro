@@ -21,7 +21,14 @@ type SettingsRow = {
  * account rows each form their own section separated by whitespace, styled as
  * full-width rows with a leading icon tile — no surrounding card.
  */
-function SettingsSection({ rows }: { rows: SettingsRow[] }) {
+function SettingsSection({
+  rows,
+  dividerBelow = false,
+}: {
+  rows: SettingsRow[];
+  /** Draws the hairline under the section's last row so adjacent sections stay connected. */
+  dividerBelow?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <View>
@@ -31,7 +38,7 @@ function SettingsSection({ rows }: { rows: SettingsRow[] }) {
           icon={row.icon}
           label={t(row.labelKey)}
           destructive={row.destructive}
-          showDivider={index < rows.length - 1}
+          showDivider={index < rows.length - 1 || dividerBelow}
           onPress={() => router.push(row.route)}
         />
       ))}
@@ -45,7 +52,7 @@ function SettingsSection({ rows }: { rows: SettingsRow[] }) {
  * current grant state re-probes whenever the app returns to the foreground, so
  * the badge updates the moment the pro comes back from granting it.
  */
-function OverlayPermissionRow({ showDivider }: { showDivider: boolean }) {
+function OverlayPermissionRow() {
   const { t } = useTranslation();
   const { readiness } = useDeviceReadiness();
   const enabled = readiness?.overlayPermissionEnabled ?? false;
@@ -64,7 +71,6 @@ function OverlayPermissionRow({ showDivider }: { showDivider: boolean }) {
         />
       }
       onPress={() => void requestOverlayPermission()}
-      showDivider={showDivider}
     />
   );
 }
@@ -144,16 +150,16 @@ export default function Profile() {
       </View>
 
       <View className="mt-6">
-        <SettingsSection rows={workRows} />
+        <SettingsSection rows={workRows} dividerBelow />
       </View>
 
       <View className="mt-6">
-        <SettingsSection rows={alertRows} />
-        {Platform.OS === 'android' ? <OverlayPermissionRow showDivider={false} /> : null}
+        <SettingsSection rows={alertRows} dividerBelow />
+        {Platform.OS === 'android' ? <OverlayPermissionRow /> : null}
       </View>
 
       <View className="mt-6">
-        <SettingsSection rows={supportRows} />
+        <SettingsSection rows={supportRows} dividerBelow />
       </View>
 
       <View className="mt-6">
