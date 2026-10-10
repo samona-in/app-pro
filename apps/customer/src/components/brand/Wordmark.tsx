@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { Text } from '@/components/ui';
+import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 
 export interface WordmarkProps {
@@ -30,10 +31,8 @@ export function Wordmark({ size = 'md', inverse = false, className }: WordmarkPr
       <View className={cn('ml-2 rounded-md px-2 py-0.5', inverse ? 'bg-text-inverse' : 'bg-brand')}>
         <Text
           variant="caption"
-          className={cn(
-            'font-bold tracking-widest',
-            inverse ? 'text-brand' : 'text-brand-contrast',
-          )}
+          className="font-bold tracking-widest"
+          style={{ color: inverse ? color.brand : color['brand-contrast'] }}
         >
           CUSTOMER
         </Text>
