@@ -144,7 +144,7 @@ export default function OnboardingLocation() {
       isSaving={save.isPending}
       error={save.isError ? t('onboarding.location.saveError') : null}
     >
-      <View className="overflow-hidden rounded-[5px] border border-border">
+      <View className="overflow-hidden rounded-2xl border border-border">
         <View className="relative">
           <MapLibreMap
             mapStyle={MAP_STYLE_URL}

@@ -56,7 +56,7 @@ export default function OnboardingFace() {
         primaryLabel={t('onboarding.face.start')}
         onPrimary={() => setStage('scan')}
       >
-        <View className="gap-3 rounded-[5px] border border-border bg-surface-muted p-4">
+        <View className="gap-2">
           <Text variant="bodyStrong">{t('onboarding.face.beforeTitle')}</Text>
           <Text variant="body" className="text-text-secondary">
             {t('onboarding.face.beforeMessage')}
@@ -98,7 +98,13 @@ export default function OnboardingFace() {
         ) : null}
         {!isSuccess ? (
           <Button
-            label={isPending ? t('onboarding.face.uploading') : isError ? t('onboarding.face.tryAgain') : t('onboarding.face.usePhoto')}
+            label={
+              isPending
+                ? t('onboarding.face.uploading')
+                : isError
+                  ? t('onboarding.face.tryAgain')
+                  : t('onboarding.face.usePhoto')
+            }
             loading={isPending}
             disabled={!capturedUri}
             onPress={onApprove}
