@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { EmptyState, LoadingState } from '@/components/feedback';
 import { NotificationCard } from '@/components/notifications';
-import { Screen } from '@/components/ui';
+import { Divider, Screen } from '@/components/ui';
 import { useNotifications } from '@/hooks';
 
 /**
@@ -21,9 +21,12 @@ export default function Notifications() {
           <LoadingState message={t('notificationsScreen.loading')} />
         </View>
       ) : (notifications?.length ?? 0) > 0 ? (
-        <View className="mt-4 gap-3">
-          {(notifications ?? []).map((notification) => (
-            <NotificationCard key={notification.id} notification={notification} />
+        <View className="mt-2">
+          {(notifications ?? []).map((notification, index) => (
+            <View key={notification.id}>
+              {index > 0 ? <Divider className="-mx-5" /> : null}
+              <NotificationCard notification={notification} />
+            </View>
           ))}
         </View>
       ) : (

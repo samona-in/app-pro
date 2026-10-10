@@ -79,10 +79,7 @@ export default function DocumentsScreen() {
         },
         onError: (error) => {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-          Alert.alert(
-            t('documents.errors.uploadFailedTitle'),
-            messageForDocumentError(error, t),
-          );
+          Alert.alert(t('documents.errors.uploadFailedTitle'), messageForDocumentError(error, t));
         },
       },
     );
@@ -256,10 +253,10 @@ function DocumentGroups({
             <Text variant="label" className="mb-2 mt-6 px-1">
               {t(documentTypeLabelKey(type))}
             </Text>
-            <Card padded={false}>
+            <View>
               {ofType.map((document, index) => (
                 <View key={document.id}>
-                  {index > 0 ? <Divider /> : null}
+                  {index > 0 ? <Divider className="-mx-5" /> : null}
                   <DocumentRow
                     document={document}
                     busy={busy}
@@ -268,7 +265,7 @@ function DocumentGroups({
                   />
                 </View>
               ))}
-            </Card>
+            </View>
           </View>
         );
       })}
