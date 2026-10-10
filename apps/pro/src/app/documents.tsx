@@ -131,7 +131,6 @@ export default function DocumentsScreen() {
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
-        <Text variant="titleLg">{t('documents.title')}</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('documents.subtitle')}
         </Text>

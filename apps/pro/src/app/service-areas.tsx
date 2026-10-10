@@ -96,7 +96,6 @@ export default function ServiceAreasScreen() {
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
-        <Text variant="titleLg">{t('serviceAreas.title')}</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('serviceAreas.subtitle')}
         </Text>

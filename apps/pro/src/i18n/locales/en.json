@@ -42,7 +42,13 @@
     "chat": "Chat",
     "notifications": "Notifications",
     "jobAlertSetup": "Job alert setup",
-    "helpSupport": "Help & support"
+    "language": "Language",
+    "helpSupport": "Help & support",
+    "manageServices": "Manage services",
+    "documents": "Documents",
+    "serviceArea": "Service area",
+    "accountDeletion": "Account",
+    "confirmDeletion": "Confirm deletion"
   },
   "welcome": {
     "heading": "Work that comes to you.",
@@ -428,7 +434,6 @@
     }
   },
   "documents": {
-    "title": "Documents",
     "subtitle": "ID, address and payout documents for verification. Only our review team can see them.",
     "loading": "Loading your documents…",
     "emptyTitle": "No documents yet",
@@ -587,7 +592,6 @@
     "okay": "Okay"
   },
   "serviceAreas": {
-    "title": "Service area",
     "subtitle": "How far are you willing to travel for jobs?",
     "current": "Current radius",
     "caption": "Used to match nearby jobs to you.",
@@ -637,7 +641,6 @@
     "noReason": "No reason was provided."
   },
   "manageServices": {
-    "title": "Manage services",
     "subtitle": "Request the services you offer. SAMONA reviews each request before customers can see it.",
     "loading": "Loading services…",
     "requestFailedTitle": "Request not sent",

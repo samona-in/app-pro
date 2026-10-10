@@ -158,7 +158,6 @@ export default function DeviceSetup() {
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
-        <Text variant="titleLg">{t('routes.jobAlertSetup')}</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('deviceSetup.subtitle')}
         </Text>
