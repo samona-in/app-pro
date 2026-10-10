@@ -9,25 +9,20 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import splashMark from '@/assets/images/splash-icon.png';
+
 import samonaWordmark from '@/assets/images/samona-wordmark.png';
 
 /**
- * The SAMONA splash: brand-blue field with the white chevron mark above the
- * SAMONA wordmark, entering as a single unit.
+ * The SAMONA splash: brand-blue field with the SAMONA wordmark entering as a
+ * single unit.
  *
  * Purely presentational — visibility, timing of the handoff and the native
  * splash are owned by `SplashGate`, so this can be rendered in tests or a
  * preview without side effects.
  */
 
-/** Intrinsic aspect ratios of the two source assets (width / height). */
+/** Intrinsic aspect ratio of the source asset (width / height). */
 const WORDMARK_ASPECT = 1740 / 263;
-const MARK_ASPECT = 228 / 213;
-
-/** Mark width as a fraction of the wordmark width, and the gap under it. */
-const MARK_TO_WORD_RATIO = 0.22;
-const GAP_TO_MARK_RATIO = 0.5;
 
 /** Lockup width tracks the screen but never dominates a small device. */
 const WIDTH_RATIO = 0.62;
@@ -98,9 +93,6 @@ export function SplashScreen({ onFirstLayout, onIntroComplete }: SplashScreenPro
   }));
 
   const wordWidth = Math.min(Math.max(width * WIDTH_RATIO, MIN_WORD_WIDTH), MAX_WORD_WIDTH);
-  const markWidth = wordWidth * MARK_TO_WORD_RATIO;
-  const markHeight = markWidth / MARK_ASPECT;
-  const gap = markHeight * GAP_TO_MARK_RATIO;
 
   return (
     <View style={styles.root} onLayout={handleFirstLayout}>
@@ -111,13 +103,8 @@ export function SplashScreen({ onFirstLayout, onIntroComplete }: SplashScreenPro
         accessibilityLabel="SAMONA Pro"
       >
         <Image
-          source={splashMark}
-          style={{ width: markWidth, height: markHeight }}
-          contentFit="contain"
-        />
-        <Image
           source={samonaWordmark}
-          style={{ width: wordWidth, height: wordWidth / WORDMARK_ASPECT, marginTop: gap }}
+          style={{ width: wordWidth, height: wordWidth / WORDMARK_ASPECT }}
           contentFit="contain"
         />
       </Animated.View>
