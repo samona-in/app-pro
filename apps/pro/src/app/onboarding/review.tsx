@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -10,20 +10,16 @@ import {
 } from '@samona/types';
 import { LoadingState } from '@/components/feedback';
 import { OnboardingStepLayout } from '@/components/onboarding';
-import { Avatar, Badge, Card, Divider, Text } from '@/components/ui';
+import { Avatar, Badge, Text } from '@/components/ui';
 import { useCatalogue, useProProfile, useSession } from '@/hooks';
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-row items-start justify-between px-4 py-3">
-      <Text variant="body" className="mr-4 text-text-secondary">
-        {label}
-      </Text>
-      <Text variant="bodyStrong" className="flex-1 text-right text-text-primary">
-        {value}
-      </Text>
-    </View>
-  );
+/**
+ * The review step reads as two clean lists — the pro's identity in a soft
+ * band, then a plain divider-separated summary — with an unboxed "About you"
+ * block beneath. No cards, mirroring the customer app's list language.
+ */
+function SummaryList({ children }: { children: ReactNode }) {
+  return <View>{children}</View>;
 }
 
 export default function OnboardingReview() {
@@ -53,6 +49,19 @@ export default function OnboardingReview() {
 
   const complete = isProProfileComplete(profile);
 
+  const rows = [
+    { label: t('onboarding.review.gender'), value: summary.gender },
+    { label: t('onboarding.review.services'), value: summary.services.join(', ') || '—' },
+    { label: t('onboarding.review.specialties'), value: summary.skills.join(', ') || '—' },
+    {
+      label: t('onboarding.review.travelsUpTo', {
+        distance: t('format.km', { value: profile.serviceRadiusKm }),
+      }),
+      value: '',
+    },
+    { label: t('onboarding.review.languages'), value: profile.languages.join(', ') || '—' },
+  ];
+
   /**
    * The server already recomputed status on the last save, so finishing is a
    * refetch and a redirect rather than another write. If something is still
@@ -72,54 +81,57 @@ export default function OnboardingReview() {
       step="review"
       title={complete ? t('onboarding.review.readyTitle') : t('onboarding.review.almostThere')}
       subtitle={
-        complete
-          ? t('onboarding.review.readyMessage')
-          : t('onboarding.review.incompleteMessage')
+        complete ? t('onboarding.review.readyMessage') : t('onboarding.review.incompleteMessage')
       }
-      primaryLabel={complete ? t('onboarding.review.goToDashboard') : t('onboarding.review.finishRemaining')}
+      primaryLabel={
+        complete ? t('onboarding.review.goToDashboard') : t('onboarding.review.finishRemaining')
+      }
       onPrimary={() => void onFinish()}
     >
-      <Card className="flex-row items-center">
-        <Avatar
-          name={profile.displayName ?? t('brand.samonaPro')}
-          size="lg"
-          uri={profile.selfiePhotoUrl}
-        />
-        <View className="ml-4 flex-1">
-          <Text variant="title">{profile.displayName ?? t('onboarding.review.yourName')}</Text>
-          <Text variant="footnote" className="mt-0.5 text-text-secondary">
-            {summary.experience}
-          </Text>
-          <Badge
-            label={complete ? t('onboarding.review.ready') : t('onboarding.review.incomplete')}
-            tone={complete ? 'success' : 'warning'}
-            className="mt-2"
+      <View className="-mx-5 bg-surface-muted px-5 py-4">
+        <View className="flex-row items-center">
+          <Avatar
+            name={profile.displayName ?? t('brand.samonaPro')}
+            size="lg"
+            uri={profile.selfiePhotoUrl}
           />
+          <View className="ml-4 flex-1">
+            <Text variant="title">{profile.displayName ?? t('onboarding.review.yourName')}</Text>
+            <Text variant="footnote" className="mt-0.5 text-text-secondary">
+              {summary.experience}
+            </Text>
+            <Badge
+              label={complete ? t('onboarding.review.ready') : t('onboarding.review.incomplete')}
+              tone={complete ? 'success' : 'warning'}
+              className="mt-2"
+            />
+          </View>
         </View>
-      </Card>
+      </View>
 
-      <Card className="mt-4" padded={false}>
-        <SummaryRow label={t('onboarding.review.gender')} value={summary.gender} />
-        <Divider />
-        <SummaryRow label={t('onboarding.review.services')} value={summary.services.join(', ') || '—'} />
-        <Divider />
-        <SummaryRow label={t('onboarding.review.specialties')} value={summary.skills.join(', ') || '—'} />
-        <Divider />
-        <SummaryRow
-          label={t('onboarding.review.travelsUpTo', { distance: t('format.km', { value: profile.serviceRadiusKm }) })}
-          value=""
-        />
-        <Divider />
-        <SummaryRow label={t('onboarding.review.languages')} value={profile.languages.join(', ') || '—'} />
-      </Card>
+      <SummaryList>
+        {rows.map((row, index) => (
+          <View key={row.label}>
+            <View className="flex-row items-start justify-between py-3">
+              <Text variant="body" className="mr-4 text-text-secondary">
+                {row.label}
+              </Text>
+              <Text variant="bodyStrong" className="flex-1 text-right text-text-primary">
+                {row.value}
+              </Text>
+            </View>
+            {index < rows.length - 1 ? <View className="-mx-5 h-px bg-border" /> : null}
+          </View>
+        ))}
+      </SummaryList>
 
       {profile.bio ? (
-        <Card className="mt-4">
+        <View className="mt-6">
           <Text variant="label">{t('onboarding.review.aboutYou')}</Text>
           <Text variant="body" className="mt-2 text-text-secondary">
             {profile.bio}
           </Text>
-        </Card>
+        </View>
       ) : null}
 
       <Text variant="caption" className="mt-4 text-text-muted">

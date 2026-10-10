@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { Card, Divider, Screen, Text } from '@/components/ui';
+import { Divider, ListRow, Screen, Text } from '@/components/ui';
 import {
   APP_VERSION,
   FAQ_CATEGORY_KEYS,
@@ -17,45 +17,11 @@ import {
 import { color } from '@/theme';
 import { openExternalUrl } from '@/utils/open-url';
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
 function SectionHeading({ children }: { children: string }) {
   return (
     <Text variant="label" className="mt-6 first:mt-4">
       {children}
     </Text>
-  );
-}
-
-interface LinkRowProps {
-  icon: IoniconName;
-  label: string;
-  onPress?: () => void;
-  trailingValue?: string;
-}
-
-/** A pro-style settings row for placing an external call / link. */
-function LinkRow({ icon, label, onPress, trailingValue }: LinkRowProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={!onPress}
-      onPress={onPress}
-      className="min-h-[56px] flex-row items-center px-4 active:opacity-60"
-    >
-      <Ionicons name={icon} size={20} color={color['text-secondary']} />
-      <Text variant="body" className="ml-3 flex-1">
-        {label}
-      </Text>
-      {trailingValue ? (
-        <Text variant="body" className="text-text-secondary">
-          {trailingValue}
-        </Text>
-      ) : onPress ? (
-        <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
-      ) : null}
-    </Pressable>
   );
 }
 
@@ -73,7 +39,7 @@ function FaqRow({ question, answer, open, onToggle }: FaqRowProps) {
       accessibilityLabel={question}
       accessibilityState={{ expanded: open }}
       onPress={onToggle}
-      className="min-h-[56px] justify-center px-4 py-2.5 active:opacity-60"
+      className="min-h-[56px] justify-center py-2.5 active:opacity-60"
     >
       <View className="flex-row items-center">
         <Text variant="body" className="flex-1 pr-2">
@@ -105,8 +71,8 @@ export default function HelpSupport() {
   return (
     <Screen scrollable edges={['bottom']}>
       <SectionHeading>{t('helpSupport.sections.contactUs')}</SectionHeading>
-      <Card className="mt-1" padded={false}>
-        <LinkRow
+      <View className="mt-1">
+        <ListRow
           icon="call-outline"
           label={t('helpSupport.rows.callSupport')}
           onPress={() =>
@@ -117,8 +83,7 @@ export default function HelpSupport() {
             )
           }
         />
-        <Divider />
-        <LinkRow
+        <ListRow
           icon="logo-whatsapp"
           label={t('helpSupport.rows.whatsapp')}
           onPress={() =>
@@ -129,8 +94,7 @@ export default function HelpSupport() {
             )
           }
         />
-        <Divider />
-        <LinkRow
+        <ListRow
           icon="mail-outline"
           label={t('helpSupport.rows.emailUs')}
           onPress={() =>
@@ -141,11 +105,11 @@ export default function HelpSupport() {
             )
           }
         />
-      </Card>
+      </View>
 
       <SectionHeading>{t('helpSupport.sections.reportIssue')}</SectionHeading>
-      <Card className="mt-1" padded={false}>
-        <LinkRow
+      <View className="mt-1">
+        <ListRow
           icon="flag-outline"
           label={t('helpSupport.rows.reportAnIssue')}
           onPress={() =>
@@ -156,7 +120,7 @@ export default function HelpSupport() {
             )
           }
         />
-      </Card>
+      </View>
 
       <SectionHeading>{t('helpSupport.sections.faq')}</SectionHeading>
       {FAQ_CATEGORY_KEYS.map((categoryKey) => {
@@ -168,12 +132,12 @@ export default function HelpSupport() {
             <Text variant="caption" className="font-semibold text-text-muted">
               {t(categoryKey)}
             </Text>
-            <Card className="mt-1.5" padded={false}>
+            <View className="mt-1.5">
               {entries.map((entry, entryIndex) => {
                 const globalIndex = firstIndex + entryIndex;
                 return (
                   <View key={entry.questionKey}>
-                    {entryIndex > 0 ? <Divider /> : null}
+                    {entryIndex > 0 ? <Divider className="-mx-5" /> : null}
                     <FaqRow
                       question={t(entry.questionKey)}
                       answer={t(entry.answerKey)}
@@ -183,20 +147,23 @@ export default function HelpSupport() {
                   </View>
                 );
               })}
-            </Card>
+            </View>
           </View>
         );
       })}
 
       <SectionHeading>{t('helpSupport.sections.about')}</SectionHeading>
-      <Card className="mt-1" padded={false}>
-        <LinkRow
+      <View className="mt-1">
+        <ListRow
           icon="information-circle-outline"
           label={t('helpSupport.rows.appVersion')}
-          trailingValue={APP_VERSION}
+          trailing={
+            <Text variant="body" className="text-text-secondary">
+              {APP_VERSION}
+            </Text>
+          }
         />
-        <Divider />
-        <LinkRow
+        <ListRow
           icon="document-text-outline"
           label={t('helpSupport.rows.terms')}
           onPress={() =>
@@ -207,10 +174,10 @@ export default function HelpSupport() {
             )
           }
         />
-        <Divider />
-        <LinkRow
+        <ListRow
           icon="shield-checkmark-outline"
           label={t('helpSupport.rows.privacy')}
+          showDivider={false}
           onPress={() =>
             openExternalUrl(
               PRIVACY_URL,
@@ -219,7 +186,7 @@ export default function HelpSupport() {
             )
           }
         />
-      </Card>
+      </View>
     </Screen>
   );
 }

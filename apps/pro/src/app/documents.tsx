@@ -8,7 +8,7 @@ import { DOCUMENT_TYPES, type DocumentType, type ProDocument } from '@samona/typ
 import { DOCUMENT_CONTENT_TYPES } from '@samona/validation';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { DocumentRejectionReasonSheet } from '@/components/documents/DocumentRejectionReasonSheet';
-import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
+import { Badge, Button, Divider, Screen, Text } from '@/components/ui';
 import { useDeleteDocument, useDocuments, useUploadDocument } from '@/hooks';
 import { formatFileSize, formatRelativeTime } from '@/utils/format';
 import {
@@ -79,10 +79,7 @@ export default function DocumentsScreen() {
         },
         onError: (error) => {
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-          Alert.alert(
-            t('documents.errors.uploadFailedTitle'),
-            messageForDocumentError(error, t),
-          );
+          Alert.alert(t('documents.errors.uploadFailedTitle'), messageForDocumentError(error, t));
         },
       },
     );
@@ -134,7 +131,6 @@ export default function DocumentsScreen() {
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
-        <Text variant="titleLg">{t('documents.title')}</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('documents.subtitle')}
         </Text>
@@ -192,7 +188,7 @@ function UploadCard({
   const { t } = useTranslation();
 
   return (
-    <Card className="mt-4">
+    <View className="mt-4">
       <Text variant="title">{t('documents.uploadCardTitle')}</Text>
       <Text variant="footnote" className="mt-1 text-text-secondary">
         {t('documents.uploadCardCaption')}
@@ -228,7 +224,7 @@ function UploadCard({
         onPress={onPickFile}
         className="mt-3"
       />
-    </Card>
+    </View>
   );
 }
 
@@ -256,10 +252,10 @@ function DocumentGroups({
             <Text variant="label" className="mb-2 mt-6 px-1">
               {t(documentTypeLabelKey(type))}
             </Text>
-            <Card padded={false}>
+            <View>
               {ofType.map((document, index) => (
                 <View key={document.id}>
-                  {index > 0 ? <Divider /> : null}
+                  {index > 0 ? <Divider className="-mx-5" /> : null}
                   <DocumentRow
                     document={document}
                     busy={busy}
@@ -268,7 +264,7 @@ function DocumentGroups({
                   />
                 </View>
               ))}
-            </Card>
+            </View>
           </View>
         );
       })}

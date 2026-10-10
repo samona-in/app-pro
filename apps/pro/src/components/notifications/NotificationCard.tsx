@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Ionicons } from '@expo/vector-icons';
 import type { AppNotification, NotificationKind } from '@samona/types';
-import { Card, Text } from '@/components/ui';
+import { Text } from '@/components/ui';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import { formatRelativeTime } from '@/utils/format';
@@ -63,11 +63,9 @@ export function NotificationCard({
     : notification.body;
 
   return (
-    <Card className={cn('flex-row items-center gap-3', className)} padded={false}>
-      <View className="p-2 pr-0">
-        <Ionicons name={icon} size={22} color={open ? tint : color['text-muted']} />
-      </View>
-      <View className="flex-1 py-3 pr-4">
+    <View className={cn('flex-row items-center gap-3 py-3', className)}>
+      <Ionicons name={icon} size={22} color={open ? tint : color['text-muted']} />
+      <View className="flex-1 pr-4">
         <View className="flex-row items-center justify-between gap-2">
           <Text variant="bodyStrong" className="flex-1">
             {title}
@@ -85,6 +83,6 @@ export function NotificationCard({
           </Text>
         ) : null}
       </View>
-    </Card>
+    </View>
   );
 }

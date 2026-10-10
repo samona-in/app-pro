@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { Badge, Button, Card, Screen, Text } from '@/components/ui';
+import { Badge, Button, Divider, Screen, Text } from '@/components/ui';
 import { useDeviceReadiness } from '@/hooks';
 import type { TranslationKey } from '@/i18n';
 import { cn } from '@/utils/cn';
@@ -32,7 +32,7 @@ import { requestOverlayPermission } from '@/services/overlay-alert';
 interface ReadinessItem {
   key: keyof DeviceReadiness;
   titleKey: TranslationKey;
-  descriptionKey: TranslationKey;
+  descriptionKey: TranslationKey | null;
   fix: () => Promise<boolean> | boolean;
 }
 
@@ -56,7 +56,7 @@ const ITEMS: ReadinessItem[] = [
     // it — the overlay is only useful once it is actually on.
     key: 'overlayPermissionEnabled',
     titleKey: 'deviceSetup.items.overlay.title',
-    descriptionKey: 'deviceSetup.items.overlay.description',
+    descriptionKey: null,
     fix: requestOverlayPermission,
   },
   {
@@ -95,29 +95,36 @@ function oemGuide(t: TFunction, manufacturer: string): string {
 
 function checklistRow(item: ReadinessItem, ok: boolean, t: TFunction) {
   return (
-    <Card key={item.key} className="mt-3">
+    <View className="min-h-[72px] justify-center py-3">
       <View className="flex-row items-start justify-between">
         <View className="flex-1 pr-3">
           <Text variant="bodyLg" className="font-semibold">
             {t(item.titleKey)}
           </Text>
-          <Text variant="footnote" className="mt-1 text-text-secondary">
-            {t(item.descriptionKey)}
-          </Text>
+          {item.descriptionKey ? (
+            <Text variant="footnote" className="mt-1 text-text-secondary">
+              {t(item.descriptionKey)}
+            </Text>
+          ) : null}
         </View>
-        <Badge label={ok ? t('common.on') : t('common.off')} tone={ok ? 'success' : 'warning'} withDot />
+        <Badge
+          label={ok ? t('common.on') : t('common.off')}
+          tone={ok ? 'success' : 'warning'}
+          withDot
+        />
       </View>
       {!ok ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          label={t('home.fix')}
-          className="mt-3"
-          haptic={false}
-          onPress={() => void item.fix()}
-        />
+        <View className="mt-3 items-start">
+          <Button
+            variant="secondary"
+            size="sm"
+            label={t('home.fix')}
+            haptic={false}
+            onPress={() => void item.fix()}
+          />
+        </View>
       ) : null}
-    </Card>
+    </View>
   );
 }
 
@@ -151,21 +158,20 @@ export default function DeviceSetup() {
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
-        <Text variant="titleLg">{t('routes.jobAlertSetup')}</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('deviceSetup.subtitle')}
         </Text>
       </View>
 
       {isReady ? (
-        <Card className="mt-6 border border-success bg-success-surface">
+        <View className="-mx-5 mt-6 bg-success-surface px-5 py-4">
           <Text variant="bodyLg" className="font-semibold text-success">
             {t('deviceSetup.allSet')}
           </Text>
           <Text variant="footnote" className="mt-1 text-text-secondary">
             {t('deviceSetup.allSetMessage')}
           </Text>
-        </Card>
+        </View>
       ) : (
         <View className="mt-2">
           {readiness === null ? (
@@ -173,12 +179,17 @@ export default function DeviceSetup() {
               {t('deviceSetup.checkingSettings')}
             </Text>
           ) : (
-            ITEMS.map((item) => checklistRow(item, readiness[item.key], t))
+            ITEMS.map((item, index) => (
+              <View key={item.key}>
+                {index > 0 ? <Divider className="-mx-5" /> : null}
+                {checklistRow(item, readiness[item.key], t)}
+              </View>
+            ))
           )}
         </View>
       )}
 
-      <Card className="mt-6 bg-surface-muted">
+      <View className="-mx-5 mt-6 bg-surface-muted px-5 py-4">
         <Badge label={t('deviceSetup.forYourPhone')} tone="info" />
         <Text variant="body" className="mt-3 font-semibold">
           {t('deviceSetup.outOfSleepTitle')}
@@ -189,7 +200,7 @@ export default function DeviceSetup() {
         <Text variant="footnote" className="mt-3 text-text-secondary">
           {oemGuide(t, getDeviceManufacturer())}
         </Text>
-      </Card>
+      </View>
 
       <View className="mt-8">
         <Button
@@ -200,12 +211,10 @@ export default function DeviceSetup() {
           onPress={() => void handleCheckAgain()}
         />
         {hasChecked ? (
-          <Card
+          <View
             className={cn(
-              'mt-3',
-              isReady
-                ? 'border border-success bg-success-surface'
-                : 'border border-warning bg-warning-surface',
+              '-mx-5 mt-3 px-5 py-4',
+              isReady ? 'bg-success-surface' : 'bg-warning-surface',
             )}
           >
             <Text
@@ -219,7 +228,7 @@ export default function DeviceSetup() {
             <Text variant="footnote" className="mt-1 text-text-secondary">
               {isReady ? t('deviceSetup.capabilityTitle') : t('deviceSetup.capabilityMessage')}
             </Text>
-          </Card>
+          </View>
         ) : null}
         {isReady ? (
           <Button label={t('common.done')} className="mt-3" onPress={() => router.back()} />

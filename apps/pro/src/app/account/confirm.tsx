@@ -82,7 +82,6 @@ export default function ConfirmDeletionScreen() {
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
-        <Text variant="titleLg">{t('accountDeletion.confirmTitle')}</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('accountDeletion.confirmBody')}
         </Text>

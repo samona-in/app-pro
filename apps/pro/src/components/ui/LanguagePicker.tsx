@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { SUPPORTED_LANGUAGES, type AppLanguage } from '@/i18n';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
-import { Card } from './Card';
 import { Divider } from './Divider';
 import { Text } from './Text';
 
@@ -39,12 +38,12 @@ interface LanguageListProps {
 
 function LanguageList({ selected, onSelect }: LanguageListProps) {
   return (
-    <Card padded={false}>
+    <View>
       {SUPPORTED_LANGUAGES.map(({ code, nativeName }, index) => {
         const active = selected === code;
         return (
           <View key={code}>
-            {index > 0 ? <Divider /> : null}
+            {index > 0 ? <Divider className="-mx-5" /> : null}
             <Pressable
               accessibilityRole="button"
               accessibilityState={active ? { selected: true } : undefined}
@@ -60,7 +59,7 @@ function LanguageList({ selected, onSelect }: LanguageListProps) {
           </View>
         );
       })}
-    </Card>
+    </View>
   );
 }
 

@@ -221,8 +221,7 @@ function ReadinessBanner() {
             {t('home.readiness.title')}
           </Text>
           <Text variant="footnote" className="mt-1 text-text-secondary">
-            {t('home.readiness.manySettings', { count: missing })}{' '}
-            {t('home.readiness.fixAction')}
+            {t('home.readiness.manySettings', { count: missing })} {t('home.readiness.fixAction')}
           </Text>
         </View>
         <Button

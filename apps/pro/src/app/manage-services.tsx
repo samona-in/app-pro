@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { ProServiceListItem } from '@samona/types';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
-import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
+import { Badge, Button, Divider, Screen, Text } from '@/components/ui';
 import { ServiceImage, isImageUrl } from '@/components/services/ServiceImage';
 import { RejectionReasonSheet } from '@/components/services/RejectionReasonSheet';
 import { useProServices, useRequestProService } from '@/hooks';
@@ -64,7 +64,6 @@ export default function ManageServicesScreen() {
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
-        <Text variant="titleLg">{t('manageServices.title')}</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('manageServices.subtitle')}
         </Text>
@@ -78,10 +77,10 @@ export default function ManageServicesScreen() {
           className="mt-8"
         />
       ) : (
-        <Card className="mt-4" padded={false}>
+        <View className="mt-2">
           {services.map((service, index) => (
             <View key={service.id}>
-              {index > 0 ? <Divider /> : null}
+              {index > 0 ? <Divider className="-mx-5" /> : null}
               <ServiceRow
                 service={service}
                 busy={request.isPending}
@@ -91,7 +90,7 @@ export default function ManageServicesScreen() {
               />
             </View>
           ))}
-        </Card>
+        </View>
       )}
 
       <RejectionReasonSheet

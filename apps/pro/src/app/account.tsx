@@ -151,35 +151,34 @@ export default function AccountDeletionScreen() {
   return (
     <Screen scrollable edges={['bottom']}>
       <View className="pt-2">
-        <Text variant="titleLg">{t('accountDeletion.title')}</Text>
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('accountDeletion.subtitle')}
         </Text>
       </View>
 
-      <Card className="mt-4">
+      <View className="mt-4">
         <Text variant="footnote" className="text-text-secondary">
           {status.scope === AccountDeletionScope.PRO_PROFILE
             ? t('accountDeletion.scopeProProfile')
             : t('accountDeletion.scopeFullAccount')}
         </Text>
 
-        <Divider className="my-4" />
-
-        <CopyRow
-          icon="close-circle-outline"
-          toneIcon={color.danger}
-          title={t('accountDeletion.whatIsRemoved')}
-          body={t('accountDeletion.whatIsRemovedBody')}
-        />
-        <Divider className="my-4" />
-        <CopyRow
-          icon="shield-checkmark-outline"
-          toneIcon={color.brand}
-          title={t('accountDeletion.whatStays')}
-          body={t('accountDeletion.whatStaysBody')}
-        />
-      </Card>
+        <View className="mt-3">
+          <CopyRow
+            icon="close-circle-outline"
+            toneIcon={color.danger}
+            title={t('accountDeletion.whatIsRemoved')}
+            body={t('accountDeletion.whatIsRemovedBody')}
+          />
+          <Divider className="-mx-5 my-3" />
+          <CopyRow
+            icon="shield-checkmark-outline"
+            toneIcon={color.brand}
+            title={t('accountDeletion.whatStays')}
+            body={t('accountDeletion.whatStaysBody')}
+          />
+        </View>
+      </View>
 
       {reauthOpen ? (
         <Card className="mt-4">

@@ -373,8 +373,7 @@
         "description": "A new job request should appear on top of other apps even while the app is closed. Android 14+ requires the full-screen permission to be switched on."
       },
       "overlay": {
-        "title": "Show over other apps",
-        "description": "The job-alert overlay draws Accept/Decline over any app while Samona is closed, and a floating Samona icon stays handy while you're online and working in other apps (it hides while the app is open). Grant \"Appear on top\" under Display over other apps so both can show."
+        "title": "Show over other apps"
       },
       "battery": {
         "title": "Battery — unrestricted",
@@ -432,15 +431,9 @@
       "helpSupport": "Help & support",
       "language": "Language",
       "deleteAccount": "Delete account"
-    },
-    "overlay": {
-      "rowLabel": "Appear on top",
-      "rowCaption": "Lets the job-alert overlay show while the app is closed",
-      "a11y": "Appear on top — job-alert overlay permission"
     }
   },
   "documents": {
-    "title": "Documents",
     "subtitle": "ID, address and payout documents for verification. Only our review team can see them.",
     "loading": "Loading your documents…",
     "emptyTitle": "No documents yet",
@@ -599,7 +592,6 @@
     "okay": "Okay"
   },
   "serviceAreas": {
-    "title": "Service area",
     "subtitle": "How far are you willing to travel for jobs?",
     "current": "Current radius",
     "caption": "Used to match nearby jobs to you.",
@@ -649,7 +641,6 @@
     "noReason": "No reason was provided."
   },
   "manageServices": {
-    "title": "Manage services",
     "subtitle": "Request the services you offer. SAMONA reviews each request before customers can see it.",
     "loading": "Loading services…",
     "requestFailedTitle": "Request not sent",
