@@ -1,7 +1,4 @@
 import { Redirect } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { LoadingState } from '@/components/feedback';
-import { Screen } from '@/components/ui';
 import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { useProJobs, useSession } from '@/hooks';
 import { hasChosenLanguage } from '@/i18n';
@@ -27,7 +24,6 @@ import { hasChosenLanguage } from '@/i18n';
  * is the job truly finished (CLAUDE.md workflow).
  */
 export default function Index() {
-  const { t } = useTranslation();
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep, error } = useSession();
   // Only fetch assigned jobs once the Pro is actually eligible for work; a 401
   // on the welcome screen would be pure waste against the rate limiter.
@@ -35,12 +31,10 @@ export default function Index() {
     enabled: isAuthenticated && isOnboardingComplete && !error,
   });
 
+  // The splash (`SplashGate`) covers this route while it resolves; rendering
+  // nothing avoids a second loading treatment flashing under the handoff.
   if (isLoading) {
-    return (
-      <Screen edges={['top', 'bottom']}>
-        <LoadingState message={t('boot.starting')} />
-      </Screen>
-    );
+    return null;
   }
 
   // A brand-new Pro picks a language before anything else. Only unauthenticated
@@ -70,11 +64,7 @@ export default function Index() {
   const activeJob = jobs.find((job) => isActiveJobStatus(job.status));
 
   if (jobsQuery.isPending) {
-    return (
-      <Screen edges={['top', 'bottom']}>
-        <LoadingState message={t('boot.checkingActiveJob')} />
-      </Screen>
-    );
+    return null;
   }
 
   if (settlementJob) {

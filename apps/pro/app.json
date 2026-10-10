@@ -20,7 +20,7 @@
     "android": {
       "package": "in.samona.pro",
       "newArchEnabled": true,
-       "googleServicesFile": "./google-services.json",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0F172A",
         "foregroundImage": "./assets/images/Samona.png",
@@ -47,9 +47,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0F172A",
-          "image": "./assets/images/Samona.png",
-          "imageWidth": 76
+          "backgroundColor": "#054DFF",
+          "image": "./assets/images/splash-transparent.png",
+          "imageWidth": 100
         }
       ],
       [
