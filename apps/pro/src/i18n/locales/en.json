@@ -431,11 +431,6 @@
       "helpSupport": "Help & support",
       "language": "Language",
       "deleteAccount": "Delete account"
-    },
-    "overlay": {
-      "rowLabel": "Appear on top",
-      "rowCaption": "Lets the job-alert overlay show while the app is closed",
-      "a11y": "Appear on top — job-alert overlay permission"
     }
   },
   "documents": {

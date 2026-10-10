@@ -1,10 +1,9 @@
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import type { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Avatar, Badge, Button, ListRow, Screen, Text } from '@/components/ui';
-import { useDeviceReadiness, useProProfile, useSession } from '@/hooks';
-import { requestOverlayPermission } from '@/services/overlay-alert';
+import { useProProfile, useSession } from '@/hooks';
 import type { TranslationKey } from '@/i18n';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -43,35 +42,6 @@ function SettingsSection({
         />
       ))}
     </View>
-  );
-}
-
-/**
- * Direct entry point to the Android "Display over other apps" screen for this
- * package — the one permission the native job-alert overlay depends on. The
- * current grant state re-probes whenever the app returns to the foreground, so
- * the badge updates the moment the pro comes back from granting it.
- */
-function OverlayPermissionRow() {
-  const { t } = useTranslation();
-  const { readiness } = useDeviceReadiness();
-  const enabled = readiness?.overlayPermissionEnabled ?? false;
-
-  return (
-    <ListRow
-      icon="layers-outline"
-      label={t('profile.overlay.rowLabel')}
-      caption={t('profile.overlay.rowCaption')}
-      accessibilityLabel={t('profile.overlay.a11y')}
-      trailing={
-        <Badge
-          label={enabled ? t('common.on') : t('common.off')}
-          tone={enabled ? 'success' : 'warning'}
-          withDot
-        />
-      }
-      onPress={() => void requestOverlayPermission()}
-    />
   );
 }
 
@@ -155,7 +125,6 @@ export default function Profile() {
 
       <View className="mt-6">
         <SettingsSection rows={alertRows} dividerBelow />
-        {Platform.OS === 'android' ? <OverlayPermissionRow /> : null}
       </View>
 
       <View className="mt-6">
