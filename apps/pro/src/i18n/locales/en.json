@@ -373,8 +373,7 @@
         "description": "A new job request should appear on top of other apps even while the app is closed. Android 14+ requires the full-screen permission to be switched on."
       },
       "overlay": {
-        "title": "Show over other apps",
-        "description": "The job-alert overlay draws Accept/Decline over any app while Samona is closed, and a floating Samona icon stays handy while you're online and working in other apps (it hides while the app is open). Grant \"Appear on top\" under Display over other apps so both can show."
+        "title": "Show over other apps"
       },
       "battery": {
         "title": "Battery — unrestricted",
