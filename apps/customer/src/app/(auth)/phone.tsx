@@ -6,7 +6,8 @@ import { phoneSchema } from '@samona/validation';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Input, Screen, Text } from '@/components/ui';
 import { usePhoneAuth, usePhoneHint } from '@/hooks';
-import { env } from '@/env';
+import { PRIVACY_URL, TERMS_URL } from '@/constants/support';
+import { openExternalUrl } from '@/utils/open-url';
 
 export default function PhoneScreen() {
   const { sendCode, isBusy, error, clearError } = usePhoneAuth();
@@ -56,16 +57,6 @@ export default function PhoneScreen() {
           hint="Include your country code."
           containerClassName="mt-8"
         />
-
-        {env.authTestPhone ? (
-          <Text
-            variant="caption"
-            className="mt-3 text-center text-brand"
-            onPress={() => setPhone(env.authTestPhone ?? '')}
-          >
-            Testing: use number {env.authTestPhone}
-          </Text>
-        ) : null}
       </View>
 
       <View className="gap-3 pb-4">
@@ -73,6 +64,34 @@ export default function PhoneScreen() {
         <Text variant="caption" className="text-center">
           By continuing you agree to the SAMONA terms and privacy policy.
         </Text>
+        <View className="flex-row justify-center gap-5">
+          <Text
+            variant="caption"
+            className="text-brand"
+            onPress={() =>
+              openExternalUrl(
+                TERMS_URL,
+                'Could not open page',
+                'Check your connection and try again.',
+              )
+            }
+          >
+            Terms of Service
+          </Text>
+          <Text
+            variant="caption"
+            className="text-brand"
+            onPress={() =>
+              openExternalUrl(
+                PRIVACY_URL,
+                'Could not open page',
+                'Check your connection and try again.',
+              )
+            }
+          >
+            Privacy Policy
+          </Text>
+        </View>
       </View>
     </Screen>
   );

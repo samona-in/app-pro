@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { OTP_LENGTH } from '@samona/config';
 import { Button, OtpInput, Screen, Text } from '@/components/ui';
 import { useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
-import { env } from '@/env';
 
 /**
  * Step 2 of phone authentication: verify the code.
@@ -74,23 +73,6 @@ export default function VerifyScreen() {
           error={error ?? undefined}
         />
       </View>
-
-      {env.authTestOtp ? (
-        <View className="mb-2 gap-2">
-          <Text variant="caption" className="text-center text-text-secondary">
-            {t('verify.devNoSms')}
-          </Text>
-          <Button
-            label={t('verify.devUseTestCode', { code: env.authTestOtp })}
-            variant="ghost"
-            disabled={isBusy}
-            onPress={() => {
-              clearError();
-              setCode(env.authTestOtp ?? '');
-            }}
-          />
-        </View>
-      ) : null}
 
       <View className="gap-3 pb-4">
         <Button

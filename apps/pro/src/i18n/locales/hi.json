@@ -80,9 +80,7 @@
     "yourPhone": "आपका फ़ोन",
     "changeNumber": "नंबर बदलें",
     "verify": "सत्यापित करें",
-    "resendCode": "कोड फिर से भेजें",
-    "devNoSms": "टेस्टिंग: कोई SMS नहीं भेजा जाता (कोई Twilio क्रेडिट नहीं)",
-    "devUseTestCode": "टेस्ट कोड {{code}} का उपयोग करें"
+    "resendCode": "कोड फिर से भेजें"
   },
   "validation": {
     "phoneInvalid": "एक मान्य फ़ोन नंबर दर्ज करें।",

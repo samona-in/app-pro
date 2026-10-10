@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { openURL } from 'expo-linking';
 import { Screen, Text } from '@/components/ui';
 import {
   APP_VERSION,
@@ -14,14 +13,11 @@ import {
   type FaqCategory,
 } from '@/constants/support';
 import { color } from '@/theme';
+import { openExternalUrl } from '@/utils/open-url';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const FAQ_CATEGORIES: readonly FaqCategory[] = ['Booking', 'Payment', 'Account', 'Safety'];
-
-function safeOpen(url: string, failTitle: string, failMessage: string) {
-  void openURL(url).catch(() => Alert.alert(failTitle, failMessage));
-}
 
 interface LinkRowProps {
   icon: IoniconName;
@@ -121,14 +117,18 @@ export default function HelpSupport() {
           icon="call-outline"
           label="Call support"
           onPress={() =>
-            safeOpen(`tel:${SUPPORT_PHONE}`, 'Could not start the call', 'No app on this device can place calls.')
+            openExternalUrl(
+              `tel:${SUPPORT_PHONE}`,
+              'Could not start the call',
+              'No app on this device can place calls.',
+            )
           }
         />
         <LinkRow
           icon="logo-whatsapp"
           label="WhatsApp"
           onPress={() =>
-            safeOpen(
+            openExternalUrl(
               `https://wa.me/${SUPPORT_WHATSAPP}`,
               'Could not open WhatsApp',
               'No app on this device can open WhatsApp.',
@@ -140,7 +140,11 @@ export default function HelpSupport() {
           label="Email us"
           last
           onPress={() =>
-            safeOpen(supportEmailUrl(), 'Could not open email', 'No app on this device can send email.')
+            openExternalUrl(
+              supportEmailUrl(),
+              'Could not open email',
+              'No app on this device can send email.',
+            )
           }
         />
       </View>
@@ -152,7 +156,7 @@ export default function HelpSupport() {
           label="Report an issue"
           last
           onPress={() =>
-            safeOpen(
+            openExternalUrl(
               supportEmailUrl('Support request - Samona'),
               'Could not open email',
               'No app on this device can send email.',
@@ -193,12 +197,20 @@ export default function HelpSupport() {
 
       <SectionHeading>About</SectionHeading>
       <View className="mt-1">
-        <LinkRow icon="information-circle-outline" label="App version" trailingValue={APP_VERSION} />
+        <LinkRow
+          icon="information-circle-outline"
+          label="App version"
+          trailingValue={APP_VERSION}
+        />
         <LinkRow
           icon="document-text-outline"
           label="Terms of Service"
           onPress={() =>
-            safeOpen(TERMS_URL, 'Could not open page', 'Check your connection and try again.')
+            openExternalUrl(
+              TERMS_URL,
+              'Could not open page',
+              'Check your connection and try again.',
+            )
           }
         />
         <LinkRow
@@ -206,7 +218,11 @@ export default function HelpSupport() {
           label="Privacy Policy"
           last
           onPress={() =>
-            safeOpen(PRIVACY_URL, 'Could not open page', 'Check your connection and try again.')
+            openExternalUrl(
+              PRIVACY_URL,
+              'Could not open page',
+              'Check your connection and try again.',
+            )
           }
         />
       </View>
