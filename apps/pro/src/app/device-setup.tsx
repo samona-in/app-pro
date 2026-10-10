@@ -32,7 +32,7 @@ import { requestOverlayPermission } from '@/services/overlay-alert';
 interface ReadinessItem {
   key: keyof DeviceReadiness;
   titleKey: TranslationKey;
-  descriptionKey: TranslationKey;
+  descriptionKey: TranslationKey | null;
   fix: () => Promise<boolean> | boolean;
 }
 
@@ -56,7 +56,7 @@ const ITEMS: ReadinessItem[] = [
     // it — the overlay is only useful once it is actually on.
     key: 'overlayPermissionEnabled',
     titleKey: 'deviceSetup.items.overlay.title',
-    descriptionKey: 'deviceSetup.items.overlay.description',
+    descriptionKey: null,
     fix: requestOverlayPermission,
   },
   {
@@ -95,15 +95,17 @@ function oemGuide(t: TFunction, manufacturer: string): string {
 
 function checklistRow(item: ReadinessItem, ok: boolean, t: TFunction) {
   return (
-    <View className="py-3">
+    <View className="min-h-[72px] justify-center py-3">
       <View className="flex-row items-start justify-between">
         <View className="flex-1 pr-3">
           <Text variant="bodyLg" className="font-semibold">
             {t(item.titleKey)}
           </Text>
-          <Text variant="footnote" className="mt-1 text-text-secondary">
-            {t(item.descriptionKey)}
-          </Text>
+          {item.descriptionKey ? (
+            <Text variant="footnote" className="mt-1 text-text-secondary">
+              {t(item.descriptionKey)}
+            </Text>
+          ) : null}
         </View>
         <Badge
           label={ok ? t('common.on') : t('common.off')}
