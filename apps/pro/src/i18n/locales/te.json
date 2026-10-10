@@ -579,9 +579,7 @@
   "today": {
     "title": "ఈరోజు",
     "earnings": "సంపాదన",
-    "jobsCompleted": "పూర్తి చేసిన పనులు",
-    "viewDetails": "వివరాలు చూడండి",
-    "viewEarningsA11y": "సంపాదన వివరాలను చూడండి"
+    "jobsCompleted": "పూర్తి చేసిన పనులు"
   },
   "cancellation": {
     "title": "పని రద్దు చేయబడింది",

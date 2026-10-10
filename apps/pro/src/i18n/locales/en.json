@@ -579,9 +579,7 @@
   "today": {
     "title": "Today",
     "earnings": "Earnings",
-    "jobsCompleted": "Jobs completed",
-    "viewDetails": "View details",
-    "viewEarningsA11y": "View earnings details"
+    "jobsCompleted": "Jobs completed"
   },
   "cancellation": {
     "title": "Job cancelled",
