@@ -66,7 +66,7 @@ export function OtpInput({
             <Pressable key={i} className="flex-1" onPress={() => inputRef.current?.focus()}>
               <View
                 className={cn(
-                  'h-[56px] items-center justify-center border-2 bg-surface',
+                  'h-[72px] items-center justify-center border-2 bg-surface',
                   active ? 'border-brand' : hasError ? 'border-danger' : 'border-border-strong',
                 )}
                 style={{ borderRadius: cornerRadius.lg }}
