@@ -8,7 +8,7 @@ import { DOCUMENT_TYPES, type DocumentType, type ProDocument } from '@samona/typ
 import { DOCUMENT_CONTENT_TYPES } from '@samona/validation';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { DocumentRejectionReasonSheet } from '@/components/documents/DocumentRejectionReasonSheet';
-import { Badge, Button, Card, Divider, Screen, Text } from '@/components/ui';
+import { Badge, Button, Divider, Screen, Text } from '@/components/ui';
 import { useDeleteDocument, useDocuments, useUploadDocument } from '@/hooks';
 import { formatFileSize, formatRelativeTime } from '@/utils/format';
 import {
@@ -189,7 +189,7 @@ function UploadCard({
   const { t } = useTranslation();
 
   return (
-    <Card className="mt-4">
+    <View className="mt-4">
       <Text variant="title">{t('documents.uploadCardTitle')}</Text>
       <Text variant="footnote" className="mt-1 text-text-secondary">
         {t('documents.uploadCardCaption')}
@@ -225,7 +225,7 @@ function UploadCard({
         onPress={onPickFile}
         className="mt-3"
       />
-    </Card>
+    </View>
   );
 }
 
