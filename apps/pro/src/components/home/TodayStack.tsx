@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Text } from '@/components/ui';
@@ -16,17 +16,6 @@ export function TodayStack() {
     <View className="mt-6">
       <View className="flex-row items-center justify-between">
         <Text variant="title">{t('today.title')}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('today.viewEarningsA11y')}
-          onPress={() => undefined}
-          className="flex-row items-center"
-        >
-          <Text variant="caption" className="text-brand">
-            {t('today.viewDetails')}
-          </Text>
-          <Ionicons name="chevron-forward" size={14} color={color.brand} />
-        </Pressable>
       </View>
       <View className="mt-3 flex-row gap-3">
         <Card className="flex-1 bg-surface-muted">

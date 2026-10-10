@@ -579,9 +579,7 @@
   "today": {
     "title": "आज",
     "earnings": "कमाई",
-    "jobsCompleted": "पूरे किए गए काम",
-    "viewDetails": "विवरण देखें",
-    "viewEarningsA11y": "कमाई का विवरण देखें"
+    "jobsCompleted": "पूरे किए गए काम"
   },
   "cancellation": {
     "title": "काम रद्द हो गया",
