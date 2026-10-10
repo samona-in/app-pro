@@ -15,36 +15,6 @@ type SettingsRow = {
   destructive?: boolean;
 };
 
-/**
- * Settings grouped into plain full-width lists. Work, alerts, support and
- * account rows each form their own section separated by whitespace, styled as
- * full-width rows with a leading icon tile — no surrounding card.
- */
-function SettingsSection({
-  rows,
-  dividerBelow = false,
-}: {
-  rows: SettingsRow[];
-  /** Draws the hairline under the section's last row so adjacent sections stay connected. */
-  dividerBelow?: boolean;
-}) {
-  const { t } = useTranslation();
-  return (
-    <View>
-      {rows.map((row, index) => (
-        <ListRow
-          key={row.labelKey}
-          icon={row.icon}
-          label={t(row.labelKey)}
-          destructive={row.destructive}
-          showDivider={index < rows.length - 1 || dividerBelow}
-          onPress={() => router.push(row.route)}
-        />
-      ))}
-    </View>
-  );
-}
-
 export default function Profile() {
   const { t } = useTranslation();
   const { user, signOut } = useSession();
@@ -54,7 +24,9 @@ export default function Profile() {
   // shared identity row may not have one. Never fall back to a placeholder name.
   const profileName = proProfile?.displayName?.trim() || user?.fullName?.trim() || '';
 
-  const workRows: SettingsRow[] = [
+  // One continuous list: every row shares the same hairline rhythm, so no row
+  // reads taller than another.
+  const settingsRows: SettingsRow[] = [
     {
       icon: 'construct-outline',
       labelKey: 'profile.settings.servicesSkills',
@@ -62,26 +34,17 @@ export default function Profile() {
     },
     { icon: 'location-outline', labelKey: 'profile.settings.serviceArea', route: '/service-areas' },
     { icon: 'document-text-outline', labelKey: 'profile.settings.documents', route: '/documents' },
-  ];
-
-  const alertRows: SettingsRow[] = [
     {
       icon: 'notifications-outline',
       labelKey: 'profile.settings.jobAlertSetup',
       route: '/device-setup',
     },
-  ];
-
-  const supportRows: SettingsRow[] = [
     {
       icon: 'help-circle-outline',
       labelKey: 'profile.settings.helpSupport',
       route: '/help-support',
     },
     { icon: 'language-outline', labelKey: 'profile.settings.language', route: '/language' },
-  ];
-
-  const accountRows: SettingsRow[] = [
     {
       icon: 'trash-outline',
       labelKey: 'profile.settings.deleteAccount',
@@ -120,19 +83,16 @@ export default function Profile() {
       </View>
 
       <View className="mt-6">
-        <SettingsSection rows={workRows} dividerBelow />
-      </View>
-
-      <View className="mt-6">
-        <SettingsSection rows={alertRows} dividerBelow />
-      </View>
-
-      <View className="mt-6">
-        <SettingsSection rows={supportRows} dividerBelow />
-      </View>
-
-      <View className="mt-6">
-        <SettingsSection rows={accountRows} />
+        {settingsRows.map((row, index) => (
+          <ListRow
+            key={row.labelKey}
+            icon={row.icon}
+            label={t(row.labelKey)}
+            destructive={row.destructive}
+            showDivider={index < settingsRows.length - 1}
+            onPress={() => router.push(row.route)}
+          />
+        ))}
       </View>
 
       <Button
