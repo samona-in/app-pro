@@ -1,8 +1,16 @@
 import type { TFunction } from 'i18next';
 
-/** Formats small amounts of money; `—` when none is known yet. */
-export function formatInr(amount: number | null | undefined): string {
-  return amount === null || amount === undefined ? '—' : `₹${amount.toLocaleString('en-IN')}`;
+/**
+ * Formats a paise amount as Indian Rupees; `—` when none is known yet.
+ *
+ * Amounts are stored as integer paise on the server (CLAUDE.md validates money
+ * server-side); display is the only place the rupee value emerges, so the
+ * conversion lives here and every caller passes raw paise.
+ */
+export function formatInr(paise: number | null | undefined): string {
+  if (paise === null || paise === undefined) return '—';
+  const rupees = paise / 100;
+  return `₹${rupees.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
 /** Formats a distance in kilometres for cards and detail rows. */

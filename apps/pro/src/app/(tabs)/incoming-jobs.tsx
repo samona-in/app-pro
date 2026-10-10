@@ -324,7 +324,7 @@ const SidebarItem = memo(function SidebarItem({
 }) {
   const { t } = useTranslation();
   const now = useIncomingOffersStore((state) => state.now);
-  const amount = offer.amountPaise !== null ? formatInr(Math.round(offer.amountPaise / 100)) : '—';
+  const amount = formatInr(offer.amountPaise);
   const deadline = offerDeadlineMs(offer);
   const remaining = deadline !== null ? Math.max(0, deadline - now) : null;
   const urgent = remaining !== null && remaining > 0 && remaining <= URGENT_THRESHOLD_MS;
@@ -419,7 +419,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
             </View>
             {amountPaise !== null ? (
               <Text variant="metric" className="text-success">
-                {formatInr(Math.round(amountPaise / 100))}
+                {formatInr(amountPaise)}
               </Text>
             ) : null}
           </View>
