@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { JobStatus, type JobDetail } from '@samona/types';
+import { queryKeys } from '@/constants';
 import { subscribe } from '@/services/realtime';
 import { useJobCancellationStore } from '@/stores/job-cancellation';
 import { startCancellationVibration } from '../utils/cancellation-vibration';
@@ -29,6 +31,7 @@ import { useSession } from './use-session';
 export function useJobCancellation() {
   const { isAuthenticated } = useSession();
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Rehydrate on mount and whenever the app returns to the foreground — a
   // cancellation raised by the FCM path (screen off, killed, socket down) must
@@ -59,10 +62,8 @@ export function useJobCancellation() {
       if (detail.status !== JobStatus.CANCELLED) return;
       if (detail.cancelledBy !== 'customer') return;
       if (detail.acceptedAt == null) return;
-      // Req 3: don't gamble on the query-driven redirect alone. Whatever
-      // screen the pro is on, explicitly return to Home so the modal (which
-      // presents on Home) reliably appears.
-      router.replace('/home');
+      // Present immediately — the ring and the store entry do not wait on
+      // navigation, so the pro gets instant feedback.
       startCancellationVibration();
       void useJobCancellationStore.getState().raise({
         jobId: detail.id,
@@ -70,9 +71,20 @@ export function useJobCancellation() {
         serviceName: detail.service?.name ?? null,
         showNotification: AppState.currentState !== 'active',
       });
+      // Req 3: don't gamble on the query-driven redirect alone. Whatever
+      // screen the pro is on, explicitly return to Home so the modal (which
+      // presents on Home) reliably appears — but only after the assigned-jobs
+      // cache is fresh. The same event's realtime bridge invalidates the
+      // queries asynchronously, so Home's focus gate can otherwise read the
+      // pre-cancel list, find the job still "active", and bounce the pro
+      // straight back into the cancelled job's screens.
+      void (async () => {
+        await queryClient.refetchQueries({ queryKey: queryKeys.jobs.all });
+        router.replace('/home');
+      })();
     });
     return unsubscribe;
-  }, [isAuthenticated]);
+  }, [isAuthenticated, queryClient, router]);
 }
 /**
  * Mounted once by the root providers (as JSX, like {@link IncomingOffersSync})
