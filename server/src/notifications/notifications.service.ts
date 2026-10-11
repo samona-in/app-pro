@@ -1158,14 +1158,21 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     // admin client) defaults to the pro surface, matching `roleForAppType`.
     const onCustomer = appType === 'customer';
 
-    // A device token identifies one device; a re-sign-in or re-install must not
-    // leave a stale copy on an old account behind (violating the unique index).
+    // A device token identifies one device; a re-sign-in, re-install or a
+    // deleted-then-re-registered account must not leave a stale copy on another
+    // row behind (violating the unique index). A pro surface is always linked
+    // (`ProProfile.userId` is non-null), so `not` alone is enough there.
     await prisma.proProfile.updateMany({
       where: { pushToken, userId: { not: userId } },
       data: { pushToken: null, pushPlatform: null, pushProvider: null },
     });
+    // A finalized customer surface keeps its row with `userId` unlinked, and SQL
+    // `user_id <> $x` is UNKNOWN — not true — for a NULL, so `not` alone would
+    // skip it. That skipped token still occupies the unique `push_token` index,
+    // so the upsert below would fail forever with a unique violation. The OR's
+    // first branch clears those orphans.
     await prisma.customerProfile.updateMany({
-      where: { pushToken, userId: { not: userId } },
+      where: { pushToken, OR: [{ userId: null }, { userId: { not: userId } }] },
       data: { pushToken: null, pushPlatform: null, pushProvider: null },
     });
 
