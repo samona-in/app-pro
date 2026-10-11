@@ -2,11 +2,13 @@ import type { ReactNode } from 'react';
 import { Alert, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { JobStatus, isChatClosed, type JobStatus as Status } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { Card, Screen, Text } from '@/components/ui';
 import { useCancelJob, useProJobs, useSubmitGuard, useUnreadMessages } from '@/hooks';
+import { queryKeys } from '@/constants';
 import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -60,6 +62,7 @@ function ActionRow({
 export default function JobActionsScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
   const unread = useUnreadMessages();
   const { data: jobs } = useProJobs();
   const cancel = useCancelJob();
@@ -87,8 +90,13 @@ export default function JobActionsScreen() {
             void (async () => {
               try {
                 await cancel.mutateAsync({ jobId: id });
-                // Drop the modal and land on Home: the server has freed the
-                // pro, and the job screens will no longer show this job.
+                // The server has released the pro. Refresh the assigned-jobs
+                // cache before routing home: Home focuses the still-stale list
+                // and would bounce the pro straight back into this job's
+                // screens, which now have nothing to render.
+                await queryClient.refetchQueries({ queryKey: queryKeys.jobs.all });
+                // Drop the modal and land on Home: the job screens will no
+                // longer show this job.
                 router.replace('/home');
               } catch (error) {
                 Alert.alert(
