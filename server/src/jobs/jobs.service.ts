@@ -104,6 +104,19 @@ function notifyCustomer(
     });
 }
 
+/**
+ * The identity id of a job's customer on a *transition* path.
+ *
+ * A transition mutates an assigned, still-active job, and deletion is deferred
+ * until every assigned job clears — so at these call sites the customer is
+ * never a tombstone and always resolves an identity. Only *reads* of finished
+ * jobs can surface a deleted customer, which is why `JobCustomerSummary.userId`
+ * stays nullable while this narrows the active-job guarantee.
+ */
+function customerUserId(customer: { userId: string | null }): string {
+  return customer.userId!;
+}
+
 /** The projection job *detail* reads use: counterparty identity + coordinates. */
 // `verificationOtp` is a scalar on Job and is returned with every include-based
 // read automatically — it must not appear in this relation projection (Prisma
@@ -167,12 +180,12 @@ type JobRow = {
 type JobDetailRow = JobRow & {
   verificationOtp: string | null;
   customer: {
-    userId: string;
+    userId: string | null;
     displayName: string | null;
     locationLabel: string | null;
     latitude: number | null;
     longitude: number | null;
-    profile: { phone: string | null };
+    profile: { phone: string | null } | null;
   };
   pro: {
     id: string;
@@ -260,7 +273,9 @@ function toJobDetail(
             locationLabel: row.locationLabel,
             // Contact share: once a pro commits, the customer's number is
             // needed to coordinate the job in person.
-            phone: row.customer.profile.phone,
+            // Contact share happens only once the job is accepted and the customer is
+            // still live; a tombstoned customer (on a finished job) exposes none.
+            phone: row.customer.profile?.phone ?? null,
           }
         : null,
     pro:
@@ -321,10 +336,22 @@ export function createJobsService(deps: JobsServiceDeps) {
   ): Promise<JobDetail> {
     const customer = await prisma.customerProfile.findUnique({
       where: { userId: customerUserId },
-      select: { id: true, locationLabel: true, latitude: true, longitude: true },
+      select: {
+        id: true,
+        locationLabel: true,
+        latitude: true,
+        longitude: true,
+        deletedAt: true,
+        deletionRequestedAt: true,
+      },
     });
     if (!customer) {
       throw notFound('Your profile is not ready yet. Try again in a moment.');
+    }
+    // A pending or completed deletion locks the customer out of new bookings;
+    // the account keeps finishing whatever is already in flight.
+    if (customer.deletedAt || customer.deletionRequestedAt) {
+      throw conflict('Your account is being deleted and can no longer place bookings.');
     }
 
     const service = await prisma.service.findFirst({
@@ -541,14 +568,14 @@ export function createJobsService(deps: JobsServiceDeps) {
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
     realtime.emitToUser(
-      updated.customer.userId,
+      customerUserId(updated.customer),
       REALTIME_EVENTS.JOB_STATUS,
       toJobDetail(updated as unknown as JobDetailRow, 'customer', storage, config),
     );
 
     notifyCustomer(notifications, {
       customerId: updated.customerId,
-      customerUserId: updated.customer.userId,
+      customerUserId: customerUserId(updated.customer),
       jobId: updated.id,
       kind: NotificationKind.PAYMENT,
       title:
@@ -660,7 +687,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       config,
     );
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
-    realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, {
+    realtime.emitToUser(customerUserId(row.customer), REALTIME_EVENTS.JOB_STATUS, {
       ...customerDetail,
       cancelledBy,
     });
@@ -677,7 +704,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     if (!actorIsCustomer) {
       notifyCustomer(notifications, {
         customerId: updated.customerId,
-        customerUserId: row.customer.userId,
+        customerUserId: customerUserId(row.customer),
         jobId: updated.id,
         kind: NotificationKind.JOB_STATUS,
         title: 'Booking cancelled',
@@ -748,7 +775,7 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     return {
       detail: actorIsCustomer ? customerDetail : proDetail,
-      customerUserId: row.customer.userId,
+      customerUserId: customerUserId(row.customer),
       proUserId: row.pro?.userId ?? null,
     };
   }
@@ -834,14 +861,14 @@ export function createJobsService(deps: JobsServiceDeps) {
       config,
     );
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
-    realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    realtime.emitToUser(customerUserId(updated.customer), REALTIME_EVENTS.JOB_STATUS, customerDetail);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
 
     // The customer hears their booking is back in the marketplace — not that it
     // was cancelled — and the page states the outcome in place too.
     notifyCustomer(notifications, {
       customerId: updated.customerId,
-      customerUserId: updated.customer.userId,
+      customerUserId: customerUserId(updated.customer),
       jobId: updated.id,
       kind: NotificationKind.JOB_STATUS,
       title: 'Finding a new professional',
@@ -909,7 +936,7 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     return {
       detail: proDetail,
-      customerUserId: updated.customer.userId,
+      customerUserId: customerUserId(updated.customer),
       proUserId,
     };
   }
@@ -1238,7 +1265,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       config,
     );
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
-    realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    realtime.emitToUser(customerUserId(updated.customer), REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
     // A job that is now assigned is no longer open: stop the repeating alert
     // still paging every other eligible pro, and page them with an accepted
@@ -1269,7 +1296,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     // their Notifications screen.
     notifyCustomer(notifications, {
       customerId: updated.customerId,
-      customerUserId: updated.customer.userId,
+      customerUserId: customerUserId(updated.customer),
       jobId: updated.id,
       kind: NotificationKind.JOB_STATUS,
       title: 'Booking accepted',
@@ -1496,7 +1523,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       config,
     );
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
-    realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    realtime.emitToUser(customerUserId(updated.customer), REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
     // Each on-site stage the pro reaches shows up on the customer's
     // Notifications screen too; labour stays visible, not something to poll for.
@@ -1515,7 +1542,7 @@ export function createJobsService(deps: JobsServiceDeps) {
           : { title: 'Work complete', body: context };
     notifyCustomer(notifications, {
       customerId: updated.customerId,
-      customerUserId: updated.customer.userId,
+      customerUserId: customerUserId(updated.customer),
       jobId: updated.id,
       kind: NotificationKind.JOB_STATUS,
       title: stageCopy.title,
@@ -1571,7 +1598,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     if (issued) {
       try {
         await notifications.sendCustomerPush({
-          userId: row.customer.userId,
+          userId: customerUserId(row.customer),
           jobId: row.id,
           title: 'Your verification code is ready',
           body: `Share the 4-digit code with ${row.pro?.displayName ?? 'your professional'} to start the work.`,
@@ -1584,7 +1611,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       }
       recordCustomerNotice(notifications, {
         customerId: row.customerId,
-        customerUserId: row.customer.userId,
+        customerUserId: customerUserId(row.customer),
         jobId: row.id,
         kind: NotificationKind.JOB_STATUS,
         title: 'Your verification code is ready',
@@ -1596,7 +1623,7 @@ export function createJobsService(deps: JobsServiceDeps) {
     const proDetail = toJobDetail(row as unknown as JobDetailRow, 'pro', storage, config);
     const customerDetail = toJobDetail(row as unknown as JobDetailRow, 'customer', storage, config);
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
-    realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    realtime.emitToUser(customerUserId(row.customer), REALTIME_EVENTS.JOB_STATUS, customerDetail);
     return proDetail;
   }
 
@@ -1683,13 +1710,13 @@ export function createJobsService(deps: JobsServiceDeps) {
       config,
     );
     realtime.emitToUser(proUserId, REALTIME_EVENTS.JOB_STATUS, proDetail);
-    realtime.emitToUser(updated.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+    realtime.emitToUser(customerUserId(updated.customer), REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
     const proName = updated.pro?.displayName ?? 'Your professional';
     const serviceName = updated.service.name;
     notifyCustomer(notifications, {
       customerId: updated.customerId,
-      customerUserId: updated.customer.userId,
+      customerUserId: customerUserId(updated.customer),
       jobId: updated.id,
       kind: NotificationKind.JOB_STATUS,
       title: 'Work started',
@@ -1860,7 +1887,7 @@ export function createJobsService(deps: JobsServiceDeps) {
       // The customer hears that no one picked up their request in time.
       notifyCustomer(notifications, {
         customerId: row.customerId,
-        customerUserId: row.customer.userId,
+        customerUserId: customerUserId(row.customer),
         jobId: row.id,
         kind: NotificationKind.JOB_STATUS,
         title: 'Request expired',
@@ -1880,7 +1907,7 @@ export function createJobsService(deps: JobsServiceDeps) {
         storage,
         config,
       );
-      realtime.emitToUser(row.customer.userId, REALTIME_EVENTS.JOB_STATUS, customerDetail);
+      realtime.emitToUser(customerUserId(row.customer), REALTIME_EVENTS.JOB_STATUS, customerDetail);
 
       const alerted = await prisma.notification.findMany({
         where: { jobId: row.id, kind: NotificationKind.JOB_ALERT },

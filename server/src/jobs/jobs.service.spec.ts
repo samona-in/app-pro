@@ -105,6 +105,40 @@ describe('createJobsService.createForCustomer', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
+  it('refuses to create a booking once deletion is pending', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.customerProfile.findUnique.mockResolvedValue({
+      id: 'cust-1',
+      userId: 'user-1',
+      locationLabel: null,
+      latitude: null,
+      longitude: null,
+      deletedAt: null,
+      deletionRequestedAt: new Date(),
+    });
+
+    await expect(ctx.jobs.createForCustomer('user-1', baseInput)).rejects.toMatchObject({
+      status: 409,
+    });
+  });
+
+  it('refuses to create a booking for a tombstoned customer profile', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.customerProfile.findUnique.mockResolvedValue({
+      id: 'cust-1',
+      userId: 'user-1',
+      locationLabel: null,
+      latitude: null,
+      longitude: null,
+      deletedAt: new Date(),
+      deletionRequestedAt: null,
+    });
+
+    await expect(ctx.jobs.createForCustomer('user-1', baseInput)).rejects.toMatchObject({
+      status: 409,
+    });
+  });
+
   it('snapshots a submitted per-job location onto the job', async () => {
     const ctx = buildJobs();
 

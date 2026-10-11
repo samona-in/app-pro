@@ -1,16 +1,18 @@
 /**
- * Account-deletion DTOs, consumed by the Pro app.
+ * Account-deletion DTOs, consumed by the Pro and Customer apps.
  *
  * The `AccountDeletionScope`/`AccountDeletionStatus` member names mirror the
  * Prisma enums `AccountDeletionScope`/`AccountDeletionStatus` in the server
  * schema — keep the two in sync. The server is the authority on scope (decided
- * from the account shape, never from the client); these types only describe
- * what the server returns.
+ * from the account shape and the caller's surface, never from the client);
+ * these types only describe what the server returns.
  */
 
 export const AccountDeletionScope = {
   /** Only the professional surface is removed; the customer surface and Signin persist. */
   PRO_PROFILE: 'PRO_PROFILE',
+  /** Only the customer surface is removed; the pro surface and Signin persist. */
+  CUSTOMER_PROFILE: 'CUSTOMER_PROFILE',
   /** The whole identity is torn down, including Supabase Auth. */
   FULL_ACCOUNT: 'FULL_ACCOUNT',
 } as const;
@@ -20,7 +22,7 @@ export type AccountDeletionScope = (typeof AccountDeletionScope)[keyof typeof Ac
 export const AccountDeletionStatus = {
   /** A fresh OTP was verified and a single-use token issued; the DELETE call has not consumed it. */
   AUTHORIZED: 'AUTHORIZED',
-  /** Deletion accepted but the pro still has active jobs, so finalization is deferred. */
+  /** Deletion accepted but the account still has active jobs, so finalization is deferred. */
   AWAITING_ACTIVE_JOBS: 'AWAITING_ACTIVE_JOBS',
   /** The sweeper is running finalization steps. */
   IN_PROGRESS: 'IN_PROGRESS',
@@ -58,6 +60,8 @@ export interface DeletionStatus {
   scope: AccountDeletionScope;
   /** Whether the account also carries a customer profile, which survives PRO_PROFILE deletion. */
   hasCustomerProfile: boolean;
+  /** Whether the account also carries a pro profile, which survives CUSTOMER_PROFILE deletion. */
+  hasProProfile: boolean;
   /** Whether a fresh deletion could be authorized right now. */
   canAuthorize: boolean;
   /** A valid, unconsumed authorization already exists (the app can skip straight to confirm). */

@@ -372,31 +372,42 @@ provided by clients without server validation.
 
 ## Permanent Account Deletion
 
-Deletion of a professional account is server-driven and irreversible, and it
-is a marketplace problem, not a row problem. The scope is decided **by the
-server** from the account's shape, never by the client:
+Deletion is server-driven and irreversible, and it is a marketplace problem,
+not a row problem. The scope is decided **by the server** from the account's
+shape and the surface the request arrived on, never by the client. The pro and
+customer apps both ship the same three routes, and the `X-App-Type` header tells
+the server whether to delete the pro or the customer surface:
 
-- `PRO_PROFILE` — the account also has a customer surface. Only the professional
-  surface is removed; the `ProProfile` row becomes a tombstone (PII nulled,
-  keys kept), the customer surface, jobs, ratings and chat survive, and the
-  Supabase Auth identity is untouched.
-- `FULL_ACCOUNT` — no customer surface. The pro surface is removed **and** the
-  Supabase Auth identity is deleted through the Admin API.
+- `PRO_PROFILE` — the pro surface is removed; the `ProProfile` row becomes a
+  tombstone (PII nulled, keys kept), the customer surface, jobs, ratings and
+  chat survive, and the Supabase Auth identity is untouched.
+- `CUSTOMER_PROFILE` — the customer surface is removed; the `CustomerProfile`
+  row becomes a tombstone (PII nulled, keys kept), the pro surface, jobs,
+  ratings and chat survive, and the Supabase Auth identity is untouched.
+- `FULL_ACCOUNT` — the account has one surface left. It is removed **and** the
+  Supabase Auth identity is deleted through the Admin API. When both surfaces
+  exist, deleting the second (tombstoned) surface automatically becomes
+  `FULL_ACCOUNT`.
 
 The decisions that keep a marketplace honest while honoring erasure:
 
-- `ProProfile` and `Profile` rows are **tombstoned** (surrogate key + deleted
-  timestamp), never hard-deleted, so historical `Job.proId`, reviews, chat and
-  earnings never dangle. `Job.proId` and `Message.senderId` are `Restrict`, so
-  a future hard-delete fork stays impossible by construction.
-- Delete the pro's owned rows (`ProService`, `ProSkill`, `ProDocument`,
-  notifications, offers/declines) and purge S3 objects under `pros/{userId}/`
-  in the selfie, avatar and document buckets. `jobs/{customerId}/` objects are
-  the customer's record and survive.
+- `ProProfile`, `CustomerProfile` and `Profile` rows are **tombstoned**
+  (surrogate key + deleted timestamp), never hard-deleted, so historical
+  `Job.proId`/`Job.customerId`, reviews, chat and earnings never dangle. A
+  customer tombstone additionally has `user_id` set to `null` (the column is
+  unique and nullable) so the identity is free to re-register without the old
+  row ever resolving again. `Job.proId`, `Job.customerId` and `Message.senderId`
+  are `Restrict`, so a future hard-delete fork stays impossible by construction.
+- Delete the owned rows (`ProService`, `ProSkill`, `ProDocument`,
+  pro notifications, offers/declines, customer addresses and customer
+  notifications) and purge S3 objects under `pros/{userId}/` or
+  `customers/{userId}/` as the scope dictates. `jobs/{customerId}/` objects are
+  the booking's record and survive.
 - A `Job` that is `ACCEPTED`/`TRAVELLING`/`ARRIVED`/`IN_PROGRESS` blocks
-  finalization: deletion is locked (`isOnline=false`,
-  `deletionRequestedAt=[now]`), the pro finishes those jobs, and the sweeper
-  finalizes when they clear. `COMPLETED`/`PAYMENT_PENDING` never block.
+  finalization: deletion is locked (`isOnline=false` for a pro,
+  `deletionRequestedAt=[now]` for a customer — the customer can no longer
+  place bookings), the work finishes, and the sweeper finalizes when the jobs
+  clear. `COMPLETED`/`PAYMENT_PENDING` never block.
 - Finalization is an idempotent step list (`LOCK → PURGE_S3 → PURGE_DB →
   DELETE_AUTH → FINALIZE`); each step is recorded only when it finishes so a
   crash resumes from the last completed step. Retries past the attempt ceiling
@@ -405,9 +416,20 @@ The decisions that keep a marketplace honest while honoring erasure:
   verified token's `amr` claim within `accountDeletionReauthWindowMs` is
   required before any token is minted. The single-use token is hashed (SHA-256)
   at rest; `DELETE /users/me` consumes it atomically and a replay is `410`.
-- A tombstoned profile can never re-login or re-onboard: `syncUser` treats it
-  as no-account, auth returns `401`, availability is refused, and matching,
-  offers and claims exclude it.
+- An erased pro surface can never re-login or re-onboard: `syncUser` treats a
+  tombstoned `ProProfile` as no-account, availability is refused, and matching,
+  offers and claims exclude the surface.
+- An erased customer surface is likewise never resolved again, but the surviving
+  identity can onboard a **fresh** one. `CustomerProfile.user_id` is unique and
+  nullable; finalizing a customer-surface deletion **nulls** the tombstone's
+  `user_id`, so `ensureForUser`'s upsert (which matches on `user_id`) finds no
+  live row and creates a new profile. Old jobs, reviews and chat keep pointing
+  at the old tombstone's id and never follow the new person; a new profile is a
+  stranger to those threads, so `resolveThread` sees a null other-party and
+  persists a message without nudging anyone. A deletion merely *in progress*
+  still refuses: `ensureForUser` returns `409 CONFLICT` until the sweep
+  finalizes, and re-issuing a deletion for the fresh surface resets the
+  `AccountDeletion` row rather than treating the completed one as terminal.
 - The `X-Deletion-Token` header re-auth rides the same `limiters.auth` and
   `limiters.write` tiers as every other credential/write call.
 

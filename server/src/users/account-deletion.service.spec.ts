@@ -22,6 +22,15 @@ interface StoredPro {
   selfieCapturedAt?: Date | null;
 }
 
+interface StoredCustomer {
+  id: string;
+  userId: string | null;
+  deletedAt: Date | null;
+  deletionRequestedAt: Date | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
 interface StoredAccount {
   profileId: string;
   scope: AccountDeletionScope;
@@ -35,6 +44,7 @@ interface StoredAccount {
   holdsCapturedAt: Date | null;
   profileHeld: boolean;
   heldDocumentPaths: string[];
+  customerProfileId: string | null;
 }
 
 /** A small in-memory stand-in for the Prisma surface the service touches. */
@@ -55,7 +65,14 @@ function fakePrisma(initial: {
     displayName: 'Asha',
     ...p,
   }));
-  const customers = new Set(initial.customers ?? []);
+  const customers: StoredCustomer[] = (initial.customers ?? []).map((userId) => ({
+    id: `customer-${userId}`,
+    userId,
+    deletedAt: null,
+    deletionRequestedAt: null,
+    displayName: 'Asha',
+    avatarUrl: 'customers/user-1/avatar-1.jpg',
+  }));
   const deletions: StoredAccount[] = (initial.deletions ?? []).map((d) => ({
     profileId: 'user-1',
     scope: AccountDeletionScope.FULL_ACCOUNT,
@@ -69,6 +86,7 @@ function fakePrisma(initial: {
     holdsCapturedAt: null,
     profileHeld: false,
     heldDocumentPaths: [],
+    customerProfileId: null,
     ...d,
   }));
   const profile = {
@@ -94,10 +112,8 @@ function fakePrisma(initial: {
         updates.push('profile.findUnique');
         return {
           ...profile,
-          proProfile:
-            pros.find((p) => p.userId === profile.id) ??
-            ({ deletedAt: null, deletionRequestedAt: null } as StoredPro),
-          customerProfile: customers.has(profile.id) ? { id: 'customer-1' } : null,
+          proProfile: pros.find((p) => p.userId === profile.id) ?? null,
+          customerProfile: customers.find((c) => c.userId === profile.id) ?? null,
           accountDeletion:
             deletions.find((d) => d.profileId === profile.id && d.authTokenHash !== null) ??
             deletions.find((d) => d.profileId === profile.id) ??
@@ -149,6 +165,47 @@ function fakePrisma(initial: {
       ),
       deleteMany: jest.fn(async () => ({ count: 0 })),
     },
+    customerProfile: {
+      findMany: jest.fn(async () => customers),
+      findUnique: jest.fn(async ({ where }: { where: { userId: string; id?: string } }) => {
+        updates.push('customerProfile.findUnique');
+        const customer = customers.find(
+          (c) => c.userId === where.userId || c.id === where.id,
+        );
+        return customer ? { ...customer } : null;
+      }),
+      update: jest.fn(
+        async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+          updates.push('customerProfile.update');
+          const customer = customers.find((c) => c.id === where.id);
+          if (!customer) return null;
+          Object.assign(customer, data);
+          return { ...customer };
+        },
+      ),
+      updateMany: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: Record<string, unknown>;
+          data: Record<string, unknown>;
+        }) => {
+          updates.push('customerProfile.updateMany');
+          const matches = customers.filter((c) => {
+            if (where.userId !== undefined && c.userId !== where.userId) return false;
+            if (where.id !== undefined && c.id !== where.id) return false;
+            if (where.deletionRequestedAt === null && c.deletionRequestedAt !== null) return false;
+            return true;
+          });
+          matches.forEach((c) => Object.assign(c, data));
+          return { count: matches.length };
+        },
+      ),
+      deleteMany: jest.fn(async () => ({ count: 0 })),
+    },
+    savedAddress: { deleteMany: jest.fn(async () => ({ count: 0 })) },
+    customerNotification: { deleteMany: jest.fn(async () => ({ count: 0 })) },
     accountDeletion: {
       findUnique: jest.fn(async ({ where }: { where: { profileId: string } }) => {
         updates.push('accountDeletion.findUnique');
@@ -242,12 +299,14 @@ function fakePrisma(initial: {
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma as unknown)),
     __updates: updates,
     __pros: pros,
+    __customers: customers,
     __profile: profile,
     __deletions: deletions,
   };
   return prisma as unknown as PrismaClient & {
     __updates: string[];
     __pros: StoredPro[];
+    __customers: StoredCustomer[];
     __profile: typeof profile;
     __deletions: StoredAccount[];
   };
@@ -352,13 +411,13 @@ describe('createAccountDeletionService', () => {
       const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
 
       const stale = { method: 'otp', timestamp: secondsFromNow(-60 * 60) };
-      await expect(service.issueAuthorization('user-1', [stale])).rejects.toMatchObject({
+      await expect(service.issueAuthorization('user-1', [stale], null)).rejects.toMatchObject({
         status: 403,
       });
 
-      await expect(service.issueAuthorization('user-1', [])).rejects.toMatchObject({ status: 403 });
+      await expect(service.issueAuthorization('user-1', [], null)).rejects.toMatchObject({ status: 403 });
       await expect(
-        service.issueAuthorization('user-1', [{ method: 'oauth', timestamp: secondsFromNow(-10) }]),
+        service.issueAuthorization('user-1', [{ method: 'oauth', timestamp: secondsFromNow(-10) }], null),
       ).rejects.toMatchObject({ status: 403 });
     });
 
@@ -368,7 +427,7 @@ describe('createAccountDeletionService', () => {
 
       const { token, scope, expiresAt } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
+      ], null);
 
       expect(scope).toBe(AccountDeletionScope.PRO_PROFILE);
       expect(expiresAt).toEqual(expect.any(String));
@@ -384,9 +443,81 @@ describe('createAccountDeletionService', () => {
 
       const { scope } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
+      ], null);
 
       expect(scope).toBe(AccountDeletionScope.FULL_ACCOUNT);
+    });
+
+    it('mints a customer-surface authorization when both profiles exist', async () => {
+      const prisma = fakePrisma({ customers: ['user-1'] });
+      const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
+
+      const { scope } = await service.issueAuthorization(
+        'user-1',
+        [{ method: 'otp', timestamp: secondsFromNow(-60) }],
+        'customer',
+      );
+
+      expect(scope).toBe(AccountDeletionScope.CUSTOMER_PROFILE);
+    });
+
+    it('mints a full-account authorization for a customer-only account', async () => {
+      const prisma = fakePrisma({ pros: [], customers: ['user-1'] });
+      const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
+
+      const { scope } = await service.issueAuthorization(
+        'user-1',
+        [{ method: 'otp', timestamp: secondsFromNow(-60) }],
+        'customer',
+      );
+
+      expect(scope).toBe(AccountDeletionScope.FULL_ACCOUNT);
+    });
+
+    it('re-issues a completed pro-surface row as a full-account deletion (dual-role)', async () => {
+      const prisma = fakePrisma({
+        customers: ['user-1'],
+        pros: [{ deletedAt: new Date(), deletionRequestedAt: new Date() }],
+        deletions: [
+          { status: AccountDeletionStatus.COMPLETED, scope: AccountDeletionScope.PRO_PROFILE },
+        ],
+      });
+      const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
+
+      const { scope } = await service.issueAuthorization(
+        'user-1',
+        [{ method: 'otp', timestamp: secondsFromNow(-60) }],
+        'customer',
+      );
+
+      expect(scope).toBe(AccountDeletionScope.FULL_ACCOUNT);
+      const row = prisma.__deletions[0]!;
+      expect(row.scope).toBe(AccountDeletionScope.FULL_ACCOUNT);
+      expect(row.status).toBe(AccountDeletionStatus.AUTHORIZED);
+      expect(row.authTokenConsumedAt).toBeNull();
+    });
+
+    it('re-issues the customer surface once it was re-created by re-registration', async () => {
+      const prisma = fakePrisma({
+        customers: ['user-1'],
+        deletions: [
+          { status: AccountDeletionStatus.COMPLETED, scope: AccountDeletionScope.CUSTOMER_PROFILE },
+        ],
+      });
+      const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
+
+      const { scope } = await service.issueAuthorization(
+        'user-1',
+        [{ method: 'otp', timestamp: secondsFromNow(-60) }],
+        'customer',
+      );
+
+      // A completed customer-surface row used to be terminal; now the freshly
+      // re-registered surface is deletable again, so the row is reset.
+      expect(scope).toBe(AccountDeletionScope.CUSTOMER_PROFILE);
+      expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.AUTHORIZED);
+      expect(prisma.__deletions[0]!.step).toBeNull();
+      expect(prisma.__deletions[0]!.customerProfileId).toBeNull();
     });
 
     it('does not mint twice while a prior token is still pending', async () => {
@@ -395,9 +526,9 @@ describe('createAccountDeletionService', () => {
 
       await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
+      ], null);
       await expect(
-        service.issueAuthorization('user-1', [{ method: 'otp', timestamp: secondsFromNow(-30) }]),
+        service.issueAuthorization('user-1', [{ method: 'otp', timestamp: secondsFromNow(-30) }], null),
       ).rejects.toMatchObject({ status: 409 });
     });
   });
@@ -416,8 +547,8 @@ describe('createAccountDeletionService', () => {
 
       const { token } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
-      const result = await service.deleteAccount('user-1', token);
+      ], null);
+      const result = await service.deleteAccount('user-1', token, null);
 
       expect(result).toEqual({
         scope: AccountDeletionScope.PRO_PROFILE,
@@ -431,6 +562,86 @@ describe('createAccountDeletionService', () => {
       expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
       // A PRO_PROFILE deletion never touches the Supabase identity.
       expect(admin.deleteUser).not.toHaveBeenCalled();
+    });
+
+    it('deletes only the customer surface, keeping the identity and the pro profile', async () => {
+      const prisma = fakePrisma({ customers: ['user-1'] });
+      storage.__objects.push(
+        { bucket: 'avatars', key: 'pros/user-1/avatar-1.jpg' },
+        { bucket: 'avatars', key: 'customers/user-1/avatar-1.jpg' },
+        { bucket: 'job-images', key: 'jobs/user-1/job.jpg' },
+      );
+      const admin = { deleteUser: jest.fn() };
+      const service = createAccountDeletionService({
+        prisma,
+        config: config(),
+        storage,
+        realtime,
+        supabaseAdmin: admin,
+      });
+
+      const { token, scope } = await service.issueAuthorization(
+        'user-1',
+        [{ method: 'otp', timestamp: secondsFromNow(-60) }],
+        'customer',
+      );
+      expect(scope).toBe(AccountDeletionScope.CUSTOMER_PROFILE);
+      const result = await service.deleteAccount('user-1', token, 'customer');
+
+      expect(result).toEqual({
+        scope: AccountDeletionScope.CUSTOMER_PROFILE,
+        deferredToActiveJobs: false,
+      });
+      // The identity and the pro surface survive; only the customer is gone.
+      expect(prisma.__profile.phone).toBe('+919876543210');
+      expect(prisma.__profile.deletedAt).toBeNull();
+      expect(prisma.__pros[0]!.deletedAt).toBeNull();
+      const customer = prisma.__customers[0]!;
+      expect(customer.deletedAt).not.toBeNull();
+      expect(customer.displayName).toBeNull();
+      // The tombstone is unlinked so the identity can re-register fresh; the row
+      // (and its id) survives for the booking/review/chat record.
+      expect(customer.userId).toBeNull();
+      // The run froze which customer surface it deletes, for a retry to reuse.
+      expect(prisma.__deletions[0]!.customerProfileId).toBe('customer-user-1');
+      expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
+      expect(admin.deleteUser).not.toHaveBeenCalled();
+      // The customer avatar is purged; the pro's avatar and job photos survive.
+      expect(storage.keys('avatars')).toEqual(['pros/user-1/avatar-1.jpg']);
+      expect(storage.keys('job-images')).toEqual(['jobs/user-1/job.jpg']);
+    });
+
+    it('completes a dual-role account by deleting the identity after the pro surface', async () => {
+      const prisma = fakePrisma({
+        customers: ['user-1'],
+        pros: [{ deletedAt: new Date(), deletionRequestedAt: new Date() }],
+        deletions: [
+          { status: AccountDeletionStatus.COMPLETED, scope: AccountDeletionScope.PRO_PROFILE },
+        ],
+      });
+      const admin = { deleteUser: jest.fn().mockResolvedValue(undefined) };
+      const service = createAccountDeletionService({
+        prisma,
+        config: config(),
+        storage,
+        realtime,
+        supabaseAdmin: admin,
+      });
+
+      const { token, scope } = await service.issueAuthorization(
+        'user-1',
+        [{ method: 'otp', timestamp: secondsFromNow(-60) }],
+        'customer',
+      );
+      expect(scope).toBe(AccountDeletionScope.FULL_ACCOUNT);
+      const result = await service.deleteAccount('user-1', token, 'customer');
+
+      expect(result.scope).toBe(AccountDeletionScope.FULL_ACCOUNT);
+      expect(prisma.__profile.phone).toBeNull();
+      expect(prisma.__profile.deletedAt).not.toBeNull();
+      expect(prisma.__customers[0]!.deletedAt).not.toBeNull();
+      expect(admin.deleteUser).toHaveBeenCalledWith('user-1');
+      expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
     });
 
     it('deletes the identity too for a full-account deletion', async () => {
@@ -452,8 +663,8 @@ describe('createAccountDeletionService', () => {
 
       const { token } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
-      const result = await service.deleteAccount('user-1', token);
+      ], null);
+      const result = await service.deleteAccount('user-1', token, null);
 
       expect(result.scope).toBe(AccountDeletionScope.FULL_ACCOUNT);
       expect(result.deferredToActiveJobs).toBe(false);
@@ -474,7 +685,7 @@ describe('createAccountDeletionService', () => {
     it('rejects a bogus token as consumed/expired (410)', async () => {
       const prisma = fakePrisma({});
       const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
-      await expect(service.deleteAccount('user-1', 'not-a-real-token')).rejects.toMatchObject({
+      await expect(service.deleteAccount('user-1', 'not-a-real-token', null)).rejects.toMatchObject({
         status: 410,
       });
     });
@@ -492,10 +703,10 @@ describe('createAccountDeletionService', () => {
 
       const { token } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
-      await service.deleteAccount('user-1', token);
+      ], null);
+      await service.deleteAccount('user-1', token, null);
 
-      await expect(service.deleteAccount('user-1', token)).rejects.toMatchObject({ status: 410 });
+      await expect(service.deleteAccount('user-1', token, null)).rejects.toMatchObject({ status: 410 });
     });
 
     it('defers finalization while blocking jobs remain', async () => {
@@ -504,8 +715,8 @@ describe('createAccountDeletionService', () => {
 
       const { token, scope } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
-      const result = await service.deleteAccount('user-1', token);
+      ], null);
+      const result = await service.deleteAccount('user-1', token, null);
 
       expect(result).toEqual({ scope, deferredToActiveJobs: true });
       // The pro is locked out immediately even though finalization waits.
@@ -544,8 +755,8 @@ describe('createAccountDeletionService', () => {
 
       const { token } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
-      await service.deleteAccount('user-1', token);
+      ], null);
+      await service.deleteAccount('user-1', token, null);
 
       // Only the held document object survives; the selfie, avatar and the
       // unheld document are still purged.
@@ -588,8 +799,8 @@ describe('createAccountDeletionService', () => {
 
       const { token } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
-      await service.deleteAccount('user-1', token);
+      ], null);
+      await service.deleteAccount('user-1', token, null);
 
       // Consulted once, before deletion; PURGE_DB consumed the frozen snapshot
       // and never re-resolved it. Re-resolving is the TOCTOU this guards.
@@ -627,8 +838,8 @@ describe('createAccountDeletionService', () => {
 
       const { token } = await service.issueAuthorization('user-1', [
         { method: 'otp', timestamp: secondsFromNow(-60) },
-      ]);
-      await service.deleteAccount('user-1', token);
+      ], null);
+      await service.deleteAccount('user-1', token, null);
 
       // Nothing under the held profile is removed, and the rows that name the
       // objects (selfie reference, documents) are kept.
@@ -663,6 +874,49 @@ describe('createAccountDeletionService', () => {
       await service.sweep();
 
       expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
+    });
+
+    it('purges the frozen customer surface, never a re-registered one', async () => {
+      const prisma = fakePrisma({
+        customers: ['user-1'],
+        deletions: [
+          {
+            status: AccountDeletionStatus.AWAITING_ACTIVE_JOBS,
+            scope: AccountDeletionScope.CUSTOMER_PROFILE,
+            customerProfileId: 'customer-user-1',
+          },
+        ],
+        blockingJobs: 0,
+      });
+      const service = createAccountDeletionService({
+        prisma,
+        config: config(),
+        storage,
+        realtime,
+        supabaseAdmin: { deleteUser: jest.fn() },
+      });
+
+      // The same identity has re-registered as a fresh, live customer while the
+      // original deletion was still deferred. The sweeper must tombstone the
+      // frozen original and leave the new surface alone.
+      prisma.__customers.push({
+        id: 'customer-2',
+        userId: 'user-1',
+        deletedAt: null,
+        deletionRequestedAt: null,
+        displayName: 'Asha',
+        avatarUrl: null,
+      });
+
+      await service.sweep();
+
+      const original = prisma.__customers.find((c) => c.id === 'customer-user-1')!;
+      const fresh = prisma.__customers.find((c) => c.id === 'customer-2')!;
+      expect(original.deletedAt).not.toBeNull();
+      expect(original.userId).toBeNull();
+      expect(fresh.deletedAt).toBeNull();
+      expect(fresh.userId).toBe('user-1');
+      expect(fresh.deletionRequestedAt).toBeNull();
     });
 
     it('skips a deletion that already failed past the attempt ceiling', async () => {
@@ -707,10 +961,22 @@ describe('createAccountDeletionService', () => {
       const prisma = fakePrisma({ blockingJobs: 1 });
       const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
 
-      const status = await service.getDeletionStatus('user-1');
+      const status = await service.getDeletionStatus('user-1', null);
 
       expect(status.activeJobCount).toBe(1);
       expect(status.canAuthorize).toBe(true);
+      expect(status.deleted).toBe(false);
+    });
+
+    it('reports the customer surface and the surviving pro profile', async () => {
+      const prisma = fakePrisma({ customers: ['user-1'] });
+      const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
+
+      const status = await service.getDeletionStatus('user-1', 'customer');
+
+      expect(status.scope).toBe(AccountDeletionScope.CUSTOMER_PROFILE);
+      expect(status.hasProProfile).toBe(true);
+      expect(status.hasCustomerProfile).toBe(true);
       expect(status.deleted).toBe(false);
     });
 
@@ -721,7 +987,7 @@ describe('createAccountDeletionService', () => {
       });
       const service = createAccountDeletionService({ prisma, config: config(), storage, realtime });
 
-      const status = await service.getDeletionStatus('user-1');
+      const status = await service.getDeletionStatus('user-1', null);
 
       expect(status.deleted).toBe(true);
       expect(status.inProgress).toBe(false);

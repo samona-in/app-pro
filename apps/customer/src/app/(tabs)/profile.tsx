@@ -36,11 +36,13 @@ function SettingsRow({
   icon,
   label,
   last,
+  destructive,
   onPress,
 }: {
   icon: IoniconName;
   label: string;
   last?: boolean;
+  destructive?: boolean;
   onPress?: () => void;
 }) {
   return (
@@ -53,9 +55,13 @@ function SettingsRow({
     >
       <View className="flex-row items-center">
         <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-muted">
-          <Ionicons name={icon} size={18} color={color['text-secondary']} />
+          <Ionicons
+            name={icon}
+            size={18}
+            color={destructive ? color.danger : color['text-secondary']}
+          />
         </View>
-        <Text variant="body" className="ml-3 flex-1">
+        <Text variant="body" className={`ml-3 flex-1${destructive ? ' text-danger' : ''}`}>
           {label}
         </Text>
         <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
@@ -155,15 +161,24 @@ export default function Profile() {
       </View>
 
       <View className="mt-6">
-        {SETTINGS_ROWS.map((row, index) => (
+        {SETTINGS_ROWS.map((row) => (
           <SettingsRow
             key={row.label}
             icon={row.icon}
             label={row.label}
             onPress={row.onPress}
-            last={index === SETTINGS_ROWS.length - 1}
           />
         ))}
+      </View>
+
+      <View>
+        <SettingsRow
+          icon="trash-outline"
+          label="Delete account"
+          destructive
+          last
+          onPress={() => router.push('/account')}
+        />
       </View>
 
       <Button

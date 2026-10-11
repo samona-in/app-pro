@@ -56,6 +56,7 @@ export function createLegalHoldService(deps: LegalHoldServiceDeps) {
             OR: [
               { holderType: 'PROFILE', holderId: profileId },
               { holderType: 'PRO_PROFILE', holderId: profileId },
+              { holderType: 'CUSTOMER_PROFILE', holderId: profileId },
             ],
           },
         ],

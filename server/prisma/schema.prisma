@@ -182,10 +182,18 @@ model ProProfile {
 /// marketplace knows who is requesting work and where they are.
 model CustomerProfile {
   id     String @id @default(uuid()) @db.Uuid
-  /// One customer profile per account. Unique, not just indexed.
-  userId String @unique @map("user_id") @db.Uuid
+  /// Link to the shared identity row, unique while live.
+  ///
+  /// Nullable so a deleted surface can be replaced: when `CUSTOMER_PROFILE` (or
+  /// the customer half of `FULL_ACCOUNT`) finalizes, the tombstone's `userId` is
+  /// nulled and the account is free to re-register as a *fresh* customer under
+  /// the same identity. The row itself survives (jobs, reviews and chat keep
+  /// pointing at it) but, with `userId` unlinked, nothing that authorises by
+  /// identity will ever resolve the old surface again. The unique constraint is
+  /// what makes `ensureForUser`'s race-safe upsert keep working.
+  userId String? @unique @map("user_id") @db.Uuid
 
-  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile Profile? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// Derived from required fields on write; see `isCustomerProfileComplete`.
   onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
@@ -207,9 +215,22 @@ model CustomerProfile {
   pushPlatform PushPlatform? @map("push_platform")
   pushProvider PushProvider? @map("push_provider")
 
+  /// When the customer asked to delete their account. Set the moment a deletion
+  /// is accepted so new bookings stop immediately; the customer keeps finishing
+  /// only their already-active jobs until the sweeper finalizes. Never reverted
+  /// once set.
+  deletionRequestedAt DateTime? @map("deletion_requested_at")
+  /// When the tombstone was finalized. Set together with `Profile.deletedAt`
+  /// (FULL scope) or alone (CUSTOMER_PROFILE scope). The row survives so
+  /// historical jobs and their status history keep their relationship; only PII
+  /// is gone.
+  deletedAt           DateTime? @map("deleted_at")
+
   jobs          Job[]
   notifications CustomerNotification[]
   savedAddresses SavedAddress[]
+  /// The account-deletion run that tombstoned this row, when one exists.
+  accountDeletion AccountDeletion?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -384,10 +405,12 @@ model Job {
   /// The ProProfile that accepted it; null until then.
   proId      String? @map("pro_id") @db.Uuid
 
-  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
   /// RESTRICT, not SetNull: deleting a pro must never nullify a customer's
   /// historical job. Pro profiles are tombstones, never hard-deleted, so this
-  /// can never actually fire — it is a guard against a future bug.
+  /// can never actually fire — it is a guard against a future bug. The same
+  /// guarantee holds for `customer` above: a customer profile is tombstoned,
+  /// never hard-deleted, so a job can never lose either party.
   pro      ProProfile?     @relation(fields: [proId], references: [id], onDelete: Restrict)
 
   serviceId String @map("service_id") @db.Uuid
@@ -690,9 +713,20 @@ model AccountDeletion {
 
   profile Profile @relation(fields: [profileId], references: [id], onDelete: Restrict)
 
-  /// Whether the account carries a CustomerProfile. Determines what deletion
-  /// removes: `PRO_PROFILE` keeps the customer surface and Supabase Auth,
-  /// `FULL_ACCOUNT` tears the identity down completely.
+  /// The customer surface this run tombstoned, when the run touches it.
+  ///
+  /// Frozen at acceptance so a retry of PURGE_DB always targets the *original*
+  /// row, never a profile the same identity re-registered in between. `null`
+  /// for PRO_PROFILE runs and for rows created before this was tracked.
+  customerProfileId String? @unique @map("customer_profile_id") @db.Uuid
+
+  customerProfile CustomerProfile? @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
+
+  /// Whether the account carries a profile on the *other* surface. Determines
+  /// what deletion removes: `PRO_PROFILE` / `CUSTOMER_PROFILE` keep the other
+  /// surface and Supabase Auth, `FULL_ACCOUNT` tears the identity down
+  /// completely. Re-issued (reset) when a dual-role account deletes its second
+  /// surface, so the single row always describes the latest request.
   scope AccountDeletionScope
 
   status AccountDeletionStatus @default(AUTHORIZED)
@@ -726,10 +760,11 @@ model AccountDeletion {
 
 /// How much of the account a deletion removes.
 ///
-/// Decided server-side from the account shape (presence of a CustomerProfile),
-/// never from the client.
+/// Decided server-side from the account shape (whether the *other* surface has
+/// a live profile) and the surface the caller is on, never from the client.
 enum AccountDeletionScope {
   PRO_PROFILE
+  CUSTOMER_PROFILE
   FULL_ACCOUNT
 }
 
@@ -737,9 +772,9 @@ enum AccountDeletionScope {
 ///
 /// `AUTHORIZED` — a fresh OTP was verified and a single-use token issued; the
 /// `DELETE` call has not consumed it yet. `AWAITING_ACTIVE_JOBS` — deletion was
-/// accepted but the pro still has active jobs, so finalization is deferred (new
-/// bookings are already blocked). `IN_PROGRESS` — the sweeper is running steps.
-/// `COMPLETED` / `FAILED` are terminal.
+/// accepted but the account still has active jobs, so finalization is deferred
+/// (new bookings are already blocked). `IN_PROGRESS` — the sweeper is running
+/// steps. `COMPLETED` / `FAILED` are terminal.
 enum AccountDeletionStatus {
   AUTHORIZED
   AWAITING_ACTIVE_JOBS

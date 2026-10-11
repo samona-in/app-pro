@@ -116,6 +116,29 @@ export default function RootLayout() {
                 headerStyle: { backgroundColor: color.surface },
               }}
             />
+            <Stack.Screen
+              name="account"
+              options={{
+                headerShown: true,
+                presentation: 'modal',
+                title: 'Delete account',
+                headerBackTitle: 'Back',
+                headerTintColor: color['text-primary'],
+                headerStyle: { backgroundColor: color.surface },
+              }}
+            />
+            <Stack.Screen
+              name="account/confirm"
+              options={{
+                headerShown: true,
+                presentation: 'modal',
+                title: 'Confirm deletion',
+                headerBackTitle: 'Back',
+                headerTintColor: color['text-primary'],
+                headerStyle: { backgroundColor: color.surface },
+                gestureEnabled: false,
+              }}
+            />
           </Stack>
         </KeyboardProvider>
       </AppProviders>
