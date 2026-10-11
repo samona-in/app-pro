@@ -397,12 +397,33 @@ describe('createNotificationsService.registerPushToken', () => {
       where: { userId: 'user-1', pushToken: TOKEN },
       data: CLEAR,
     });
-    // And the older cross-account clear for uniqueness still runs.
+    // And the cross-account clear for uniqueness still runs, including
+    // unlinked tombstones (`userId: null`) — see the dedicated test below.
     expect(prisma.customerProfile.updateMany).toHaveBeenCalledWith({
-      where: { pushToken: TOKEN, userId: { not: 'user-1' } },
+      where: { pushToken: TOKEN, OR: [{ userId: null }, { userId: { not: 'user-1' } }] },
       data: CLEAR,
     });
     expect(prisma.proProfile.upsert).not.toHaveBeenCalled();
+  });
+
+  it('clears a stale token off an unlinked tombstone so registration cannot deadlock on the unique index', async () => {
+    const { service, prisma } = build();
+
+    await service.registerPushToken('user-1', 'customer', TOKEN, 'android', 'fcm');
+
+    // A deleted customer surface keeps its row with `userId` unlinked. SQL
+    // `user_id <> $x` is UNKNOWN for a NULL, so a bare `not` would skip it and
+    // its token would keep occupying the unique `push_token` index, failing the
+    // upsert below forever.
+    expect(prisma.customerProfile.updateMany).toHaveBeenCalledWith({
+      where: { pushToken: TOKEN, OR: [{ userId: null }, { userId: { not: 'user-1' } }] },
+      data: CLEAR,
+    });
+    // A pro surface is always linked, so the plain `not` stays.
+    expect(prisma.proProfile.updateMany).toHaveBeenCalledWith({
+      where: { pushToken: TOKEN, userId: { not: 'user-1' } },
+      data: CLEAR,
+    });
   });
 
   it('stores on the pro profile for the pro surface, keeping the device binding', async () => {
