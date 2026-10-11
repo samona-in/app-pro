@@ -192,7 +192,13 @@ export function isSettlementPendingStatus(status: JobStatus): boolean {
  * once they are committed to the work.
  */
 export interface JobCustomerSummary {
-  userId: string;
+  /**
+   * The customer's identity id. Null when the customer surface has been
+   * deleted: its tombstone is unlinked from the identity (see account
+   * deletion), so there is nobody to reach or authorise against. Render the
+   * neutral "Deleted Customer" placeholder, mirroring the pro side.
+   */
+  userId: string | null;
   displayName: string | null;
   locationLabel: string | null;
   /** Contact number, shared once the job is accepted so the pro can call. */

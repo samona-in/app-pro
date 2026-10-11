@@ -120,6 +120,46 @@ describe('createCustomersService', () => {
     expect(result.onboardingStatus).toBe(OnboardingStatus.NOT_STARTED);
   });
 
+  it('ensureForUser re-registers as a fresh profile once the tombstone is unlinked', async () => {
+    const { service, prisma } = buildService();
+    // The upsert `where: { userId }` finds nothing because the tombstone's
+    // `user_id` was nulled at purge, so it CREATEs a new row.
+    prisma.customerProfile.upsert.mockImplementation(async ({ create }) => ({
+      ...base,
+      ...create,
+      id: 'cust-2',
+      deletedAt: null,
+      deletionRequestedAt: null,
+    }));
+
+    const result = await service.ensureForUser('user-1');
+
+    expect(result.id).toBe('cust-2');
+    expect(result.onboardingStatus).toBe(OnboardingStatus.NOT_STARTED);
+  });
+
+  it('ensureForUser rejects a deletion in progress as a conflict', async () => {
+    const { service, prisma } = buildService();
+    prisma.customerProfile.upsert.mockResolvedValue({
+      ...base,
+      deletedAt: null,
+      deletionRequestedAt: new Date(),
+    });
+
+    await expect(service.ensureForUser('user-1')).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('ensureForUser rejects a still-linked tombstone as unauthenticated', async () => {
+    const { service, prisma } = buildService();
+    prisma.customerProfile.upsert.mockResolvedValue({
+      ...base,
+      deletedAt: new Date(),
+      deletionRequestedAt: new Date(),
+    });
+
+    await expect(service.ensureForUser('user-1')).rejects.toMatchObject({ status: 401 });
+  });
+
   it('applyOnboardingPatch writes displayName via transaction', async () => {
     const { service, prisma } = buildService();
     const row = base;

@@ -127,10 +127,15 @@ export default function OnboardingAddress() {
 
   async function onContinue() {
     if (coords) {
-      await save.mutateAsync({
-        coordinates: coords,
-        locationLabel: label ?? undefined,
-      });
+      try {
+        await save.mutateAsync({
+          coordinates: coords,
+          locationLabel: label ?? undefined,
+        });
+      } catch {
+        // The layout surfaces `save.isError`; a failed save must not advance.
+        return;
+      }
     }
     router.push('/onboarding/review');
   }

@@ -19,7 +19,12 @@ export default function OnboardingName() {
     }
 
     setError(null);
-    await save.mutateAsync({ displayName: parsed.data });
+    try {
+      await save.mutateAsync({ displayName: parsed.data });
+    } catch {
+      // The layout surfaces `save.isError`; a failed save must not advance.
+      return;
+    }
     router.push('/onboarding/gender');
   }
 

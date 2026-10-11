@@ -9,6 +9,7 @@ import {
   type DeletionStatus,
 } from '@samona/types';
 import type { AppConfig } from '../config';
+import type { AppType } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
 import type { RealtimeService } from '../realtime/gateway';
 import type { StorageService } from '../files/storage.service';
@@ -68,6 +69,7 @@ interface DeletionRow {
   scope: AccountDeletionScope;
   step: AccountDeletionStep | null;
   attempts: number;
+  customerProfileId: string | null;
 }
 
 /** The legal-hold decision as it stood when the snapshot was taken. */
@@ -175,7 +177,7 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
         proProfile: {
           select: { id: true, deletedAt: true, deletionRequestedAt: true },
         },
-        customerProfile: { select: { id: true } },
+        customerProfile: { select: { id: true, deletedAt: true, deletionRequestedAt: true } },
         accountDeletion: true,
       },
     });
@@ -193,34 +195,94 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
     return latest < 0 ? null : latest;
   }
 
-  function scopeFor(account: { customerProfile: { id: string } | null }): AccountDeletionScope {
-    return account.customerProfile
+  /**
+   * The surface the deletion is being driven from.
+   *
+   * A null `appType` (an admin without a surface header) defaults to the pro
+   * surface, preserving the behaviour that predates customer deletion.
+   */
+  function surfaceForAppType(appType: AppType | null): 'pro' | 'customer' {
+    return appType === 'customer' ? 'customer' : 'pro';
+  }
+
+  /** Whether a surface profile exists and has not already been tombstoned. */
+  function isLive(profile: { deletedAt: Date | null } | null): boolean {
+    return profile !== null && profile.deletedAt === null;
+  }
+
+  /**
+   * The scope the server will apply for this caller.
+   *
+   * Deleting the surface you are on removes only that surface when the *other*
+   * surface still has a live profile; otherwise it is the whole identity. The
+   * client never chooses this — it is derived from the account shape and the
+   * surface the request arrived on.
+   */
+  function scopeFor(
+    account: {
+      proProfile: { deletedAt: Date | null } | null;
+      customerProfile: { deletedAt: Date | null } | null;
+    },
+    appType: AppType | null,
+  ): AccountDeletionScope {
+    if (surfaceForAppType(appType) === 'customer') {
+      return isLive(account.proProfile)
+        ? AccountDeletionScope.CUSTOMER_PROFILE
+        : AccountDeletionScope.FULL_ACCOUNT;
+    }
+    return isLive(account.customerProfile)
       ? AccountDeletionScope.PRO_PROFILE
       : AccountDeletionScope.FULL_ACCOUNT;
   }
 
   /**
-   * How many jobs would block finalization. Threshold: completion first, so a
-   * pro whose last job just completed can delete without waiting a sweep.
+   * How many jobs would block finalization for the given scope. Threshold:
+   * completion first, so an account whose last job just completed can delete
+   * without waiting a sweep. A FULL_ACCOUNT from the customer surface has no
+   * live pro, so it blocks on the customer's jobs; one from the pro surface
+   * blocks on the pro's.
    */
-  async function blockingJobCount(proProfileId: string): Promise<number> {
-    return prisma.job.count({
-      where: { proId: proProfileId, status: { in: [...ACCOUNT_DELETION_BLOCKING_STATUSES] } },
-    });
+  async function blockingJobCount(
+    account: {
+      proProfile: { id: string; deletedAt: Date | null } | null;
+      customerProfile: { id: string; deletedAt: Date | null } | null;
+    },
+    scope: AccountDeletionScope,
+  ): Promise<number> {
+    const statuses = { in: [...ACCOUNT_DELETION_BLOCKING_STATUSES] };
+    if (scope === AccountDeletionScope.PRO_PROFILE && account.proProfile) {
+      return prisma.job.count({ where: { proId: account.proProfile.id, status: statuses } });
+    }
+    if (scope === AccountDeletionScope.CUSTOMER_PROFILE && account.customerProfile) {
+      return prisma.job.count({
+        where: { customerId: account.customerProfile.id, status: statuses },
+      });
+    }
+    // FULL_ACCOUNT: neither surface may have live work when the identity goes.
+    const ids: { proId?: string; customerId?: string }[] = [];
+    if (account.proProfile) ids.push({ proId: account.proProfile.id });
+    if (account.customerProfile) ids.push({ customerId: account.customerProfile.id });
+    if (ids.length === 0) return 0;
+    return prisma.job.count({ where: { OR: ids, status: statuses } });
   }
 
   /**
    * What `GET /users/me/deletion-status` answers: whether the caller can
    * delete, what deletion removes, and whether finalization is deferred.
    */
-  async function getDeletionStatus(profileId: string): Promise<DeletionStatus> {
+  async function getDeletionStatus(
+    profileId: string,
+    appType: AppType | null,
+  ): Promise<DeletionStatus> {
     const account = await loadAccount(profileId);
     if (!account) throw notFound();
 
-    const pro = account.proProfile;
+    const scope = scopeFor(account, appType);
+    const surfaceProfile =
+      surfaceForAppType(appType) === 'customer' ? account.customerProfile : account.proProfile;
     const deletion = account.accountDeletion;
 
-    const deleted = account.deletedAt !== null || (pro?.deletedAt ?? null) !== null;
+    const deleted = account.deletedAt !== null || (surfaceProfile?.deletedAt ?? null) !== null;
     const pending =
       deletion?.status === AccountDeletionStatus.AUTHORIZED &&
       deletion.authTokenConsumedAt === null &&
@@ -231,8 +293,9 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
       deletion?.status === AccountDeletionStatus.IN_PROGRESS;
 
     return {
-      scope: scopeFor(account),
+      scope,
       hasCustomerProfile: account.customerProfile !== null,
+      hasProProfile: account.proProfile !== null,
       canAuthorize:
         !deleted && !running && !pending && deletion?.status !== AccountDeletionStatus.FAILED,
       hasPendingAuthorization: pending,
@@ -243,7 +306,7 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
       // up on; the surface should send the user to support, not a retry.
       failed: deletion?.status === AccountDeletionStatus.FAILED,
       deleted,
-      activeJobCount: pro ? await blockingJobCount(pro.id) : 0,
+      activeJobCount: await blockingJobCount(account, scope),
     };
   }
 
@@ -256,6 +319,7 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
   async function issueAuthorization(
     profileId: string,
     amr: AuthMethod[],
+    appType: AppType | null,
   ): Promise<DeletionAuthorization> {
     const otpAt = latestOtpAt(amr);
     const fresh =
@@ -268,10 +332,13 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
 
     const account = await loadAccount(profileId);
     if (!account) throw notFound();
-    if (account.deletedAt !== null || account.proProfile?.deletedAt) {
+    const surfaceProfile =
+      surfaceForAppType(appType) === 'customer' ? account.customerProfile : account.proProfile;
+    if (account.deletedAt !== null || (surfaceProfile?.deletedAt ?? null) !== null) {
       throw gone('This account has already been deleted.');
     }
 
+    const scope = scopeFor(account, appType);
     const existing = account.accountDeletion;
     if (existing) {
       const pending =
@@ -293,11 +360,18 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
           'Your previous deletion attempt failed. Please contact support to complete it.',
         );
       }
+      // A COMPLETED row for a surface whose tombstone is gone means the account
+      // came back through a fresh re-registration (the finished CUSTOMER_PROFILE
+      // tombstone was unlinked and a new live profile now exists). That surface
+      // is deletable again, so the row is re-issued below rather than treated as
+      // already-deleted. A genuinely tombstoned surface never reaches here: it
+      // is caught by the tombstone guard above. A COMPLETED row for the *other*
+      // surface is the dual-role sequential case: the row is re-issued (reset)
+      // for the surface being deleted now.
     }
 
     const token = randomBytes(32).toString('hex');
     const expiresAt = new Date(now().getTime() + config.accountDeletionTokenTtlMs);
-    const scope = scopeFor(account);
 
     const data = {
       scope,
@@ -308,6 +382,13 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
       authTokenHash: hashDeletionToken(token),
       authTokenExpiresAt: expiresAt,
       authTokenConsumedAt: null,
+      // A re-issued row starts a brand-new deletion: the previous run's frozen
+      // hold decision must not carry over to this scope, and the previous run's
+      // customer-surface target (if any) does not describe this one.
+      holdsCapturedAt: null,
+      profileHeld: false,
+      heldDocumentPaths: [],
+      customerProfileId: null,
     };
 
     if (existing) {
@@ -329,7 +410,11 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
    * no blocking jobs remain, otherwise it waits in AWAITING_ACTIVE_JOBS for the
    * sweeper.
    */
-  async function deleteAccount(profileId: string, token: string): Promise<DeletionAccepted> {
+  async function deleteAccount(
+    profileId: string,
+    token: string,
+    appType: AppType | null,
+  ): Promise<DeletionAccepted> {
     if (token.length === 0 || token.length > 128) throw gone('That deletion code is not valid.');
 
     const hash = hashDeletionToken(token);
@@ -350,43 +435,62 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
     const account = await loadAccount(profileId);
     if (!account) throw notFound();
 
-    const pro = account.proProfile;
-    if (!pro || pro.deletedAt)
-      throw conflict('This account has no professional profile to delete.');
+    const scope = scopeFor(account, appType);
+    const surfaceProfile =
+      surfaceForAppType(appType) === 'customer' ? account.customerProfile : account.proProfile;
+    if (!surfaceProfile || surfaceProfile.deletedAt) {
+      throw conflict('This account has no profile to delete for this surface.');
+    }
+    if (scope === AccountDeletionScope.FULL_ACCOUNT) {
+      if (!account.proProfile && !account.customerProfile) {
+        throw conflict('This account has no profile to delete.');
+      }
+    }
 
-    // Lock the pro out of the marketplace before anything else: new matching,
-    // offers and job claims now exclude them, and they keep working only the
-    // jobs already in flight. Never reverted once set.
-    await prisma.proProfile.update({
-      where: { id: pro.id },
-      data: { deletionRequestedAt: at, isOnline: false },
+    // Lock the surface out of the marketplace before anything else: new
+    // matching/offers/claims now exclude them; keep working only jobs already
+    // in flight. Never reverted.
+    if (scope !== AccountDeletionScope.CUSTOMER_PROFILE && account.proProfile) {
+      await prisma.proProfile.update({
+        where: { id: account.proProfile.id },
+        data: { deletionRequestedAt: at, isOnline: false },
+      });
+    }
+    if (scope !== AccountDeletionScope.PRO_PROFILE && account.customerProfile) {
+      await prisma.customerProfile.update({
+        where: { id: account.customerProfile.id },
+        data: { deletionRequestedAt: at },
+      });
+    }
+
+    const blocking = await blockingJobCount(account, scope);
+
+    await prisma.accountDeletion.update({
+      where: { profileId },
+      data: {
+        status:
+          blocking > 0
+            ? AccountDeletionStatus.AWAITING_ACTIVE_JOBS
+            : AccountDeletionStatus.IN_PROGRESS,
+        step: null,
+        lastError: null,
+        // Freeze which customer surface this run deletes, so a retry never
+        // targets a profile the same identity re-registered in between. Only
+        // runs that touch the customer surface store a target.
+        customerProfileId:
+          scope === AccountDeletionScope.PRO_PROFILE
+            ? null
+            : (account.customerProfile?.id ?? null),
+      },
     });
 
-    const scope = scopeFor(account);
-    const blocking = await blockingJobCount(pro.id);
-
     if (blocking > 0) {
-      await prisma.accountDeletion.update({
-        where: { profileId },
-        data: {
-          status: AccountDeletionStatus.AWAITING_ACTIVE_JOBS,
-          step: null,
-          lastError: null,
-        },
-      });
       logger.info(
-        `Deletion accepted for ${profileId}: ${blocking} active job(s) remain, finalization deferred.`,
+        `Deletion accepted for ${profileId} (scope=${scope}): ${blocking} active job(s) remain, finalization deferred.`,
       );
       return { scope, deferredToActiveJobs: true };
     }
 
-    await prisma.accountDeletion.update({
-      where: { profileId },
-      data: { status: AccountDeletionStatus.IN_PROGRESS, step: null, lastError: null },
-    });
-    // Run to completion now for a clean user experience. A failure mid-flight
-    // never surfaces as a delete failure: the row is left IN_PROGRESS (or
-    // FAILED past the retry ceiling) and the sweeper finishes it.
     await finalize(profileId).catch((error: unknown) => {
       logger.error(`Inline deletion finalization failed for ${profileId}.`, error);
     });
@@ -426,6 +530,8 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
     for (let i = startAt; i < DELETION_STEPS.length; i += 1) {
       const step = DELETION_STEPS[i];
       if (!step) break;
+      // FULL_ACCOUNT only: deleting the identity is what makes the account
+      // unrecoverable, so a surface-only deletion must never reach this step.
       if (
         step === AccountDeletionStep.DELETE_AUTH &&
         working.scope !== AccountDeletionScope.FULL_ACCOUNT
@@ -457,15 +563,27 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
 
   async function runStep(step: AccountDeletionStep, row: DeletionRow) {
     switch (step) {
-      case AccountDeletionStep.LOCK:
-        // Idempotent: `deletionRequestedAt: null` guard means the second run
-        // touches zero rows. Kept as a first step so a crash before the guard
-        // rotates in is repaired on resume.
-        await prisma.proProfile.updateMany({
-          where: { userId: row.profileId, deletionRequestedAt: null },
-          data: { deletionRequestedAt: now(), isOnline: false },
-        });
+      case AccountDeletionStep.LOCK: {
+        // Idempotent: set `deletionRequestedAt` for the relevant surface(s).
+        if (row.scope !== AccountDeletionScope.CUSTOMER_PROFILE) {
+          await prisma.proProfile.updateMany({
+            where: { userId: row.profileId, deletionRequestedAt: null },
+            data: { deletionRequestedAt: now(), isOnline: false },
+          });
+        }
+        if (row.scope !== AccountDeletionScope.PRO_PROFILE) {
+          // Target the frozen row where we have one, so a retry after a
+          // re-registration never locks the brand-new profile. Legacy rows
+          // resolve by identity as before.
+          await prisma.customerProfile.updateMany({
+            where: row.customerProfileId
+              ? { id: row.customerProfileId, deletionRequestedAt: null }
+              : { userId: row.profileId, deletionRequestedAt: null },
+            data: { deletionRequestedAt: now() },
+          });
+        }
         break;
+      }
 
       case AccountDeletionStep.PURGE_S3: {
         // A profile-level hold protects every object the profile owns; a
@@ -478,19 +596,27 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
         const { profileHeld, heldDocumentPaths: keptDocumentPaths } = await ensureHoldSnapshot(
           row.profileId,
         );
-        const prefix = `pros/${row.profileId}/`;
-
         if (profileHeld) {
-          logger.warn('Profile-level legal hold: preserving pro-owned objects during deletion.', {
-            profileId: row.profileId,
-          });
+          logger.warn(
+            `Profile-level legal hold: preserving pro-owned objects during deletion (scope=${row.scope}).`,
+            {
+              profileId: row.profileId,
+            },
+          );
         } else {
-          // The pro's own content lives under `pros/{userId}/` in each bucket as
-          // a privacy purge; job images belong to the customer and survive.
+          const prefixPro = `pros/${row.profileId}/`;
+          const prefixCustomer = `customers/${row.profileId}/`;
           const keep = new Set(keptDocumentPaths);
-          await purgePrefixExcept(deps.storage.selfiesBucket, prefix, keep);
-          await purgePrefixExcept(deps.storage.avatarsBucket, prefix, keep);
-          await purgePrefixExcept(deps.storage.documentsBucket, prefix, keep);
+          if (row.scope !== AccountDeletionScope.CUSTOMER_PROFILE) {
+            await purgePrefixExcept(deps.storage.selfiesBucket, prefixPro, keep);
+            await purgePrefixExcept(deps.storage.avatarsBucket, prefixPro, keep);
+            await purgePrefixExcept(deps.storage.documentsBucket, prefixPro, keep);
+          }
+          if (row.scope !== AccountDeletionScope.PRO_PROFILE) {
+            // Customer avatar lives under `customers/{userId}/`; job photos
+            // (`jobs/{userId}/`) are kept (shared record per retention policy).
+            await purgePrefixExcept(deps.storage.avatarsBucket, prefixCustomer, keep);
+          }
         }
 
         if (deps.audit && profileHeld) {
@@ -509,9 +635,7 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
       }
 
       case AccountDeletionStep.PURGE_DB: {
-        // Consume the snapshot PURGE_S3 froze rather than re-resolving holds:
-        // re-resolving is the TOCTOU that could drop the row naming an object
-        // PURGE_S3 already deleted, or keep a row whose object it kept.
+        // Consume the snapshot PURGE_S3 froze rather than re-resolving holds.
         const { profileHeld, heldDocumentPaths: heldPaths } = await ensureHoldSnapshot(
           row.profileId,
         );
@@ -521,17 +645,25 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
             where: { userId: row.profileId },
             select: { id: true },
           });
+          // Resolve by the frozen target when this run stores one — a retry
+          // must tombstone the *original* customer surface, never a profile the
+          // same identity re-registered in between. Legacy rows resolve by
+          // identity as before.
+          const customer = row.customerProfileId
+            ? await tx.customerProfile.findUnique({
+                where: { id: row.customerProfileId },
+                select: { id: true },
+              })
+            : await tx.customerProfile.findUnique({
+                where: { userId: row.profileId },
+                select: { id: true },
+              });
 
-          // Pro-scoped rows are dropped (their cascade from ProProfile is
-          // unusable — the row itself is a tombstone). Jobs, status history,
-          // messages and the customer-side rows survive: they are the customer's
-          // (and, for PRO_PROFILE, the customer surface's) record, not the pro's.
-          if (pro) {
+          // Pro surface purge when this deletion touches the pro surface.
+          if (pro && row.scope !== AccountDeletionScope.CUSTOMER_PROFILE) {
             await tx.proService.deleteMany({ where: { proProfileId: pro.id } });
             await tx.proSkill.deleteMany({ where: { proProfileId: pro.id } });
             if (!profileHeld) {
-              // Keep the rows that name held objects: they are the only durable
-              // reference to those objects until the hold is released.
               await tx.proDocument.deleteMany({
                 where: { proProfileId: pro.id, storagePath: { notIn: heldPaths } },
               });
@@ -551,8 +683,6 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
                 longitude: null,
                 locationLabel: null,
                 languages: [],
-                // Preserve the selfie reference under a profile hold so the
-                // held object stays identifiable and manageable.
                 ...(profileHeld ? {} : { selfiePhotoPath: null, selfieCapturedAt: null }),
                 pushToken: null,
                 pushPlatform: null,
@@ -565,10 +695,32 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
             });
           }
 
+          // Customer surface purge when this deletion touches the customer surface.
+          if (customer && row.scope !== AccountDeletionScope.PRO_PROFILE) {
+            await tx.savedAddress.deleteMany({ where: { userId: row.profileId } });
+            await tx.customerNotification.deleteMany({ where: { customerId: customer.id } });
+            await tx.customerProfile.update({
+              where: { id: customer.id },
+              data: {
+                // Unlink the tombstone so the identity is free to re-register
+                // as a fresh customer; the row (and its id) survives so jobs,
+                // reviews and chat keep their relationship.
+                userId: null,
+                displayName: null,
+                gender: null,
+                avatarUrl: null,
+                locationLabel: null,
+                latitude: null,
+                longitude: null,
+                pushToken: null,
+                pushPlatform: null,
+                pushProvider: null,
+                deletedAt: now(),
+              },
+            });
+          }
+
           if (row.scope === AccountDeletionScope.FULL_ACCOUNT) {
-            // The tombstone: identity PII is gone and the row can never be
-            // reactivated. Deep-posting contact details is refused by
-            // `syncUser`, so a fresh OTP on the old number gets a new identity.
             await tx.profile.update({
               where: { id: row.profileId },
               data: {
@@ -580,8 +732,6 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
               },
             });
           }
-          // PRO_PROFILE leaves `Profile` untouched: the customer surface and
-          // Supabase Auth keep working.
         });
         break;
       }
@@ -600,7 +750,11 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
         // only the pro app, so a live customer session is untouched.
         deps.realtime.disconnectUser(
           row.profileId,
-          row.scope === AccountDeletionScope.FULL_ACCOUNT ? undefined : { appType: 'pro' },
+          row.scope === AccountDeletionScope.FULL_ACCOUNT
+            ? undefined
+            : row.scope === AccountDeletionScope.PRO_PROFILE
+              ? { appType: 'pro' }
+              : { appType: 'customer' },
         );
         await prisma.accountDeletion.update({
           where: { profileId: row.profileId },
@@ -640,7 +794,6 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
     });
 
     for (const row of rows) {
-      // Past the retry ceiling, a FAILED deletion needs a human, not more burns.
       if (
         row.status === AccountDeletionStatus.FAILED &&
         row.attempts >= config.accountDeletionMaxAttempts
@@ -648,13 +801,12 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
         continue;
       }
       if (row.status === AccountDeletionStatus.AWAITING_ACTIVE_JOBS) {
-        const pending = await prisma.job.count({
-          where: {
-            pro: { userId: row.profileId },
-            status: { in: [...ACCOUNT_DELETION_BLOCKING_STATUSES] },
-          },
-        });
-        if (pending > 0) continue; // Recheck when the pro's current jobs finish.
+        const account = await loadAccount(row.profileId);
+        if (account) {
+          const scope = scopeFor(account, null);
+          const pending = await blockingJobCount(account, scope);
+          if (pending > 0) continue;
+        }
       }
       await finalize(row.profileId).catch((error: unknown) => {
         logger.error(`Deletion sweep failed for ${row.profileId}.`, error);

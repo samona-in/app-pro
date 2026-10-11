@@ -77,13 +77,13 @@ type ResolvedThread = {
   /** Actor's Profile id (equals `auth.users.id`). */
   thisProfileId: string;
   /** Other party's Profile id — the recipient of the actor's messages. */
-  otherProfileId: string;
+  otherProfileId: string | null;
   /** Which side the actor is on, so headers/pushes address the right name. */
   actorIsCustomer: boolean;
   /** The job's current status — what the conversation is still open for. */
   status: JobStatus;
-  customer: { userId: string; displayName: string | null; phone: string | null };
-  pro: { userId: string; displayName: string | null; phone: string | null };
+  customer: { userId: string | null; displayName: string | null; phone: string | null };
+  pro: { userId: string | null; displayName: string | null; phone: string | null };
 };
 
 export function createMessagesService(deps: MessagesServiceDeps) {
@@ -163,7 +163,7 @@ export function createMessagesService(deps: MessagesServiceDeps) {
       customer: {
         userId: customerUserId,
         displayName: job.customer.displayName,
-        phone: job.customer.profile.phone,
+        phone: job.customer.profile?.phone ?? null,
       },
       pro: {
         userId: proUserId,
@@ -178,7 +178,7 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     actorProfileId: string,
     jobId: string,
     appType: AppType | null,
-  ): Promise<{ userId: string; displayName: string | null; phone: string | null }> {
+  ): Promise<{ userId: string | null; displayName: string | null; phone: string | null }> {
     const thread = await resolveThread(actorProfileId, jobId, appType);
     return thread.actorIsCustomer ? thread.pro : thread.customer;
   }
@@ -335,30 +335,40 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     // parties: both their sockets share the `user:<id>` room, so this single
     // emit reaches the other surface (which filters by `senderRole`) without
     // touching the sender's own app.
-    realtime.emitToUser(thread.otherProfileId, REALTIME_EVENTS.MESSAGE_NEW, dto);
+    //
+    // A null `otherProfileId` means the other side is a deleted surface (its
+    // tombstone was unlinked from the identity). The message still persists —
+    // REST stays the source of truth — but there is nobody left to nudge and
+    // nothing to alert: a surface that re-registered under the same identity
+    // must never receive this old thread's content.
+    if (thread.otherProfileId) {
+      realtime.emitToUser(thread.otherProfileId, REALTIME_EVENTS.MESSAGE_NEW, dto);
 
-    // The recipient's badge moves too. Re-count from the store so the value is
-    // authoritative even when a burst of messages races ahead of the socket.
-    // The message just sent is "theirs", so it counts under the actor's role
-    // and the badge belongs to the recipient's surface.
-    const recipientRole: UserRole = thread.actorIsCustomer ? UserRole.PRO : UserRole.CUSTOMER;
-    emitUnread(
-      thread.otherProfileId,
-      recipientRole,
-      input.jobId,
-      await countUnread(input.jobId, senderRole),
-    );
+      // The recipient's badge moves too. Re-count from the store so the value is
+      // authoritative even when a burst of messages races ahead of the socket.
+      // The message just sent is "theirs", so it counts under the actor's role
+      // and the badge belongs to the recipient's surface.
+      const recipientRole: UserRole = thread.actorIsCustomer ? UserRole.PRO : UserRole.CUSTOMER;
+      emitUnread(
+        thread.otherProfileId,
+        recipientRole,
+        input.jobId,
+        await countUnread(input.jobId, senderRole),
+      );
+    }
 
     const senderName = thread.actorIsCustomer
       ? thread.customer.displayName
       : thread.pro.displayName;
-    await sendChatPush({
-      userId: thread.otherProfileId,
-      recipientIsCustomer: !thread.actorIsCustomer,
-      jobId: input.jobId,
-      senderName: senderName ?? 'A conversation',
-      message: dto,
-    });
+    if (thread.otherProfileId) {
+      await sendChatPush({
+        userId: thread.otherProfileId,
+        recipientIsCustomer: !thread.actorIsCustomer,
+        jobId: input.jobId,
+        senderName: senderName ?? 'A conversation',
+        message: dto,
+      });
+    }
 
     return dto;
   }
@@ -374,6 +384,10 @@ export function createMessagesService(deps: MessagesServiceDeps) {
   ): Promise<void> {
     const thread = await resolveThread(actorProfileId, jobId, appType);
     const otherSenderRole: UserRole = thread.actorIsCustomer ? UserRole.PRO : UserRole.CUSTOMER;
+
+    // The other side is a deleted surface: nobody is reachable to acknowledge,
+    // and their unread history must not be touched by a re-registered profile.
+    if (!thread.otherProfileId) return;
 
     const touched = await prisma.message.updateMany({
       where: {
@@ -414,6 +428,10 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     const thread = await resolveThread(actorProfileId, jobId, appType);
     const otherSenderRole: UserRole = thread.actorIsCustomer ? UserRole.PRO : UserRole.CUSTOMER;
 
+    // The other side is a deleted surface: nobody is reachable to acknowledge,
+    // and their unread history must not be touched by a re-registered profile.
+    if (!thread.otherProfileId) return;
+
     const touched = await prisma.message.updateMany({
       where: {
         jobId,
@@ -451,8 +469,10 @@ export function createMessagesService(deps: MessagesServiceDeps) {
     event: RealtimeEvent,
     update: MessageReceiptUpdate,
   ): void {
-    realtime.emitToUser(thread.customer.userId, event, update);
-    realtime.emitToUser(thread.pro.userId, event, update);
+    // A side whose tombstone was unlinked from the identity has no live socket
+    // room and must not be re-alerted with content from this thread.
+    if (thread.customer.userId) realtime.emitToUser(thread.customer.userId, event, update);
+    if (thread.pro.userId) realtime.emitToUser(thread.pro.userId, event, update);
   }
 
   return { listForParty, listUnreadCounts, send, markDelivered, markRead, otherParty };

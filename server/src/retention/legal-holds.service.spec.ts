@@ -6,11 +6,18 @@ function fakePrisma(rows: Array<{ holderId: string; holderType: string }>) {
     legalHold: {
       findMany: jest.fn(async () => rows.map((row) => ({ holderId: row.holderId }))),
       count: jest.fn(async ({ where }: { where: Record<string, unknown> }) => {
-        // The profile check filters to PROFILE/PRO_PROFILE; count rows matching.
-        const and = where.AND as Array<{ OR: Array<Record<string, unknown>> }> | undefined;
+        // The profile check filters to the profile holder types; count rows matching.
+        const and = where.AND as
+          | Array<{ OR: Array<{ holderType: string; holderId: string }> }>
+          | undefined;
         if (and) {
-          const holderIds = and[0]!.OR.map((o) => o.holderId as string);
-          return rows.filter((r) => holderIds.includes(r.holderId)).length;
+          const pairs = and[0]!.OR.map((o) => ({
+            holderType: o.holderType,
+            holderId: o.holderId,
+          }));
+          return rows.filter((r) =>
+            pairs.some((p) => p.holderType === r.holderType && p.holderId === r.holderId),
+          ).length;
         }
         const holderId = where.holderId as string | undefined;
         const inIds = (where.holderType as { in?: string[] } | undefined)?.in;
@@ -50,11 +57,17 @@ describe('legal hold service', () => {
     );
   });
 
-  it('detects a live hold for a profile across PROFILE and PRO_PROFILE', async () => {
-    const prisma = fakePrisma([{ holderId: 'user-1', holderType: 'PROFILE' }]);
-    const service = createLegalHoldService({ prisma });
+  it('detects a live hold for a profile across the profile holder types', async () => {
+    for (const holderType of ['PROFILE', 'PRO_PROFILE', 'CUSTOMER_PROFILE']) {
+      const prisma = fakePrisma([{ holderId: 'user-1', holderType }]);
+      const service = createLegalHoldService({ prisma });
+      await expect(service.hasAnyActiveHoldForProfile('user-1')).resolves.toBe(true);
+    }
 
-    await expect(service.hasAnyActiveHoldForProfile('user-1')).resolves.toBe(true);
+    // A non-profile hold on the same id must not be mistaken for a profile hold.
+    const prisma = fakePrisma([{ holderId: 'user-1', holderType: 'DOCUMENT' }]);
+    const service = createLegalHoldService({ prisma });
+    await expect(service.hasAnyActiveHoldForProfile('user-1')).resolves.toBe(false);
     await expect(service.hasAnyActiveHoldForProfile('user-2')).resolves.toBe(false);
   });
 

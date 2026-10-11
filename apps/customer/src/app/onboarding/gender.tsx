@@ -11,7 +11,12 @@ export default function OnboardingGender() {
 
   async function onContinue() {
     if (!gender) return;
-    await save.mutateAsync({ gender });
+    try {
+      await save.mutateAsync({ gender });
+    } catch {
+      // The layout surfaces `save.isError`; a failed save must not advance.
+      return;
+    }
     router.push('/onboarding/address');
   }
 

@@ -33,19 +33,26 @@ export default function BookingReview() {
     if (!draft.service || !draft.skill || !draft.placeType) return;
     if (draft.description.trim().length < JOB_DESCRIPTION_MIN) return;
 
-    const job = await create.mutateAsync({
-      serviceSlug: draft.service.slug,
-      skillSlug: draft.skill.slug,
-      customSkill: draft.customSkill.trim() || undefined,
-      placeType: draft.placeType,
-      placeDescription:
-        draft.placeType === PlaceType.OTHER ? draft.placeDescription || undefined : undefined,
-      description: draft.description.trim(),
-      imagePaths: draft.images
-        .map((image) => image.path)
-        .filter((path): path is string => Boolean(path)),
-      basePayPaise: draft.basePayPaise,
-    });
+    let job;
+    try {
+      job = await create.mutateAsync({
+        serviceSlug: draft.service.slug,
+        skillSlug: draft.skill.slug,
+        customSkill: draft.customSkill.trim() || undefined,
+        placeType: draft.placeType,
+        placeDescription:
+          draft.placeType === PlaceType.OTHER ? draft.placeDescription || undefined : undefined,
+        description: draft.description.trim(),
+        imagePaths: draft.images
+          .map((image) => image.path)
+          .filter((path): path is string => Boolean(path)),
+        basePayPaise: draft.basePayPaise,
+      });
+    } catch {
+      // The layout surfaces `create.isError`; a failed request must not be
+      // reported as a successful booking.
+      return;
+    }
 
     if (job) {
       draft.reset();

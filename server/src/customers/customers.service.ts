@@ -6,6 +6,7 @@ import {
 } from '@samona/types';
 import type { CustomerOnboardingPatchInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
+import { unauthenticated, conflict } from '../common/errors';
 
 export interface CustomersServiceDeps {
   prisma: PrismaClient;
@@ -51,15 +52,31 @@ export function createCustomersService(deps: CustomersServiceDeps) {
    * `upsert` rather than create: a double-tapped "start onboarding" would
    * otherwise race and one request would fail the unique constraint on
    * `user_id`.
+   *
+   * A finalized tombstone holds `userId = null` (see account deletion), so the
+   * upsert's `where` finds nothing and the account re-registers as a *fresh*
+   * customer under the same identity — the old row survives for referential
+   * integrity (jobs, reviews and chat) but is never resolved again. A deletion
+   * that is merely *in progress* (accepted, still awaiting active jobs) is
+   * rejected outright: the identity must not mint a new surface while the old
+   * one is being torn down. A still-linked tombstone (pre-migration rows) is
+   * rejected as unauthenticated.
    */
   async function ensureForUser(userId: string): Promise<CustomerProfile> {
     const row = await deps.prisma.customerProfile.upsert({
       where: { userId },
       create: { userId, onboardingStatus: OnboardingStatus.NOT_STARTED },
       update: {},
-      select: customerProfileSelect,
+      select: { ...customerProfileSelect, deletedAt: true, deletionRequestedAt: true },
     });
-    return toCustomerProfile(row as CustomerProfileRow);
+    if (row.deletedAt) throw unauthenticated('This account has been deleted.');
+    if (row.deletionRequestedAt) {
+      throw conflict(
+        'Your customer account deletion is still being processed. Please try again later.',
+      );
+    }
+    const { deletedAt: _deletedAt, deletionRequestedAt: _deletionRequestedAt, ...profile } = row;
+    return toCustomerProfile(profile as CustomerProfileRow);
   }
 
   /**

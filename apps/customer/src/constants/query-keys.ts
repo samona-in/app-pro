@@ -5,6 +5,8 @@ export const queryKeys = {
   session: ['session'] as const,
   profile: ['profile'] as const,
   customerProfile: ['customer-profile'] as const,
+  /** The caller's account-deletion state, mounted at `/users/me`. */
+  accountDeletion: ['account-deletion'] as const,
   /** The service catalogue, mounted at `/services`. */
   catalogue: ['catalogue'] as const,
   services: ['services'] as const,

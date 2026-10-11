@@ -157,6 +157,43 @@ describe('createMessagesService.send', () => {
       service.send('intruder', { jobId: 'job-1', content: 'hi' }, 'pro'),
     ).rejects.toMatchObject({ status: 403 });
   });
+
+  it('persists a message to a deleted customer but nudges nobody', async () => {
+    const deletedCustomerJob = {
+      id: 'job-1',
+      proId: 'pro-1',
+      pro: { userId: 'pro-user', displayName: 'Pro One', profile: { phone: '+910000000001' } },
+      // The customer surface was deleted: its tombstone is unlinked (userId null).
+      customer: { userId: null, displayName: null, profile: null },
+    };
+    const { service, prisma, realtime, sendChatPush } = build({
+      job: deletedCustomerJob,
+      createdMessage: {
+        id: 'msg-1',
+        jobId: 'job-1',
+        senderId: 'pro-user',
+        senderRole: UserRole.PRO,
+        content: 'On my way',
+        sentAt: new Date('2026-09-08T00:00:00Z'),
+        deliveredAt: null,
+        readAt: null,
+      },
+    });
+
+    const result = await service.send('pro-user', { jobId: 'job-1', content: 'On my way' }, 'pro');
+
+    // REST stays the source of truth: the row is written.
+    expect(prisma.message.create).toHaveBeenCalledWith({
+      data: { jobId: 'job-1', senderId: 'pro-user', senderRole: UserRole.PRO, content: 'On my way' },
+    });
+    // There is no reachable recipient, so nothing is emitted, counted or pushed
+    // — a re-registered surface must never receive this old thread.
+    expect(realtime.emitToUser).not.toHaveBeenCalled();
+    expect(realtime.emitToUsers).not.toHaveBeenCalled();
+    expect(sendChatPush).not.toHaveBeenCalled();
+    expect(prisma.message.count).not.toHaveBeenCalled();
+    expect(result.senderRole).toBe(UserRole.PRO);
+  });
 });
 
 describe('createMessagesService.listForParty', () => {

@@ -7,12 +7,14 @@ import { createRequireAuth, requireRole, validate } from '../common';
 /**
  * HTTP surface for the users domain, mounted at `/users`.
  *
- * Permanent account deletion lives here. The flow is deliberately Pro-surface
- * for now (customer deletion comes with the Customer app): OTP re-auth is proven
- * by the verified token's `amr` claim, an authorization token guards the
- * destructive call, and the deletion keeps every customer-owned record intact —
- * the customer surface never loses its history because a professional deleted
- * their account (CLAUDE.md "Authentication", "Security").
+ * Permanent account deletion lives here. The surface being deleted is decided
+ * server-side from the `X-App-Type` header (`appType` on the authenticated
+ * user), never the client's word: the customer app deletes its own surface,
+ * the pro app its pro surface, and an account holding both is finalized one
+ * surface at a time. OTP re-auth is proven by the verified token's `amr`
+ * claim, an authorization token guards the destructive call, and shared
+ * records (jobs, messages, reviews) survive either surface's deletion
+ * (CLAUDE.md "Authentication", "Security").
  */
 export function createUsersRouter(services: Services, limiters: Limiters): Router {
   const router = Router();
@@ -30,10 +32,12 @@ export function createUsersRouter(services: Services, limiters: Limiters): Route
   router.get(
     '/me/deletion-status',
     requireAuth,
-    requireRole('PRO', 'ADMIN'),
+    requireRole('PRO', 'CUSTOMER', 'ADMIN'),
     async (req, res, next) => {
       try {
-        res.json(await services.accountDeletion.getDeletionStatus(req.user!.id));
+        res.json(
+          await services.accountDeletion.getDeletionStatus(req.user!.id, req.user!.appType),
+        );
       } catch (error) {
         next(error);
       }
@@ -51,11 +55,17 @@ export function createUsersRouter(services: Services, limiters: Limiters): Route
   router.post(
     '/me/deletion-authorization',
     requireAuth,
-    requireRole('PRO', 'ADMIN'),
+    requireRole('PRO', 'CUSTOMER', 'ADMIN'),
     limiters.auth,
     async (req, res, next) => {
       try {
-        res.json(await services.accountDeletion.issueAuthorization(req.user!.id, req.user!.amr));
+        res.json(
+          await services.accountDeletion.issueAuthorization(
+            req.user!.id,
+            req.user!.amr,
+            req.user!.appType,
+          ),
+        );
       } catch (error) {
         next(error);
       }
@@ -73,12 +83,14 @@ export function createUsersRouter(services: Services, limiters: Limiters): Route
   router.delete(
     '/me',
     requireAuth,
-    requireRole('PRO', 'ADMIN'),
+    requireRole('PRO', 'CUSTOMER', 'ADMIN'),
     validate(deletionTokenHeaderSchema, 'headers'),
     async (req, res, next) => {
       try {
         const { 'x-deletion-token': token } = req.headers as { 'x-deletion-token': string };
-        res.json(await services.accountDeletion.deleteAccount(req.user!.id, token));
+        res.json(
+          await services.accountDeletion.deleteAccount(req.user!.id, token, req.user!.appType),
+        );
       } catch (error) {
         next(error);
       }
