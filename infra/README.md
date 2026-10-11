@@ -64,6 +64,18 @@ Push-delivery credentials (`samona/staging/fcm` -> `FCM_PROJECT_ID` /
 `.env`; the task definition references them by name so no value ever appears in
 a template. `.env` itself stays local and gitignored.
 
+The Supabase service-role key is seeded the same way — the Admin API credential
+used by the account-deletion `DELETE_AUTH` step, never a client credential —
+and the data stack publishes its secret name as `/samona/staging/supabase/secret-name`:
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY=$(grep -E '^SUPABASE_SERVICE_ROLE_KEY=' .env | cut -d= -f2- | tr -d '"')
+aws secretsmanager create-secret \
+  --name samona/staging/supabase-service-role \
+  --secret-string "$SUPABASE_SERVICE_ROLE_KEY" \
+  --region us-east-1
+```
+
 ### Migrations
 
 Migrations are not run by the service. The `:migrate` image is the same
