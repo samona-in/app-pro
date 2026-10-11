@@ -101,6 +101,16 @@ export class SamonaServiceStack extends Stack {
       read('expo/secret-name'),
     );
 
+    // The Supabase service-role key is the Admin API credential used exactly
+    // once per account: the FULL_ACCOUNT deletion's DELETE_AUTH step. Seeded
+    // from the repo .env by the operator like the push credentials above, and
+    // referenced by name so no value ever appears in a template.
+    const supabaseAdminSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'SupabaseAdminSecret',
+      read('supabase/secret-name'),
+    );
+
     // Shared by the API and the one-off migration task below; the migration task
     // overrides the image and entrypoint and needs no Redis or app secrets.
     const environment = {
@@ -161,6 +171,7 @@ export class SamonaServiceStack extends Stack {
         FCM_CLIENT_EMAIL: ecs.Secret.fromSecretsManager(fcmSecret, 'FCM_CLIENT_EMAIL'),
         FCM_PRIVATE_KEY: ecs.Secret.fromSecretsManager(fcmSecret, 'FCM_PRIVATE_KEY'),
         EXPO_ACCESS_TOKEN: ecs.Secret.fromSecretsManager(expoSecret),
+        SUPABASE_SERVICE_ROLE_KEY: ecs.Secret.fromSecretsManager(supabaseAdminSecret),
       },
       healthCheck: {
         command: [

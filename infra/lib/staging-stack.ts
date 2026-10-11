@@ -217,6 +217,13 @@ export class SamonaStagingStack extends Stack {
 
     publish('job-offer/secret-name', jobOfferSecret.secretName);
 
+    // The Supabase service-role key administers identities through the Auth
+    // Admin API; it is seeded out of band from the repo `.env` and never enters
+    // a template, so only its secret name is published here. The service stack
+    // reads it back and injects the value as SUPABASE_SERVICE_ROLE_KEY, which
+    // the FULL_ACCOUNT deletion DELETE_AUTH step needs.
+    publish('supabase/secret-name', `samona/${stage}/supabase-service-role`);
+
     publish('s3/region', this.region);
     publish('s3/bucket-selfies', selfies.bucketName);
     publish('s3/bucket-job-images', jobImages.bucketName);
