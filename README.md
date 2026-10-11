@@ -219,6 +219,21 @@ QR code with Expo Go.
 Testing on a **physical device**: set `EXPO_PUBLIC_API_URL` to your machine's LAN
 IP (e.g. `http://192.168.1.20:4000`). `localhost` resolves to the device itself.
 
+### EAS cloud builds
+
+`apps/pro/eas.json` selects an EAS environment (`preview` or `production`); the
+`EXPO_PUBLIC_*` values and the Firebase `GOOGLE_SERVICES_JSON` file live in EAS
+environment variables, not in the repo.
+
+The native packages pulled in by NativeWind (`lightningcss`) and the toolchain
+(`esbuild`) ship a per-platform binary as an *optional* dependency. npm prunes the
+Linux binaries from `package-lock.json` whenever the lockfile is regenerated on
+macOS, which then fails the EAS (Linux) build with
+`Cannot find module '.../lightningcss.linux-x64-gnu.node'`. The two
+`optionalDependencies` in the root `package.json` pin those Linux binaries so npm
+keeps them in the lockfile. **Do not remove them**, and bump the pinned versions
+whenever `lightningcss` or `esbuild` are upgraded.
+
 ---
 
 ## Scripts

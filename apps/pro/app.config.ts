@@ -7,6 +7,14 @@ import appJson from './app.json';
  */
 const config = {
   ...appJson.expo,
+  android: {
+    ...appJson.expo.android,
+    // `google-services.json` is gitignored, so EAS Build receives it as a file
+    // environment variable (`GOOGLE_SERVICES_JSON` -> a path on the runner).
+    // Locally the variable is unset and we fall back to the checked-out file.
+    googleServicesFile:
+      process.env.GOOGLE_SERVICES_JSON ?? appJson.expo.android?.googleServicesFile,
+  },
   plugins: [
     ...(appJson.expo.plugins ?? []),
     // Lets the full-screen job alert wake a locked screen (see modules/job-alert).
