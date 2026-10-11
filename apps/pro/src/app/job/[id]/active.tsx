@@ -20,7 +20,7 @@ import {
   type JobStatus as Status,
 } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
-import { EmptyState, LoadingState } from '@/components/feedback';
+import { LoadingState } from '@/components/feedback';
 import { CallMessageButton, JobDetailsContent, VerifyStartSheet } from '@/components/jobs';
 import { Button, Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
 import type { TranslationKey } from '@/i18n';
@@ -305,16 +305,13 @@ export default function ActiveJobScreen() {
     );
   }
 
+  // The job is not in the pro's assigned set — released by the pro, cancelled
+  // by the customer, or finished and slipped off the list. There is no work
+  // screen left to show, so return to Home: the acknowledgement modal for a
+  // customer cancellation presents there, and Home will not bounce the pro
+  // back (an absent job is not an occupied one).
   if (!job) {
-    return (
-      <Screen edges={[]}>
-        <EmptyState
-          icon="briefcase-outline"
-          title={t('activeJob.notFound')}
-          message={t('common.notAssigned')}
-        />
-      </Screen>
-    );
+    return <Redirect href="/home" />;
   }
 
   // Money owed wins even mid-flow: if a *different* completed-but-unpaid job
