@@ -19,6 +19,7 @@
     "android": {
       "package": "in.samona.customer",
       "newArchEnabled": true,
+      "versionCode": 4,
        "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#054DFF",
@@ -68,7 +69,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "34c94c1f-e733-4ee1-8d93-be6467e286b0"
+        "projectId": "bf400bb2-a80a-4fc1-a0d7-4936f4c8a076"
       }
     },
     "owner": "naveenalla"
