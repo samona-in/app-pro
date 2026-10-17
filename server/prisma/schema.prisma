@@ -107,6 +107,9 @@ model ProProfile {
   longitude       Float?
   /// Human-readable label for the service area, shown back to the Pro.
   locationLabel   String? @map("location_label")
+  /// Durable Google place id for the service area, used to re-resolve the label
+  /// on read. Null for coordinates never resolved through the geocoder.
+  locationPlaceId String? @map("location_place_id")
 
   languages String[] @default([])
 
@@ -205,6 +208,10 @@ model CustomerProfile {
   /// professional keeps an independent image for each surface.
   avatarUrl     String? @map("avatar_url")
   locationLabel String? @map("location_label")
+  /// Durable Google place id for the customer's active location, used to
+  /// re-resolve the label on read. Null for coordinates never resolved through
+  /// the geocoder.
+  locationPlaceId String? @map("location_place_id")
   latitude      Float?
   longitude     Float?
 
@@ -267,6 +274,10 @@ model SavedAddress {
 
   latitude  Float
   longitude Float
+  /// Durable Google place id for this address, used to re-resolve the display
+  /// label on read. Null for addresses saved before the switch or when the
+  /// geocoder yielded no id.
+  placeId   String? @map("place_id")
 
   /// At most one default per customer; enforced by the service, not the schema.
   isDefault Boolean @default(false) @map("is_default")

@@ -1,11 +1,14 @@
 import type { AddressSuggestion } from '@samona/types';
 import type { PrismaClient } from '../database/prisma';
 import { withGeocodingGuard, type GeocodingProvider } from './geocoding';
+import { placeCacheKey, reverseCacheKey, type GeocodeCache } from './cache';
 
 export interface LocationsServiceDeps {
   prisma: PrismaClient;
-  /** Replaceable OSM-backed geocoder (Photon by default). */
+  /** The replaceable geocoder (Google by default). */
   geocoding: GeocodingProvider;
+  /** Read-through cache that bounds paid provider calls. */
+  cache: GeocodeCache;
 }
 
 /**
@@ -14,14 +17,15 @@ export interface LocationsServiceDeps {
  * Location capture, geocoding and proximity queries. Backs nearby-job
  * matching and live job tracking.
  *
- * The geocoding surface is deliberately thin: search and reverse-geocode both
- * delegate to the injected provider, wrapped so an unhealthy provider surfaces
- * as a clean 502 rather than an unexpected-error 500.
+ * Search delegates straight through; reverse and place-details are cached,
+ * because both run at high frequency (every map settle, every saved-address
+ * read) and both are metered provider calls.
  */
 export function createLocationsService(deps: LocationsServiceDeps) {
   void deps.prisma;
 
   async function searchAddresses(query: string, limit: number): Promise<AddressSuggestion[]> {
+    // Free-text queries are high cardinality and time-sensitive; not cached.
     return withGeocodingGuard('search', () => deps.geocoding.search(query, limit));
   }
 
@@ -29,10 +33,29 @@ export function createLocationsService(deps: LocationsServiceDeps) {
     latitude: number,
     longitude: number,
   ): Promise<AddressSuggestion | null> {
-    return withGeocodingGuard('reverse', () => deps.geocoding.reverse(latitude, longitude));
+    const key = reverseCacheKey(latitude, longitude);
+    const cached = await deps.cache.get(key);
+    if (cached !== undefined) return cached;
+
+    const fresh = await withGeocodingGuard('reverse', () =>
+      deps.geocoding.reverse(latitude, longitude),
+    );
+    await deps.cache.set(key, fresh);
+    return fresh;
   }
 
-  return { searchAddresses, reverseGeocode };
+  /** Re-resolves a stored place id into a fresh suggestion for display. */
+  async function placeDetails(placeId: string): Promise<AddressSuggestion | null> {
+    const key = placeCacheKey(placeId);
+    const cached = await deps.cache.get(key);
+    if (cached !== undefined) return cached;
+
+    const fresh = await withGeocodingGuard('details', () => deps.geocoding.details(placeId));
+    await deps.cache.set(key, fresh);
+    return fresh;
+  }
+
+  return { searchAddresses, reverseGeocode, placeDetails };
 }
 
 export type LocationsService = ReturnType<typeof createLocationsService>;

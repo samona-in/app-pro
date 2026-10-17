@@ -14,6 +14,14 @@ const config = {
     // Locally the variable is unset and we fall back to the checked-out file.
     googleServicesFile:
       process.env.GOOGLE_SERVICES_JSON ?? appJson.expo.android?.googleServicesFile,
+    // Google Maps on Android only. The key lands in the manifest's
+    // `com.google.android.geo.API_KEY` meta-data, which react-native-maps reads.
+    // iOS uses Apple Maps and needs no key, so nothing is set there.
+    config: {
+      googleMaps: {
+        apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+      },
+    },
   },
   plugins: [
     ...(appJson.expo.plugins ?? []),
@@ -23,8 +31,6 @@ const config = {
     './plugins/withDeviceReadiness',
     // Copies the looping alarm into res/raw so the overlay and channel sound ring.
     './plugins/withJobAlertAudio',
-    // Registers MapLibre Native; no API keys or billing involved.
-    '@maplibre/maplibre-react-native',
     'expo-audio',
   ],
 };

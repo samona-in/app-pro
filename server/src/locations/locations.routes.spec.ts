@@ -27,6 +27,7 @@ const suggestion: AddressSuggestion = {
   postalCode: '520010',
   latitude: 16.51,
   longitude: 80.64,
+  placeId: 'ChIJbenz-circle',
 };
 
 function buildServices(overrides: Partial<Services> = {}) {
@@ -40,6 +41,7 @@ function buildServices(overrides: Partial<Services> = {}) {
     locations: {
       searchAddresses: jest.fn().mockResolvedValue([suggestion]),
       reverseGeocode: jest.fn().mockResolvedValue(suggestion),
+      placeDetails: jest.fn().mockResolvedValue(suggestion),
     },
     ...overrides,
   } as unknown as Services;
@@ -77,6 +79,26 @@ describe('locations routes', () => {
     expect(response.body.data).toEqual(suggestion);
   });
 
+  it('GET /locations/place/:placeId re-resolves a stored place id', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .get('/locations/place/ChIJbenz-circle')
+      .set('authorization', 'Bearer good.token')
+      .expect(200);
+
+    expect(services.locations.placeDetails).toHaveBeenCalledWith('ChIJbenz-circle');
+    expect(response.body.data).toEqual(suggestion);
+  });
+
+  it('rejects a blank place id', async () => {
+    const response = await request(appWith(buildServices()))
+      .get('/locations/place/%20')
+      .set('authorization', 'Bearer good.token')
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+  });
+
   it('rejects a too-short search query', async () => {
     const response = await request(appWith(buildServices()))
       .get('/locations/search')
@@ -104,6 +126,7 @@ describe('locations routes', () => {
           createHttpError(502, ApiErrorCode.INTERNAL, 'down'),
         ),
         reverseGeocode: jest.fn(),
+        placeDetails: jest.fn(),
       },
     });
 

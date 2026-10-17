@@ -34,6 +34,7 @@ const proProfileSelect = {
   latitude: true,
   longitude: true,
   locationLabel: true,
+  locationPlaceId: true,
   languages: true,
   selfiePhotoPath: true,
   isOnline: true,
@@ -198,6 +199,9 @@ export function createProsService(deps: ProsServiceDeps) {
             ? { latitude: patch.coordinates.latitude, longitude: patch.coordinates.longitude }
             : {}),
           ...(patch.locationLabel !== undefined ? { locationLabel: patch.locationLabel } : {}),
+          ...(patch.locationPlaceId !== undefined
+            ? { locationPlaceId: patch.locationPlaceId }
+            : {}),
           ...(patch.languages !== undefined ? { languages: patch.languages } : {}),
         },
       });
@@ -463,6 +467,9 @@ export function createProsService(deps: ProsServiceDeps) {
           ? { latitude: patch.coordinates.latitude, longitude: patch.coordinates.longitude }
           : {}),
         ...(patch.locationLabel !== undefined ? { locationLabel: patch.locationLabel } : {}),
+        ...(patch.locationPlaceId !== undefined
+          ? { locationPlaceId: patch.locationPlaceId }
+          : {}),
       },
       select: proProfileSelect,
     });

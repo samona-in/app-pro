@@ -183,6 +183,7 @@ export function EditSavedAddressSheet({
       postalCode: null,
       latitude: coords.latitude,
       longitude: coords.longitude,
+      placeId: null,
     };
 
     try {
@@ -202,6 +203,7 @@ export function EditSavedAddressSheet({
             latitude: coords.latitude,
             longitude: coords.longitude,
           },
+          placeId: suggestion.placeId ?? undefined,
         },
       });
 

@@ -49,6 +49,39 @@ export function useReverseGeocode(latitude: number | null, longitude: number | n
   });
 }
 
+/**
+ * Re-resolves a stored place id into a fresh suggestion.
+ *
+ * Backs the "store the id, refresh the label on read" model: a saved address
+ * keeps its place id and coordinates indefinitely, while the display text is
+ * refreshed from this query when a screen reads it. React Query caches the
+ * result for the session and the server caches it for 30 days, so a label is
+ * never fetched per render and a Google call is never made twice in that window.
+ */
+export function useResolvedPlace(placeId: string | null | undefined) {
+  return useQuery({
+    queryKey: queryKeys.geocode.place(placeId ?? ''),
+    queryFn: () => geocodingApi.resolvePlace(placeId as string),
+    enabled: Boolean(placeId),
+    staleTime: 30 * 60_000,
+    retry: 0,
+  });
+}
+
+/**
+ * The freshest display label for a profile's active location.
+ *
+ * Returns the stored label immediately and upgrades it to the re-resolved one
+ * once (and if) the place id refreshes. Keeps the caller free of the loading
+ * dance: the stored text is always a valid answer.
+ */
+export function useResolvedLocationLabel(
+  profile: { locationLabel: string | null; locationPlaceId: string | null } | null | undefined,
+): string | null {
+  const { data } = useResolvedPlace(profile?.locationPlaceId);
+  return data?.formattedAddress ?? profile?.locationLabel ?? null;
+}
+
 /** The caller's saved addresses, hydrated recents along the way. */
 export function useSavedAddresses() {
   const hydrateRecents = useAddressStore((state) => state.hydrate);

@@ -22,6 +22,11 @@ export const savedAddressCreateSchema = z.object({
   state: optionalLine(80),
   postalCode: optionalLine(12),
   coordinates: coordinatesSchema,
+  /**
+   * The provider's durable place id for this address, when the geocoder
+   * supplied one. Stored so the display label can be re-resolved on read.
+   */
+  placeId: z.string().trim().max(512).nullable().optional(),
   /** Set when this address should become the customer's default. */
   isDefault: z.boolean().optional(),
 });
@@ -40,6 +45,8 @@ export const savedAddressUpdateSchema = z
     state: optionalLine(80),
     postalCode: optionalLine(12),
     coordinates: coordinatesSchema.optional(),
+    /** Updated durable place id, when the address was re-picked. */
+    placeId: z.string().trim().max(512).nullable().optional(),
     /** Set true to make this the customer's single default address. */
     isDefault: z.boolean().optional(),
   })

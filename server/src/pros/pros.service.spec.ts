@@ -50,6 +50,7 @@ const base: ProProfile = {
   latitude: null,
   longitude: null,
   locationLabel: null,
+  locationPlaceId: null,
   languages: [],
   isOnline: false,
   isVerified: false,

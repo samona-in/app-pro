@@ -3,16 +3,10 @@ import {
   ActivityIndicator,
   Pressable,
   View,
-  type NativeSyntheticEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import {
-  Camera,
-  Map as MapLibreMap,
-  type CameraRef,
-  type ViewStateChangeEvent,
-} from '@maplibre/maplibre-react-native';
+import MapView, { PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +14,7 @@ import type { AddressSuggestion } from '@samona/types';
 import { Text } from '@/components/ui';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
+import { regionFor } from '@/utils/map';
 
 interface Coordinates {
   latitude: number;
@@ -52,9 +47,8 @@ export interface LocationMapPickerProps {
   /**
    * Replaces the built-in (Apple/Google-backed) reverse geocoder.
    *
-   * The new address flow must stay OSM-only, so it injects a resolver that
-   * calls our server proxy instead. When absent, the picker falls back to the
-   * platform geocoder for the legacy onboarding screen.
+   * The address flow injects a resolver that calls our server proxy instead.
+   * When absent, the picker falls back to the platform geocoder.
    */
   resolveAddress?: ResolveAddressFn;
   /** Centre marker style: a small dot (default) or a large location pin. */
@@ -64,9 +58,6 @@ export interface LocationMapPickerProps {
   className?: string;
   style?: StyleProp<ViewStyle>;
 }
-
-/** Free OpenFreeMap tiles rendered by the keyless MapLibre engine. */
-const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 const DEFAULT_CENTER: [number, number] = [77.209, 28.6139]; // [lng, lat] — India-first default
 const DEFAULT_ZOOM = 12.5;
@@ -106,6 +97,9 @@ function suggestionFromDevicePlace(
     postalCode: place.postalCode ?? null,
     latitude: coordinates.latitude,
     longitude: coordinates.longitude,
+    // The platform geocoder yields no place id; a null keeps it out of the
+    // re-resolve path (we can only refresh places we can identify).
+    placeId: null,
   };
 }
 
@@ -116,11 +110,12 @@ function coordinatesToLabel(coordinates: Coordinates): string {
 /**
  * Reusable full-size map for picking a location, like a maps app.
  *
- * Renders a keyless MapLibre map with a fixed centre pin, resolves a readable
- * area label for the settled spot, and offers a "locate me" control that moves
- * the map to the device's current location. It is semi-controlled: `value`
- * seeds the initial camera, and every settle (pan or locate) reports the new
- * selection through `onChange` so the owner can persist it.
+ * Renders a platform map (Google on Android, Apple on iOS) with a fixed centre
+ * pin, resolves a readable area label for the settled spot, and offers a
+ * "locate me" control that moves the map to the device's current location. It is
+ * semi-controlled: `value` seeds the initial camera, and every settle (pan or
+ * locate) reports the new selection through `onChange` so the owner can persist
+ * it.
  */
 export function LocationMapPicker({
   value,
@@ -132,7 +127,7 @@ export function LocationMapPicker({
   style,
 }: LocationMapPickerProps) {
   const insets = useSafeAreaInsets();
-  const cameraRef = useRef<CameraRef | null>(null);
+  const mapRef = useRef<MapView | null>(null);
   const lookupIdRef = useRef(0);
 
   const [phase, setPhase] = useState<'idle' | 'moving' | 'resolving'>('idle');
@@ -141,11 +136,7 @@ export function LocationMapPicker({
 
   useEffect(() => {
     if (!focus) return;
-    cameraRef.current?.easeTo({
-      center: focus.center,
-      zoom: DEFAULT_ZOOM,
-      duration: 450,
-    });
+    mapRef.current?.animateToRegion(regionFor(focus.center, DEFAULT_ZOOM), 450);
   }, [focus]);
 
   const resolveLabel = useCallback(
@@ -185,11 +176,13 @@ export function LocationMapPicker({
     });
   }
 
-  function onRegionDidChange(event: NativeSyntheticEvent<ViewStateChangeEvent>) {
-    const { center, userInteraction } = event.nativeEvent;
-    if (userInteraction || phase !== 'moving') {
-      settleAt(center as [number, number]);
-    }
+  /**
+   * Fires once the camera comes to rest, whether the move came from a gesture or
+   * a programmatic animation (locate-me, refocus). Either way the settled centre
+   * is the selection, so every complete reports it.
+   */
+  function onRegionChangeComplete(region: Region) {
+    settleAt([region.longitude, region.latitude]);
   }
 
   /**
@@ -217,11 +210,10 @@ export function LocationMapPicker({
         longitude: position.coords.longitude,
       };
       setPhase('moving');
-      cameraRef.current?.easeTo({
-        center: [point.longitude, point.latitude],
-        zoom: DEFAULT_ZOOM + 1.5,
-        duration: 600,
-      });
+      mapRef.current?.animateToRegion(
+        regionFor([point.longitude, point.latitude], DEFAULT_ZOOM + 1.5),
+        600,
+      );
     } catch {
       setLocationError('Could not read your location. You can still continue.');
     } finally {
@@ -231,20 +223,18 @@ export function LocationMapPicker({
 
   return (
     <View className={cn('relative overflow-hidden', className)} style={style}>
-      <MapLibreMap
-        mapStyle={MAP_STYLE_URL}
+      <MapView
+        // Default provider: Google on Android, Apple Maps on iOS. The Android
+        // key is injected via app config; iOS needs none.
+        provider={PROVIDER_DEFAULT}
         style={{ flex: 1 }}
-        onRegionIsChanging={() => setPhase('moving')}
-        onRegionDidChange={onRegionDidChange}
-      >
-        <Camera
-          ref={cameraRef}
-          initialViewState={{
-            center: value ? [value.longitude, value.latitude] : DEFAULT_CENTER,
-            zoom: DEFAULT_ZOOM,
-          }}
-        />
-      </MapLibreMap>
+        initialRegion={regionFor(
+          value ? [value.longitude, value.latitude] : DEFAULT_CENTER,
+          DEFAULT_ZOOM,
+        )}
+        onRegionChange={() => setPhase('moving')}
+        onRegionChangeComplete={onRegionChangeComplete}
+      />
 
       <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
         {centerPin === 'marker' ? (

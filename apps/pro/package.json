@@ -28,7 +28,6 @@
   "dependencies": {
     "@expo/ui": "~57.0.17",
     "@expo/vector-icons": "^15.1.1",
-    "@maplibre/maplibre-react-native": "^11.3.7",
     "@noma4i/vision-camera-face-detector": "^3.0.1",
     "@samona/api-client": "*",
     "@samona/config": "*",
@@ -63,6 +62,7 @@
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-keyboard-controller": "1.21.9",
+    "react-native-maps": "^1.27.2",
     "react-native-nitro-modules": "^0.37.0",
     "react-native-pager-view": "8.0.2",
     "react-native-reanimated": "4.5.1",

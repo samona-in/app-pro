@@ -9,13 +9,14 @@ import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
 import { isImageUrl } from '@/components/home/ServiceImage';
 import { NotificationBell } from '@/components/notifications';
 import { Screen } from '@/components/ui';
-import { useServiceCategories, useSession } from '@/hooks';
+import { useResolvedLocationLabel, useServiceCategories, useSession } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
 
 import vijayawadaImage from '@/assets/images/vijayawada1.png';
 
 export default function Home() {
   const { customerProfile } = useSession();
+  const locationLabel = useResolvedLocationLabel(customerProfile);
   const categories = useServiceCategories();
   const bookingDraft = useBookingDraft();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export default function Home() {
     <Screen scrollable edges={[]}>
       <StatusBar style="dark" />
       <HomeHeader
-        locationLabel={customerProfile?.locationLabel ?? undefined}
+        locationLabel={locationLabel ?? undefined}
         onPress={() => router.push('/address-search')}
         trailing={<NotificationBell />}
       >

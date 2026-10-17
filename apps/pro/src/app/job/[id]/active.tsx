@@ -3,14 +3,7 @@ import { Alert, Pressable, View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { openURL } from 'expo-linking';
-import {
-  Camera,
-  GeoJSONSource,
-  Layer,
-  Map as MapLibreMap,
-  Marker,
-  type CameraRef,
-} from '@maplibre/maplibre-react-native';
+import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -28,14 +21,12 @@ import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from 
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr } from '@/utils/format';
+import { regionFor } from '@/utils/map';
 
 interface Coordinates {
   latitude: number;
   longitude: number;
 }
-
-/** Free OpenFreeMap tiles rendered by the keyless MapLibre engine. */
-const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 /** Default view before the camera fits both markers. */
 const DEFAULT_CENTER: [number, number] = [77.209, 28.6139];
@@ -230,7 +221,7 @@ export default function ActiveJobScreen() {
   // Reads position once on mount, then follows the pro while this screen lives.
   const [proCoords, setProCoords] = useState<Coordinates | null>(null);
   const [mapReady, setMapReady] = useState(false);
-  const cameraRef = useRef<CameraRef | null>(null);
+  const cameraRef = useRef<MapView | null>(null);
 
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
@@ -282,14 +273,15 @@ export default function ActiveJobScreen() {
   // ── Camera: fit both markers once the map and both points are ready ──────
   useEffect(() => {
     if (!mapReady || !proCoords || job?.latitude == null || job.longitude == null) return;
-    cameraRef.current?.fitBounds(
+    cameraRef.current?.fitToCoordinates(
       [
-        Math.min(proCoords.longitude, job.longitude),
-        Math.min(proCoords.latitude, job.latitude),
-        Math.max(proCoords.longitude, job.longitude),
-        Math.max(proCoords.latitude, job.latitude),
+        { latitude: proCoords.latitude, longitude: proCoords.longitude },
+        { latitude: job.latitude, longitude: job.longitude },
       ],
-      { padding: { top: 70, right: 48, bottom: 48, left: 48 }, duration: 800 },
+      {
+        edgePadding: { top: 70, right: 48, bottom: 48, left: 48 },
+        animated: true,
+      },
     );
   }, [mapReady, proCoords, job?.latitude, job?.longitude]);
 
@@ -347,19 +339,12 @@ export default function ActiveJobScreen() {
 
   /** Straight dashed connector between the pro's live pin and the work spot,
       drawn until the camera view is replaced by turn-by-turn navigation. */
-  const routeGeometry: GeoJSON.Feature<GeoJSON.LineString> | null =
+  const routeCoordinates =
     proCoords && hasCustomerCoords
-      ? {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: [
-              [proCoords.longitude, proCoords.latitude],
-              [job.longitude as number, job.latitude as number],
-            ],
-          },
-        }
+      ? [
+          { latitude: proCoords.latitude, longitude: proCoords.longitude },
+          { latitude: job.latitude as number, longitude: job.longitude as number },
+        ]
       : null;
 
   async function openDirections() {
@@ -439,52 +424,45 @@ export default function ActiveJobScreen() {
       <Screen edges={['bottom']} padded={false} className="bg-surface">
         {/* Map body */}
         <View className="flex-1 overflow-hidden">
-          <MapLibreMap
-            mapStyle={MAP_STYLE_URL}
+          <MapView
+            ref={cameraRef}
+            provider={PROVIDER_DEFAULT}
             style={{ flex: 1 }}
-            onDidFinishLoadingMap={() => setMapReady(true)}
+            initialRegion={regionFor(
+              hasCustomerCoords
+                ? [job.longitude as number, job.latitude as number]
+                : DEFAULT_CENTER,
+              DEFAULT_ZOOM,
+            )}
+            onMapReady={() => setMapReady(true)}
           >
-            <Camera
-              ref={cameraRef}
-              initialViewState={{
-                center: hasCustomerCoords
-                  ? [job.longitude as number, job.latitude as number]
-                  : DEFAULT_CENTER,
-                zoom: DEFAULT_ZOOM,
-              }}
-            />
-
-            {routeGeometry ? (
-              <GeoJSONSource id="trip-route" data={routeGeometry}>
-                <Layer
-                  id="trip-route-line"
-                  type="line"
-                  paint={{
-                    'line-color': color['text-secondary'],
-                    'line-width': 3,
-                    'line-dasharray': [3, 2],
-                    'line-opacity': 0.9,
-                  }}
-                />
-              </GeoJSONSource>
+            {routeCoordinates ? (
+              <Polyline
+                coordinates={routeCoordinates}
+                strokeColor={color['text-secondary']}
+                strokeWidth={3}
+                lineDashPattern={[3, 2]}
+              />
             ) : null}
 
             {hasCustomerCoords ? (
               <Marker
-                id="customer"
-                anchor="center"
-                lngLat={[job.longitude as number, job.latitude as number]}
+                identifier="customer"
+                coordinate={{ latitude: job.latitude as number, longitude: job.longitude as number }}
               >
                 <CustomerPin />
               </Marker>
             ) : null}
 
             {proCoords ? (
-              <Marker id="pro" anchor="center" lngLat={[proCoords.longitude, proCoords.latitude]}>
+              <Marker
+                identifier="pro"
+                coordinate={{ latitude: proCoords.latitude, longitude: proCoords.longitude }}
+              >
                 <ProPin />
               </Marker>
             ) : null}
-          </MapLibreMap>
+          </MapView>
 
           {/* Floating CTA — launches Google Maps navigation to the work spot.
               Floats above the map, just above the job-details sheet. `box-none`

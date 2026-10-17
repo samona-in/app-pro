@@ -21,11 +21,8 @@ import { createJobsService, type JobsService } from './jobs/jobs.service';
 import { createMatchingService, type MatchingService } from './matching/matching.service';
 import { createMessagesService, type MessagesService } from './messages/messages.service';
 import { createLocationsService, type LocationsService } from './locations/locations.service';
-import {
-  createFailoverGeocoder,
-  createNominatimGeocoder,
-  createPhotonGeocoder,
-} from './locations/geocoding';
+import { createGoogleGeocoder } from './locations/geocoding';
+import { createGeocodeCache } from './locations/cache';
 import { createAddressesService, type AddressesService } from './addresses/addresses.service';
 import { createEarningsService, type EarningsService } from './earnings/earnings.service';
 import {
@@ -222,31 +219,18 @@ export function createServices(
     matching,
     locations: createLocationsService({
       prisma,
-      // Replaceable OSM-backed geocoder. Primary is Photon; requests fail over
-      // to the Nominatim-compatible fallback when Photon is down. The fallback
-      // is skipped when it points at the same instance as the primary.
-      // Swapping the factories here keeps both endpoints working without
-      // touching routes or the app (the provider contract lives in
-      // locations/geocoding).
-      geocoding: createFailoverGeocoder([
-        // Nominatim (via Fastly CDN) is tried first — it is reliably reachable
-        // from most networks. Photon's shared public instance (photon.komoot.io)
-        // occasionally refuses connections; keeping it as a secondary means a
-        // self-hosted Photon in production still gets used whenever Nominatim is
-        // unavailable, without breaking development when Photon is unreachable.
-        ...(config.geocodingFallbackUrl && config.geocodingFallbackUrl !== config.geocodingBaseUrl
-          ? [
-              createNominatimGeocoder({
-                baseUrl: config.geocodingFallbackUrl,
-                timeoutMs: config.geocodingTimeoutMs,
-              }),
-            ]
-          : []),
-        createPhotonGeocoder({
-          baseUrl: config.geocodingBaseUrl,
-          timeoutMs: config.geocodingTimeoutMs,
-        }),
-      ]),
+      // Replaceable Google-backed geocoder (Places API v1 for search/details,
+      // the Geocoding API for reverse). Swapping the factory keeps both
+      // endpoints working without touching routes or the app (the provider
+      // contract lives in locations/geocoding). The server key stays here.
+      geocoding: createGoogleGeocoder({
+        apiKey: config.googleMapsApiKey ?? '',
+        geocodingBaseUrl: config.googleGeocodingBaseUrl,
+        placesBaseUrl: config.googlePlacesBaseUrl,
+        timeoutMs: config.geocodingTimeoutMs,
+      }),
+      // Bounds billed provider calls; a no-op when Redis is down.
+      cache: createGeocodeCache(redis, config.geocodingCacheTtlMs),
     }),
     addresses: createAddressesService({ prisma }),
     earnings: createEarningsService(deps),

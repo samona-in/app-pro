@@ -19,6 +19,8 @@ export const customerOnboardingGenderSchema = z.object({
 export const customerOnboardingAddressSchema = z.object({
   coordinates: coordinatesSchema.optional(),
   locationLabel: z.string().trim().max(120).optional(),
+  /** Durable place id for the label, so it can be re-resolved on read. */
+  locationPlaceId: z.string().trim().max(512).nullable().optional(),
 });
 
 /**
@@ -32,6 +34,8 @@ export const customerOnboardingPatchSchema = z
     gender: z.enum(GENDER_VALUES).optional(),
     coordinates: coordinatesSchema.optional(),
     locationLabel: z.string().trim().max(120).optional(),
+    /** Durable place id for the label, so it can be re-resolved on read. */
+    locationPlaceId: z.string().trim().max(512).nullable().optional(),
     avatarUrl: z.url().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
