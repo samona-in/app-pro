@@ -78,6 +78,7 @@ export function savedAddressToSuggestion(address: {
   postalCode: string | null;
   latitude: number;
   longitude: number;
+  placeId: string | null;
 }): AddressSuggestion {
   return {
     formattedAddress: address.addressLine1,
@@ -90,6 +91,7 @@ export function savedAddressToSuggestion(address: {
     postalCode: address.postalCode,
     latitude: address.latitude,
     longitude: address.longitude,
+    placeId: address.placeId,
   };
 }
 
@@ -108,6 +110,7 @@ export function suggestionToSelected(
     city: suggestion.city ?? null,
     state: suggestion.state ?? null,
     postalCode: suggestion.postalCode ?? null,
+    placeId: suggestion.placeId ?? null,
   };
 }
 
@@ -139,5 +142,6 @@ export function selectedToSuggestion(
     postalCode: selected.postalCode,
     latitude: selected.latitude,
     longitude: selected.longitude,
+    placeId: selected.placeId ?? null,
   };
 }

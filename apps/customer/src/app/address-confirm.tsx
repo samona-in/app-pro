@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import type { AddressLabel, AddressSuggestion, SelectedAddress } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -88,6 +88,7 @@ export default function AddressConfirm() {
       postalCode: null,
       latitude: coords.latitude,
       longitude: coords.longitude,
+      placeId: null,
     };
     const selected: SelectedAddress = suggestionToSelected(suggestion);
 
@@ -95,10 +96,11 @@ export default function AddressConfirm() {
       await save.mutateAsync({
         coordinates: { latitude: selected.latitude, longitude: selected.longitude },
         locationLabel: selected.formattedAddress,
+        locationPlaceId: selected.placeId,
       });
 
       // Navigate before any state updates so Android does not try to mutate
-      // native views (including the MapLibre map) while they are being torn down.
+      // native views (including the map) while they are being torn down.
       router.dismissAll();
       addRecent(selected);
 
@@ -115,6 +117,7 @@ export default function AddressConfirm() {
         state: selected.state ?? undefined,
         postalCode: selected.postalCode ?? undefined,
         coordinates: { latitude: selected.latitude, longitude: selected.longitude },
+        placeId: selected.placeId,
       }).catch(() => {});
     } catch {
       setError('Could not update your location. Please try again.');

@@ -151,9 +151,11 @@ cp apps/pro/.env.example apps/pro/.env
 | `REDIS_URL` | server | Redis connection string |
 | `PORT` | server | API port (default `4000`) |
 | `CORS_ORIGINS` | server | Comma-separated allowed origins |
-| `GOOGLE_MAPS_API_KEY` | server | Server-side geocoding / distance |
+| `GOOGLE_MAPS_API_KEY` | server | Server key for Google Places (search/details) and Geocoding (reverse), behind `/locations` |
+| `GEOCODING_CACHE_TTL_MS` | server | How long a resolved geocode is cached (default 30 days); bounds billed Google calls |
+| `GEOCODING_TIMEOUT_MS` | server | Per-request geocoder timeout (default `8000`) |
 | `EXPO_PUBLIC_API_URL` | app | Base URL of the API |
-| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | app | Maps key for the client |
+| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | app | Restricted Android key for the map render; iOS uses Apple Maps and needs none |
 
 The server validates its environment with Zod at boot and refuses to start if
 anything is missing or malformed.

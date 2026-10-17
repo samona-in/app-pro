@@ -171,6 +171,8 @@ export interface ProProfile {
   latitude: number | null;
   longitude: number | null;
   locationLabel: string | null;
+  /** Durable place id for the label above, for re-resolving it on read. */
+  locationPlaceId: string | null;
   languages: string[];
   /** Server-controlled; shown, never submitted. */
   isOnline: boolean;

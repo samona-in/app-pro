@@ -278,6 +278,28 @@ Do not request background location permissions unless the feature actually requi
 
 Explain why a permission is required before requesting it.
 
+### Maps and geocoding
+
+Maps render with `react-native-maps` using `PROVIDER_DEFAULT` — **Google Maps on
+Android**, **Apple Maps on iOS**. Only the Android render needs a key
+(`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, restricted to the app's Android package and
+signing certificate); iOS is keyless. There is no web map (the library has no web
+build).
+
+All geocoding goes through our own API under `/locations`; the apps never call a
+provider directly, so the server key never ships and the provider can change
+without an app release. The server uses **Google Places API (New)** for text
+search and place details and the **Google Geocoding API** for reverse lookups
+(`server/src/locations/`). Every resolved geocode is cached in Redis for the
+configured TTL (default 30 days) — that cache is what keeps the metered calls
+bounded.
+
+Saved addresses and the active location store a durable `placeId` plus their
+coordinates; the display label is a refreshable cache, re-resolved from the
+`placeId` via `GET /locations/place/:placeId` rather than treated as
+authoritative. `Job.locationLabel` is deliberately different: it is a frozen
+historical snapshot and is never re-resolved.
+
 ## Realtime
 
 Use Socket.IO for realtime events where appropriate.

@@ -14,21 +14,18 @@ import * as Location from 'expo-location';
 import type { AddressSuggestion, SavedAddress, SelectedAddress } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddressListItem } from '@/components/address/AddressListItem';
+import { SavedAddressListItem } from '@/components/address/SavedAddressListItem';
 import { IconButton, Input, Text } from '@/components/ui';
 import { useAddressSearch, useSaveOnboardingStep, useSavedAddresses } from '@/hooks';
 import { geocodingApi } from '@/services/geocoding';
 import { useAddressStore } from '@/stores/addresses';
 import { color } from '@/theme';
-import {
-  fallbackLocationLabel,
-  savedAddressSecondary,
-  suggestionToSelected,
-} from '@/utils/address';
+import { fallbackLocationLabel, suggestionToSelected } from '@/utils/address';
 
 /**
  * Address search, replacing the old map-only location picker on the home header.
  *
- * Search is OSM end-to-end: free-text queries and reverse geocoding both run
+ * Search is Google end-to-end: free-text queries and reverse geocoding both run
  * through our server proxy (`/locations/*`), never a device or third-party
  * geocoder (CLAUDE.md "Location"). Picking a search result opens the map
  * confirm screen; tapping a saved or recent address applies it instantly.
@@ -62,6 +59,7 @@ export default function AddressSearch() {
       await save.mutateAsync({
         coordinates: { latitude: selected.latitude, longitude: selected.longitude },
         locationLabel: selected.formattedAddress,
+        locationPlaceId: selected.placeId,
       });
       // Navigate before state updates: calling addRecent first causes Android to
       // try inserting a view into a list that is simultaneously being unmounted
@@ -103,6 +101,7 @@ export default function AddressSearch() {
             city: null,
             state: null,
             postalCode: null,
+            placeId: null,
           };
       openConfirm(selected);
     } catch {
@@ -187,11 +186,9 @@ export default function AddressSearch() {
                 Saved
               </Text>
               {savedItems.map((item: SavedAddress) => (
-                <AddressListItem
+                <SavedAddressListItem
                   key={item.id}
-                  icon={item.label}
-                  title={item.addressLine1}
-                  subtitle={savedAddressSecondary(item)}
+                  address={item}
                   onPress={() =>
                     void applyAddress({
                       formattedAddress: item.addressLine1,
@@ -201,6 +198,7 @@ export default function AddressSearch() {
                       city: item.city,
                       state: item.state,
                       postalCode: item.postalCode,
+                      placeId: item.placeId,
                     })
                   }
                 />

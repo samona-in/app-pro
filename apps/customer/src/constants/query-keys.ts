@@ -37,6 +37,7 @@ export const queryKeys = {
     search: (query: string) => ['geocode', 'search', query] as const,
     reverse: (latitude: number, longitude: number) =>
       ['geocode', 'reverse', latitude, longitude] as const,
+    place: (placeId: string) => ['geocode', 'place', placeId] as const,
   },
   /** The customer's saved addresses. */
   addresses: {

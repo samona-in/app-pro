@@ -13,8 +13,10 @@ export const SERVER_ENV_KEYS = {
   corsOrigins: 'CORS_ORIGINS',
   nodeEnv: 'NODE_ENV',
   googleMapsApiKey: 'GOOGLE_MAPS_API_KEY',
-  geocodingBaseUrl: 'GEOCODING_BASE_URL',
+  googleGeocodingBaseUrl: 'GOOGLE_GEOCODING_BASE_URL',
+  googlePlacesBaseUrl: 'GOOGLE_PLACES_BASE_URL',
   geocodingTimeoutMs: 'GEOCODING_TIMEOUT_MS',
+  geocodingCacheTtlMs: 'GEOCODING_CACHE_TTL_MS',
 } as const;
 
 /**

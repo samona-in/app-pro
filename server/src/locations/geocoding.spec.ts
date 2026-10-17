@@ -1,38 +1,16 @@
 import { ApiErrorCode } from '@samona/types';
 import { createHttpError } from '../common/errors';
-import {
-  createFailoverGeocoder,
-  createNominatimGeocoder,
-  createPhotonGeocoder,
-  withGeocodingGuard,
-} from './geocoding';
-import type { GeocodingProvider } from './geocoding';
+import { createGoogleGeocoder, withGeocodingGuard } from './geocoding';
 
-const BASE_URL = 'https://photon.example';
-const geocoder = createPhotonGeocoder({ baseUrl: BASE_URL, timeoutMs: 1000 });
+const GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
+const PLACES_URL = 'https://places.googleapis.com/v1';
 
-const searchCollection = {
-  type: 'FeatureCollection',
-  features: [
-    {
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [80.64, 16.51] },
-      properties: {
-        name: 'Benz Circle',
-        city: 'Vijayawada',
-        state: 'Andhra Pradesh',
-        postcode: '520010',
-        type: 'city',
-      },
-    },
-  ],
-};
-
-const streetFeature = {
-  type: 'Feature',
-  geometry: { type: 'Point', coordinates: [78.5, 17.4] },
-  properties: { street: 'MG Road', city: 'Hyderabad', country: 'India' },
-};
+const geocoder = createGoogleGeocoder({
+  apiKey: 'test-key',
+  geocodingBaseUrl: GEOCODING_URL,
+  placesBaseUrl: PLACES_URL,
+  timeoutMs: 1000,
+});
 
 function mockFetch(payload: unknown, ok = true, status = 200) {
   const fetchMock = jest.fn().mockResolvedValue({
@@ -44,50 +22,149 @@ function mockFetch(payload: unknown, ok = true, status = 200) {
   return fetchMock;
 }
 
-describe('createPhotonGeocoder', () => {
+const placesSearchResponse = {
+  places: [
+    {
+      id: 'ChIJbenz-circle',
+      displayName: { text: 'Benz Circle' },
+      formattedAddress: 'Benz Circle, Vijayawada, Andhra Pradesh 520010, India',
+      addressComponents: [
+        { longText: 'Benz Circle', shortText: 'Benz Circle', types: ['sublocality_level_1'] },
+        { longText: 'Vijayawada', shortText: 'Vijayawada', types: ['locality'] },
+        { longText: 'Andhra Pradesh', shortText: 'AP', types: ['administrative_area_level_1'] },
+        { longText: '520010', shortText: '520010', types: ['postal_code'] },
+      ],
+      location: { latitude: 16.51, longitude: 80.64 },
+    },
+  ],
+};
+
+const geocodeResponse = {
+  status: 'OK',
+  results: [
+    {
+      place_id: 'ChIJmg-road',
+      formatted_address: 'MG Road, Hyderabad, Telangana 500001, India',
+      address_components: [
+        { long_name: 'MG Road', short_name: 'MG Rd', types: ['route'] },
+        { long_name: 'Hyderabad', short_name: 'Hyderabad', types: ['locality'] },
+        { long_name: 'Telangana', short_name: 'TS', types: ['administrative_area_level_1'] },
+        { long_name: '500001', short_name: '500001', types: ['postal_code'] },
+      ],
+      geometry: { location: { lat: 17.4, lng: 78.5 } },
+    },
+  ],
+};
+
+describe('createGoogleGeocoder', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('search normalizes a Photon FeatureCollection into suggestions', async () => {
-    mockFetch(searchCollection);
+  it('search posts to Places (New) and normalizes the places array', async () => {
+    const fetchMock = mockFetch(placesSearchResponse);
 
     const results = await geocoder.search('benz circle', 5);
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining(`${BASE_URL}/api/?q=benz%20circle&limit=5&lang=en`),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${PLACES_URL}/places:searchText`,
+      expect.objectContaining({
+        method: 'POST',
+        signal: expect.any(AbortSignal),
+        headers: expect.objectContaining({
+          'X-Goog-Api-Key': 'test-key',
+          'X-Goog-FieldMask': expect.stringContaining('places.displayName'),
+        }),
+        body: JSON.stringify({ textQuery: 'benz circle', maxResultCount: 5, languageCode: 'en' }),
+      }),
     );
     expect(results).toEqual([
-      expect.objectContaining({
-        formattedAddress: 'Benz Circle, Vijayawada, Andhra Pradesh, 520010',
+      {
+        formattedAddress: 'Benz Circle, Vijayawada, Andhra Pradesh 520010, India',
         mainLabel: 'Benz Circle',
         secondary: 'Vijayawada, Andhra Pradesh, 520010',
-        locality: null,
+        locality: 'Benz Circle',
         city: 'Vijayawada',
         state: 'Andhra Pradesh',
         postalCode: '520010',
         latitude: 16.51,
         longitude: 80.64,
-      }),
+        placeId: 'ChIJbenz-circle',
+      },
     ]);
   });
 
-  it('uses the street line as the label when the feature has no name', async () => {
-    mockFetch({ type: 'FeatureCollection', features: [streetFeature] });
+  it('search returns an empty array when the provider yields no places', async () => {
+    mockFetch({});
 
-    const [result] = await geocoder.search('mg road hyderabad', 5);
-
-    expect(result?.mainLabel).toBe('MG Road');
-    expect(result?.secondary).toBe('Hyderabad');
+    await expect(geocoder.search('nowhere', 5)).resolves.toEqual([]);
   });
 
-  it('reverse returns null when the provider yields nothing', async () => {
-    mockFetch({ type: 'FeatureCollection', features: [] });
+  it('search clamps the requested limit into the provider-valid range', async () => {
+    const fetchMock = mockFetch({});
 
-    const result = await geocoder.reverse(16.51, 80.64);
+    await geocoder.search('benz', 99);
 
-    expect(result).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({ textQuery: 'benz', maxResultCount: 20, languageCode: 'en' }),
+      }),
+    );
+  });
+
+  it('reverse queries the Geocoding API and maps the first result', async () => {
+    const fetchMock = mockFetch(geocodeResponse);
+
+    const result = await geocoder.reverse(17.4, 78.5);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`${GEOCODING_URL}?latlng=17.4%2C78.5`),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('key=test-key'),
+      expect.anything(),
+    );
+    expect(result).toEqual({
+      formattedAddress: 'MG Road, Hyderabad, Telangana 500001, India',
+      mainLabel: 'MG Road',
+      secondary: 'Hyderabad, Telangana, 500001',
+      locality: null,
+      city: 'Hyderabad',
+      state: 'Telangana',
+      postalCode: '500001',
+      latitude: 17.4,
+      longitude: 78.5,
+      placeId: 'ChIJmg-road',
+    });
+  });
+
+  it('reverse returns null on ZERO_RESULTS', async () => {
+    mockFetch({ status: 'ZERO_RESULTS', results: [] });
+
+    await expect(geocoder.reverse(0, 0)).resolves.toBeNull();
+  });
+
+  it('reverse throws when the API reports a non-OK status', async () => {
+    mockFetch({ status: 'REQUEST_DENIED', error_message: 'bad key' });
+
+    await expect(geocoder.reverse(1, 2)).rejects.toThrow('REQUEST_DENIED');
+  });
+
+  it('details fetches a place by id and normalizes it', async () => {
+    const fetchMock = mockFetch(placesSearchResponse.places[0]);
+
+    const result = await geocoder.details('ChIJbenz-circle');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${PLACES_URL}/places/ChIJbenz-circle?languageCode=en`,
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'X-Goog-Api-Key': 'test-key' }),
+      }),
+    );
+    expect(result?.placeId).toBe('ChIJbenz-circle');
+    expect(result?.mainLabel).toBe('Benz Circle');
   });
 
   it('throws when the provider answers non-2xx', async () => {
@@ -95,139 +172,17 @@ describe('createPhotonGeocoder', () => {
 
     await expect(geocoder.search('benz', 5)).rejects.toThrow('HTTP 503');
   });
-});
 
-describe('createNominatimGeocoder', () => {
-  const nominatimGeocoder = createNominatimGeocoder({ baseUrl: BASE_URL, timeoutMs: 1000 });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('search queries jsonv2 and normalizes the place array', async () => {
-    mockFetch([
-      {
-        display_name: 'Benz Circle, Vijayawada, Andhra Pradesh 520010, India',
-        name: 'Benz Circle',
-        lat: '16.51',
-        lon: '80.64',
-        address: {
-          road: 'Benz Circle Road',
-          city: 'Vijayawada',
-          state: 'Andhra Pradesh',
-          postcode: '520010',
-        },
-      },
-    ]);
-
-    const results = await nominatimGeocoder.search('benz circle', 5);
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining(
-        `${BASE_URL}/search?q=benz%20circle&limit=5&format=jsonv2&accept-language=en`,
-      ),
-      expect.objectContaining({
-        signal: expect.any(AbortSignal),
-        headers: expect.objectContaining({ 'user-agent': expect.stringContaining('SAMONA') }),
-      }),
-    );
-    expect(results).toEqual([
-      expect.objectContaining({
-        formattedAddress: 'Benz Circle, Vijayawada, Andhra Pradesh 520010, India',
-        mainLabel: 'Benz Circle',
-        secondary: 'Vijayawada, Andhra Pradesh, 520010',
-        city: 'Vijayawada',
-        state: 'Andhra Pradesh',
-        postalCode: '520010',
-        latitude: 16.51,
-        longitude: 80.64,
-      }),
-    ]);
-  });
-
-  it('reverse parses display_name and address', async () => {
-    mockFetch({
-      display_name: 'MG Road, Hyderabad, Telangana 500001, India',
-      lat: '17.4',
-      lon: '78.5',
-      address: {
-        road: 'MG Road',
-        city: 'Hyderabad',
-        state: 'Telangana',
-        postcode: '500001',
-      },
+  it('fails clearly when no key is configured', async () => {
+    const keyless = createGoogleGeocoder({
+      apiKey: '',
+      geocodingBaseUrl: GEOCODING_URL,
+      placesBaseUrl: PLACES_URL,
+      timeoutMs: 1000,
     });
+    mockFetch({});
 
-    const result = await nominatimGeocoder.reverse(17.4, 78.5);
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        formattedAddress: 'MG Road, Hyderabad, Telangana 500001, India',
-        mainLabel: 'MG Road',
-        secondary: 'Hyderabad, Telangana, 500001',
-      }),
-    );
-  });
-
-  it('reverse returns null when the provider yields nothing', async () => {
-    mockFetch(null);
-
-    await expect(nominatimGeocoder.reverse(16.51, 80.64)).resolves.toBeNull();
-  });
-});
-
-describe('createFailoverGeocoder', () => {
-  const suggestion = {
-    formattedAddress: 'Test Address',
-    mainLabel: 'Test',
-    secondary: null,
-    locality: null,
-    city: null,
-    state: null,
-    postalCode: null,
-    latitude: 1,
-    longitude: 1,
-  };
-
-  const healthy: GeocodingProvider = {
-    search: jest.fn().mockResolvedValue([suggestion]),
-    reverse: jest.fn().mockResolvedValue(suggestion),
-  };
-
-  const down: GeocodingProvider = {
-    search: jest.fn().mockRejectedValue(new Error('provider down')),
-    reverse: jest.fn().mockRejectedValue(new Error('provider down')),
-  };
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('uses the primary provider when it answers', async () => {
-    const failover = createFailoverGeocoder([healthy, down]);
-
-    await expect(failover.search('test', 5)).resolves.toEqual([suggestion]);
-    await expect(failover.reverse(1, 2)).resolves.toEqual(suggestion);
-    expect(down.search).not.toHaveBeenCalled();
-    expect(down.reverse).not.toHaveBeenCalled();
-  });
-
-  it('fails over to the next provider when the primary rejects', async () => {
-    const failover = createFailoverGeocoder([down, healthy]);
-
-    await expect(failover.search('test', 5)).resolves.toEqual([suggestion]);
-    await expect(failover.reverse(1, 2)).resolves.toEqual(suggestion);
-    expect(healthy.search).toHaveBeenCalled();
-  });
-
-  it('rethrows the last failure when every provider is unavailable', async () => {
-    const failover = createFailoverGeocoder([down, down]);
-
-    await expect(failover.search('test', 5)).rejects.toThrow('provider down');
-  });
-
-  it('requires at least one provider', () => {
-    expect(() => createFailoverGeocoder([])).toThrow('at least one provider');
+    await expect(keyless.search('benz', 5)).rejects.toThrow('GOOGLE_MAPS_API_KEY');
   });
 });
 

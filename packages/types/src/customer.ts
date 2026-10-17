@@ -14,6 +14,8 @@ export interface CustomerProfile {
   displayName: string | null;
   gender: Gender | null;
   locationLabel: string | null;
+  /** Durable place id for the label above, for re-resolving it on read. */
+  locationPlaceId: string | null;
   latitude: number | null;
   longitude: number | null;
   avatarUrl: string | null;

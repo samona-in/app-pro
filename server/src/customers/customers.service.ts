@@ -21,6 +21,7 @@ const customerProfileSelect = {
   gender: true,
   avatarUrl: true,
   locationLabel: true,
+  locationPlaceId: true,
   latitude: true,
   longitude: true,
 } as const;
@@ -102,6 +103,9 @@ export function createCustomersService(deps: CustomersServiceDeps) {
           ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
           ...(patch.gender !== undefined ? { gender: patch.gender as Gender } : {}),
           ...(patch.locationLabel !== undefined ? { locationLabel: patch.locationLabel } : {}),
+          ...(patch.locationPlaceId !== undefined
+            ? { locationPlaceId: patch.locationPlaceId }
+            : {}),
           ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
           ...(patch.coordinates !== undefined
             ? { latitude: patch.coordinates.latitude, longitude: patch.coordinates.longitude }

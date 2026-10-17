@@ -1,25 +1,17 @@
 import { useCallback, useRef, useState } from 'react';
-import type { NativeSyntheticEvent } from 'react-native';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import {
-  Camera,
-  Map as MapLibreMap,
-  type CameraRef,
-  type ViewStateChangeEvent,
-} from '@maplibre/maplibre-react-native';
+import MapView, { PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { OnboardingStepLayout } from '@/components/onboarding';
 import { Button, Text } from '@/components/ui';
 import { useCustomerProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
+import { regionFor } from '@/utils/map';
 
 interface Coordinates {
   latitude: number;
   longitude: number;
 }
-
-/** Free OpenFreeMap tiles rendered by the keyless MapLibre engine. */
-const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 const INITIAL_CENTER: [number, number] = [77.209, 28.6139]; // [lng, lat] — India-first default
 const INITIAL_ZOOM = 12.5;
@@ -54,7 +46,7 @@ export default function OnboardingAddress() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
-  const cameraRef = useRef<CameraRef | null>(null);
+  const cameraRef = useRef<MapView | null>(null);
   // Guards against stale reverse-geocode results landing after a newer pan.
   const lookupIdRef = useRef(0);
 
@@ -78,12 +70,10 @@ export default function OnboardingAddress() {
     });
   }
 
-  // Fires after every gesture and camera animation settles.
-  function onRegionDidChange(event: NativeSyntheticEvent<ViewStateChangeEvent>) {
-    const { center, userInteraction } = event.nativeEvent;
-    if (userInteraction || phase !== 'moving') {
-      settleAt(center as [number, number]);
-    }
+  // Fires once the camera comes to rest, whether from a gesture or a
+  // programmatic move (locate-me). Either way the settled centre is the pick.
+  function onRegionChangeComplete(region: Region) {
+    settleAt([region.longitude, region.latitude]);
   }
 
   /**
@@ -113,11 +103,10 @@ export default function OnboardingAddress() {
       };
       setCoords(point);
       setPhase('moving');
-      cameraRef.current?.easeTo({
-        center: [point.longitude, point.latitude],
-        zoom: INITIAL_ZOOM + 1.5,
-        duration: 600,
-      });
+      cameraRef.current?.animateToRegion(
+        regionFor([point.longitude, point.latitude], INITIAL_ZOOM + 1.5),
+        600,
+      );
     } catch {
       setLocationError('Could not read your location. You can still continue.');
     } finally {
@@ -151,20 +140,16 @@ export default function OnboardingAddress() {
     >
       <View className="overflow-hidden rounded-2xl border border-border">
         <View className="relative">
-          <MapLibreMap
-            mapStyle={MAP_STYLE_URL}
+          <MapView
+            provider={PROVIDER_DEFAULT}
             style={{ height: 264 }}
-            onRegionIsChanging={() => setPhase('moving')}
-            onRegionDidChange={onRegionDidChange}
-          >
-            <Camera
-              ref={cameraRef}
-              initialViewState={{
-                center: coords ? [coords.longitude, coords.latitude] : INITIAL_CENTER,
-                zoom: INITIAL_ZOOM,
-              }}
-            />
-          </MapLibreMap>
+            initialRegion={regionFor(
+              coords ? [coords.longitude, coords.latitude] : INITIAL_CENTER,
+              INITIAL_ZOOM,
+            )}
+            onRegionChange={() => setPhase('moving')}
+            onRegionChangeComplete={onRegionChangeComplete}
+          />
           <View pointerEvents="none" className="absolute inset-0 items-center justify-center">
             <View
               className="h-5 w-5 rounded-full border-[3px] border-surface bg-brand"

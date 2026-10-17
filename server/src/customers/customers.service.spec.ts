@@ -14,6 +14,7 @@ const base: CustomerProfile = {
   displayName: 'Priya Sharma',
   gender: 'FEMALE',
   locationLabel: 'MG Road, Hyderabad, Telangana 500001',
+  locationPlaceId: 'ChIJmg-road',
   latitude: 17.385,
   longitude: 78.4867,
   avatarUrl: null,

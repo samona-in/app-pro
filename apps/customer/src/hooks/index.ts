@@ -14,6 +14,8 @@ export {
   useAddressSearch,
   useCreateSavedAddress,
   useDeleteSavedAddress,
+  useResolvedLocationLabel,
+  useResolvedPlace,
   useReverseGeocode,
   useSavedAddresses,
   useUpdateSavedAddress,

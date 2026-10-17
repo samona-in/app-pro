@@ -29,6 +29,7 @@ const saved: SavedAddress = {
   postalCode: '520010',
   latitude: 16.51,
   longitude: 80.64,
+  placeId: null,
   isDefault: true,
   createdAt: '2026-09-12T10:00:00.000Z',
   updatedAt: '2026-09-12T10:00:00.000Z',

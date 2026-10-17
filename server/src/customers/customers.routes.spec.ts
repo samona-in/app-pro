@@ -24,6 +24,7 @@ const profile: CustomerProfile = {
   displayName: null,
   gender: null,
   locationLabel: null,
+  locationPlaceId: null,
   latitude: null,
   longitude: null,
   avatarUrl: null,

@@ -140,13 +140,20 @@ const envSchema = z.object({
   GOOGLE_MAPS_API_KEY: optional(z.string()),
 
   /**
-   * Base URL of the OSM-compatible geocoder the `/locations` proxy calls.
-   * Photon (keyless, OSM data) is the default; self-host it in production
-   * rather than depending on the shared public instance.
+   * Geocoding API endpoint used for reverse lookups. Overridable so tests can
+   * point at a stub; production keeps the Google default.
    */
-  GEOCODING_BASE_URL: z
-    .url({ message: 'GEOCODING_BASE_URL must be a valid URL.' })
-    .default('https://photon.komoot.io'),
+  GOOGLE_GEOCODING_BASE_URL: z
+    .url({ message: 'GOOGLE_GEOCODING_BASE_URL must be a valid URL.' })
+    .default('https://maps.googleapis.com/maps/api/geocode/json'),
+
+  /**
+   * Places API (New) base used for forward search and place details. Overridable
+   * so tests can point at a stub; production keeps the Google default.
+   */
+  GOOGLE_PLACES_BASE_URL: z
+    .url({ message: 'GOOGLE_PLACES_BASE_URL must be a valid URL.' })
+    .default('https://places.googleapis.com/v1'),
 
   /**
    * Per-request timeout for geocoder calls, in ms. A hung provider surfaces as
@@ -155,15 +162,15 @@ const envSchema = z.object({
   GEOCODING_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(8_000),
 
   /**
-   * OSM Nominatim-compatible fallback geocoder. When different from
-   * `GEOCODING_BASE_URL`, requests the primary provider cannot serve fail over
-   * to this one, so a down Photon instance does not break address lookup.
-   * Defaults to the shared Nominatim instance; set it equal to
-   * `GEOCODING_BASE_URL` to disable failover.
+   * How long a resolved geocode is cached, in ms. Google bills per call and its
+   * terms cap how long content may be cached, so this stays well under the
+   * permitted window (default 30 days).
    */
-  GEOCODING_FALLBACK_URL: z
-    .url({ message: 'GEOCODING_FALLBACK_URL must be a valid URL.' })
-    .default('https://nominatim.openstreetmap.org'),
+  GEOCODING_CACHE_TTL_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .default(2_592_000_000),
 
   /**
    * Expo push service access token. Optional: when unset the server still
@@ -395,12 +402,14 @@ export interface AppConfig {
   s3ForcePathStyle: boolean;
   corsOrigins: string[];
   googleMapsApiKey: string | null;
-  /** Base URL of the OSM-compatible geocoder used by `/locations`. */
-  geocodingBaseUrl: string;
+  /** Geocoding API endpoint used for reverse lookups. */
+  googleGeocodingBaseUrl: string;
+  /** Places API (New) base used for search and place details. */
+  googlePlacesBaseUrl: string;
   /** Per-request geocoder timeout, in ms. */
   geocodingTimeoutMs: number;
-  /** Nominatim-compatible fallback geocoder; null disables failover. */
-  geocodingFallbackUrl: string | null;
+  /** How long a resolved geocode is cached, in ms. */
+  geocodingCacheTtlMs: number;
   /** Expo push service access token; null disables outbound pushes. */
   expoAccessToken: string | null;
   /** Repeating job-alert cadence, in ms. */
@@ -568,9 +577,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       .map((origin) => origin.trim())
       .filter(Boolean),
     googleMapsApiKey: env.GOOGLE_MAPS_API_KEY ?? null,
-    geocodingBaseUrl: env.GEOCODING_BASE_URL,
+    googleGeocodingBaseUrl: env.GOOGLE_GEOCODING_BASE_URL,
+    googlePlacesBaseUrl: env.GOOGLE_PLACES_BASE_URL,
     geocodingTimeoutMs: env.GEOCODING_TIMEOUT_MS,
-    geocodingFallbackUrl: env.GEOCODING_FALLBACK_URL ?? null,
+    geocodingCacheTtlMs: env.GEOCODING_CACHE_TTL_MS,
     expoAccessToken: env.EXPO_ACCESS_TOKEN ?? null,
     jobAlertRepeatMs: env.JOB_ALERT_REPEAT_MS,
     jobAlertMaxRepeats: env.JOB_ALERT_MAX_REPEATS,

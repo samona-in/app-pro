@@ -24,6 +24,7 @@ const savedAddressSelect = {
   postalCode: true,
   latitude: true,
   longitude: true,
+  placeId: true,
   isDefault: true,
   createdAt: true,
   updatedAt: true,
@@ -94,6 +95,7 @@ export function createAddressesService(deps: AddressesServiceDeps) {
           postalCode: input.postalCode ?? null,
           latitude: input.coordinates.latitude,
           longitude: input.coordinates.longitude,
+          placeId: input.placeId ?? null,
           isDefault: shouldBeDefault,
         },
         select: savedAddressSelect,
@@ -139,6 +141,7 @@ export function createAddressesService(deps: AddressesServiceDeps) {
           ...(input.coordinates !== undefined
             ? { latitude: input.coordinates.latitude, longitude: input.coordinates.longitude }
             : {}),
+          ...(input.placeId !== undefined ? { placeId: input.placeId } : {}),
           ...(promote ? { isDefault: true } : {}),
         },
         select: savedAddressSelect,

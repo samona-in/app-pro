@@ -62,6 +62,8 @@ export const onboardingExperienceSchema = z.object({
 export const onboardingLocationSchema = z.object({
   coordinates: coordinatesSchema.optional(),
   locationLabel: z.string().trim().max(120).optional(),
+  /** Durable place id for the label, so it can be re-resolved on read. */
+  locationPlaceId: z.string().trim().max(512).nullable().optional(),
 });
 
 /** Step 8 — how far they travel to jobs. */
@@ -103,6 +105,8 @@ export const onboardingPatchSchema = z
     serviceRadiusKm: serviceRadiusSchema.optional(),
     coordinates: coordinatesSchema.optional(),
     locationLabel: z.string().trim().max(120).optional(),
+    /** Durable place id for the label, so it can be re-resolved on read. */
+    locationPlaceId: z.string().trim().max(512).nullable().optional(),
     bio: bioSchema.optional(),
     languages: languagesSchema.optional(),
   })
@@ -124,6 +128,8 @@ export const availabilityPatchSchema = z.object({
   isOnline: z.boolean(),
   coordinates: coordinatesSchema.optional(),
   locationLabel: z.string().trim().max(120).optional(),
+  /** Durable place id for the label, so it can be re-resolved on read. */
+  locationPlaceId: z.string().trim().max(512).nullable().optional(),
 });
 
 export type AvailabilityPatchInput = z.infer<typeof availabilityPatchSchema>;
