@@ -1,5 +1,5 @@
 import type { ImageSourcePropType } from 'react-native';
-import bannerHomeCare from '@/assets/images/banners/banner-1.webp';
+import bannerHomeCare from '@/assets/images/banners/banner-1.png';
 import bannerElectrical from '@/assets/images/banners/banner-2.png';
 import bannerPlumbing from '@/assets/images/banners/banner-3.png';
 import bannerCleaning from '@/assets/images/banners/banner-4.png';
