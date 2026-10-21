@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AddressSuggestion, SavedAddress } from '@samona/types';
 import type { SavedAddressCreateInput, SavedAddressUpdateInput } from '@samona/validation';
@@ -6,6 +6,7 @@ import { queryKeys } from '@/constants';
 import { addressesApi } from '@/services/addresses';
 import { geocodingApi } from '@/services/geocoding';
 import { useAddressStore } from '@/stores/addresses';
+import { isSamePlace } from '@/utils/address';
 
 /** Settles a fast-changing value (e.g. a search box) after `delay`ms of quiet. */
 function useDebouncedValue<T>(value: T, delay = 300): T {
@@ -95,6 +96,47 @@ export function useSavedAddresses() {
     queryFn: () => addressesApi.list(),
     staleTime: 30_000,
   });
+}
+
+/**
+ * The saved address the customer's active location points at, if any.
+ *
+ * Matches on the durable place id first — that is exact by construction — and
+ * falls back to the coordinates, so a place picked from search and the same
+ * place picked from the map still line up. Returns null when the active
+ * location is not in the customer's address book.
+ */
+export function useActiveSavedAddress(
+  profile:
+    | {
+        locationPlaceId: string | null;
+        latitude: number | null;
+        longitude: number | null;
+      }
+    | null
+    | undefined,
+): SavedAddress | null {
+  const { data: saved } = useSavedAddresses();
+
+  const placeId = profile?.locationPlaceId ?? null;
+  const latitude = profile?.latitude ?? null;
+  const longitude = profile?.longitude ?? null;
+
+  return useMemo(() => {
+    const rows = saved ?? [];
+    if (rows.length === 0) return null;
+
+    if (placeId) {
+      const byPlace = rows.find((address) => address.placeId === placeId);
+      if (byPlace) return byPlace;
+    }
+
+    if (latitude === null || longitude === null) return null;
+
+    return (
+      rows.find((address) => isSamePlace(address, { latitude, longitude })) ?? null
+    );
+  }, [saved, placeId, latitude, longitude]);
 }
 
 /** Saves a new labelled address. */

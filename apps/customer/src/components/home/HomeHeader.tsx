@@ -9,6 +9,12 @@ import { cn } from '@/utils/cn';
 export interface HomeHeaderProps extends Omit<PressableProps, 'style'> {
   /** The customer's location label shown under the pin. */
   locationLabel?: string;
+  /**
+   * The caption above the location label — "Your location" by default, or the
+   * name the customer saved the address under when the active location is one
+   * of their saved addresses.
+   */
+  locationCaption?: string;
   /** Content rendered on the right of the location row (e.g. notifications). */
   trailing?: ReactNode;
   /** Extra content rendered below the location row, inside the same band. */
@@ -28,6 +34,7 @@ export interface HomeHeaderProps extends Omit<PressableProps, 'style'> {
  */
 export function HomeHeader({
   locationLabel = 'Set your location',
+  locationCaption = 'Your location',
   onPress,
   trailing,
   children,
@@ -54,9 +61,13 @@ export function HomeHeader({
           </View>
           <View className="ml-3 flex-1">
             <Text variant="caption" className="text-brand-muted">
-              Your location
+              {locationCaption}
             </Text>
-            <Text numberOfLines={1} variant="bodyStrong" className="mt-0.5 text-text-primary">
+            <Text
+              numberOfLines={1}
+              variant="footnote"
+              className="mt-0.5 font-semibold text-text-primary"
+            >
               {locationLabel}
             </Text>
           </View>
