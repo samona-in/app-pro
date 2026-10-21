@@ -1,26 +1,10 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { useIsReduceMotionEnabled } from './use-reduce-motion';
 
 const TYPE_MS = 45;
 const DELETE_MS = 22;
 const HOLD_MS = 1500;
 const PAUSE_MS = 600;
-
-function useIsReduceMotionEnabled(): boolean {
-  const [enabled, setEnabled] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((value) => {
-      if (mounted) setEnabled(value);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  return enabled;
-}
 
 /**
  * Cycles through `phrases` with a typewriter effect, typing each out character

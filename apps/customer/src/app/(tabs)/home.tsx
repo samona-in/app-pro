@@ -5,7 +5,14 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import type { ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { HomeHeader, SearchBar, ServiceGrid } from '@/components/home';
+import {
+  HOME_BANNERS,
+  HomeBannerCarousel,
+  HomeHeader,
+  SearchBar,
+  ServiceGrid,
+  type HomeBanner,
+} from '@/components/home';
 import { isImageUrl } from '@/components/home/ServiceImage';
 import { NotificationBell } from '@/components/notifications';
 import { Screen } from '@/components/ui';
@@ -49,6 +56,23 @@ export default function Home() {
     router.push(`/booking/new/${service.slug}/place`);
   }
 
+  // A banner either promotes one service — and starts the booking flow for
+  // it — or opens the search screen when it is a general promotion.
+  function handlePressBanner(banner: HomeBanner) {
+    const service = banner.serviceSlug
+      ? (categories.data ?? []).find((item) => item.slug === banner.serviceSlug)
+      : undefined;
+
+    if (!service) {
+      router.push('/search');
+      return;
+    }
+
+    setActiveSlug(service.slug);
+    bookingDraft.start(service);
+    router.push(`/booking/new/${service.slug}/place`);
+  }
+
   return (
     <Screen scrollable edges={[]}>
       <StatusBar style="dark" />
@@ -77,6 +101,12 @@ export default function Home() {
             onSelect={handleSelectService}
           />
         )}
+
+        <HomeBannerCarousel
+          banners={HOME_BANNERS}
+          onPressBanner={handlePressBanner}
+          className="mt-6"
+        />
       </View>
     </Screen>
   );
