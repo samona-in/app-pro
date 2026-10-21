@@ -23,6 +23,10 @@ export interface HomeBannerCarouselProps {
   /** Fired when a banner or its call to action is tapped. */
   onPressBanner: (banner: HomeBannerData) => void;
   className?: string;
+  /** Use light dots on a dark/brand background. */
+  variant?: 'default' | 'light';
+  /** Override carousel height. */
+  height?: number;
 }
 
 /**
@@ -33,10 +37,16 @@ export interface HomeBannerCarouselProps {
  * the screen is in the background, and stays off entirely when the system
  * "reduce motion" setting is on — swiping by hand keeps working either way.
  */
-export function HomeBannerCarousel({ banners, onPressBanner, className }: HomeBannerCarouselProps) {
+export function HomeBannerCarousel({
+  banners,
+  onPressBanner,
+  className,
+  variant = 'default',
+  height = BANNER_HEIGHT,
+}: HomeBannerCarouselProps) {
   const { width } = useWindowDimensions();
   const reduceMotion = useIsReduceMotionEnabled();
-  const [index, setIndex] = useState(0);
+  const [, setIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(true);
 
   useFocusEffect(
@@ -50,15 +60,20 @@ export function HomeBannerCarousel({ banners, onPressBanner, className }: HomeBa
   // sides while the carousel itself runs edge to edge.
   const renderItem = useCallback(
     ({ item }: CarouselRenderItemInfo<HomeBannerData>) => (
-      <View className="px-5" style={{ width }}>
-        <HomeBannerCard banner={item} onPress={onPressBanner} />
+      <View style={{ width }}>
+        <HomeBannerCard
+          banner={item}
+          onPress={onPressBanner}
+          height={height}
+          variant={variant === 'light' ? 'hero' : 'default'}
+        />
       </View>
     ),
-    [onPressBanner, width],
+    [onPressBanner, width, height, variant],
   );
 
   return (
-    <View className={cn('-mx-5', className)}>
+    <View className={cn('-mx-2', className)}>
       <Carousel
         data={banners}
         keyExtractor={(item) => item.id}
@@ -70,18 +85,8 @@ export function HomeBannerCarousel({ banners, onPressBanner, className }: HomeBa
         snapMode="page"
         animation={BANNER_ANIMATION}
         onSnapToItem={setIndex}
-        style={styles.carousel}
+        style={[styles.carousel, { height }]}
       />
-
-      <View style={styles.dots}>
-        {banners.map((banner, dotIndex) => (
-          <View
-            key={banner.id}
-            testID={`home-banner-dot-${dotIndex}`}
-            style={[styles.dot, dotIndex === index ? styles.dotActive : null]}
-          />
-        ))}
-      </View>
     </View>
   );
 }
@@ -106,5 +111,11 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: color.brand,
+  },
+  dotLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  dotActiveLight: {
+    backgroundColor: color['brand-contrast'],
   },
 });

@@ -1,7 +1,13 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { IconButton, Text } from '@/components/ui';
+import { color } from '@/theme';
 import { useUnreadNotifications } from '@/hooks';
+
+export interface NotificationBellProps {
+  /** Use white styling for brand-colored headers. */
+  variant?: 'default' | 'white';
+}
 
 /**
  * The home-screen bell with its unread pill.
@@ -10,9 +16,10 @@ import { useUnreadNotifications } from '@/hooks';
  * count, moved live by `notification:unread` and back-stopped by a short poll
  * (see `useUnreadNotifications`).
  */
-export function NotificationBell() {
+export function NotificationBell({ variant = 'default' }: NotificationBellProps) {
   const unread = useUnreadNotifications();
   const count = unread.data?.unreadCount ?? 0;
+  const isWhite = variant === 'white';
 
   return (
     <View>
@@ -20,6 +27,8 @@ export function NotificationBell() {
         name="notifications-outline"
         accessibilityLabel={count > 0 ? `Notifications, ${count} unread` : 'Notifications'}
         onPress={() => router.push('/notifications')}
+        tint={isWhite ? color['brand-contrast'] : color['text-primary']}
+        className={isWhite ? 'bg-white/15' : undefined}
       />
       {count > 0 ? (
         <View

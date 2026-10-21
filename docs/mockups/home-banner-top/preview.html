@@ -1,0 +1,337 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAMONA — Home banner at top (animated)</title>
+<style><style>
+  :root{
+    --brand:#054DFF; --brand-muted:#053FCC; --brand-soft:#EAF0FC;
+    --white:#FFFFFF; --ink-900:#0F172A; --ink-700:#334155; --ink-500:#64748B;
+    --ink-400:#94A3B8; --ink-200:#E2E8F0; --ink-300:#CBD5E1; --ink-100:#F1F5F9;
+    --ink-50:#F8FAFC; --danger:#DC2626;
+    --bg:#EDEFF3;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:40px 40px 56px;
+    display:flex; gap:44px; justify-content:center; align-items:flex-start;
+  }
+  .col{display:flex;flex-direction:column;gap:18px;align-items:center}
+  .phone{
+    width:390px;height:844px;background:var(--ink-50);border-radius:44px;overflow:hidden;
+    position:relative;box-shadow:0 24px 60px rgba(15,23,42,.18),0 0 0 10px #0F172A,0 0 0 12px #334155;
+    display:flex;flex-direction:column;
+  }
+  .caption{max-width:390px;text-align:center}
+  .caption h2{font-size:15px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em}
+  .caption p{font-size:12.5px;line-height:1.45;color:var(--ink-500);margin-top:5px}
+
+  /* ---------- status bar ---------- */
+  .statusbar{height:54px;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 32px 0;font-size:14px;font-weight:650;letter-spacing:.2px;flex:none}
+  .statusbar .sig{display:flex;gap:5px;align-items:center}
+  .sb-dark{color:var(--ink-900)} .sb-light{color:#fff}
+
+  /* ---------- generic chrome ---------- */
+  .hero{flex:none;position:relative;overflow:hidden}
+  .row{display:flex;align-items:center;justify-content:space-between}
+  .loc{display:flex;align-items:center;gap:12px;min-width:0}
+  .pin{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex:none}
+  .pin svg{width:20px;height:20px}
+  .pin-on-blue{background:var(--white)} .pin-on-blue svg{stroke:var(--brand)}
+  .pin-on-light{background:var(--brand)} .pin-on-light svg{stroke:#fff}
+  .loc-txt{min-width:0}
+  .loc-cap{font-size:12px;line-height:16px}
+  .cap-blue{color:rgba(255,255,255,.72)} .cap-light{color:var(--brand-muted)}
+  .loc-val{font-size:13px;line-height:18px;font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .val-blue{color:#fff} .val-light{color:var(--ink-900)}
+  .bell{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;position:relative;flex:none}
+  .bell svg{width:22px;height:22px}
+  .bell-on-blue{background:rgba(255,255,255,.16)} .bell-on-blue svg{stroke:#fff}
+  .bell-on-light{background:transparent} .bell-on-light svg{stroke:var(--ink-900)}
+  .pill{position:absolute;top:2px;right:0;min-width:18px;height:16px;border-radius:999px;background:var(--danger);
+    color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 4px}
+
+  .search{display:flex;align-items:center;gap:12px;background:var(--white);border-radius:14px;
+    padding:0 16px;height:56px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+  .search svg{width:20px;height:20px;stroke:var(--ink-400);flex:none}
+  .search span{font-size:15px;color:var(--ink-400)}
+
+  /* ---------- carousel ---------- */
+  .track{display:flex;gap:12px;overflow:hidden;position:relative;margin-left:-20px;margin-right:-20px;padding-left:20px;padding-right:20px}
+  .slide{flex:none}
+  .promo{height:172px;border-radius:20px;background:var(--brand);display:flex;align-items:center;overflow:hidden;position:relative}
+  .promo .copy{flex:1;padding:0 8px 0 20px;z-index:2}
+  .promo h3{color:#fff;font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.02em;max-width:230px}
+  .promo p{color:rgba(255,255,255,.78);font-size:13px;line-height:18px;margin-top:4px;max-width:210px}
+  .cta{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--brand);border-radius:999px;
+    padding:8px 14px;margin-top:12px;font-size:13px;font-weight:600;line-height:18px}
+  .cta svg{width:13px;height:13px;stroke:var(--brand)}
+  .promo .art{width:46%;height:100%;object-fit:contain;object-position:center;flex:none}
+
+  .dots{display:flex;gap:6px;justify-content:center;align-items:center}
+  .dot{display:block;width:7px;height:7px;border-radius:4px;background:var(--ink-300)}
+  .dot.on{background:var(--brand)}
+  .dots.on-blue .dot{background:rgba(255,255,255,.35)} .dots.on-blue .dot.on{background:#fff}
+
+  /* ---------- service grid ---------- */
+  .body{flex:1;padding:0 20px;overflow:hidden;position:relative}
+  .section-title{font-size:17px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em;margin:20px 0 14px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);row-gap:18px;column-gap:8px}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .tile .img{width:64px;height:64px;border-radius:14px;background:var(--ink-100);
+    display:flex;align-items:center;justify-content:center}
+  .tile .img svg{width:28px;height:28px;stroke:var(--ink-400);stroke-width:1.7}
+  .tile span{font-size:12px;color:var(--ink-500);text-align:center;line-height:16px}
+
+  /* ---------- tab bar ---------- */
+  .tabbar{flex:none;height:88px;background:var(--white);border-top:1px solid var(--ink-200);
+    display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px;position:relative}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:4px;width:64px}
+  .tab svg{width:24px;height:24px;stroke:var(--ink-400);stroke-width:1.8}
+  .tab.active svg{stroke:var(--brand)}
+  .tab span{font-size:10px;color:var(--ink-400)} .tab.active span{color:var(--brand);font-weight:600}
+  .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--ink-900);opacity:.85}
+
+  /* ================= VARIANT A : BLUE HERO ================= */
+  .va .hero{background:var(--brand);padding:0 20px 18px;border-radius:0 0 24px 24px}
+  .va .hero::after{content:"";position:absolute;inset:auto 0 0 0;height:1px;background:rgba(255,255,255,.12)}
+  .va .search{margin-top:20px}
+  .va .track{margin-top:18px}
+  .va .slide{width:350px}
+  .va .promo{background:rgba(255,255,255,.13);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+  .va .cta{background:#fff;color:var(--brand)}
+  .va .promo h3{color:#fff}
+  .va .dots{margin-top:12px}
+  .va .body{background:var(--ink-50);border-radius:0}
+
+  /* ================= VARIANT B : LIGHT BAND ================= */
+  .vb .hero{background:var(--ink-100);padding:0 20px 20px;border-radius:0 0 24px 24px}
+  .vb .search{margin-top:20px}
+  .vb .track{margin-top:18px}
+  .vb .slide{width:350px}
+  .vb .promo{background:var(--brand)}
+  .vb .dots{margin-top:12px}
+
+  /* ================= VARIANT C : GLASS OVER HERO ================= */
+  .vc .hero{background:var(--brand);height:398px;padding:0 20px 0}
+  .vc .heroart{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:flex-end;opacity:.9}
+  .vc .heroart img{height:100%;width:auto;object-fit:contain;object-position:right bottom;margin-right:-10px}
+  .vc .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,77,255,.85) 0%,rgba(5,77,255,.15) 42%,rgba(5,77,255,.55) 78%,rgba(5,77,255,.96) 100%)}
+  .vc .chrome{position:relative;z-index:3;padding:0 20px}
+  .vc .search{margin-top:20px}
+  .vc .track{position:relative;z-index:2;margin-top:16px}
+  .vc .slide{width:350px}
+  .vc .promo{background:transparent;height:150px;align-items:flex-end}
+  .vc .promo .copy{padding:0 0 6px}
+  .vc .dots{margin-top:6px;position:relative;z-index:3}
+
+  .note{font-size:11.5px;line-height:1.4;color:var(--ink-500);margin-top:8px;text-align:center}
+  .swatches{display:flex;gap:6px;justify-content:center;margin-top:10px}
+  .sw{width:22px;height:22px;border-radius:6px;border:1px solid rgba(15,23,42,.12)}
+  /* live carousel */
+  .track-live{animation:slideRoll 24s linear infinite}
+  @keyframes slideRoll{
+    0%{transform:translateX(0)}
+    100%{transform:translateX(-1448px)}
+  }
+  .vc .track-copy .promo{background:transparent;height:150px;align-items:flex-end}
+  .vc .track-copy .copy{padding:0 0 6px}
+  .track-live .slide{flex:none}
+  .hint{position:absolute;left:0;right:0;bottom:0;height:0}
+  .legend{max-width:390px;text-align:center;font-size:12.5px;line-height:1.5;color:#475569}
+  .legend b{display:block;color:#0F172A;font-size:15px;margin-bottom:5px}
+  .legend .k{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:999px;background:#0F172A;color:#fff;font-size:11px;font-weight:600;letter-spacing:.02em}
+</style></head>
+<body>
+  <div class="col">
+    <div class="phone va">
+  <div class="hero">
+    <div class="statusbar sb-light"><span>9:41</span>
+  <span class="sig">
+    <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+    <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5l2.4-2.7a3.4 3.4 0 0 0-4.8 0L8 10.5zM3.5 5.8A6.6 6.6 0 0 1 12.5 5.8l1.6-1.8a8.6 8.6 0 0 0-14.2 0l1.6 1.8z"/></svg>
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/><path d="M23 4v4a2.2 2.2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+  </span></div>
+    <div class="row">
+  <div class="loc">
+    <div class="pin pin-on-blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+    <div class="loc-txt"><div class="loc-cap cap-blue">Your location</div>
+      <div class="loc-val val-blue">221B Baker Street, London</div></div>
+  </div>
+  <div class="bell bell-on-blue">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    <div class="pill">9+</div>
+  </div></div>
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search for electrician</span></div>
+    <div class="track track-live"><div class="slide"><div class="promo"><div class="copy">
+    <h3>Your home needs care.</h3><p>We've got the right people.</p>
+    <span class="cta">Explore Services<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-1.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>Electrical problems?</h3><p>Find a professional near you.</p>
+    <span class="cta">Find an Electrician<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-2.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>Leaky tap? Get it fixed.</h3><p>Connect with local plumbing professionals.</p>
+    <span class="cta">Find a Plumber<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-3.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>A cleaner home, made easier.</h3><p>Find trusted cleaning professionals nearby.</p>
+    <span class="cta">Explore Cleaning<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-4.png"/></div></div>
+<div class="slide data-loop-start"><div class="promo"><div class="copy">
+    <h3>Your home needs care.</h3><p>We've got the right people.</p>
+    <span class="cta">Explore Services<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-1.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>Electrical problems?</h3><p>Find a professional near you.</p>
+    <span class="cta">Find an Electrician<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-2.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>Leaky tap? Get it fixed.</h3><p>Connect with local plumbing professionals.</p>
+    <span class="cta">Find a Plumber<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-3.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>A cleaner home, made easier.</h3><p>Find trusted cleaning professionals nearby.</p>
+    <span class="cta">Explore Cleaning<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-4.png"/></div></div></div>
+    <div class="dots on-blue"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+  </div>
+  <div class="body"><div class="section-title">All services</div><div class="grid"><div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M4.2 6.5l7.8 13.5M19.8 6.5 12 20M3 11l9-4.5 9 4.5M6.5 15h11"/></svg></div><span>AC &amp;<br/>Appliances</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></div><span>Electrical</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7s6.5 7.2 6.5 12A6.5 6.5 0 0 1 5.5 14.7c0-4.8 6.5-12 6.5-12Z"/></svg></div><span>Plumbing</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L19 9.6l-5.1 1.8L12 16.2l-1.9-4.8L5 9.6l5.1-1.8L12 3Z M18 15l.9 2.3 2.1.7-2.1.8-.9 2.2-.9-2.2-2.1-.8 2.1-.7.9-2.3Z"/></svg></div><span>Cleaning</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6.5 17v2M17.5 17v2M4 11l2-5h12l2 5M4 11h16v6H4z"/></svg></div><span>Car Care</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H4z M2 20h20"/></svg></div><span>Laptop &amp;<br/>Electronics</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-8 8 2 2 8-8M4 20l4-1-3-3-1 4Z M13 3.5 20.5 11l-3 3L10 6.5l3-3Z"/></svg></div><span>Carpentry</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9c0 1.7-1.3 2.5-2.5 2.5H16a2 2 0 0 0-1.5 3.3A1.8 1.8 0 0 1 12 21Z M7.5 11a1.2 1.2 0 1 0 0-.01Z M11 7.5a1.2 1.2 0 1 0 0-.01Z M15 8.5a1.2 1.2 0 1 0 0-.01Z"/></svg></div><span>Painting</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z M12 12v10M3 7l9 5 9-5"/></svg></div><span>Moving &amp;<br/>Labour</span></div></div></div>
+  <div class="tabbar">
+  <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 21v-7h6v7"/></svg><span>Home</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.6-4.4A8.3 8.3 0 0 1 3.6 11 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg><span>Messages</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profile</span></div>
+  <div class="home-ind"></div></div>
+</div>
+    <div class="legend"><b>A · Blue hero header</b>Whole top band is brand blue. The location, bell and search are pinned and never move — only the promo card slides beneath them.<span class="k">chrome stays · content slides</span></div>
+  </div>
+  <div class="col">
+    <div class="phone vb">
+  <div class="hero">
+    <div class="statusbar sb-dark"><span>9:41</span>
+  <span class="sig">
+    <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+    <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5l2.4-2.7a3.4 3.4 0 0 0-4.8 0L8 10.5zM3.5 5.8A6.6 6.6 0 0 1 12.5 5.8l1.6-1.8a8.6 8.6 0 0 0-14.2 0l1.6 1.8z"/></svg>
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/><path d="M23 4v4a2.2 2.2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+  </span></div>
+    <div class="row">
+  <div class="loc">
+    <div class="pin pin-on-light"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+    <div class="loc-txt"><div class="loc-cap cap-light">Your location</div>
+      <div class="loc-val val-light">221B Baker Street, London</div></div>
+  </div>
+  <div class="bell bell-on-light">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    <div class="pill">9+</div>
+  </div></div>
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search for electrician</span></div>
+    <div class="track track-live"><div class="slide"><div class="promo"><div class="copy">
+    <h3>Your home needs care.</h3><p>We've got the right people.</p>
+    <span class="cta">Explore Services<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-1.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>Electrical problems?</h3><p>Find a professional near you.</p>
+    <span class="cta">Find an Electrician<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-2.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>Leaky tap? Get it fixed.</h3><p>Connect with local plumbing professionals.</p>
+    <span class="cta">Find a Plumber<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-3.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>A cleaner home, made easier.</h3><p>Find trusted cleaning professionals nearby.</p>
+    <span class="cta">Explore Cleaning<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-4.png"/></div></div>
+<div class="slide data-loop-start"><div class="promo"><div class="copy">
+    <h3>Your home needs care.</h3><p>We've got the right people.</p>
+    <span class="cta">Explore Services<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-1.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>Electrical problems?</h3><p>Find a professional near you.</p>
+    <span class="cta">Find an Electrician<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-2.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>Leaky tap? Get it fixed.</h3><p>Connect with local plumbing professionals.</p>
+    <span class="cta">Find a Plumber<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-3.png"/></div></div>
+<div class="slide"><div class="promo"><div class="copy">
+    <h3>A cleaner home, made easier.</h3><p>Find trusted cleaning professionals nearby.</p>
+    <span class="cta">Explore Cleaning<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-4.png"/></div></div></div>
+    <div class="dots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+  </div>
+  <div class="body"><div class="section-title">All services</div><div class="grid"><div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M4.2 6.5l7.8 13.5M19.8 6.5 12 20M3 11l9-4.5 9 4.5M6.5 15h11"/></svg></div><span>AC &amp;<br/>Appliances</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></div><span>Electrical</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7s6.5 7.2 6.5 12A6.5 6.5 0 0 1 5.5 14.7c0-4.8 6.5-12 6.5-12Z"/></svg></div><span>Plumbing</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L19 9.6l-5.1 1.8L12 16.2l-1.9-4.8L5 9.6l5.1-1.8L12 3Z M18 15l.9 2.3 2.1.7-2.1.8-.9 2.2-.9-2.2-2.1-.8 2.1-.7.9-2.3Z"/></svg></div><span>Cleaning</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6.5 17v2M17.5 17v2M4 11l2-5h12l2 5M4 11h16v6H4z"/></svg></div><span>Car Care</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H4z M2 20h20"/></svg></div><span>Laptop &amp;<br/>Electronics</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-8 8 2 2 8-8M4 20l4-1-3-3-1 4Z M13 3.5 20.5 11l-3 3L10 6.5l3-3Z"/></svg></div><span>Carpentry</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9c0 1.7-1.3 2.5-2.5 2.5H16a2 2 0 0 0-1.5 3.3A1.8 1.8 0 0 1 12 21Z M7.5 11a1.2 1.2 0 1 0 0-.01Z M11 7.5a1.2 1.2 0 1 0 0-.01Z M15 8.5a1.2 1.2 0 1 0 0-.01Z"/></svg></div><span>Painting</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z M12 12v10M3 7l9 5 9-5"/></svg></div><span>Moving &amp;<br/>Labour</span></div></div></div>
+  <div class="tabbar">
+  <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 21v-7h6v7"/></svg><span>Home</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.6-4.4A8.3 8.3 0 0 1 3.6 11 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg><span>Messages</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profile</span></div>
+  <div class="home-ind"></div></div>
+</div>
+    <div class="legend"><b>B · Light band (banner just moved up)</b>Header stays the soft grey band from today; the brand-blue promo card moves above the services grid and slides there. Smallest change.<span class="k">chrome stays · content slides</span></div>
+  </div>
+  <div class="col">
+    <div class="phone vc">
+  <div class="hero">
+    <div class="heroart"><img src="../../../apps/customer/assets/images/banners/banner-2.png"/></div>
+    <div class="scrim"></div>
+    <div class="chrome">
+      <div class="statusbar sb-light"><span>9:41</span>
+  <span class="sig">
+    <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+    <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5l2.4-2.7a3.4 3.4 0 0 0-4.8 0L8 10.5zM3.5 5.8A6.6 6.6 0 0 1 12.5 5.8l1.6-1.8a8.6 8.6 0 0 0-14.2 0l1.6 1.8z"/></svg>
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/><path d="M23 4v4a2.2 2.2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+  </span></div>
+      <div class="row">
+  <div class="loc">
+    <div class="pin pin-on-blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+    <div class="loc-txt"><div class="loc-cap cap-blue">Your location</div>
+      <div class="loc-val val-blue">221B Baker Street, London</div></div>
+  </div>
+  <div class="bell bell-on-blue">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    <div class="pill">9+</div>
+  </div></div>
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search for electrician</span></div>
+    </div>
+    <div class="track track-live track-copy"><div class="slide"><div class="promo"><div class="copy"><h3>Your home needs care.</h3><p>We've got the right people.</p><span class="cta">Explore Services</span></div></div></div><div class="slide"><div class="promo"><div class="copy"><h3>Electrical problems?</h3><p>Find a professional near you.</p><span class="cta">Find an Electrician</span></div></div></div><div class="slide"><div class="promo"><div class="copy"><h3>Leaky tap? Get it fixed.</h3><p>Connect with local plumbing professionals.</p><span class="cta">Find a Plumber</span></div></div></div><div class="slide"><div class="promo"><div class="copy"><h3>A cleaner home, made easier.</h3><p>Find trusted cleaning professionals nearby.</p><span class="cta">Explore Cleaning</span></div></div></div><div class="slide"><div class="promo"><div class="copy"><h3>Your home needs care.</h3><p>We've got the right people.</p><span class="cta">Explore Services</span></div></div></div><div class="slide"><div class="promo"><div class="copy"><h3>Electrical problems?</h3><p>Find a professional near you.</p><span class="cta">Find an Electrician</span></div></div></div><div class="slide"><div class="promo"><div class="copy"><h3>Leaky tap? Get it fixed.</h3><p>Connect with local plumbing professionals.</p><span class="cta">Find a Plumber</span></div></div></div><div class="slide"><div class="promo"><div class="copy"><h3>A cleaner home, made easier.</h3><p>Find trusted cleaning professionals nearby.</p><span class="cta">Explore Cleaning</span></div></div></div></div>
+    <div class="dots on-blue" style="margin-top:4px"><i class="dot"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></div>
+  </div>
+  <div class="body"><div class="section-title">All services</div><div class="grid"><div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M4.2 6.5l7.8 13.5M19.8 6.5 12 20M3 11l9-4.5 9 4.5M6.5 15h11"/></svg></div><span>AC &amp;<br/>Appliances</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></div><span>Electrical</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7s6.5 7.2 6.5 12A6.5 6.5 0 0 1 5.5 14.7c0-4.8 6.5-12 6.5-12Z"/></svg></div><span>Plumbing</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L19 9.6l-5.1 1.8L12 16.2l-1.9-4.8L5 9.6l5.1-1.8L12 3Z M18 15l.9 2.3 2.1.7-2.1.8-.9 2.2-.9-2.2-2.1-.8 2.1-.7.9-2.3Z"/></svg></div><span>Cleaning</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6.5 17v2M17.5 17v2M4 11l2-5h12l2 5M4 11h16v6H4z"/></svg></div><span>Car Care</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H4z M2 20h20"/></svg></div><span>Laptop &amp;<br/>Electronics</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-8 8 2 2 8-8M4 20l4-1-3-3-1 4Z M13 3.5 20.5 11l-3 3L10 6.5l3-3Z"/></svg></div><span>Carpentry</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 1 9-9c0 1.7-1.3 2.5-2.5 2.5H16a2 2 0 0 0-1.5 3.3A1.8 1.8 0 0 1 12 21Z M7.5 11a1.2 1.2 0 1 0 0-.01Z M11 7.5a1.2 1.2 0 1 0 0-.01Z M15 8.5a1.2 1.2 0 1 0 0-.01Z"/></svg></div><span>Painting</span></div>
+<div class="tile"><div class="img"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z M12 12v10M3 7l9 5 9-5"/></svg></div><span>Moving &amp;<br/>Labour</span></div></div></div>
+  <div class="tabbar">
+  <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 21v-7h6v7"/></svg><span>Home</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.9-.9L3 20.5l1.6-4.4A8.3 8.3 0 0 1 3.6 11 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/></svg><span>Messages</span></div>
+  <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profile</span></div>
+  <div class="home-ind"></div></div>
+</div>
+    <div class="legend"><b>C · Full-bleed sliding hero</b>The slide art fills the whole header and slides; location, bell and search float over it on a scrim. Most premium, most screen real estate.<span class="k">chrome floats · content slides</span></div>
+  </div>
+</body></html>

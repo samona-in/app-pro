@@ -74,18 +74,26 @@ export default function Home() {
   }
 
   return (
-    <Screen scrollable edges={[]}>
-      <StatusBar style="dark" />
+    <Screen scrollable edges={[]} padded={false}>
+      <StatusBar style="light" />
       <HomeHeader
+        variant="blue"
         locationLabel={locationLabel ?? undefined}
         locationCaption={activeSavedAddress?.name ?? 'Your location'}
         onPress={() => router.push('/address-search')}
-        trailing={<NotificationBell />}
+        trailing={<NotificationBell variant="white" />}
+        banner={
+          <HomeBannerCarousel
+            banners={HOME_BANNERS}
+            onPressBanner={handlePressBanner}
+            variant="light"
+          />
+        }
       >
         <SearchBar onPress={() => router.push('/search')} />
       </HomeHeader>
 
-      <View className="mt-5 flex-1">
+      <View className="mt-3 flex-1 px-2">
         {categories.isPending ? (
           <LoadingState message="Loading services" size="inline" />
         ) : categories.isError ? (
@@ -101,12 +109,6 @@ export default function Home() {
             onSelect={handleSelectService}
           />
         )}
-
-        <HomeBannerCarousel
-          banners={HOME_BANNERS}
-          onPressBanner={handlePressBanner}
-          className="mt-6"
-        />
       </View>
     </Screen>
   );

@@ -6,12 +6,15 @@ import { color } from '@/theme';
 import type { HomeBanner as HomeBannerData } from './home-banners';
 
 /** Height of a banner card, in points. */
-export const BANNER_HEIGHT = 180;
+export const BANNER_HEIGHT = 150;
 
 export interface HomeBannerCardProps {
   banner: HomeBannerData;
   /** Fired when the card or its call to action is tapped. */
   onPress: (banner: HomeBannerData) => void;
+  height?: number;
+  /** Use the hero styling inside a brand-blue band. */
+  variant?: 'default' | 'hero';
 }
 
 /**
@@ -21,14 +24,14 @@ export interface HomeBannerCardProps {
  * half of the brand-blue card. The columns never overlap, so the headline
  * stays legible on every screen width.
  */
-export function HomeBannerCard({ banner, onPress }: HomeBannerCardProps) {
+export function HomeBannerCard({ banner, onPress, height = BANNER_HEIGHT }: HomeBannerCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={banner.heading}
       accessibilityHint={banner.subtitle}
       onPress={() => onPress(banner)}
-      style={styles.card}
+      style={[styles.card, { height }]}
       className="overflow-hidden rounded-xl bg-brand"
     >
       <View style={styles.copy}>
@@ -54,7 +57,7 @@ export function HomeBannerCard({ banner, onPress }: HomeBannerCardProps) {
 
       <Image
         source={banner.image}
-        style={styles.art}
+        style={[styles.art, { height }]}
         contentFit="contain"
         transition={0}
         accessibilityLabel={banner.imageDescription}
@@ -71,8 +74,8 @@ const styles = StyleSheet.create({
   },
   copy: {
     flex: 1,
-    paddingLeft: 20,
-    paddingRight: 8,
+    paddingLeft: 16,
+    paddingRight: 2,
     justifyContent: 'center',
   },
   heading: {
@@ -88,9 +91,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: color['brand-contrast'],
     borderRadius: 9999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 10,
   },
   ctaLabel: {
     color: color.brand,
@@ -99,7 +102,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   art: {
-    width: '46%',
+    width: '36%',
     height: BANNER_HEIGHT,
   },
 });
