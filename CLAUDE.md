@@ -278,6 +278,21 @@ Do not request background location permissions unless the feature actually requi
 
 Explain why a permission is required before requesting it.
 
+### Live location in the customer app
+
+The customer app refreshes the customer's active location by itself: it reads the
+device's own position when the app opens and again whenever it returns to the
+foreground, then writes it to the profile through `PATCH /customers/me/location`.
+The customer never has to open a location screen to say where they are.
+
+The read is foreground-only and the permission is asked for once, the first time
+the location is needed; a refusal is never re-asked and the customer keeps
+whatever location they picked by hand. Onboarding owns the location until it is
+complete, so the live fix only starts afterwards. A write is skipped unless the
+customer moved more than 100 m since the stored position, and reads are at least
+60 s apart. The label is optional — a failed reverse lookup still writes the
+coordinates and leaves the stored label alone.
+
 ### Maps and geocoding
 
 Maps render with `react-native-maps` using `PROVIDER_DEFAULT` — **Google Maps on

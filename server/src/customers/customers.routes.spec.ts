@@ -43,6 +43,11 @@ function buildServices(overrides: Partial<Services> = {}) {
       applyOnboardingPatch: jest
         .fn()
         .mockResolvedValue({ ...profile, onboardingStatus: OnboardingStatus.COMPLETED }),
+      updateLocation: jest.fn().mockResolvedValue({
+        ...profile,
+        latitude: 17.385,
+        longitude: 78.4867,
+      }),
     },
     ...overrides,
   } as unknown as Services;
@@ -89,6 +94,36 @@ describe('customers routes', () => {
       .expect(422);
 
     expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+  });
+
+  it('PATCH /customers/me/location records the live location', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .patch('/customers/me/location')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        coordinates: { latitude: 17.385, longitude: 78.4867 },
+        locationLabel: 'MG Road, Hyderabad',
+      })
+      .expect(200);
+
+    expect(services.customers.updateLocation).toHaveBeenCalledWith('user-1', {
+      coordinates: { latitude: 17.385, longitude: 78.4867 },
+      locationLabel: 'MG Road, Hyderabad',
+    });
+    expect(response.body.latitude).toBe(17.385);
+  });
+
+  it('rejects a location without coordinates', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .patch('/customers/me/location')
+      .set('authorization', 'Bearer good.token')
+      .send({ locationLabel: 'MG Road, Hyderabad' })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.customers.updateLocation).not.toHaveBeenCalled();
   });
 
   it('rejects requests without auth', async () => {

@@ -4,7 +4,7 @@ import {
   type CustomerProfile,
   type Gender,
 } from '@samona/types';
-import type { CustomerOnboardingPatchInput } from '@samona/validation';
+import type { CustomerLocationPatchInput, CustomerOnboardingPatchInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
 import { unauthenticated, conflict } from '../common/errors';
 
@@ -123,6 +123,35 @@ export function createCustomersService(deps: CustomersServiceDeps) {
     return recomputeStatus(toCustomerProfile(updated as CustomerProfileRow));
   }
 
+  /**
+   * Records where the customer is right now.
+   *
+   * The app sends the device's own fix when it opens, so the customer's active
+   * location is where they are rather than where they last tapped. A plain
+   * coordinates write: it never touches onboarding status, and it leaves the
+   * stored label and place id alone unless the client resolved new ones — a
+   * reverse lookup that came back empty must not blank what is already there.
+   */
+  async function updateLocation(
+    userId: string,
+    input: CustomerLocationPatchInput,
+  ): Promise<CustomerProfile> {
+    await ensureForUser(userId);
+
+    const updated = await deps.prisma.customerProfile.update({
+      where: { userId },
+      data: {
+        latitude: input.coordinates.latitude,
+        longitude: input.coordinates.longitude,
+        ...(input.locationLabel !== undefined ? { locationLabel: input.locationLabel } : {}),
+        ...(input.locationPlaceId !== undefined ? { locationPlaceId: input.locationPlaceId } : {}),
+      },
+      select: customerProfileSelect,
+    });
+
+    return toCustomerProfile(updated as CustomerProfileRow);
+  }
+
   /** Derives and persists onboarding status from the profile's own data. */
   async function recomputeStatus(profile: CustomerProfile): Promise<CustomerProfile> {
     const complete = isCustomerProfileComplete(profile);
@@ -144,7 +173,7 @@ export function createCustomersService(deps: CustomersServiceDeps) {
     return { ...profile, onboardingStatus: status };
   }
 
-  return { findByUserId, ensureForUser, applyOnboardingPatch };
+  return { findByUserId, ensureForUser, applyOnboardingPatch, updateLocation };
 }
 
 export type CustomersService = ReturnType<typeof createCustomersService>;

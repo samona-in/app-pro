@@ -45,6 +45,23 @@ export const customerOnboardingPatchSchema = z
 export type CustomerOnboardingPatchInput = z.infer<typeof customerOnboardingPatchSchema>;
 
 /**
+ * Where the customer is right now, sent by the app from the device's fix.
+ *
+ * Coordinates are the location and are always required. The label and its
+ * durable place id ride along only when the geocoder resolved them — a
+ * reverse lookup that failed must not cost the customer their position, and
+ * must not blank the label the profile already carries.
+ */
+export const customerLocationPatchSchema = z.object({
+  coordinates: coordinatesSchema,
+  locationLabel: z.string().trim().max(120).optional(),
+  /** Durable place id for the label, so it can be re-resolved on read. */
+  locationPlaceId: z.string().trim().max(512).nullable().optional(),
+});
+
+export type CustomerLocationPatchInput = z.infer<typeof customerLocationPatchSchema>;
+
+/**
  * Step 3 of the avatar upload handshake.
  *
  * The client sends back the object path the API minted in step 1. The server

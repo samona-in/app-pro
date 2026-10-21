@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { customerOnboardingPatchSchema } from '@samona/validation';
+import { customerLocationPatchSchema, customerOnboardingPatchSchema } from '@samona/validation';
 import type { Services } from '../context';
 import { createRequireAuth, requireRole, validate } from '../common';
 
@@ -45,6 +45,22 @@ export function createCustomersRouter(services: Services): Router {
       }
     },
   );
+
+  /**
+   * Records the customer's live location.
+   *
+   * Written by the app from the device's own fix when the customer opens the
+   * app, so their active location is where they actually are. Coordinates are
+   * the only required field; the label and its durable place id ride along
+   * when the geocoder resolved them.
+   */
+  router.patch('/me/location', validate(customerLocationPatchSchema), async (req, res, next) => {
+    try {
+      res.json(await services.customers.updateLocation(req.user!.id, req.body));
+    } catch (error) {
+      next(error);
+    }
+  });
 
   return router;
 }

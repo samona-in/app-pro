@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import type { CustomerProfile, CustomerOnboardingStep, PublicUser } from '@samona/types';
 import { queryKeys } from '@/constants';
-import { useAuth } from '@/providers';
+// Imported from its module, not the `@/providers` barrel: the barrel mounts the
+// live-location provider, which reaches back into these hooks.
+import { useAuth } from '@/providers/auth-provider';
 import { api } from '@/services/api';
 
 export interface SessionResponse {

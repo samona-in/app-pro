@@ -1,3 +1,4 @@
+export { useLiveLocation } from './use-live-location';
 export { useRealtimeSync } from './use-realtime';
 export { useActiveJob, useActiveOrders } from './use-active-job';
 export { useServices } from './use-services';
