@@ -11,6 +11,7 @@ export {
   useServiceSkills,
 } from './use-bookings';
 export {
+  useActiveSavedAddress,
   useAddressSearch,
   useCreateSavedAddress,
   useDeleteSavedAddress,

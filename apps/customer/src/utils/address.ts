@@ -65,6 +65,24 @@ export function savedAddressCoordinates(address: {
 }
 
 /**
+ * How close two points must be to count as the same place — 0.0005° is
+ * roughly 50 m, enough to survive the same spot being resolved twice
+ * without pulling in a neighbouring address.
+ */
+const SAME_PLACE_EPSILON = 0.0005;
+
+/** Whether two coordinates point at the same place. */
+export function isSamePlace(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number },
+): boolean {
+  return (
+    Math.abs(a.latitude - b.latitude) <= SAME_PLACE_EPSILON &&
+    Math.abs(a.longitude - b.longitude) <= SAME_PLACE_EPSILON
+  );
+}
+
+/**
  * Converts a saved address into an AddressSuggestion.
  * Used when opening/editing an existing saved address.
  */
