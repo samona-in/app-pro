@@ -63,7 +63,11 @@ export function HomeHeader({
             <Text variant="caption" className="text-brand-muted">
               {locationCaption}
             </Text>
-            <Text numberOfLines={1} variant="bodyStrong" className="mt-0.5 text-text-primary">
+            <Text
+              numberOfLines={1}
+              variant="footnote"
+              className="mt-0.5 font-semibold text-text-primary"
+            >
               {locationLabel}
             </Text>
           </View>
