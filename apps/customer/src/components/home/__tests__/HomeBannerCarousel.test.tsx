@@ -1,24 +1,33 @@
 import type * as ReactTypes from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { AccessibilityInfo, Dimensions, FlatList } from 'react-native';
+import { AccessibilityInfo, Dimensions } from 'react-native';
+import { Carousel } from 'react-native-reanimated-carousel';
 import { HOME_BANNERS } from '../home-banners';
-import { HomeBannerCarousel } from '../HomeBannerCarousel';
+import { HomeBannerCarousel, BANNER_AUTOSCROLL_MS } from '../HomeBannerCarousel';
+import { color } from '@/theme';
+
+jest.mock('react-native-reanimated', () => jest.requireActual('react-native-reanimated/mock'));
+jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
+
+/** Cleanup callbacks of every mounted focus effect, so focus can be lost. */
+const mockFocusCleanups: Array<() => void | undefined> = [];
 
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual<typeof ReactTypes>('react');
   return {
-    useFocusEffect: (effect: () => void | (() => void)) => useEffect(effect, [effect]),
+    useFocusEffect: (effect: () => void | (() => void)) => {
+      useEffect(() => {
+        const cleanup = effect();
+        mockFocusCleanups.push(() => cleanup?.());
+      }, [effect]);
+    },
   };
 });
 
 const WIDTH = Dimensions.get('window').width;
 
-function scrollSpy() {
-  return jest.spyOn(FlatList.prototype, 'scrollToOffset').mockImplementation(() => {});
-}
-
 function carousel() {
-  return screen.UNSAFE_getByType(FlatList);
+  return screen.UNSAFE_getByType(Carousel);
 }
 
 /** Lets the accessibility lookup settle so the component stops updating. */
@@ -31,6 +40,7 @@ async function settle() {
 describe('HomeBannerCarousel', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    mockFocusCleanups.length = 0;
   });
 
   afterEach(() => {
@@ -46,75 +56,66 @@ describe('HomeBannerCarousel', () => {
     expect(screen.getByText('Explore Services')).toBeTruthy();
   });
 
+  it('pages through the banners in a loop', async () => {
+    render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
+    await settle();
+
+    expect(carousel().props.data).toHaveLength(HOME_BANNERS.length);
+    expect(carousel().props.loop).toBe(true);
+    expect(carousel().props.snapMode).toBe('page');
+    expect(carousel().props.itemSize).toBe(WIDTH);
+  });
+
   it('advances to the next banner every five seconds', async () => {
-    const scroll = scrollSpy();
+    const timeout = jest.spyOn(global, 'setTimeout');
     render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
     await settle();
 
-    expect(scroll).not.toHaveBeenCalled();
-
-    act(() => {
-      jest.advanceTimersByTime(5000);
-    });
-
-    expect(scroll).toHaveBeenCalledWith({ offset: WIDTH, animated: true });
+    expect(carousel().props.autoplay).toBe(true);
+    expect(carousel().props.autoplayInterval).toBe(BANNER_AUTOSCROLL_MS);
+    expect(timeout).toHaveBeenCalledWith(expect.any(Function), BANNER_AUTOSCROLL_MS);
   });
 
-  it('keeps advancing one banner at a time', async () => {
-    const scroll = scrollSpy();
+  it('does not auto-advance while the screen is in the background', async () => {
     render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
     await settle();
 
-    for (let step = 1; step <= 3; step += 1) {
-      act(() => {
-        jest.advanceTimersByTime(5000);
-      });
-      expect(scroll).toHaveBeenLastCalledWith({ offset: step * WIDTH, animated: true });
-    }
-  });
-
-  it('does not auto-advance while the customer is swiping', async () => {
-    const scroll = scrollSpy();
-    render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
-    await settle();
+    expect(carousel().props.autoplay).toBe(true);
 
     act(() => {
-      carousel().props.onScrollBeginDrag();
+      mockFocusCleanups[0]?.();
     });
 
-    act(() => {
-      jest.advanceTimersByTime(15000);
-    });
-
-    expect(scroll).not.toHaveBeenCalled();
+    expect(carousel().props.autoplay).toBe(false);
   });
 
   it('does not auto-advance when the system asks for reduced motion', async () => {
     jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true as never);
-    const scroll = scrollSpy();
 
     render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
     await settle();
 
-    act(() => {
-      jest.advanceTimersByTime(15000);
-    });
-
-    expect(scroll).not.toHaveBeenCalled();
+    expect(carousel().props.autoplay).toBe(false);
   });
 
-  it('swaps the repeated last banner back for the first one', async () => {
-    const scroll = scrollSpy();
+  it('marks the banner the carousel settled on', async () => {
     render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
     await settle();
 
-    act(() => {
-      carousel().props.onMomentumScrollEnd({
-        nativeEvent: { contentOffset: { x: HOME_BANNERS.length * WIDTH } },
-      });
+    expect(screen.getByTestId('home-banner-dot-0')).toHaveStyle({
+      backgroundColor: color.brand,
     });
 
-    expect(scroll).toHaveBeenCalledWith({ offset: 0, animated: false });
+    act(() => {
+      carousel().props.onSnapToItem(1);
+    });
+
+    expect(screen.getByTestId('home-banner-dot-0')).toHaveStyle({
+      backgroundColor: color['border-strong'],
+    });
+    expect(screen.getByTestId('home-banner-dot-1')).toHaveStyle({
+      backgroundColor: color.brand,
+    });
   });
 
   it('reports the tapped banner', async () => {
