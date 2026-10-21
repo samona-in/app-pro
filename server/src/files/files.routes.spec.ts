@@ -115,6 +115,7 @@ describe('files routes — avatar', () => {
           userId: 'user-1',
           avatarUrl: `${AVATAR_BASE}/customers/user-1/avatar-3f9c2175-09f4-4360-b19a-3a5447b9f4f2.jpg`,
         }),
+        updateLocation: jest.fn(),
       },
     });
 

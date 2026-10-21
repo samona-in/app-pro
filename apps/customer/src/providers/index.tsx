@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './auth-provider';
+import { LiveLocationProvider } from './live-location-provider';
 import { QueryProvider } from './query-provider';
 // Imported from its module, not the `@/hooks` barrel: that barrel re-exports
 // `use-session.ts`, which imports `./auth-provider`, and re-entry through the
@@ -20,7 +21,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <LiveLocationProvider>{children}</LiveLocationProvider>
+          </QueryProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -28,4 +31,5 @@ export function AppProviders({ children }: { children: ReactNode }) {
 }
 
 export { AuthProvider, useAuth } from './auth-provider';
+export { LiveLocationProvider } from './live-location-provider';
 export { QueryProvider } from './query-provider';

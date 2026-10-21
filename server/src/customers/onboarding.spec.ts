@@ -1,4 +1,5 @@
 import {
+  customerLocationPatchSchema,
   customerOnboardingPatchSchema,
   customerOnboardingNameSchema,
   customerOnboardingAddressSchema,
@@ -84,6 +85,53 @@ describe('customer onboarding schemas', () => {
       });
 
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe('customerLocationPatchSchema', () => {
+    it('accepts coordinates on their own', () => {
+      expect(
+        customerLocationPatchSchema.safeParse({
+          coordinates: { latitude: 17.385, longitude: 78.4867 },
+        }).success,
+      ).toBe(true);
+    });
+
+    it('accepts coordinates with a label and a place id', () => {
+      expect(
+        customerLocationPatchSchema.safeParse({
+          coordinates: { latitude: 17.385, longitude: 78.4867 },
+          locationLabel: 'MG Road, Hyderabad',
+          locationPlaceId: 'ChIJmg-road',
+        }).success,
+      ).toBe(true);
+    });
+
+    it('requires coordinates', () => {
+      expect(customerLocationPatchSchema.safeParse({ locationLabel: 'MG Road' }).success).toBe(
+        false,
+      );
+    });
+
+    it('rejects coordinates outside the real world', () => {
+      expect(
+        customerLocationPatchSchema.safeParse({
+          coordinates: { latitude: 99, longitude: 0 },
+        }).success,
+      ).toBe(false);
+    });
+
+    it('strips server-controlled fields', () => {
+      const result = customerLocationPatchSchema.safeParse({
+        coordinates: { latitude: 17.385, longitude: 78.4867 },
+        onboardingStatus: 'COMPLETED',
+        userId: 'someone-else',
+      });
+
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+
+      expect(result.data).toEqual({ coordinates: { latitude: 17.385, longitude: 78.4867 } });
     });
   });
 });

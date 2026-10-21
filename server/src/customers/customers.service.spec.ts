@@ -208,4 +208,68 @@ describe('createCustomersService', () => {
 
     expect(result.onboardingStatus).toBe(OnboardingStatus.COMPLETED);
   });
+
+  it('updateLocation writes the coordinates the device reported', async () => {
+    const { service, prisma } = buildService();
+    prisma.customerProfile.upsert.mockResolvedValue(base);
+    prisma.customerProfile.update.mockResolvedValue({
+      ...base,
+      latitude: 16.5062,
+      longitude: 80.648,
+      locationLabel: 'Benz Circle, Vijayawada',
+      locationPlaceId: 'ChIJbenz-circle',
+    });
+
+    const result = await service.updateLocation('user-1', {
+      coordinates: { latitude: 16.5062, longitude: 80.648 },
+      locationLabel: 'Benz Circle, Vijayawada',
+      locationPlaceId: 'ChIJbenz-circle',
+    });
+
+    expect(prisma.customerProfile.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        data: {
+          latitude: 16.5062,
+          longitude: 80.648,
+          locationLabel: 'Benz Circle, Vijayawada',
+          locationPlaceId: 'ChIJbenz-circle',
+        },
+      }),
+    );
+    expect(result.latitude).toBe(16.5062);
+  });
+
+  it('updateLocation leaves the stored label alone when none was resolved', async () => {
+    const { service, prisma } = buildService();
+    prisma.customerProfile.upsert.mockResolvedValue(base);
+    prisma.customerProfile.update.mockResolvedValue(base);
+
+    await service.updateLocation('user-1', {
+      coordinates: { latitude: 16.5062, longitude: 80.648 },
+    });
+
+    const update = prisma.customerProfile.update.mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(update.data).toEqual({ latitude: 16.5062, longitude: 80.648 });
+    expect(update.data).not.toHaveProperty('locationLabel');
+    expect(update.data).not.toHaveProperty('locationPlaceId');
+  });
+
+  it('updateLocation never touches the onboarding status', async () => {
+    const { service, prisma } = buildService();
+    prisma.customerProfile.upsert.mockResolvedValue(base);
+    prisma.customerProfile.update.mockResolvedValue(base);
+
+    await service.updateLocation('user-1', {
+      coordinates: { latitude: 16.5062, longitude: 80.648 },
+    });
+
+    const update = prisma.customerProfile.update.mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(update.data).not.toHaveProperty('onboardingStatus');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
 });
