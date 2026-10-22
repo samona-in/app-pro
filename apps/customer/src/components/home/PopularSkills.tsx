@@ -33,7 +33,6 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
     <View className={cn('pb-2', className)}>
       <View className="flex-row items-center justify-between px-4">
         <View className="flex-row items-center gap-1.5">
-          <Ionicons name="flame" size={16} color={color.brand} />
           <Text variant="bodyLg" className="font-semibold text-text-primary">
             Popular right now
           </Text>
@@ -79,9 +78,11 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
                 className="h-16 w-16 rounded-xl"
               />
               {index === 0 ? (
-                <View className="absolute -left-2 -top-2 flex-row items-center gap-0.5 rounded-full border-2 border-background bg-warning-surface px-1.5 py-0.5">
-                  <Ionicons name="flame" size={9} color={color.warning} />
-                  <Text className="text-[10px] font-bold leading-[12px] text-warning">Top</Text>
+                <View
+                  accessibilityLabel="Top pick"
+                  className="absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-warning-surface"
+                >
+                  <Ionicons name="trending-up" size={13} color={color.warning} />
                 </View>
               ) : null}
             </View>
@@ -90,10 +91,10 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
                 the type, not weight, to make it read: plain black on regular
                 weight. The two-line box keeps every service label in the rail
                 on the same baseline. */}
-            <Text numberOfLines={2} variant="footnote" className="mt-1 h-9 text-black">
+            <Text numberOfLines={2} variant="footnote" className="mt-[2px] h-10 text-black">
               {skill.name}
             </Text>
-            <Text numberOfLines={1} variant="caption" className="mt-1 text-text-muted">
+            <Text numberOfLines={1} variant="caption" className="text-text-muted">
               {skill.service.name}
             </Text>
           </Pressable>

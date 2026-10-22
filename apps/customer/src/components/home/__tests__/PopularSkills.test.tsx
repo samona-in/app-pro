@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { PopularSkill } from '@samona/types';
 import { PopularSkills } from '../PopularSkills';
 
@@ -8,6 +9,17 @@ async function settle() {
   await act(async () => {
     await Promise.resolve();
   });
+}
+
+/**
+ * The pixel value of a `mt-*` or `h-*` class, or null when it is not set.
+ * Both scales are 4px per unit; `mt-[2px]` and `h-[40px]` are read as written.
+ */
+function pixels(className: string, prefix: 'mt' | 'h'): number | null {
+  const arbitrary = className.match(new RegExp(`${prefix}-\\[(\\d+(?:\\.\\d+)?)px\\]`));
+  if (arbitrary) return Number(arbitrary[1]);
+  const token = className.match(new RegExp(`(?:^|\\s)${prefix}-(\\d+(?:\\.\\d+)?)(?:\\s|$)`));
+  return token ? Number(token[1]) * 4 : null;
 }
 
 function skill(overrides: Partial<PopularSkill> = {}): PopularSkill {
@@ -54,7 +66,12 @@ describe('PopularSkills', () => {
     render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
     await settle();
 
-    expect(screen.getByText('Top')).toBeTruthy();
+    expect(screen.getByLabelText('Top pick')).toBeTruthy();
+
+    // The badge is the trending-up glyph on its own — no flame, no word.
+    const icons = screen.UNSAFE_getAllByType(Ionicons);
+    expect(icons.some((icon) => icon.props.name === 'trending-up')).toBe(true);
+    expect(icons.some((icon) => icon.props.name === 'flame')).toBe(false);
   });
 
   it('reports the tapped skill', async () => {
@@ -84,21 +101,24 @@ describe('PopularSkills', () => {
     expect(screen.queryByText('Popular right now')).toBeNull();
   });
 
-  it('sets the skill name in plain black, with room either side', async () => {
+  it('sets the skill name in plain black, tight to the artwork', async () => {
     render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
     await settle();
 
     const name = screen.getByText('Plumbing leak repair');
-    const service = screen.getByText('Plumbing');
 
     // The name leans on colour, not weight: regular weight, absolute black
     // rather than one of the greys the footnote variant would give it.
     expect(name.props.className).not.toMatch(/font-(bold|semibold|medium|extrabold)/);
     expect(name.props.className).toMatch(/(^|\s)text-black(\s|$)/);
 
-    // Tight to the artwork, and a real gap down to the service name.
-    expect(name.props.className).toMatch(/(^|\s)mt-1(\s|$)/);
-    expect(service.props.className).toMatch(/(^|\s)mt-1(\s|$)/);
+    // Tight to the artwork...
+    expect(pixels(name.props.className, 'mt')).toBeLessThanOrEqual(4);
+
+    // ...and the fixed box is taller than the two lines of type it holds,
+    // which is what opens the gap down to the service name and keeps every
+    // service label in the rail on the same line.
+    expect(pixels(name.props.className, 'h')).toBeGreaterThan(36);
   });
 
   it('keeps the first skill clear of the screen edge', () => {
