@@ -164,7 +164,7 @@ export default function OnboardingAddress() {
           </View>
         </View>
 
-        <View className="border-t border-border bg-background px-4 py-3">
+        <View className="border-t border-border bg-surface px-4 py-3">
           <Text variant="footnote" className="text-text-secondary">
             Your location
           </Text>

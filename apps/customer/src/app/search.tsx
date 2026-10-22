@@ -71,7 +71,7 @@ export default function Search() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: color.background, paddingTop: insets.top }}
+      style={{ flex: 1, backgroundColor: color.surface, paddingTop: insets.top }}
     >
       {/* ── Search bar ────────────────────────────────────────────────────── */}
       <View className="flex-row items-center gap-1 px-2 pb-3">

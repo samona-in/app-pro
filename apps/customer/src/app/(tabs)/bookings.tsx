@@ -74,7 +74,7 @@ export default function Bookings() {
         : `${jobs.length} booking${jobs.length === 1 ? '' : 's'}`;
 
   return (
-    <Screen padded={false} className="bg-surface">
+    <Screen padded={false}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View className="px-5 pt-2">
         <Text variant="display">Bookings</Text>

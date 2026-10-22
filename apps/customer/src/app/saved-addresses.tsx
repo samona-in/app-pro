@@ -143,7 +143,7 @@ export default function SavedAddresses() {
           const secondary = savedAddressSecondary(item);
 
           return (
-            <View className="bg-background">
+            <View className="bg-surface">
               <View className="flex-row items-start py-3">
                 <View className="flex-1 pr-3">
                   <Text

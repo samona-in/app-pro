@@ -26,14 +26,14 @@ export default function RootLayout() {
   const [splashVisible, setSplashVisible] = useState(true);
 
   return (
-    <View style={{ flex: 1, backgroundColor: splashVisible ? color.brand : color.background }}>
+    <View style={{ flex: 1, backgroundColor: splashVisible ? color.brand : color.surface }}>
       <StatusBar style={splashVisible ? 'light' : 'dark'} />
       <AppProviders>
         <KeyboardProvider>
           <Stack
             screenOptions={{
               headerShown: false,
-              contentStyle: { backgroundColor: color.background },
+              contentStyle: { backgroundColor: color.surface },
             }}
           >
             <Stack.Screen name="index" />

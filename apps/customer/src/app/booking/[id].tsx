@@ -178,7 +178,7 @@ export default function BookingDetail() {
   const statusVisual = STATUS_ICON[job.status] ?? STATUS_ICON[JobStatus.REQUESTED];
 
   return (
-    <Screen scrollable edges={['top', 'bottom']} className="bg-background">
+    <Screen scrollable edges={['top', 'bottom']}>
       <Stack.Screen
         options={{
           headerTitle: () => (

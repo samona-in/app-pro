@@ -24,7 +24,7 @@ export function Screen({
   const contentClasses = cn(padded && 'px-5', contentClassName);
 
   return (
-    <SafeAreaView edges={edges} className={cn('flex-1 bg-background', className)} {...rest}>
+    <SafeAreaView edges={edges} className={cn('flex-1 bg-surface', className)} {...rest}>
       {scrollable ? (
         <ScrollView
           contentContainerClassName={cn('grow pb-8', contentClasses)}

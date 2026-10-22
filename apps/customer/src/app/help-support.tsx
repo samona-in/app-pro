@@ -35,7 +35,7 @@ function LinkRow({ icon, label, onPress, trailingValue, last }: LinkRowProps) {
       accessibilityLabel={label}
       disabled={!onPress}
       onPress={onPress}
-      className="bg-background py-2.5 active:opacity-70"
+      className="bg-surface py-2.5 active:opacity-70"
     >
       <View className="flex-row items-center">
         <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-muted">
@@ -72,7 +72,7 @@ function FaqRow({ question, answer, open, onToggle, last }: FaqRowProps) {
       accessibilityLabel={question}
       accessibilityState={{ expanded: open }}
       onPress={onToggle}
-      className="bg-background py-2.5 active:opacity-70"
+      className="bg-surface py-2.5 active:opacity-70"
     >
       <View className="flex-row items-center">
         <Text variant="body" className="flex-1 pr-2">
