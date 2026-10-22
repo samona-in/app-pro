@@ -84,6 +84,23 @@ describe('PopularSkills', () => {
     expect(screen.queryByText('Popular right now')).toBeNull();
   });
 
+  it('sets the skill name in plain black, with room either side', async () => {
+    render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
+    await settle();
+
+    const name = screen.getByText('Plumbing leak repair');
+    const service = screen.getByText('Plumbing');
+
+    // The name leans on colour, not weight: regular weight, absolute black
+    // rather than one of the greys the footnote variant would give it.
+    expect(name.props.className).not.toMatch(/font-(bold|semibold|medium|extrabold)/);
+    expect(name.props.className).toMatch(/(^|\s)text-black(\s|$)/);
+
+    // Tight to the artwork, and a real gap down to the service name.
+    expect(name.props.className).toMatch(/(^|\s)mt-1(\s|$)/);
+    expect(service.props.className).toMatch(/(^|\s)mt-1(\s|$)/);
+  });
+
   it('keeps the first skill clear of the screen edge', () => {
     render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
 

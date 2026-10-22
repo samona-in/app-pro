@@ -86,14 +86,14 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
               ) : null}
             </View>
 
-            <Text
-              numberOfLines={2}
-              variant="footnote"
-              className="mt-2 h-9 font-semibold text-text-primary"
-            >
+            {/* The name carries the item, so it gets the strongest colour and
+                the type, not weight, to make it read: plain black on regular
+                weight. The two-line box keeps every service label in the rail
+                on the same baseline. */}
+            <Text numberOfLines={2} variant="footnote" className="mt-1 h-9 text-black">
               {skill.name}
             </Text>
-            <Text numberOfLines={1} variant="caption" className="text-text-muted">
+            <Text numberOfLines={1} variant="caption" className="mt-1 text-text-muted">
               {skill.service.name}
             </Text>
           </Pressable>
