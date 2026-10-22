@@ -151,12 +151,14 @@ function EmptyState({ recents, allServices, onSelectService, onSelectRecent }: E
       {/* Recently searched */}
       {recents.length > 0 ? (
         <View className="mb-2">
-          <Text variant="label" className="mb-1 px-5 pt-2">
+          <Text variant="label" className="mb-2 px-5 pt-2">
             Recent
           </Text>
-          {recents.map((item) => (
-            <RecentRow key={itemKey(item)} item={item} onPress={() => onSelectRecent(item)} />
-          ))}
+          <View className="flex-row flex-wrap gap-2 px-5">
+            {recents.map((item) => (
+              <RecentChip key={itemKey(item)} item={item} onPress={() => onSelectRecent(item)} />
+            ))}
+          </View>
         </View>
       ) : null}
 
@@ -196,32 +198,32 @@ function EmptyState({ recents, allServices, onSelectService, onSelectRecent }: E
   );
 }
 
-interface RecentRowProps {
+interface RecentChipProps {
   item: RecentSearchItem;
   onPress: () => void;
 }
 
-function RecentRow({ item, onPress }: RecentRowProps) {
-  const imageUri = item.type === 'service' ? item.service.icon : item.skill.service.icon;
-  const imageLabel = item.type === 'service' ? item.service.name : item.skill.service.name;
+/**
+ * A recent search, as a chip: the artwork and the name, sized to sit in a
+ * wrapping row. Chips wrap rather than scroll, so every recent stays one tap
+ * away — and the screen already has a horizontal strip further down.
+ */
+function RecentChip({ item, onPress }: RecentChipProps) {
+  const imageUri =
+    item.type === 'service' ? item.service.icon : (item.skill.icon ?? item.skill.service.icon);
   const title = item.type === 'service' ? item.service.name : item.skill.name;
-  const subtitle = item.type === 'service' ? 'View all skills' : item.skill.service.name;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={onPress}
-      className="flex-row items-center px-5 py-3 active:opacity-70"
+      className="max-w-full flex-row items-center gap-2 rounded-lg border border-border bg-surface-muted py-1.5 pl-1.5 pr-3 active:opacity-70"
     >
-      <ServiceImage uri={imageUri} accessibilityLabel={imageLabel} className="h-12 w-12 rounded-xl" />
-      <View className="ml-3 flex-1">
-        <Text variant="bodyStrong">{title}</Text>
-        <Text variant="caption" className="text-text-secondary">
-          {subtitle}
-        </Text>
-      </View>
-      <Ionicons name="time-outline" size={18} color={color['text-secondary']} />
+      <ServiceImage uri={imageUri} className="h-6 w-6 rounded-full" />
+      <Text variant="footnote" className="shrink text-text-primary">
+        {title}
+      </Text>
     </Pressable>
   );
 }
@@ -292,7 +294,11 @@ function ResultRow({ imageUri, imageLabel, title, subtitle, onPress }: ResultRow
       onPress={onPress}
       className="flex-row items-center py-3 active:opacity-70"
     >
-      <ServiceImage uri={imageUri} accessibilityLabel={imageLabel} className="h-12 w-12 rounded-xl" />
+      <ServiceImage
+        uri={imageUri}
+        accessibilityLabel={imageLabel}
+        className="h-12 w-12 rounded-xl"
+      />
       <View className="ml-3 flex-1">
         <Text variant="bodyStrong">{title}</Text>
         <Text variant="caption" className="text-text-secondary">
