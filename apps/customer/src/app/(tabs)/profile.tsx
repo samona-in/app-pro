@@ -83,7 +83,7 @@ function SettingsRow({
       className="bg-surface py-1.5 active:opacity-70"
     >
       <View className="flex-row items-center">
-        <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-muted">
+        <View className="h-9 w-9 items-center justify-center">
           <Ionicons
             name={icon}
             size={18}
@@ -188,7 +188,7 @@ export default function Profile() {
           <Text variant="footnote" className="mt-0.5">
             {user?.phone ?? 'Profile not set up yet'}
           </Text>
-          <Badge label="Verified" tone="success" className="mt-2" />
+          <Badge label="Verified" tone="success-solid" className="mt-2" />
         </View>
       </View>
 

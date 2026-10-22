@@ -1,5 +1,19 @@
 import { render, screen } from '@testing-library/react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 import Profile from '../(tabs)/profile';
+
+/** The first ancestor whose className matches, so a styled wrapper can be found. */
+function ancestorWithClass(element: ReactTestInstance, pattern: RegExp): string | null {
+  let current: ReactTestInstance | null = element.parent;
+
+  while (current) {
+    const className = current.props?.className;
+    if (typeof className === 'string' && pattern.test(className)) return className;
+    current = current.parent;
+  }
+
+  return null;
+}
 
 // The icon set lazily loads a font, which triggers a state update outside act().
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
@@ -57,6 +71,30 @@ describe('Profile', () => {
     expect(screen.getByText('Aarav Sharma')).toBeTruthy();
     expect(screen.getByText('+91 98765 43210')).toBeTruthy();
     expect(screen.getByText('Verified')).toBeTruthy();
+  });
+
+  it('fills the verified badge with green and puts the label on it in white', () => {
+    render(<Profile />);
+
+    const label = screen.getByText('Verified');
+    const badge = ancestorWithClass(label, /rounded-full/);
+
+    expect(badge).toMatch(/bg-success(?!-)/);
+    expect(label.props.className).toMatch(/text-text-inverse/);
+    // The white must not compete with another colour utility on the label.
+    expect(label.props.className).not.toMatch(/text-text-muted/);
+  });
+
+  it('leaves the settings icons bare, with no tile behind them', () => {
+    render(<Profile />);
+
+    const row = screen.getByText('Manage addresses').parent;
+    const icon = row?.children.find(
+      (child): child is ReactTestInstance => typeof child !== 'string',
+    );
+
+    expect(icon?.props.className).not.toMatch(/bg-surface-muted/);
+    expect(icon?.props.className).not.toMatch(/rounded/);
   });
 
   it('keeps the settings rows, the delete link and the sign out button', () => {
