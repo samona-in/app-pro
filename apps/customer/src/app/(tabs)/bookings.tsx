@@ -115,8 +115,8 @@ export default function Bookings() {
         ) : (
           visible.map((job, index) => (
             <View key={job.id}>
-              {/* Hairline separator, starting at the text column. */}
-              {index > 0 ? <View className="ml-20 h-px bg-border" /> : null}
+              {/* Hairline separator, the full width of the screen. */}
+              {index > 0 ? <View className="h-px bg-border" /> : null}
               <BookingRow job={job} />
             </View>
           ))

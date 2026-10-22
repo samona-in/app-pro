@@ -70,7 +70,7 @@ export interface BookingRowProps extends Omit<PressableProps, 'style'> {
  * booked, the service it sits under, the amount, and the status.
  *
  * The row carries no card chrome. The separator between rows belongs to the
- * list, which draws it as a hairline that starts at the text column.
+ * list, which draws it as a hairline across the full width of the screen.
  */
 export function BookingRow({ job, className, ...rest }: BookingRowProps) {
   const unread = useUnreadMessages();
