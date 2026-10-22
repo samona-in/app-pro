@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -14,7 +15,7 @@ import type { ServiceOption, SkillWithService } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ServiceCard } from '@/components/home/ServiceCard';
 import { ServiceImage } from '@/components/home/ServiceImage';
-import { IconButton, Input, Text } from '@/components/ui';
+import { IconButton, Text } from '@/components/ui';
 import { useServiceCategories, useServiceSearch } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
 import { type RecentSearchItem, useSearchStore } from '@/stores/search';
@@ -74,10 +75,16 @@ export default function Search() {
       style={{ flex: 1, backgroundColor: color.surface, paddingTop: insets.top }}
     >
       {/* ── Search bar ────────────────────────────────────────────────────── */}
-      <View className="flex-row items-center gap-1 px-2 pb-3">
-        <IconButton name="arrow-back" accessibilityLabel="Go back" onPress={() => router.back()} />
-        <View className="flex-1">
-          <Input
+      <View className="px-5 pb-3">
+        <View className="flex-row items-center rounded-xl border border-border bg-surface">
+          <IconButton
+            name="arrow-back"
+            accessibilityLabel="Go back"
+            size={20}
+            onPress={() => router.back()}
+            className="ml-1"
+          />
+          <TextInput
             value={query}
             onChangeText={setQuery}
             autoFocus
@@ -85,8 +92,9 @@ export default function Search() {
             autoCapitalize="words"
             returnKeyType="search"
             placeholder="Search services or skills…"
+            placeholderTextColor={color['text-muted']}
             accessibilityLabel="Search for a service or skill"
-            containerClassName="w-full"
+            className="min-h-[52px] flex-1 bg-transparent px-2 text-body text-text-primary"
           />
         </View>
       </View>
