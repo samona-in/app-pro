@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { JobStatus, type Job } from '@samona/types';
-import { BookingCard } from '@/components/booking';
+import { BookingRow } from '@/components/booking';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
-import { Screen, Text } from '@/components/ui';
+import { Screen, SegmentedControl, Text } from '@/components/ui';
 import { useBookings } from '@/hooks';
-import { cn } from '@/utils/cn';
 
-const FILTERS = ['All', 'Active', 'Upcoming', 'Completed', 'Cancelled'] as const;
+const FILTERS = ['All', 'Active', 'Upcoming', 'Past'] as const;
 type Filter = (typeof FILTERS)[number];
 
 const ACTIVE: readonly JobStatus[] = [
@@ -23,15 +22,32 @@ const ACTIVE: readonly JobStatus[] = [
 
 const UPCOMING: readonly JobStatus[] = [JobStatus.REQUESTED, JobStatus.OFFERED, JobStatus.ACCEPTED];
 
-const COMPLETED: readonly JobStatus[] = [JobStatus.PAID];
-
-const CANCELLED: readonly JobStatus[] = [JobStatus.CANCELLED, JobStatus.EXPIRED];
+const PAST: readonly JobStatus[] = [JobStatus.PAID, JobStatus.CANCELLED, JobStatus.EXPIRED];
 
 const FILTER_STATUSES: Record<Exclude<Filter, 'All'>, readonly JobStatus[]> = {
   Active: ACTIVE,
   Upcoming: UPCOMING,
-  Completed: COMPLETED,
-  Cancelled: CANCELLED,
+  Past: PAST,
+};
+
+/** What an empty segment says, so it never promises bookings it cannot show. */
+const EMPTY_COPY: Record<Filter, { title: string; message: string }> = {
+  All: {
+    title: 'No bookings',
+    message: 'Bookings you make will show up here, with everything you need to track your service.',
+  },
+  Active: {
+    title: 'No active bookings',
+    message: 'Jobs that are on the way, being worked on, or waiting on you will show up here.',
+  },
+  Upcoming: {
+    title: 'No upcoming bookings',
+    message: 'Jobs that are finding a professional will show up here.',
+  },
+  Past: {
+    title: 'No past bookings',
+    message: 'Completed and cancelled bookings will show up here.',
+  },
 };
 
 function matchesFilter(job: Job, filter: Filter): boolean {
@@ -43,57 +59,39 @@ export default function Bookings() {
   const [filter, setFilter] = useState<Filter>('All');
   const bookings = useBookings();
 
-  const visible = useMemo(
-    () => (bookings.data ?? []).filter((job) => matchesFilter(job, filter)),
-    [bookings.data, filter],
+  const jobs = useMemo(() => bookings.data ?? [], [bookings.data]);
+  const visible = useMemo(() => jobs.filter((job) => matchesFilter(job, filter)), [jobs, filter]);
+  const activeCount = useMemo(
+    () => jobs.filter((job) => ACTIVE.includes(job.status)).length,
+    [jobs],
   );
 
+  const summary =
+    jobs.length === 0
+      ? 'No bookings yet'
+      : activeCount > 0
+        ? `${jobs.length} booking${jobs.length === 1 ? '' : 's'} · ${activeCount} active`
+        : `${jobs.length} booking${jobs.length === 1 ? '' : 's'}`;
+
   return (
-    <Screen padded={false}>
-      {/* ── Sticky header: title + filter chips ───────────────────────── */}
+    <Screen padded={false} className="bg-surface">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <View className="px-5 pt-2">
-        <Text variant="titleLg">Bookings</Text>
+        <Text variant="display">Bookings</Text>
+        <Text variant="footnote" className="mt-1">
+          {summary}
+        </Text>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="mt-4 flex-grow-0"
-        contentContainerStyle={{ paddingHorizontal: 20 }}
-      >
-        <View className="flex-row gap-3">
-          {FILTERS.map((item) => {
-            const isSelected = item === filter;
-            return (
-              <Pressable
-                key={item}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                onPress={() => setFilter(item)}
-                className={cn(
-                  'flex-shrink-0 items-center justify-center rounded-lg border px-5 py-2.5',
-                  isSelected ? 'border-primary bg-primary' : 'border-border bg-surface-muted',
-                )}
-              >
-                <Text
-                  variant="footnote"
-                  className={cn(
-                    'font-semibold',
-                    isSelected ? 'text-primary-foreground' : 'text-text-secondary',
-                  )}
-                >
-                  {item}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
+      {/* ── Segment filter ──────────────────────────────────────────────── */}
+      <View className="px-5 pt-4">
+        <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} />
+      </View>
 
-      {/* ── Scrollable booking list ────────────────────────────────────── */}
+      {/* ── Scrollable booking list ─────────────────────────────────────── */}
       <ScrollView
-        className="mt-5 flex-1"
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
+        className="mt-2 flex-1"
+        contentContainerStyle={{ paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
         {bookings.isPending ? (
@@ -111,15 +109,17 @@ export default function Bookings() {
         ) : visible.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
-            title={filter === 'All' ? 'No bookings' : `No ${filter.toLowerCase()} bookings`}
-            message="Bookings you make will show up here, with everything you need to track your service."
+            title={EMPTY_COPY[filter].title}
+            message={EMPTY_COPY[filter].message}
           />
         ) : (
-          <View>
-            {visible.map((job) => (
-              <BookingCard key={job.id} job={job} />
-            ))}
-          </View>
+          visible.map((job, index) => (
+            <View key={job.id}>
+              {/* Hairline separator, starting at the text column. */}
+              {index > 0 ? <View className="ml-20 h-px bg-border" /> : null}
+              <BookingRow job={job} />
+            </View>
+          ))
         )}
       </ScrollView>
     </Screen>
