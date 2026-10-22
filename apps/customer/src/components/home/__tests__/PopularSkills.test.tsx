@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 import type { PopularSkill } from '@samona/types';
 import { PopularSkills } from '../PopularSkills';
 
@@ -81,5 +82,16 @@ describe('PopularSkills', () => {
     render(<PopularSkills skills={[]} onSelect={jest.fn()} />);
 
     expect(screen.queryByText('Popular right now')).toBeNull();
+  });
+
+  it('keeps the first skill clear of the screen edge', () => {
+    render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
+
+    const rail = screen.UNSAFE_getByType(ScrollView);
+
+    // A negative margin on the rail would pull the first skill past the left
+    // edge of the screen; the content padding is what insets it instead.
+    expect(rail.props.className ?? '').not.toMatch(/-m[lr]-/);
+    expect(rail.props.contentContainerStyle.paddingHorizontal).toBe(16);
   });
 });

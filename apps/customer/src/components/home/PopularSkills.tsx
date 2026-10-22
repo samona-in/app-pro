@@ -54,10 +54,13 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
         ) : null}
       </View>
 
+      {/* The rail bleeds to the screen edge on the right, but the first skill
+          keeps the same 16px inset as the heading above it — a negative
+          margin here would push the first artwork off the left of the screen. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="-mx-4 mt-4"
+        className="mt-4"
         contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
       >
         {skills.map((skill, index) => (
