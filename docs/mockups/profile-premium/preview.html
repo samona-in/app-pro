@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAMONA — Customer Profile: premium screen directions</title>
+<style>
+  :root{
+    --brand:#054DFF; --brand-muted:#053FCC; --brand-soft:#EAF0FC; --brand-100:#D6E1F8;
+    --white:#FFFFFF; --ink-900:#0F172A; --ink-800:#1E293B; --ink-700:#334155;
+    --ink-500:#64748B; --ink-400:#94A3B8; --ink-300:#CBD5E1; --ink-200:#E2E8F0;
+    --ink-100:#F1F5F9; --ink-50:#F8FAFC;
+    --green-50:#ECFDF5; --green-600:#059669; --green-700:#047857;
+    --amber-50:#FFFBEB; --amber-600:#D97706; --amber-700:#B45309;
+    --red-50:#FEF2F2; --red-600:#DC2626;
+    --bg:#E7EAF0;
+    --shadow-sm:0 1px 2px rgba(15,23,42,.06);
+    --shadow-md:0 4px 12px rgba(15,23,42,.08);
+    --shadow-lg:0 2px 8px rgba(15,23,42,.05),0 14px 32px rgba(15,23,42,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:44px 40px 60px;
+    display:flex;flex-direction:column;gap:34px;align-items:center;
+  }
+  svg{fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ---------- page heading ---------- */
+  .intro{max-width:1240px;text-align:center}
+  .intro h1{font-size:22px;font-weight:700;color:var(--ink-900);letter-spacing:-.02em}
+  .intro p{font-size:14px;line-height:1.55;color:var(--ink-500);margin-top:8px}
+  .intro .note{font-size:12px;color:var(--ink-400);margin-top:6px}
+
+  /* ---------- phone frame ---------- */
+  .row{display:flex;gap:40px;justify-content:center;align-items:flex-start}
+  .col{display:flex;flex-direction:column;gap:16px;align-items:center}
+  .phone{
+    width:390px;height:844px;background:var(--ink-50);border-radius:44px;overflow:hidden;
+    position:relative;box-shadow:0 24px 60px rgba(15,23,42,.18),0 0 0 10px #0F172A,0 0 0 12px #334155;
+    display:flex;flex-direction:column;
+  }
+  .caption{max-width:390px;text-align:center}
+  .caption h2{font-size:15px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em}
+  .caption p{font-size:12.5px;line-height:1.45;color:var(--ink-500);margin-top:5px}
+  .caption .tag{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:999px;
+    background:var(--brand-soft);color:var(--brand-muted);font-size:11px;font-weight:700;letter-spacing:.02em}
+
+  /* ---------- status bar ---------- */
+  .statusbar{position:absolute;top:0;left:0;right:0;z-index:6;height:50px;display:flex;align-items:center;
+    justify-content:space-between;padding:16px 30px 0;font-size:14px;font-weight:650;letter-spacing:.2px;pointer-events:none}
+  .statusbar.on-blue{color:#fff}
+  .statusbar.on-dark{color:#fff}
+  .statusbar.on-light{color:var(--ink-900)}
+  .statusbar .sig{display:flex;gap:5px;align-items:center}
+  .statusbar .bars{display:flex;gap:2px;align-items:flex-end}
+  .statusbar .bars i{width:3px;background:currentColor;border-radius:1px;display:block}
+
+  /* ---------- tab bar ---------- */
+  .tabbar{position:absolute;bottom:0;left:0;right:0;height:82px;background:var(--white);
+    border-top:1px solid var(--ink-200);display:flex;align-items:flex-start;padding:10px 0 0;z-index:6}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink-400)}
+  .tab.active{color:var(--brand)}
+  .tab svg{width:23px;height:23px}
+  .tab span{font-size:11px;font-weight:600}
+  .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;
+    border-radius:3px;background:var(--ink-900);opacity:.85}
+
+  /* ---------- shared scroller ---------- */
+  .scroller{flex:1;overflow:hidden;position:relative}
+
+  /* ---------- shared identity ---------- */
+  .av{width:58px;height:58px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center;
+    font-size:21px;font-weight:700;color:#fff;letter-spacing:-.02em;
+    background:linear-gradient(145deg,#8FB4FF 0%,#2C5FE0 58%,#053FCC 100%)}
+  .av.sm{width:44px;height:44px;font-size:16px}
+  .av.lg{width:66px;height:66px;font-size:24px}
+  .name{font-size:18px;font-weight:700;color:var(--ink-900);letter-spacing:-.015em}
+  .phone-no{font-size:13px;color:var(--ink-500);margin-top:3px}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+    font-size:11px;font-weight:700;letter-spacing:.01em;white-space:nowrap}
+  .pill-blue{background:var(--brand-soft);color:var(--brand-muted)}
+  .pill-green{background:var(--green-50);color:var(--green-700)}
+  .pill-ink{background:var(--ink-100);color:var(--ink-500)}
+  .pill-gold{background:rgba(217,169,96,.18);color:#E7BE7E}
+  .verified-ic{width:13px;height:13px;stroke:currentColor;stroke-width:2.4}
+
+  /* ---------- shared account rows ---------- */
+  .grp{margin:0 20px}
+  .grp-label{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--ink-500);
+    text-transform:uppercase;margin:16px 0 7px}
+  .card{background:var(--white);border-radius:18px;box-shadow:var(--shadow-sm);overflow:hidden}
+  .card.flat{box-shadow:none;border:1px solid var(--ink-200)}
+  .rrow{display:flex;align-items:center;gap:12px;padding:11px 15px}
+  .rrow + .rrow{border-top:1px solid var(--ink-100)}
+  .rico{width:32px;height:32px;border-radius:10px;background:var(--brand-soft);flex:none;
+    display:flex;align-items:center;justify-content:center}
+  .rico svg{width:16px;height:16px;stroke:var(--brand-muted)}
+  .rico.gray{background:var(--ink-100)}
+  .rico.gray svg{stroke:var(--ink-500)}
+  .rico.red{background:var(--red-50)}
+  .rico.red svg{stroke:var(--red-600)}
+  .rico.green{background:var(--green-50)}
+  .rico.green svg{stroke:var(--green-600)}
+  .rtxt{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--ink-900)}
+  .rtxt.red{color:var(--red-600)}
+  .rend{font-size:13.5px;color:var(--ink-500)}
+  .rchev{width:17px;height:17px;stroke:var(--ink-300);flex:none}
+  .btn-ghost{margin:18px 20px 0;height:48px;border-radius:14px;border:1px solid var(--ink-200);
+    background:var(--white);display:flex;align-items:center;justify-content:center;
+    font-size:15px;font-weight:600;color:var(--ink-700)}
+  .btn-text{margin:14px 20px 0;text-align:center;font-size:15px;font-weight:600;color:var(--ink-500)}
+
+  /* ========================================================================
+     A — SPOTLIGHT (brand header, wallet card, grouped settings)
+     ======================================================================== */
+  .a-scroll{background:var(--ink-50)}
+  .a-head{background:linear-gradient(165deg,#0A44D8 0%,#053FCC 48%,#042C9E 100%);
+    padding:52px 20px 34px;position:relative;color:#fff}
+  .a-head h1{font-size:25px;font-weight:700;letter-spacing:-.025em}
+  .a-head .sub{color:rgba(255,255,255,.72);font-size:13px;margin-top:3px}
+  .a-id{display:flex;align-items:center;gap:14px;margin-top:16px}
+  .a-id .av{width:58px;height:58px;font-size:20px;box-shadow:0 0 0 3px rgba(255,255,255,.22)}
+  .a-id .name{color:#fff;font-size:18px}
+  .a-id .phone-no{color:rgba(255,255,255,.74)}
+  .a-id .pill{margin-top:7px}
+  .a-body{padding:0 20px 20px;margin-top:-28px;position:relative}
+  .a-wallet{background:var(--white);border-radius:22px;padding:15px 18px;box-shadow:var(--shadow-lg)}
+  .a-wallet-top{display:flex;align-items:flex-start;justify-content:space-between}
+  .a-wallet-lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-500)}
+  .a-wallet-amt{font-size:21px;font-weight:700;color:var(--ink-900);letter-spacing:-.02em;text-align:right}
+  .a-wallet-amt span{display:block;font-size:11px;font-weight:600;color:var(--ink-400);letter-spacing:0;margin-top:2px}
+  .a-stats{display:flex;margin-top:13px;padding-top:12px;border-top:1px solid var(--ink-100)}
+  .a-stat{flex:1;text-align:center}
+  .a-stat b{display:block;font-size:17px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em}
+  .a-stat span{display:block;font-size:11.5px;color:var(--ink-500);margin-top:2px}
+  .a-stat + .a-stat{border-left:1px solid var(--ink-100)}
+
+  /* ========================================================================
+     B — QUIET PREMIUM (the direction the bookings screen took)
+     ======================================================================== */
+  .b-scroll{background:var(--white)}
+  .b-head{padding:52px 20px 0}
+  .b-head h1{font-size:30px;font-weight:700;letter-spacing:-.03em;color:var(--ink-900)}
+  .b-head .sub{font-size:13.5px;color:var(--ink-500);margin-top:5px}
+  .b-id{display:flex;align-items:center;gap:14px;margin:18px 0 0;padding-bottom:16px;
+    border-bottom:1px solid var(--ink-200)}
+  .b-id .av{width:58px;height:58px;font-size:20px}
+  .b-id .name{font-size:19px}
+  .b-id .pill{margin-top:7px}
+  .b-stats{display:flex;margin:14px 0 0;padding:10px 0;border-top:1px solid var(--ink-100);
+    border-bottom:1px solid var(--ink-100)}
+  .b-stat{flex:1}
+  .b-stat b{display:block;font-size:17px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em}
+  .b-stat span{display:block;font-size:12px;color:var(--ink-500);margin-top:2px}
+  .b-stat + .b-stat{border-left:1px solid var(--ink-100);padding-left:16px}
+
+  /* ========================================================================
+     C — BENTO (tiles for what the customer does, list for the rest)
+     ======================================================================== */
+  .c-scroll{background:var(--white)}
+  .c-top{padding:50px 20px 0;display:flex;align-items:center;justify-content:space-between}
+  .c-top h1{font-size:22px;font-weight:700;color:var(--ink-900);letter-spacing:-.02em}
+  .c-top .more{width:36px;height:36px;border-radius:999px;background:var(--ink-100);
+    display:flex;align-items:center;justify-content:center}
+  .c-top .more svg{width:18px;height:18px;stroke:var(--ink-700)}
+  .c-id{display:flex;align-items:center;gap:13px;margin:14px 20px 0;padding:14px;
+    border-radius:22px;background:var(--ink-50)}
+  .c-id .pill{margin-top:7px}
+  .c-tiles{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:12px 20px 0}
+  .c-tile{border-radius:20px;padding:14px;border:1px solid var(--ink-200);background:var(--white)}
+  .c-tile .ico{width:34px;height:34px;border-radius:11px;background:var(--brand-soft);
+    display:flex;align-items:center;justify-content:center}
+  .c-tile .ico svg{width:17px;height:17px;stroke:var(--brand-muted)}
+  .c-tile b{display:block;font-size:21px;font-weight:700;color:var(--ink-900);margin-top:10px;letter-spacing:-.02em}
+  .c-tile span{display:block;font-size:12.5px;color:var(--ink-500);margin-top:1px}
+  .c-tile.brand{background:linear-gradient(160deg,#0A44D8,#053FCC);border-color:transparent;color:#fff}
+  .c-tile.brand b{color:#fff}
+  .c-tile.brand span{color:rgba(255,255,255,.72)}
+  .c-tile.brand .ico{background:rgba(255,255,255,.18)}
+  .c-tile.brand .ico svg{stroke:#fff}
+
+  /* ========================================================================
+     D — MEMBERSHIP (a card that earns the loyalty)
+     ======================================================================== */
+  .d-scroll{background:var(--white)}
+  .d-top{padding:50px 20px 0;display:flex;align-items:center;justify-content:space-between}
+  .d-top h1{font-size:22px;font-weight:700;color:var(--ink-900);letter-spacing:-.02em}
+  .d-card{margin:12px 20px 0;border-radius:26px;padding:17px;color:#fff;position:relative;overflow:hidden;
+    background:linear-gradient(150deg,#1E293B 0%,#0F172A 58%,#020617 100%);box-shadow:var(--shadow-lg)}
+  .d-card::after{content:"";position:absolute;right:-70px;top:-80px;width:210px;height:210px;border-radius:999px;
+    background:radial-gradient(circle,rgba(5,77,255,.6),transparent 68%)}
+  .d-tier{font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#8FB4FF;
+    display:flex;align-items:center;gap:6px;position:relative;z-index:1}
+  .d-tier svg{width:14px;height:14px;stroke:#8FB4FF}
+  .d-name{font-size:21px;font-weight:700;letter-spacing:-.02em;margin-top:12px;position:relative;z-index:1}
+  .d-meta{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:3px;position:relative;z-index:1}
+  .d-foot{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:13px;
+    border-top:1px solid rgba(255,255,255,.14);position:relative;z-index:1}
+  .d-credits b{font-size:19px;font-weight:700;letter-spacing:-.01em}
+  .d-credits span{display:block;font-size:11.5px;color:rgba(255,255,255,.55);margin-top:1px}
+  .d-code{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
+    background:rgba(255,255,255,.1);font-size:12.5px;font-weight:600;letter-spacing:.02em}
+  .d-code svg{width:15px;height:15px;stroke:#fff}
+  .d-promo{margin:10px 20px 0;border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:12px;
+    background:var(--brand-soft)}
+  .d-promo .ico{width:34px;height:34px;border-radius:11px;background:var(--white);flex:none;
+    display:flex;align-items:center;justify-content:center}
+  .d-promo .ico svg{width:17px;height:17px;stroke:var(--brand-muted)}
+  .d-promo b{display:block;font-size:14.5px;color:var(--ink-900);font-weight:700}
+  .d-promo span{display:block;font-size:12px;color:var(--ink-500);margin-top:2px}
+  .d-promo .go{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--brand-muted)}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>SAMONA — Customer Profile: four premium directions</h1>
+  <p>The profile is the screen a customer opens to check a thing and leave. Today it is a grey band,
+     four rows and two buttons. Each direction below gives the identity a proper home and gives the
+     settings a structure that reads in one glance — the way Urban Company, Apple ID and the modern
+     iOS apps do it.</p>
+  <p class="note">390 × 844 · brand #054DFF · app tokens (radius 20/24, ink scale, SF) · same content
+     in every direction — pick one and it can be built in the Expo app.</p>
+</div>
+
+<div class="row">
+
+  <!-- ================= A — SPOTLIGHT ================= -->
+  <div class="col col-a1">
+    <div class="phone">
+      <div class="statusbar on-blue">
+        <span>9:41</span>
+        <span class="sig">
+          <span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#fff"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:#fff"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M4 11.5h9v2H4z" fill="#fff" stroke="none"/></svg>
+        </span>
+      </div>
+      <div class="scroller a-scroll">
+        <div class="a-head">
+          <h1>Profile</h1>
+          <p class="sub">Your account and everything in it</p>
+          <div class="a-id">
+            <div class="av">AS</div>
+            <div>
+              <div class="name">Aarav Sharma</div>
+              <div class="phone-no">+91 98765 43210</div>
+              <span class="pill pill-green">
+                <svg class="verified-ic" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+                Verified
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="a-body">
+          <div class="a-wallet">
+            <div class="a-wallet-top">
+              <div class="a-wallet-lab">Wallet balance</div>
+              <div class="a-wallet-amt">₹1,240<span>₹600 in rewards</span></div>
+            </div>
+            <div class="a-stats">
+              <div class="a-stat"><b>24</b><span>Bookings</span></div>
+              <div class="a-stat"><b>₹3.4k</b><span>Saved</span></div>
+              <div class="a-stat"><b>3</b><span>Addresses</span></div>
+            </div>
+          </div>
+
+          <div class="grp">
+            <div class="grp-label">Account</div>
+            <div class="card">
+              <div class="rrow">
+                <div class="rico"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+                <div class="rtxt">Saved addresses</div>
+                <div class="rend">3</div>
+                <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+              <div class="rrow">
+                <div class="rico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg></div>
+                <div class="rtxt">Payment methods</div>
+                <div class="rend">2</div>
+                <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+              <div class="rrow">
+                <div class="rico"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 19a2 2 0 0 0 4 0"/></svg></div>
+                <div class="rtxt">Notifications</div>
+                <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="grp">
+            <div class="grp-label">Support</div>
+            <div class="card">
+              <div class="rrow">
+                <div class="rico gray"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.7.3-.9.7-.9 1.4M12 17h.01"/></svg></div>
+                <div class="rtxt">Help &amp; support</div>
+                <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+              <div class="rrow">
+                <div class="rico red"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div>
+                <div class="rtxt red">Delete account</div>
+                <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="btn-ghost">Sign out</div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+        <div class="tab active"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Profile</span></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="caption">
+      <h2>A — Spotlight</h2>
+      <p>The brand header holds the identity; a white wallet card breaks the colour and carries the
+         numbers that make the account feel used. Everything below is grouped, shadowed, and reads
+         like the settings screen of an app people trust with money.</p>
+      <span class="tag">Most "finished app" feeling</span>
+    </div>
+  </div>
+
+  <!-- ================= B — QUIET PREMIUM ================= -->
+  <div class="col col-a2">
+    <div class="phone">
+      <div class="statusbar on-light">
+        <span>9:41</span>
+        <span class="sig">
+          <span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--ink-900)"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--ink-900)"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M4 11.5h9v2H4z" fill="var(--ink-900)" stroke="none"/></svg>
+        </span>
+      </div>
+      <div class="scroller b-scroll">
+        <div class="b-head">
+          <h1>Profile</h1>
+          <p class="sub">Member since August 2024</p>
+        </div>
+
+        <div class="grp">
+          <div class="b-id">
+            <div class="av lg">AS</div>
+            <div>
+              <div class="name">Aarav Sharma</div>
+              <div class="phone-no">+91 98765 43210</div>
+              <span class="pill pill-green">
+                <svg class="verified-ic" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+                Verified
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="b-stats">
+            <div class="b-stat"><b>24</b><span>Bookings</span></div>
+            <div class="b-stat"><b>₹1,240</b><span>Wallet</span></div>
+            <div class="b-stat"><b>3</b><span>Addresses</span></div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-label">Your activity</div>
+          <div class="card flat">
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></div>
+              <div class="rtxt">Bookings</div>
+              <div class="rend">24</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+              <div class="rtxt">Saved addresses</div>
+              <div class="rend">3</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg></div>
+              <div class="rtxt">Payment methods</div>
+              <div class="rend">2</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-label">Preferences</div>
+          <div class="card flat">
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 19a2 2 0 0 0 4 0"/></svg></div>
+              <div class="rtxt">Notifications</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.7.3-.9.7-.9 1.4M12 17h.01"/></svg></div>
+              <div class="rtxt">Help &amp; support</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-label">Account</div>
+          <div class="card flat">
+            <div class="rrow">
+              <div class="rico red"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div>
+              <div class="rtxt red">Delete account</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-text">Sign out</div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+        <div class="tab active"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Profile</span></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="caption">
+      <h2>B — Quiet premium</h2>
+      <p>The same direction the bookings screen took: a large title, hairline rules, and rows that
+         earn their hierarchy from type and space. No cards, no shadows, nothing that shouts —
+         the profile becomes the calmest screen in the app.</p>
+      <span class="tag">Matches the bookings screen</span>
+    </div>
+  </div>
+
+  <!-- ================= C — BENTO ================= -->
+  <div class="col col-a3">
+    <div class="phone">
+      <div class="statusbar on-light">
+        <span>9:41</span>
+        <span class="sig">
+          <span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--ink-900)"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--ink-900)"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M4 11.5h9v2H4z" fill="var(--ink-900)" stroke="none"/></svg>
+        </span>
+      </div>
+      <div class="scroller c-scroll">
+        <div class="c-top">
+          <h1>Profile</h1>
+          <div class="more"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></div>
+        </div>
+
+        <div class="c-id">
+          <div class="av">AS</div>
+          <div>
+            <div class="name">Aarav Sharma</div>
+            <div class="phone-no">+91 98765 43210</div>
+            <span class="pill pill-green">
+              <svg class="verified-ic" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+              Verified
+            </span>
+          </div>
+        </div>
+
+        <div class="c-tiles">
+          <div class="c-tile brand">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2.5"/><path d="M2 10.5h20"/></svg></div>
+            <b>₹1,240</b>
+            <span>Wallet balance</span>
+          </div>
+          <div class="c-tile">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></div>
+            <b>24</b>
+            <span>Bookings</span>
+          </div>
+          <div class="c-tile">
+            <div class="ico"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+            <b>3</b>
+            <span>Addresses</span>
+          </div>
+          <div class="c-tile">
+            <div class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg></div>
+            <b>2</b>
+            <span>Payment methods</span>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-label">More</div>
+          <div class="card flat">
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 19a2 2 0 0 0 4 0"/></svg></div>
+              <div class="rtxt">Notifications</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.7.3-.9.7-.9 1.4M12 17h.01"/></svg></div>
+              <div class="rtxt">Help &amp; support</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="rrow">
+              <div class="rico red"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div>
+              <div class="rtxt red">Delete account</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-ghost">Sign out</div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+        <div class="tab active"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Profile</span></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="caption">
+      <h2>C — Bento</h2>
+      <p>The four things a customer actually does live as tiles they can hit with one thumb; the rest
+         falls away into a short list. The brand-filled wallet tile gives the screen a single point
+         of colour, the way modern utility apps do it.</p>
+      <span class="tag">Fastest to scan</span>
+    </div>
+  </div>
+
+  <!-- ================= D — MEMBERSHIP ================= -->
+  <div class="col col-a4">
+    <div class="phone">
+      <div class="statusbar on-light">
+        <span>9:41</span>
+        <span class="sig">
+          <span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--ink-900)"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--ink-900)"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M4 11.5h9v2H4z" fill="var(--ink-900)" stroke="none"/></svg>
+        </span>
+      </div>
+      <div class="scroller d-scroll">
+        <div class="d-top">
+          <h1>Profile</h1>
+          <div class="av sm">AS</div>
+        </div>
+
+        <div class="d-card">
+          <div class="d-tier">
+            <svg viewBox="0 0 24 24"><path d="m12 3 2.2 5.6L20 10l-5 3.6L16.6 20 12 16.8 7.4 20 9 13.6 4 10l5.8-1.4L12 3Z"/></svg>
+            Samona Plus · Gold
+          </div>
+          <div class="d-name">Aarav Sharma</div>
+          <div class="d-meta">Member since August 2024 · 24 bookings</div>
+          <div class="d-foot">
+            <div class="d-credits">
+              <b>1,240</b>
+              <span>Credits available</span>
+            </div>
+            <div class="d-code">
+              SAMONA200
+              <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-promo">
+          <div class="ico"><svg viewBox="0 0 24 24"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7Zm0 0h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7Z"/></svg></div>
+          <div>
+            <b>₹200 off your next booking</b>
+            <span>Valid on your next service</span>
+          </div>
+          <div class="go">Claim</div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-label">Account</div>
+          <div class="card">
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+              <div class="rtxt">Saved addresses</div>
+              <div class="rend">3</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="rrow">
+              <div class="rico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/></svg></div>
+              <div class="rtxt">Payment methods</div>
+              <div class="rend">2</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="rrow">
+              <div class="rico green"><svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 19a2 2 0 0 0 4 0"/></svg></div>
+              <div class="rtxt">Notifications</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="grp">
+          <div class="grp-label">Support</div>
+          <div class="card">
+            <div class="rrow">
+              <div class="rico gray"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.7.3-.9.7-.9 1.4M12 17h.01"/></svg></div>
+              <div class="rtxt">Help &amp; support</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+            <div class="rrow">
+              <div class="rico red"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div>
+              <div class="rtxt red">Delete account</div>
+              <svg class="rchev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-ghost">Sign out</div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+        <div class="tab active"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Profile</span></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="caption">
+      <h2>D — Membership</h2>
+      <p>The profile becomes the loyalty screen. A dark member card with a sheen, credits to spend and
+         a promo the customer can act on — the part of an app that brings people back.</p>
+      <span class="tag">Most premium / most work</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // #a1 | #a2 | #a3 | #a4 renders a single variant full-bleed for the PNG captures
+  (function () {
+    const variant = location.hash.replace('#', '') || 'all';
+    document.body.dataset.variant = variant;
+    if (variant === 'all') return;
+    const cols = Array.from(document.querySelectorAll('.col'));
+    const active = cols.find((col) => col.classList.contains('col-' + variant));
+    cols.forEach((col) => {
+      if (col !== active) col.style.display = 'none';
+    });
+    document.querySelector('.intro').style.display = 'none';
+    document.querySelectorAll('.caption').forEach((el) => (el.style.display = 'none'));
+    document.body.style.padding = '0';
+    document.body.style.background = 'var(--ink-50)';
+    document.querySelectorAll('.phone').forEach((el) => {
+      el.style.borderRadius = '0';
+      el.style.boxShadow = 'none';
+    });
+  })();
+</script>
+</body>
+</html>
