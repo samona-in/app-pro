@@ -73,6 +73,7 @@ export default function OnboardingSkills() {
                 <SelectableCard
                   key={skill.id}
                   label={skill.name}
+                  imageUri={skill.icon}
                   selected={selected.includes(skill.id)}
                   onToggle={() => toggle(skill.id)}
                 />

@@ -39,7 +39,7 @@ export function createServicesService(deps: ServicesServiceDeps) {
     const skills = await deps.prisma.skill.findMany({
       where: { isActive: true, service: { slug } },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, serviceId: true, slug: true, name: true },
+      select: { id: true, serviceId: true, slug: true, name: true, icon: true },
     });
 
     return skills;
@@ -71,6 +71,7 @@ export function createServicesService(deps: ServicesServiceDeps) {
           serviceId: true,
           slug: true,
           name: true,
+          icon: true,
           service: { select: { id: true, slug: true, name: true, icon: true } },
         },
       }),

@@ -73,6 +73,7 @@ export default function BookingSkill() {
           <SelectableCard
             key={skill.id}
             label={skill.name}
+            imageUri={skill.icon}
             single
             selected={skill.id === skillId}
             onToggle={() => {

@@ -104,7 +104,7 @@ export function createProsService(deps: ProsServiceDeps) {
         skills: {
           where: { isActive: true },
           orderBy: { sortOrder: 'asc' },
-          select: { id: true, serviceId: true, slug: true, name: true },
+          select: { id: true, serviceId: true, slug: true, name: true, icon: true },
         },
       },
     });
