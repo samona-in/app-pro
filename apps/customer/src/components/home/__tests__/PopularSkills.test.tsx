@@ -93,5 +93,10 @@ describe('PopularSkills', () => {
     // edge of the screen; the content padding is what insets it instead.
     expect(rail.props.className ?? '').not.toMatch(/-m[lr]-/);
     expect(rail.props.contentContainerStyle.paddingHorizontal).toBe(16);
+
+    // The top-pick badge sits over the artwork's corner and reaches above it.
+    // The rail clips its content, so it needs that room or the badge loses its
+    // top.
+    expect(rail.props.contentContainerStyle.paddingTop).toBeGreaterThanOrEqual(8);
   });
 });

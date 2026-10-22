@@ -56,12 +56,14 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
 
       {/* The rail bleeds to the screen edge on the right, but the first skill
           keeps the same 16px inset as the heading above it — a negative
-          margin here would push the first artwork off the left of the screen. */}
+          margin here would push the first artwork off the left of the screen.
+          The top padding is room for the top-pick badge, which sits over the
+          artwork's corner and would be clipped by the rail without it. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="mt-4"
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
+        className="mt-1"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 14 }}
       >
         {skills.map((skill, index) => (
           <Pressable
