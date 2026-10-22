@@ -62,6 +62,44 @@ function rowOf(node: ReactTestInstance): ReactTestInstance | null {
   return null;
 }
 
+/**
+ * The nearest ancestor of `node` whose class name matches `pattern`.
+ */
+function ancestorWith(node: ReactTestInstance, pattern: RegExp): ReactTestInstance | null {
+  let current: ReactTestInstance | null = node;
+  while (current) {
+    const className = current.props?.className;
+    if (typeof className === 'string' && pattern.test(className)) return current;
+    current = current.parent;
+  }
+  return null;
+}
+
+describe('Search — the search field', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useSearchStore.setState({ recents: [], hydrated: true });
+    useBookingDraft.getState().reset();
+  });
+
+  it('keeps the back arrow inside the field and gives the field the full width', async () => {
+    render(<Search />);
+
+    const back = await screen.findByLabelText('Go back');
+    const input = screen.getByLabelText('Search for a service or skill');
+
+    // The arrow and the text share one container, so the arrow costs the
+    // field no width of its own.
+    const field = ancestorWith(back, /rounded-xl/);
+    expect(field).not.toBeNull();
+    expect(ancestorWith(input, /rounded-xl/)).toBe(field);
+
+    // The field is the full width of the screen, minus the screen's margin.
+    expect(ancestorWith(field as ReactTestInstance, /px-5/)).not.toBeNull();
+    expect(input.props.className).toMatch(/flex-1/);
+  });
+});
+
 describe('Search — recent items', () => {
   beforeEach(() => {
     jest.clearAllMocks();
