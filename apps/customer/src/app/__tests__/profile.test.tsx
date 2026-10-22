@@ -53,7 +53,7 @@ describe('Profile', () => {
     render(<Profile />);
 
     expect(screen.getByText('Profile')).toBeTruthy();
-    expect(screen.getByText('Member since August 2024')).toBeTruthy();
+    expect(screen.getByText('Member since 12 August 2024')).toBeTruthy();
   });
 
   it('falls back to a plain line when the account has no date', () => {
