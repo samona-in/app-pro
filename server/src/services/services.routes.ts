@@ -46,6 +46,20 @@ export function createServicesRouter(services: Services): Router {
   });
 
   /**
+   * The skills promoted on the customer home screen.
+   *
+   * Registered before `/:slug/skills` so Express does not mistake
+   * "popular-skills" for a slug.
+   */
+  router.get('/popular-skills', requireAuth, async (_req, res, next) => {
+    try {
+      res.json(await services.services.listPopularSkills());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
    * The exact-need categories for one service (the booking flow's "what
    * exactly" step). An unknown slug simply returns an empty list rather than
    * leaking catalogue ids.

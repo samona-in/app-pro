@@ -1,5 +1,6 @@
 import type { PrismaClient } from '../database/prisma';
-import type { ServiceOption, ServiceSearchResult, SkillOption } from '@samona/types';
+import type { PopularSkill, ServiceOption, ServiceSearchResult, SkillOption } from '@samona/types';
+import { POPULAR_SKILL_SLUGS } from './popular-skills';
 
 export interface ServicesServiceDeps {
   prisma: PrismaClient;
@@ -80,7 +81,46 @@ export function createServicesService(deps: ServicesServiceDeps) {
     return { services, skills };
   }
 
-  return { listActive, listSkillsForService, searchServices };
+  /**
+   * The skills promoted on the customer home screen, in curated order.
+   *
+   * The curation lives in `popular-skills.ts`; this resolves each entry
+   * against the live catalogue, so names and icons stay current, and skips
+   * anything the catalogue no longer offers.
+   */
+  async function listPopularSkills(): Promise<PopularSkill[]> {
+    const skills = await deps.prisma.skill.findMany({
+      where: {
+        isActive: true,
+        slug: { in: POPULAR_SKILL_SLUGS },
+        service: { isActive: true },
+      },
+      // A curated slug is unique across the catalogue today. Ordering by the
+      // parent service first keeps the first match deterministic if that ever
+      // stops being true, instead of letting the row order decide.
+      orderBy: [{ service: { sortOrder: 'asc' } }, { sortOrder: 'asc' }],
+      select: {
+        id: true,
+        serviceId: true,
+        slug: true,
+        name: true,
+        icon: true,
+        service: { select: { id: true, slug: true, name: true, icon: true } },
+      },
+    });
+
+    const bySlug = new Map<string, PopularSkill>();
+    for (const skill of skills) {
+      if (!bySlug.has(skill.slug)) bySlug.set(skill.slug, skill);
+    }
+
+    return POPULAR_SKILL_SLUGS.flatMap((slug) => {
+      const skill = bySlug.get(slug);
+      return skill ? [skill] : [];
+    });
+  }
+
+  return { listActive, listSkillsForService, listPopularSkills, searchServices };
 }
 
 export type ServicesService = ReturnType<typeof createServicesService>;
