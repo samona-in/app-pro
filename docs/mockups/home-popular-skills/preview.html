@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAMONA — Customer home: popular skills rail</title>
+<style>
+  :root{
+    --brand:#054DFF; --brand-muted:#053FCC; --brand-soft:#EAF0FC;
+    --white:#FFFFFF; --ink-900:#0F172A; --ink-700:#334155; --ink-500:#64748B;
+    --ink-400:#94A3B8; --ink-300:#CBD5E1; --ink-200:#E2E8F0; --ink-100:#F1F5F9;
+    --ink-50:#F8FAFC; --amber-100:#FEF3C7; --amber-700:#B45309;
+    --bg:#EDEFF3;
+    --img-plumbing:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/ChatGPT%20Image%20Sep%202,%202026%20at%2002_39_01%20AM%20copy.png");
+    --img-carpet:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/ChatGPT%20Image%20Sep%203,%202026%20at%2007_20_57%20PM.png");
+    --img-electric:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/ChatGPT%20Image%20Sep%203,%202026%20at%2007_24_12%20PM.png");
+    --img-hvac:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/HVAC%20Technician%20Repair%20Icon.png");
+    --img-cleaning:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/Motion%20Cleaning%20Icon.png");
+    --img-painting:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/Dynamic%20Painter%20Service%20Icon.png");
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:44px 40px 60px;
+    display:flex; flex-direction:column; gap:34px; align-items:center;
+  }
+
+  /* ---------- page heading ---------- */
+  .intro{max-width:1180px;text-align:center}
+  .intro h1{font-size:22px;font-weight:700;color:var(--ink-900);letter-spacing:-.02em}
+  .intro p{font-size:14px;line-height:1.55;color:var(--ink-500);margin-top:8px}
+  .intro .note{font-size:12px;color:var(--ink-400);margin-top:6px}
+  .intro .flow{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:8px 14px;
+    border-radius:999px;background:var(--white);box-shadow:0 1px 2px rgba(15,23,42,.06);
+    font-size:12.5px;color:var(--ink-500);font-weight:500}
+  .intro .flow b{color:var(--brand)}
+
+  /* ---------- phone frame ---------- */
+  .row{display:flex; gap:44px; justify-content:center; align-items:flex-start}
+  .col{display:flex;flex-direction:column;gap:16px;align-items:center}
+  .phone{
+    width:390px;height:844px;background:var(--ink-50);border-radius:44px;overflow:hidden;
+    position:relative;box-shadow:0 24px 60px rgba(15,23,42,.18),0 0 0 10px #0F172A,0 0 0 12px #334155;
+    display:flex;flex-direction:column;
+  }
+  .caption{max-width:390px;text-align:center}
+  .caption h2{font-size:15px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em}
+  .caption p{font-size:12.5px;line-height:1.45;color:var(--ink-500);margin-top:5px}
+  .caption .tag{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:999px;
+    background:var(--brand-soft);color:var(--brand-muted);font-size:11px;font-weight:700;letter-spacing:.02em}
+
+  /* ---------- scroll area (hero scrolls with the content, like the app) ---------- */
+  .scroller{flex:1;overflow:hidden;position:relative;background:var(--ink-50)}
+  .content{position:absolute;left:0;right:0;top:calc(-1 * var(--scroll,0px))}
+  .col-a1{--scroll:19px} .col-a2{--scroll:55px} .col-a3{--scroll:0px}
+
+  /* ---------- status bar ---------- */
+  .statusbar{position:absolute;top:0;left:0;right:0;z-index:5;height:50px;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 32px 0;font-size:14px;font-weight:650;letter-spacing:.2px;color:#fff;pointer-events:none}
+  .statusbar .sig{display:flex;gap:5px;align-items:center}
+
+  /* ---------- blue hero (current home) ---------- */
+  .hero{flex:none;background:var(--brand);padding:50px 20px 14px;position:relative;overflow:hidden}
+  .rowline{display:flex;align-items:center;justify-content:space-between}
+  .loc{display:flex;align-items:center;gap:12px;min-width:0}
+  .pin{width:40px;height:40px;border-radius:999px;background:var(--white);display:flex;align-items:center;justify-content:center;flex:none}
+  .pin svg{width:20px;height:20px;stroke:var(--brand)}
+  .loc-cap{font-size:12px;line-height:16px;color:rgba(255,255,255,.72)}
+  .loc-val{font-size:13px;line-height:18px;font-weight:600;color:#fff;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bell{width:40px;height:40px;border-radius:999px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;flex:none;position:relative}
+  .bell svg{width:21px;height:21px;stroke:#fff}
+  .pill-count{position:absolute;top:0;right:0;min-width:17px;height:15px;border-radius:999px;background:#DC2626;
+    color:#fff;font-size:9.5px;font-weight:700;line-height:15px;text-align:center;padding:0 4px;border:1.5px solid var(--brand)}
+
+  .search{display:flex;align-items:center;gap:12px;background:var(--white);border-radius:14px;
+    padding:0 16px;height:54px;box-shadow:0 1px 2px rgba(15,23,42,.06);margin-top:14px}
+  .search svg{width:19px;height:19px;stroke:var(--ink-400);flex:none}
+  .search span{font-size:15px;color:var(--ink-400)}
+
+  /* ---------- banner (current home: art floats on the blue band) ---------- */
+  .promo{margin-top:14px;height:150px;display:flex;align-items:center;overflow:hidden;position:relative}
+  .promo .copy{flex:1;padding-left:2px;z-index:2}
+  .promo h3{color:#fff;font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.02em;max-width:210px}
+  .promo p{color:rgba(255,255,255,.78);font-size:13px;line-height:18px;margin-top:4px;max-width:200px}
+  .cta{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--brand);border-radius:999px;
+    padding:7px 13px;margin-top:11px;font-size:13px;font-weight:600;line-height:18px}
+  .cta svg{width:13px;height:13px;stroke:var(--brand)}
+  .promo .art{width:40%;height:150px;object-fit:contain;object-position:center;flex:none;margin-right:-6px}
+
+  .dots{display:flex;gap:6px;justify-content:center;align-items:center;margin-top:6px}
+  .dot{display:block;width:7px;height:7px;border-radius:4px;background:rgba(255,255,255,.35)}
+  .dot.on{background:#fff}
+
+  /* ---------- services grid (current home) ---------- */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);row-gap:18px;column-gap:8px;padding:16px 20px 0}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .tile .img{width:64px;height:64px;border-radius:14px;background:var(--ink-100);
+    background-size:cover;background-position:center}
+  .tile span{font-size:12px;color:var(--ink-500);text-align:center;line-height:16px}
+
+  /* ---------- popular skills section (no card chrome) ---------- */
+  .popular{margin-top:28px;padding-bottom:26px;position:relative}
+  .phead{display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+  .phead h3{font-size:17px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
+  .phead h3 svg{width:16px;height:16px;stroke:var(--brand);stroke-width:1.9}
+  .phead a{font-size:13px;font-weight:600;color:var(--brand);display:flex;align-items:center;gap:3px}
+  .phead a svg{width:13px;height:13px;stroke:var(--brand);stroke-width:2.2}
+
+  .flag{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;
+    background:var(--amber-100);flex:none}
+  .flag svg{width:13px;height:13px;stroke:var(--amber-700);stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+  /* A1 — bare rail: artwork + type, no boxes at all */
+  .rail{display:flex;gap:14px;margin:16px -20px 0 0;padding:0 20px}
+  .item{flex:none;width:98px;position:relative}
+  .item .img{width:64px;height:64px;border-radius:18px;background:var(--ink-100);
+    background-size:cover;background-position:center}
+  .item .name{font-size:13px;font-weight:400;color:#000;line-height:18px;margin-top:2px;
+    height:40px;overflow:hidden}
+  .item .meta{font-size:12px;color:var(--ink-400);margin-top:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .flag{position:absolute;top:-8px;left:-8px;box-shadow:0 0 0 3px var(--ink-50),0 1px 2px rgba(15,23,42,.12)}
+  .rail-fade{position:absolute;right:0;top:34px;bottom:26px;width:52px;pointer-events:none;
+    background:linear-gradient(90deg,rgba(248,250,252,0),var(--ink-50) 78%)}
+
+  /* A2 — the rail sits on one soft tinted ground, still no per-item boxes */
+  .panel{margin:16px 20px 0;background:var(--brand-soft);border-radius:26px;padding:18px 0 18px 18px;overflow:hidden}
+  .panel .rail{margin:0;padding:0 18px 0 0}
+  .panel .item .flag{box-shadow:0 0 0 3px var(--brand-soft),0 1px 2px rgba(15,23,42,.12)}
+  .panel .name{color:var(--ink-900)}
+
+  /* A3 — compact side rail: thumbnail beside the name */
+  .rail-side{display:flex;gap:22px;margin:20px -20px 0 0;padding:0 20px}
+  .sitem{flex:none;display:flex;align-items:center;gap:11px;width:172px}
+  .sitem .img{width:64px;height:64px;border-radius:16px;background:var(--ink-100);
+    background-size:cover;background-position:center;flex:none}
+  .sitem .txt{min-width:0}
+  .sitem .name{font-size:14px;font-weight:600;color:var(--ink-900);line-height:18px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.005em}
+  .sitem .meta{font-size:12px;color:var(--ink-400);margin-top:4px;display:flex;align-items:center;gap:6px;
+    white-space:nowrap;overflow:hidden}
+  .sitem .meta .flag{width:16px;height:16px}
+  .sitem .meta .flag svg{width:10px;height:10px;stroke-width:2.6}
+  .plink{margin:21px 20px 0;font-size:13px;font-weight:600;color:var(--brand);text-align:center}
+
+  /* ---------- tab bar ---------- */
+  .tabbar{flex:none;height:88px;background:var(--white);border-top:1px solid var(--ink-200);
+    display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px;position:relative}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:4px;width:64px}
+  .tab svg{width:24px;height:24px;stroke:var(--ink-400);stroke-width:1.8}
+  .tab.active svg{stroke:var(--brand)}
+  .tab span{font-size:10px;color:var(--ink-400)} .tab.active span{color:var(--brand);font-weight:600}
+  .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--ink-900);opacity:.85}
+</style>
+</head>
+<body>
+  <div class="intro">
+    <h1>Customer home — a “popular skills” rail below the services</h1>
+    <p>The skill card is gone. Nothing here is a rounded white box with a border and a shadow — the artwork and the type carry the section on their own,
+       and the only shape on the screen is the artwork itself. Three treatments of the same sideways rail.</p>
+    <div class="flow">Tap a skill → <b>booking opens on that skill, already selected</b> → the customer only adds the place and confirms.</div>
+    <p class="note">The category grid is illustrative — the live catalogue currently has three active services; the artwork comes from the same public bucket.</p>
+  </div>
+
+  <div class="row">
+    <!-- ======================= A1 — bare rail ======================= -->
+    <div class="col col-a1">
+      <div class="phone">
+        <div class="scroller"><div class="content">
+          <div class="hero">
+            <div class="statusbar"><span>9:41</span>
+              <span class="sig">
+                <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+                <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5l2.4-2.7a3.4 3.4 0 0 0-4.8 0L8 10.5zM3.5 5.8A6.6 6.6 0 0 1 12.5 5.8l1.6-1.8a8.6 8.6 0 0 0-14.2 0l1.6 1.8z"/></svg>
+                <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/><path d="M23 4v4a2.2 2.2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+              </span>
+            </div>
+            <div class="rowline">
+              <div class="loc">
+                <div class="pin"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+                <div><div class="loc-cap">Your location</div><div class="loc-val">221B Baker Street, London</div></div>
+              </div>
+              <div class="bell">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                <div class="pill-count">9+</div>
+              </div>
+            </div>
+            <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search for electrician</span></div>
+            <div class="promo"><div class="copy">
+              <h3>Your home needs care.</h3><p>We've got the right people.</p>
+              <span class="cta">Explore Services<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-1.png"/></div>
+            <div class="dots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+          </div>
+
+          <div class="grid">
+            <div class="tile"><div class="img" style="background-image:var(--img-plumbing)"></div><span>Plumbing</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-carpet)"></div><span>Carpeting</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-electric)"></div><span>Electrician</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-hvac)"></div><span>AC &amp; Appliances</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-cleaning)"></div><span>Cleaning</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-painting)"></div><span>Painting</span></div>
+          </div>
+
+          <div class="popular">
+            <div class="phead">
+              <h3>Popular right now</h3>
+              <a>See all<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+            </div>
+            <div class="rail">
+              <div class="item">
+                <div class="img" style="background-image:var(--img-plumbing)"></div>
+                <div class="flag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5l5.5-5.5 3.5 3.5L21 7"/><path d="M15 7h6v6"/></svg></div>
+                <div class="name">Plumbing leak repair</div><div class="meta">Plumbing</div>
+              </div>
+              <div class="item"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Tap repair</div><div class="meta">Plumbing</div></div>
+              <div class="item"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Drain cleaning</div><div class="meta">Plumbing</div></div>
+              <div class="item"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Fan installation</div><div class="meta">Electrician</div></div>
+              <div class="item"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Light fixture installation</div><div class="meta">Electrician</div></div>
+            </div>
+            <div class="rail-fade"></div>
+          </div>
+        </div></div>
+
+        <div class="tabbar">
+          <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Account</span></div>
+          <div class="home-ind"></div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>A1 — Bare rail</h2>
+        <p>Artwork and type on the page itself: no boxes, no borders, no shadows. The section is a strip of pictures you can swipe, and it borrows the eye-level of the category grid above instead of competing with it.</p>
+        <span class="tag">No chrome at all · 64px artwork</span>
+      </div>
+    </div>
+
+    <!-- ======================= A2 — soft ground ======================= -->
+    <div class="col col-a2">
+      <div class="phone">
+        <div class="scroller"><div class="content">
+          <div class="hero">
+            <div class="statusbar"><span>9:41</span>
+              <span class="sig">
+                <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+                <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5l2.4-2.7a3.4 3.4 0 0 0-4.8 0L8 10.5zM3.5 5.8A6.6 6.6 0 0 1 12.5 5.8l1.6-1.8a8.6 8.6 0 0 0-14.2 0l1.6 1.8z"/></svg>
+                <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/><path d="M23 4v4a2.2 2.2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+              </span>
+            </div>
+            <div class="rowline">
+              <div class="loc">
+                <div class="pin"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+                <div><div class="loc-cap">Your location</div><div class="loc-val">221B Baker Street, London</div></div>
+              </div>
+              <div class="bell">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                <div class="pill-count">9+</div>
+              </div>
+            </div>
+            <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search for electrician</span></div>
+            <div class="promo"><div class="copy">
+              <h3>Your home needs care.</h3><p>We've got the right people.</p>
+              <span class="cta">Explore Services<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-1.png"/></div>
+            <div class="dots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+          </div>
+
+          <div class="grid">
+            <div class="tile"><div class="img" style="background-image:var(--img-plumbing)"></div><span>Plumbing</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-carpet)"></div><span>Carpeting</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-electric)"></div><span>Electrician</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-hvac)"></div><span>AC &amp; Appliances</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-cleaning)"></div><span>Cleaning</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-painting)"></div><span>Painting</span></div>
+          </div>
+
+          <div class="popular">
+            <div class="phead">
+              <h3>Popular right now</h3>
+              <a>See all<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+            </div>
+            <div class="panel">
+              <div class="rail">
+                <div class="item">
+                  <div class="img" style="background-image:var(--img-plumbing)"></div>
+                  <div class="flag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5l5.5-5.5 3.5 3.5L21 7"/><path d="M15 7h6v6"/></svg></div>
+                  <div class="name">Plumbing leak repair</div><div class="meta">Plumbing</div>
+                </div>
+                <div class="item"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Tap repair</div><div class="meta">Plumbing</div></div>
+                <div class="item"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Drain cleaning</div><div class="meta">Plumbing</div></div>
+                <div class="item"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Fan installation</div><div class="meta">Electrician</div></div>
+                <div class="item"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Light fixture installation</div><div class="meta">Electrician</div></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+
+        <div class="tabbar">
+          <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Account</span></div>
+          <div class="home-ind"></div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>A2 — One soft ground</h2>
+        <p>The same bare items, but the whole rail sits on a single tinted panel that gives the section its own territory on the page. One shape instead of five, so it reads as a designed module rather than a row of tiles.</p>
+        <span class="tag">One tinted panel · no item boxes</span>
+      </div>
+    </div>
+
+    <!-- ======================= A3 — side rail ======================= -->
+    <div class="col col-a3">
+      <div class="phone">
+        <div class="scroller"><div class="content">
+          <div class="hero">
+            <div class="statusbar"><span>9:41</span>
+              <span class="sig">
+                <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+                <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5l2.4-2.7a3.4 3.4 0 0 0-4.8 0L8 10.5zM3.5 5.8A6.6 6.6 0 0 1 12.5 5.8l1.6-1.8a8.6 8.6 0 0 0-14.2 0l1.6 1.8z"/></svg>
+                <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/><path d="M23 4v4a2.2 2.2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>
+              </span>
+            </div>
+            <div class="rowline">
+              <div class="loc">
+                <div class="pin"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
+                <div><div class="loc-cap">Your location</div><div class="loc-val">221B Baker Street, London</div></div>
+              </div>
+              <div class="bell">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                <div class="pill-count">9+</div>
+              </div>
+            </div>
+            <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search for electrician</span></div>
+            <div class="promo"><div class="copy">
+              <h3>Your home needs care.</h3><p>We've got the right people.</p>
+              <span class="cta">Explore Services<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </div><img class="art" src="../../../apps/customer/assets/images/banners/banner-1.png"/></div>
+            <div class="dots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i><i class="dot"></i></div>
+          </div>
+
+          <div class="grid">
+            <div class="tile"><div class="img" style="background-image:var(--img-plumbing)"></div><span>Plumbing</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-carpet)"></div><span>Carpeting</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-electric)"></div><span>Electrician</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-hvac)"></div><span>AC &amp; Appliances</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-cleaning)"></div><span>Cleaning</span></div>
+            <div class="tile"><div class="img" style="background-image:var(--img-painting)"></div><span>Painting</span></div>
+          </div>
+
+          <div class="popular">
+            <div class="phead">
+              <h3>Popular right now</h3>
+              <a>See all<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+            </div>
+            <div class="rail-side">
+              <div class="sitem">
+                <div class="img" style="background-image:var(--img-plumbing)"></div>
+                <div class="txt">
+                  <div class="name">Plumbing leak repair</div>
+                  <div class="meta">Plumbing<span class="flag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5l5.5-5.5 3.5 3.5L21 7"/><path d="M15 7h6v6"/></svg></span></div>
+                </div>
+              </div>
+              <div class="sitem">
+                <div class="img" style="background-image:var(--img-plumbing)"></div>
+                <div class="txt"><div class="name">Tap repair</div><div class="meta">Plumbing</div></div>
+              </div>
+              <div class="sitem">
+                <div class="img" style="background-image:var(--img-plumbing)"></div>
+                <div class="txt"><div class="name">Drain cleaning</div><div class="meta">Plumbing</div></div>
+              </div>
+              <div class="sitem">
+                <div class="img" style="background-image:var(--img-electric)"></div>
+                <div class="txt"><div class="name">Fan installation</div><div class="meta">Electrician</div></div>
+              </div>
+            </div>
+            <div class="plink">See all popular skills</div>
+          </div>
+        </div></div>
+
+        <div class="tabbar">
+          <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Account</span></div>
+          <div class="home-ind"></div>
+        </div>
+      </div>
+      <div class="caption">
+        <h2>A3 — Side rail</h2>
+        <p>Thumbnail beside the name instead of above it, so the rail stays one line tall and reads like a jump-list. The calmest of the three — it adds entry points without adding another band of artwork to the page.</p>
+        <span class="tag">Compact · 56px artwork</span>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // #a1 | #a2 | #a3 renders a single variant full-bleed for the PNG captures
+  (function () {
+    const variant = location.hash.replace('#', '') || 'all';
+    document.body.dataset.variant = variant;
+    if (variant === 'all') return;
+    const cols = Array.from(document.querySelectorAll('.col'));
+    const active = cols.find((col) => col.classList.contains('col-' + variant));
+    cols.forEach((col) => {
+      if (col !== active) col.style.display = 'none';
+    });
+    document.querySelector('.intro').style.display = 'none';
+    document.querySelectorAll('.caption').forEach((el) => (el.style.display = 'none'));
+    document.body.style.padding = '0';
+    document.body.style.background = 'var(--ink-50)';
+    document.querySelectorAll('.phone').forEach((el) => {
+      el.style.borderRadius = '0';
+      el.style.boxShadow = 'none';
+    });
+  })();
+</script>
+</body>
+</html>
