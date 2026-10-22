@@ -165,7 +165,7 @@ function EmptyState({ recents, allServices, onSelectService, onSelectRecent }: E
       {/* All services — horizontal strip */}
       {allServices.length > 0 ? (
         <View>
-          {recents.length > 0 ? <View className="mx-5 my-2 h-px bg-border" /> : null}
+          {recents.length > 0 ? <View className="my-2 h-px bg-border" /> : null}
           <Text variant="label" className="mb-3 px-5 pt-2">
             Services
           </Text>
