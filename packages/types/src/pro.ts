@@ -145,6 +145,8 @@ export interface SkillOption {
   serviceId: string;
   slug: string;
   name: string;
+  /** The skill's own icon; copied from the parent service when seeded. */
+  icon: string | null;
 }
 
 /** A skill with its parent service, returned by catalogue search. */

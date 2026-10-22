@@ -312,6 +312,9 @@ model Skill {
   serviceId String  @map("service_id") @db.Uuid
   slug      String
   name      String
+  /// Icon of the skill itself. Seeded from the parent service's icon, so a
+  /// skill can be given an icon of its own later.
+  icon      String?
   sortOrder Int     @default(0) @map("sort_order")
   isActive  Boolean @default(true) @map("is_active")
 

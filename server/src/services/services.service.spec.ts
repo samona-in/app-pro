@@ -36,8 +36,13 @@ describe('createServicesService', () => {
   it('listSkillsForService returns only active skills in display order', async () => {
     const { service, prisma } = buildService();
     const rows = [
-      { id: 'sk1', slug: 'fan-installation', name: 'Fan installation' },
-      { id: 'sk2', slug: 'light-fixture-installation', name: 'Light fixture installation' },
+      { id: 'sk1', slug: 'fan-installation', name: 'Fan installation', icon: 'flash-outline' },
+      {
+        id: 'sk2',
+        slug: 'light-fixture-installation',
+        name: 'Light fixture installation',
+        icon: 'flash-outline',
+      },
     ];
     prisma.skill.findMany.mockResolvedValue(rows);
 
@@ -47,7 +52,7 @@ describe('createServicesService', () => {
     expect(prisma.skill.findMany).toHaveBeenCalledWith({
       where: { service: { slug: 'electrical' }, isActive: true },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, serviceId: true, slug: true, name: true },
+      select: { id: true, serviceId: true, slug: true, name: true, icon: true },
     });
   });
 });
