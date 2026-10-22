@@ -3,12 +3,13 @@ import { View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import type { ServiceOption } from '@samona/types';
+import type { PopularSkill, ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import {
   HOME_BANNERS,
   HomeBannerCarousel,
   HomeHeader,
+  PopularSkills,
   SearchBar,
   ServiceGrid,
   type HomeBanner,
@@ -18,6 +19,7 @@ import { NotificationBell } from '@/components/notifications';
 import { Screen } from '@/components/ui';
 import {
   useActiveSavedAddress,
+  usePopularSkills,
   useResolvedLocationLabel,
   useServiceCategories,
   useSession,
@@ -29,6 +31,7 @@ export default function Home() {
   const locationLabel = useResolvedLocationLabel(customerProfile);
   const activeSavedAddress = useActiveSavedAddress(customerProfile);
   const categories = useServiceCategories();
+  const popular = usePopularSkills();
   const bookingDraft = useBookingDraft();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
 
@@ -44,16 +47,33 @@ export default function Home() {
   // A tile that re-mounts while the home tab re-attaches behind the booking
   // flow renders instantly from cache instead of flashing a blank tile.
   useEffect(() => {
-    const urls = (categories.data ?? [])
-      .map((service) => service.icon)
-      .filter((icon): icon is string => isImageUrl(icon));
+    const urls = [
+      ...(categories.data ?? []).map((service) => service.icon),
+      ...(popular.data ?? []).map((skill) => skill.icon ?? skill.service.icon),
+    ].filter((icon): icon is string => isImageUrl(icon));
     if (urls.length > 0) void Image.prefetch(urls);
-  }, [categories.data]);
+  }, [categories.data, popular.data]);
 
   function handleSelectService(service: ServiceOption) {
     setActiveSlug(service.slug);
     bookingDraft.start(service);
     router.push(`/booking/new/${service.slug}/place`);
+  }
+
+  // A popular skill opens the same booking flow with that skill already
+  // chosen, so the customer only has to say where the work is needed.
+  function handleSelectPopularSkill(skill: PopularSkill) {
+    const service: ServiceOption = {
+      id: skill.service.id,
+      slug: skill.service.slug,
+      name: skill.service.name,
+      icon: skill.service.icon,
+    };
+
+    bookingDraft.start(service);
+    // draft.start resets the skill, so setSkill has to come after it.
+    bookingDraft.setSkill(skill);
+    router.push(`/booking/new/${skill.service.slug}/place`);
   }
 
   // A banner either promotes one service — and starts the booking flow for
@@ -93,7 +113,7 @@ export default function Home() {
         <SearchBar onPress={() => router.push('/search')} />
       </HomeHeader>
 
-      <View className="mt-3 flex-1 px-2">
+      <View className="mt-3 px-2">
         {categories.isPending ? (
           <LoadingState message="Loading services" size="inline" />
         ) : categories.isError ? (
@@ -110,6 +130,12 @@ export default function Home() {
           />
         )}
       </View>
+
+      <PopularSkills
+        skills={popular.data ?? []}
+        onSelect={handleSelectPopularSkill}
+        onSeeAll={() => router.push('/search')}
+      />
     </Screen>
   );
 }

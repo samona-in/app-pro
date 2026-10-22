@@ -154,6 +154,14 @@ export interface SkillWithService extends SkillOption {
   service: Pick<ServiceOption, 'id' | 'slug' | 'name' | 'icon'>;
 }
 
+/**
+ * A skill promoted on the customer home screen, with its parent service.
+ *
+ * The order of the list is the order the server curated it in, and the first
+ * entry is the "top pick" the home rail flags.
+ */
+export type PopularSkill = SkillWithService;
+
 /** Combined result for a catalogue search: matching services and skills. */
 export interface ServiceSearchResult {
   services: ServiceOption[];

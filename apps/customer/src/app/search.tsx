@@ -63,6 +63,7 @@ export default function Search() {
       serviceId: skill.serviceId,
       slug: skill.slug,
       name: skill.name,
+      icon: skill.icon,
     });
     router.push(`/booking/new/${skill.service.slug}/place`);
   }
