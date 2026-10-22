@@ -94,7 +94,7 @@ export function NotificationRow({
       onPress={handlePress}
       onLongPress={handleLongPress}
       className={cn(
-        'bg-background py-2 active:opacity-60',
+        'bg-surface py-2 active:opacity-60',
         selectionMode && selected && 'bg-surface-muted/60',
       )}
     >

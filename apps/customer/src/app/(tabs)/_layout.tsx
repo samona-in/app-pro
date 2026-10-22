@@ -143,7 +143,7 @@ export default function TabsLayout() {
           headerShown: false,
           tabBarActiveTintColor: color.brand,
           tabBarInactiveTintColor: color['text-muted'],
-          sceneStyle: { backgroundColor: color.background },
+          sceneStyle: { backgroundColor: color.surface },
         }}
       >
         <TopTabs.Screen

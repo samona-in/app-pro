@@ -22,7 +22,7 @@ interface AddressRowMenuProps {
  * The three-dot action menu for a saved address row.
  *
  * Android implementation. Uses the low-level Compose `DropdownMenu` so the
- * container color matches the screen background (`color.background`), which
+ * container color matches the screen background (`color.surface`), which
  * the community `MenuView` does not expose.
  */
 export function AddressRowMenu({
@@ -38,7 +38,7 @@ export function AddressRowMenu({
     <Host matchContents>
       <DropdownMenu
         expanded={expanded}
-        color={color.background}
+        color={color.surface}
         onDismissRequest={close}
       >
         <DropdownMenu.Trigger>

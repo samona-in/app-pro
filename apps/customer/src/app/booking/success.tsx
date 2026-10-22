@@ -6,7 +6,7 @@ import { color } from '@/theme';
 
 export default function BookingSuccess() {
   return (
-    <Screen edges={['top', 'bottom']} className="bg-background">
+    <Screen edges={['top', 'bottom']}>
       <View className="flex-1 items-center justify-center px-6">
         <View className="h-20 w-20 items-center justify-center rounded-full bg-success-surface">
           <Ionicons name="checkmark-circle" size={44} color={color.success} />

@@ -51,7 +51,7 @@ function SettingsRow({
       accessibilityLabel={label}
       disabled={!onPress}
       onPress={onPress}
-      className="bg-background py-1.5 active:opacity-70"
+      className="bg-surface py-1.5 active:opacity-70"
     >
       <View className="flex-row items-center">
         <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-muted">

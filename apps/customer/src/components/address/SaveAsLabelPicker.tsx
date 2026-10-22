@@ -32,7 +32,7 @@ export function SaveAsLabelPicker({ value, onChange }: SaveAsLabelPickerProps) {
             onPress={() => onChange(choice)}
             className={cn(
               'min-h-[44px] flex-1 items-center justify-center rounded-full border',
-              selected ? 'border-brand bg-brand' : 'border-border bg-background',
+              selected ? 'border-brand bg-brand' : 'border-border bg-surface-muted',
             )}
           >
             <Text
