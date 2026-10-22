@@ -26,7 +26,7 @@ const MONTH_NAMES = [
 
 /**
  * The account's age, the way the quiet header shows it: "Member since
- * August 2024". Falls back to a plain line when the account has no
+ * 12 August 2024". Falls back to a plain line when the account has no
  * creation date to read.
  */
 function memberSinceLabel(createdAt?: string | null): string {
@@ -35,7 +35,7 @@ function memberSinceLabel(createdAt?: string | null): string {
   const joined = new Date(createdAt);
   if (Number.isNaN(joined.getTime())) return 'Your SAMONA account';
 
-  return `Member since ${MONTH_NAMES[joined.getMonth()]} ${joined.getFullYear()}`;
+  return `Member since ${joined.getDate()} ${MONTH_NAMES[joined.getMonth()]} ${joined.getFullYear()}`;
 }
 
 const SETTINGS_ROWS: { icon: IoniconName; label: string; onPress?: () => void }[] = [
