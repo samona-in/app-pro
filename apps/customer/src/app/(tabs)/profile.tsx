@@ -9,6 +9,35 @@ import { color } from '@/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/**
+ * The account's age, the way the quiet header shows it: "Member since
+ * August 2024". Falls back to a plain line when the account has no
+ * creation date to read.
+ */
+function memberSinceLabel(createdAt?: string | null): string {
+  if (!createdAt) return 'Your SAMONA account';
+
+  const joined = new Date(createdAt);
+  if (Number.isNaN(joined.getTime())) return 'Your SAMONA account';
+
+  return `Member since ${MONTH_NAMES[joined.getMonth()]} ${joined.getFullYear()}`;
+}
+
 const SETTINGS_ROWS: { icon: IoniconName; label: string; onPress?: () => void }[] = [
   {
     icon: 'location-outline',
@@ -123,44 +152,50 @@ export default function Profile() {
 
   return (
     <Screen scrollable>
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <View className="pt-2">
-        <Text variant="titleLg">Profile</Text>
+        <Text variant="display">Profile</Text>
+        <Text variant="footnote" className="mt-1">
+          {memberSinceLabel(user?.createdAt)}
+        </Text>
       </View>
 
-      <View className="-mx-5 mt-2 bg-surface-muted px-5 py-4">
-        <View className="flex-row items-center">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change profile photo"
-            accessibilityState={{ disabled: uploading, busy: uploading }}
-            disabled={uploading}
-            onPress={() => void pickAvatar()}
-            className="active:opacity-70"
-          >
-            <View className="relative">
-              <Avatar name={displayName} uri={shownAvatarUri()} size="lg" />
-              {uploading ? (
-                <View className="absolute inset-0 items-center justify-center rounded-full bg-black/40">
-                  <ActivityIndicator size="small" color="#ffffff" />
-                </View>
-              ) : (
-                <View className="absolute -bottom-0.5 -right-0.5 h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-brand">
-                  <Ionicons name="camera" size={13} color={color['brand-contrast']} />
-                </View>
-              )}
-            </View>
-          </Pressable>
-          <View className="ml-4 flex-1">
-            <Text variant="title">{displayName}</Text>
-            <Text variant="footnote" className="mt-0.5 text-text-secondary">
-              {user?.phone ?? 'Profile not set up yet'}
-            </Text>
-            <Badge label="Verified" tone="success" className="mt-2" />
+      {/* ── Bio card ────────────────────────────────────────────────────── */}
+      <View className="mt-5 flex-row items-center">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Change profile photo"
+          accessibilityState={{ disabled: uploading, busy: uploading }}
+          disabled={uploading}
+          onPress={() => void pickAvatar()}
+          className="active:opacity-70"
+        >
+          <View className="relative">
+            <Avatar name={displayName} uri={shownAvatarUri()} size="lg" />
+            {uploading ? (
+              <View className="absolute inset-0 items-center justify-center rounded-full bg-black/40">
+                <ActivityIndicator size="small" color="#ffffff" />
+              </View>
+            ) : (
+              <View className="absolute -bottom-0.5 -right-0.5 h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-brand">
+                <Ionicons name="camera" size={13} color={color['brand-contrast']} />
+              </View>
+            )}
           </View>
+        </Pressable>
+        <View className="ml-4 flex-1">
+          <Text variant="title">{displayName}</Text>
+          <Text variant="footnote" className="mt-0.5">
+            {user?.phone ?? 'Profile not set up yet'}
+          </Text>
+          <Badge label="Verified" tone="success" className="mt-2" />
         </View>
       </View>
 
-      <View className="mt-6">
+      {/* Hairline separator, the full width of the screen. */}
+      <View className="-mx-5 mt-5 h-px bg-border" />
+
+      <View className="mt-4">
         {SETTINGS_ROWS.map((row) => (
           <SettingsRow
             key={row.label}
