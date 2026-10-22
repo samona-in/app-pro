@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAMONA — Customer Bookings: premium screen directions</title>
+<style>
+  :root{
+    --brand:#054DFF; --brand-muted:#053FCC; --brand-soft:#EAF0FC; --brand-100:#D6E1F8;
+    --white:#FFFFFF; --ink-900:#0F172A; --ink-800:#1E293B; --ink-700:#334155;
+    --ink-500:#64748B; --ink-400:#94A3B8; --ink-300:#CBD5E1; --ink-200:#E2E8F0;
+    --ink-100:#F1F5F9; --ink-50:#F8FAFC;
+    --green-50:#ECFDF5; --green-600:#059669; --green-700:#047857;
+    --amber-50:#FFFBEB; --amber-600:#D97706; --amber-700:#B45309;
+    --red-50:#FEF2F2; --red-600:#DC2626;
+    --bg:#E7EAF0;
+    --shadow-sm:0 1px 2px rgba(15,23,42,.06);
+    --shadow-md:0 4px 12px rgba(15,23,42,.08);
+    --shadow-lg:0 2px 8px rgba(15,23,42,.05),0 14px 32px rgba(15,23,42,.10);
+    --img-hvac:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/HVAC%20Technician%20Repair%20Icon.png");
+    --img-cleaning:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/Motion%20Cleaning%20Icon.png");
+    --img-electric:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/ChatGPT%20Image%20Sep%203,%202026%20at%2007_24_12%20PM.png");
+    --img-plumbing:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/ChatGPT%20Image%20Sep%202,%202026%20at%2002_39_01%20AM%20copy.png");
+    --img-painting:url("https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/Dynamic%20Painter%20Service%20Icon.png");
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:44px 40px 60px;
+    display:flex;flex-direction:column;gap:34px;align-items:center;
+  }
+  svg{fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ---------- page heading ---------- */
+  .intro{max-width:1240px;text-align:center}
+  .intro h1{font-size:22px;font-weight:700;color:var(--ink-900);letter-spacing:-.02em}
+  .intro p{font-size:14px;line-height:1.55;color:var(--ink-500);margin-top:8px}
+  .intro .note{font-size:12px;color:var(--ink-400);margin-top:6px}
+
+  /* ---------- phone frame ---------- */
+  .row{display:flex;gap:40px;justify-content:center;align-items:flex-start}
+  .col{display:flex;flex-direction:column;gap:16px;align-items:center}
+  .phone{
+    width:390px;height:844px;background:var(--ink-50);border-radius:44px;overflow:hidden;
+    position:relative;box-shadow:0 24px 60px rgba(15,23,42,.18),0 0 0 10px #0F172A,0 0 0 12px #334155;
+    display:flex;flex-direction:column;
+  }
+  .caption{max-width:390px;text-align:center}
+  .caption h2{font-size:15px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em}
+  .caption p{font-size:12.5px;line-height:1.45;color:var(--ink-500);margin-top:5px}
+  .caption .tag{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:999px;
+    background:var(--brand-soft);color:var(--brand-muted);font-size:11px;font-weight:700;letter-spacing:.02em}
+
+  /* ---------- status bar ---------- */
+  .statusbar{position:absolute;top:0;left:0;right:0;z-index:6;height:50px;display:flex;align-items:center;
+    justify-content:space-between;padding:16px 30px 0;font-size:14px;font-weight:650;letter-spacing:.2px;pointer-events:none}
+  .statusbar.on-blue{color:#fff}
+  .statusbar.on-dark{color:#fff}
+  .statusbar.on-light{color:var(--ink-900)}
+  .statusbar .sig{display:flex;gap:5px;align-items:center}
+  .statusbar .bars{display:flex;gap:2px;align-items:flex-end}
+  .statusbar .bars i{width:3px;background:currentColor;border-radius:1px;display:block}
+
+  /* ---------- tab bar ---------- */
+  .tabbar{position:absolute;bottom:0;left:0;right:0;height:82px;background:var(--white);
+    border-top:1px solid var(--ink-200);display:flex;align-items:flex-start;padding:10px 0 0;z-index:6}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink-400)}
+  .tab.active{color:var(--brand)}
+  .tab svg{width:23px;height:23px}
+  .tab span{font-size:11px;font-weight:600}
+  .home-ind{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;
+    border-radius:3px;background:var(--ink-900);opacity:.85}
+
+  /* ---------- shared bits ---------- */
+  .scroller{flex:1;overflow:hidden;position:relative}
+  .art{background:var(--ink-100);background-size:cover;background-position:center;border-radius:14px;flex:none}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+    font-size:11px;font-weight:700;letter-spacing:.01em;white-space:nowrap}
+  .pill-blue{background:var(--brand-soft);color:var(--brand-muted)}
+  .pill-green{background:var(--green-50);color:var(--green-700)}
+  .pill-amber{background:var(--amber-50);color:var(--amber-700)}
+  .pill-ink{background:var(--ink-100);color:var(--ink-500)}
+  .dot-live{width:6px;height:6px;border-radius:999px;background:var(--brand);display:block;
+    box-shadow:0 0 0 3px rgba(5,77,255,.16)}
+  .sec-label{display:flex;align-items:center;justify-content:space-between;padding:0 20px;margin:22px 0 10px;
+    font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--ink-500);text-transform:uppercase}
+  .sec-label span{font-size:11px;font-weight:600;color:var(--ink-400);letter-spacing:0}
+  .filters{display:flex;gap:8px;padding:0 20px;overflow:hidden}
+  .chip{flex:none;padding:8px 14px;border-radius:999px;border:1px solid var(--ink-200);background:var(--white);
+    font-size:13px;font-weight:600;color:var(--ink-500)}
+  .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+  /* ========================================================================
+     A — Spotlight (blue header, floating active-job card, premium cards)
+     ======================================================================== */
+  .a-scroll{background:var(--ink-50)}
+  .a-header{background:linear-gradient(160deg,#054DFF 0%,#053FCC 62%,#0A3FD0 100%);
+    padding:56px 20px 58px;position:relative}
+  .a-header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:rgba(255,255,255,.18)}
+  .a-title-row{display:flex;align-items:center;justify-content:space-between}
+  .a-header h1{color:#fff;font-size:27px;font-weight:700;letter-spacing:-.025em}
+  .a-header p{color:rgba(255,255,255,.72);font-size:13px;margin-top:3px}
+  .a-bell{width:40px;height:40px;border-radius:999px;background:rgba(255,255,255,.16);display:flex;
+    align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+  .a-bell svg{width:20px;height:20px;stroke:#fff}
+  .a-body{padding:0 20px 40px;margin-top:-40px;position:relative}
+  .spot{background:var(--white);border-radius:22px;padding:16px;box-shadow:var(--shadow-lg)}
+  .spot-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
+  .spot-eta{font-size:12px;color:var(--ink-500)}
+  .spot-eta b{color:var(--ink-900);font-weight:700}
+  .spot-main{display:flex;align-items:center;gap:12px}
+  .spot-main .art{width:56px;height:56px;border-radius:16px}
+  .spot-txt{flex:1;min-width:0}
+  .spot-name{font-size:17px;font-weight:700;color:var(--ink-900);letter-spacing:-.015em}
+  .spot-sub{font-size:12.5px;color:var(--ink-500);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spot-price{font-size:16px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em}
+  .spot-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:13px;
+    border-top:1px solid var(--ink-100)}
+  .pro{display:flex;align-items:center;gap:9px;min-width:0}
+  .avatar{width:30px;height:30px;border-radius:999px;background:linear-gradient(140deg,#054DFF,#7C3AED);
+    color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+  .pro-txt b{display:block;font-size:13px;font-weight:700;color:var(--ink-900)}
+  .pro-txt span{display:block;font-size:11.5px;color:var(--ink-500);margin-top:1px}
+  .star{color:#F59E0B}
+  .spot-actions{display:flex;align-items:center;gap:8px}
+  .ghost-ic{width:34px;height:34px;border-radius:999px;border:1px solid var(--ink-200);display:flex;
+    align-items:center;justify-content:center;background:var(--white)}
+  .ghost-ic svg{width:17px;height:17px;stroke:var(--ink-700)}
+  .cta{display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:#fff;border-radius:999px;
+    padding:9px 15px;font-size:13px;font-weight:700;border:none;box-shadow:0 4px 12px rgba(5,77,255,.28)}
+  .cta svg{width:14px;height:14px;stroke:#fff;stroke-width:2}
+  .a-filters{margin-top:20px}
+  .a-card{background:var(--white);border-radius:20px;padding:14px;display:flex;align-items:center;gap:12px;
+    margin-bottom:10px;box-shadow:var(--shadow-sm)}
+  .a-card .art{width:52px;height:52px;border-radius:15px}
+  .a-card-txt{flex:1;min-width:0}
+  .a-card-txt b{display:block;font-size:15px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .a-card-txt span{display:block;font-size:12.5px;color:var(--ink-500);margin-top:2px}
+  .a-card-end{text-align:right;flex:none}
+  .a-card-end b{display:block;font-size:15px;font-weight:700;color:var(--ink-900)}
+  .a-card-end .pill{margin-top:5px}
+  .a-chev{width:16px;height:16px;stroke:var(--ink-300);flex:none}
+  .a-past{background:var(--white);border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:12px;
+    margin-bottom:9px}
+  .a-past .art{width:42px;height:42px;border-radius:13px}
+  .a-past-txt{flex:1;min-width:0}
+  .a-past-txt b{display:block;font-size:14px;font-weight:600;color:var(--ink-700);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .a-past-txt span{display:block;font-size:11.5px;color:var(--ink-400);margin-top:2px}
+  .rebook{border:1px solid var(--ink-200);background:var(--white);color:var(--brand);font-size:12px;
+    font-weight:700;border-radius:999px;padding:6px 12px;flex:none}
+
+  /* ========================================================================
+     B — Timeline (status rail per booking)
+     ======================================================================== */
+  .b-scroll{background:var(--ink-50)}
+  .b-head{padding:56px 20px 0;background:var(--white)}
+  .b-head h1{font-size:27px;font-weight:700;color:var(--ink-900);letter-spacing:-.025em}
+  .b-head p{font-size:13px;color:var(--ink-500);margin-top:4px}
+  .b-filters{margin-top:14px;padding-bottom:14px}
+  .b-card{background:var(--white);border-radius:22px;margin:14px 20px 0;padding:16px;box-shadow:var(--shadow-md)}
+  .b-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .b-id{font-size:11.5px;color:var(--ink-400);font-weight:600}
+  .b-title{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .b-title .art{width:46px;height:46px;border-radius:14px}
+  .b-title b{font-size:16px;font-weight:700;color:var(--ink-900);letter-spacing:-.015em;display:block}
+  .b-title span{font-size:12.5px;color:var(--ink-500)}
+  .tl{position:relative;margin-top:14px;padding-left:26px}
+  .tl::before{content:"";position:absolute;left:8px;top:8px;bottom:10px;width:2px;background:var(--ink-200);border-radius:2px}
+  .tl-item{position:relative;padding-bottom:16px}
+  .tl-item:last-child{padding-bottom:0}
+  .tl-dot{position:absolute;left:-26px;top:1px;width:18px;height:18px;border-radius:999px;background:var(--white);
+    border:2px solid var(--ink-300);display:flex;align-items:center;justify-content:center}
+  .tl-dot svg{width:10px;height:10px;stroke:#fff;stroke-width:3}
+  .tl-item.done .tl-dot{background:var(--green-600);border-color:var(--green-600)}
+  .tl-item.now .tl-dot{background:var(--brand);border-color:var(--brand);box-shadow:0 0 0 4px rgba(5,77,255,.16)}
+  .tl-item.now .tl-dot::after{content:"";width:6px;height:6px;border-radius:999px;background:#fff}
+  .tl-txt b{display:block;font-size:13.5px;font-weight:700;color:var(--ink-900)}
+  .tl-item.todo .tl-txt b{color:var(--ink-400);font-weight:600}
+  .tl-txt span{display:block;font-size:11.5px;color:var(--ink-500);margin-top:2px}
+  .b-foot{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;
+    border-top:1px solid var(--ink-100)}
+  .b-foot .pro{display:flex;align-items:center;gap:8px}
+  .b-foot .pro-txt b{font-size:13px}
+  .b-cta{display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:#fff;border-radius:999px;
+    padding:9px 16px;font-size:13px;font-weight:700;box-shadow:0 4px 12px rgba(5,77,255,.28)}
+  .b-cta svg{width:14px;height:14px;stroke:#fff;stroke-width:2}
+  .b-list{margin:0 20px}
+  .b-row{display:flex;gap:12px;align-items:center;background:var(--white);border-radius:16px;padding:11px 14px;
+    margin-bottom:9px;position:relative}
+  .b-row .art{width:44px;height:44px;border-radius:13px}
+  .b-row-txt{flex:1;min-width:0}
+  .b-row-txt b{display:block;font-size:14.5px;font-weight:700;color:var(--ink-900);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .b-row-txt span{display:block;font-size:12px;color:var(--ink-500);margin-top:2px}
+  .b-row-end{text-align:right;flex:none}
+  .b-row-end b{display:block;font-size:14px;font-weight:700;color:var(--ink-900)}
+  .b-row-end span{display:block;font-size:11px;color:var(--ink-400);margin-top:2px}
+
+  /* ========================================================================
+     C — Quiet premium (typographic, iOS-like)
+     ======================================================================== */
+  .c-scroll{background:var(--white)}
+  .c-head{padding:58px 20px 0;background:var(--white)}
+  .c-head h1{font-size:34px;font-weight:700;color:var(--ink-900);letter-spacing:-.035em}
+  .c-head p{font-size:14px;color:var(--ink-500);margin-top:5px}
+  .segmented{margin:18px 20px 0;background:var(--ink-100);border-radius:10px;padding:2px;display:flex;
+    position:relative}
+  .seg{flex:1;text-align:center;font-size:13px;font-weight:600;color:var(--ink-500);padding:7px 0;position:relative;z-index:2}
+  .seg.on{color:var(--ink-900)}
+  .seg-thumb{position:absolute;top:2px;left:2px;width:calc(25% - 2px);height:calc(100% - 4px);background:var(--white);
+    border-radius:9px;box-shadow:0 1px 3px rgba(15,23,42,.12),0 0 1px rgba(15,23,42,.06);z-index:1}
+  .c-list{margin-top:22px}
+  .c-row{display:flex;align-items:center;gap:13px;padding:15px 20px;position:relative}
+  .c-row + .c-row::before{content:"";position:absolute;left:79px;right:0;top:0;height:1px;background:var(--ink-100)}
+  .c-row .art{width:46px;height:46px;border-radius:14px}
+  .c-row-txt{flex:1;min-width:0}
+  .c-row-txt b{display:block;font-size:16px;font-weight:600;color:var(--ink-900);letter-spacing:-.01em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .c-row-txt span{display:block;font-size:13px;color:var(--ink-500);margin-top:2px}
+  .c-row-end{text-align:right;flex:none}
+  .c-row-end b{display:block;font-size:15px;font-weight:600;color:var(--ink-900);font-variant-numeric:tabular-nums}
+  .st{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;margin-top:3px}
+  .st::before{content:"";width:6px;height:6px;border-radius:999px;background:currentColor;display:block}
+  .st-blue{color:var(--brand)} .st-green{color:var(--green-600)} .st-amber{color:var(--amber-600)} .st-ink{color:var(--ink-400)}
+  .c-section{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-400);
+    padding:26px 20px 6px}
+  .c-rebook{margin:2px 20px 0;font-size:13px;font-weight:600;color:var(--brand);display:flex;align-items:center;gap:6px}
+  .c-rebook svg{width:14px;height:14px;stroke:var(--brand);stroke-width:2}
+  .c-cta{margin:26px 20px 0;height:50px;border-radius:16px;background:var(--brand);color:#fff;display:flex;
+    align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:700;
+    box-shadow:0 6px 18px rgba(5,77,255,.26)}
+  .c-cta svg{width:18px;height:18px;stroke:#fff;stroke-width:2.2}
+
+  /* ========================================================================
+     D — Dark summary + card carousel
+     ======================================================================== */
+  .d-scroll{background:var(--ink-50)}
+  .d-header{background:linear-gradient(165deg,#0F172A 0%,#152243 58%,#1B2B52 100%);padding:56px 20px 26px}
+  .d-header h1{color:#fff;font-size:27px;font-weight:700;letter-spacing:-.025em}
+  .d-header p{color:rgba(255,255,255,.62);font-size:13px;margin-top:4px}
+  .d-stats{display:flex;gap:9px;margin-top:18px}
+  .d-stat{flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:15px;
+    padding:11px 12px;backdrop-filter:blur(6px)}
+  .d-stat b{display:block;color:#fff;font-size:18px;font-weight:700;letter-spacing:-.02em}
+  .d-stat span{display:block;color:rgba(255,255,255,.6);font-size:11px;margin-top:2px;font-weight:500}
+  .d-carousel{display:flex;gap:12px;padding:20px;overflow:hidden;margin-top:-6px}
+  .d-card{width:252px;flex:none;background:var(--white);border-radius:24px;padding:16px;box-shadow:var(--shadow-lg)}
+  .d-card .art{width:100%;height:112px;border-radius:18px;background-size:cover;background-position:center;margin-bottom:13px}
+  .d-card .pill{margin-bottom:9px}
+  .d-card h4{font-size:17px;font-weight:700;color:var(--ink-900);letter-spacing:-.02em}
+  .d-card p{font-size:12.5px;color:var(--ink-500);margin-top:3px}
+  .d-card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:13px;
+    border-top:1px solid var(--ink-100)}
+  .d-card-foot b{font-size:17px;font-weight:700;color:var(--ink-900)}
+  .d-link{color:var(--brand);font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px}
+  .d-link svg{width:13px;height:13px;stroke:var(--brand);stroke-width:2.2}
+  .d-month{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-400);
+    padding:6px 20px 8px}
+  .d-list{padding:0 20px}
+  .d-row{display:flex;align-items:center;gap:12px;padding:12px 0}
+  .d-row + .d-row{border-top:1px solid var(--ink-100)}
+  .d-row .art{width:44px;height:44px;border-radius:13px}
+  .d-row-txt{flex:1;min-width:0}
+  .d-row-txt b{display:block;font-size:14.5px;font-weight:600;color:var(--ink-900);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .d-row-txt span{display:block;font-size:12px;color:var(--ink-500);margin-top:2px}
+  .d-row-end{text-align:right;flex:none}
+  .d-row-end b{display:block;font-size:14px;font-weight:700;color:var(--ink-900)}
+  .d-row-end span{display:block;font-size:11px;color:var(--ink-400);margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>SAMONA — Customer Bookings: four premium directions</h1>
+  <p>Same data, four very different screens. Each one replaces the current flat list of rows
+     (48px artwork + status · date + description) with a stronger hierarchy: status that is visible
+     at a glance, a price that is legible, and — where a job is live — one card that tells the
+     customer what happens next.</p>
+  <p class="note">390 × 844 · brand #054DFF · app tokens (radius 20/24, ink scale, SF) · tap a
+     direction and it can be built in the Expo app.</p>
+</div>
+
+<div class="row">
+
+  <!-- ================= A — SPOTLIGHT ================= -->
+  <div class="col col-a1">
+    <div class="phone">
+      <div class="statusbar on-blue">
+        <span>9:41</span>
+        <span class="sig">
+          <span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#fff"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:#fff"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M4 11.5h9v2H4z" fill="#fff" stroke="none"/></svg>
+        </span>
+      </div>
+      <div class="scroller a-scroll">
+        <div class="a-header">
+          <div class="a-title-row">
+            <div>
+              <h1>Bookings</h1>
+              <p>2 active · 4 upcoming</p>
+            </div>
+            <div class="a-bell">
+              <svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 19a2 2 0 0 0 4 0"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="a-body">
+          <div class="spot">
+            <div class="spot-top">
+              <span class="pill pill-blue"><i class="dot-live"></i>On the way</span>
+              <span class="spot-eta">Arrives in <b>12 min</b></span>
+            </div>
+            <div class="spot-main">
+              <div class="art" style="background-image:var(--img-hvac)"></div>
+              <div class="spot-txt">
+                <div class="spot-name">AC Repair</div>
+                <div class="spot-sub">AC &amp; Appliances · Today, 10:30 AM</div>
+              </div>
+              <div class="spot-price">₹799</div>
+            </div>
+            <div class="spot-foot">
+              <div class="pro">
+                <div class="avatar">RK</div>
+                <div class="pro-txt">
+                  <b>Ravi Kumar</b>
+                  <span><span class="star">★</span> 4.8 · 1,240 jobs</span>
+                </div>
+              </div>
+              <div class="spot-actions">
+                <div class="ghost-ic">
+                  <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5Z"/></svg>
+                </div>
+                <div class="cta">
+                  Track live
+                  <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="filters a-filters">
+            <div class="chip on">All</div>
+            <div class="chip">Active</div>
+            <div class="chip">Upcoming</div>
+            <div class="chip">Completed</div>
+            <div class="chip">Cancelled</div>
+          </div>
+
+          <div class="sec-label">Upcoming <span>2 bookings</span></div>
+
+          <div class="a-card">
+            <div class="art" style="background-image:var(--img-cleaning)"></div>
+            <div class="a-card-txt">
+              <b>Bathroom deep clean</b>
+              <span>Cleaning · Tomorrow, 9:00 AM</span>
+            </div>
+            <div class="a-card-end">
+              <b>₹1,499</b>
+              <span class="pill pill-blue">Confirmed</span>
+            </div>
+            <svg class="a-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          </div>
+
+          <div class="a-card">
+            <div class="art" style="background-image:var(--img-electric)"></div>
+            <div class="a-card-txt">
+              <b>Switchboard repair</b>
+              <span>Electrician · Fri, 24 Oct · 11:30 AM</span>
+            </div>
+            <div class="a-card-end">
+              <b>₹499</b>
+              <span class="pill pill-ink">Finding a pro</span>
+            </div>
+            <svg class="a-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+          </div>
+
+          <div class="sec-label">Past <span>6 bookings</span></div>
+
+          <div class="a-past">
+            <div class="art" style="background-image:var(--img-plumbing)"></div>
+            <div class="a-past-txt">
+              <b>Leak repair</b>
+              <span>Plumbing · 18 Oct · Paid</span>
+            </div>
+            <div class="rebook">Book again</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+        <div class="tab active"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Account</span></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="caption">
+      <h2>A — Spotlight</h2>
+      <p>The blue header the app already uses on Home, and one floating card for the live job: status, ETA, the professional and a Track action. Everything else is calm white cards below it.</p>
+      <span class="tag">Urban Company-like · most "real app"</span>
+    </div>
+  </div>
+
+  <!-- ================= B — TIMELINE ================= -->
+  <div class="col col-a2">
+    <div class="phone">
+      <div class="statusbar on-light">
+        <span>9:41</span>
+        <span class="sig">
+          <span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--ink-900)"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--ink-900)"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M4 11.5h9v2H4z" fill="#0F172A" stroke="none"/></svg>
+        </span>
+      </div>
+      <div class="scroller b-scroll">
+        <div class="b-head">
+          <h1>Bookings</h1>
+          <p>Follow every service, step by step</p>
+          <div class="filters b-filters">
+            <div class="chip on">All</div>
+            <div class="chip">Active</div>
+            <div class="chip">Upcoming</div>
+            <div class="chip">Past</div>
+          </div>
+        </div>
+
+        <div class="b-card">
+          <div class="b-card-head">
+            <span class="pill pill-blue"><i class="dot-live"></i>In progress</span>
+            <span class="b-id">#4821</span>
+          </div>
+          <div class="b-title">
+            <div class="art" style="background-image:var(--img-hvac)"></div>
+            <div>
+              <b>AC Repair</b>
+              <span>AC &amp; Appliances · Today, 10:30 AM</span>
+            </div>
+          </div>
+          <div class="tl">
+            <div class="tl-item done">
+              <div class="tl-dot"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L19 8"/></svg></div>
+              <div class="tl-txt"><b>Request placed</b><span>Today, 9:40 AM</span></div>
+            </div>
+            <div class="tl-item done">
+              <div class="tl-dot"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L19 8"/></svg></div>
+              <div class="tl-txt"><b>Professional assigned</b><span>Today, 9:52 AM · Ravi Kumar</span></div>
+            </div>
+            <div class="tl-item now">
+              <div class="tl-dot"></div>
+              <div class="tl-txt"><b>On the way · arrives in 12 min</b><span>Today, 10:18 AM · 2.4 km away</span></div>
+            </div>
+            <div class="tl-item todo">
+              <div class="tl-dot"></div>
+              <div class="tl-txt"><b>Service starts</b><span>Estimated 10:30 AM</span></div>
+            </div>
+          </div>
+          <div class="b-foot">
+            <div class="pro">
+              <div class="avatar">RK</div>
+              <div class="pro-txt">
+                <b>Ravi Kumar</b>
+                <span><span class="star">★</span> 4.8 · <b style="display:inline;font-weight:700">₹799</b></span>
+              </div>
+            </div>
+            <div class="b-cta">
+              Track live
+              <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec-label">Past <span>6 bookings</span></div>
+        <div class="b-list">
+          <div class="b-row">
+            <div class="art" style="background-image:var(--img-plumbing)"></div>
+            <div class="b-row-txt">
+              <b>Leak repair</b>
+              <span>Plumbing · 18 Oct · Paid</span>
+            </div>
+            <div class="b-row-end"><b>₹649</b><span>Completed</span></div>
+          </div>
+          <div class="b-row">
+            <div class="art" style="background-image:var(--img-cleaning)"></div>
+            <div class="b-row-txt">
+              <b>Bathroom deep clean</b>
+              <span>Cleaning · 2 Oct · Cancelled</span>
+            </div>
+            <div class="b-row-end"><b>₹1,499</b><span style="color:var(--red-600)">Cancelled</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+        <div class="tab active"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Account</span></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="caption">
+      <h2>B — Timeline</h2>
+      <p>The live job opens into a vertical stepper — requested, assigned, on the way, service started — so the customer sees progress instead of a status word. History stays a compact list.</p>
+      <span class="tag">Swiggy / Zepto-style tracking</span>
+    </div>
+  </div>
+
+  <!-- ================= C — QUIET PREMIUM ================= -->
+  <div class="col col-a3">
+    <div class="phone">
+      <div class="statusbar on-light">
+        <span>9:41</span>
+        <span class="sig">
+          <span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--ink-900)"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--ink-900)"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M4 11.5h9v2H4z" fill="#0F172A" stroke="none"/></svg>
+        </span>
+      </div>
+      <div class="scroller c-scroll">
+        <div class="c-head">
+          <h1>Bookings</h1>
+          <p>6 bookings · 2 active</p>
+        </div>
+
+        <div class="segmented">
+          <div class="seg-thumb"></div>
+          <div class="seg on">All</div>
+          <div class="seg">Active</div>
+          <div class="seg">Upcoming</div>
+          <div class="seg">Past</div>
+        </div>
+
+        <div class="c-list">
+          <div class="c-row">
+            <div class="art" style="background-image:var(--img-hvac)"></div>
+            <div class="c-row-txt">
+              <b>AC Repair</b>
+              <span>AC &amp; Appliances · Today, 10:30 AM</span>
+            </div>
+            <div class="c-row-end">
+              <b>₹799</b>
+              <span class="st st-blue">On the way</span>
+            </div>
+          </div>
+          <div class="c-row">
+            <div class="art" style="background-image:var(--img-cleaning)"></div>
+            <div class="c-row-txt">
+              <b>Bathroom deep clean</b>
+              <span>Cleaning · Tomorrow, 9:00 AM</span>
+            </div>
+            <div class="c-row-end">
+              <b>₹1,499</b>
+              <span class="st st-blue">Confirmed</span>
+            </div>
+          </div>
+          <div class="c-row">
+            <div class="art" style="background-image:var(--img-electric)"></div>
+            <div class="c-row-txt">
+              <b>Switchboard repair</b>
+              <span>Electrician · Fri, 24 Oct</span>
+            </div>
+            <div class="c-row-end">
+              <b>₹499</b>
+              <span class="st st-ink">Finding a pro</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="c-section">Past</div>
+        <div class="c-list">
+          <div class="c-row">
+            <div class="art" style="background-image:var(--img-plumbing)"></div>
+            <div class="c-row-txt">
+              <b>Leak repair</b>
+              <span>Plumbing · 18 Oct · Ravi Kumar</span>
+            </div>
+            <div class="c-row-end">
+              <b>₹649</b>
+              <span class="st st-green">Completed</span>
+            </div>
+          </div>
+          <div class="c-row">
+            <div class="art" style="background-image:var(--img-painting)"></div>
+            <div class="c-row-txt">
+              <b>Wall repainting</b>
+              <span>Painting · 11 Oct · Amit S.</span>
+            </div>
+            <div class="c-row-end">
+              <b>₹2,400</b>
+              <span class="st st-green">Completed</span>
+            </div>
+          </div>
+        </div>
+        <div class="c-rebook">
+          <svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          Rebook any completed service
+        </div>
+        <div class="c-cta">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Book a service
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+        <div class="tab active"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Account</span></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="caption">
+      <h2>C — Quiet premium</h2>
+      <p>No cards, no chrome. A large title, an iOS segmented control, and rows that earn their hierarchy from type and space. The price sits right, status is a coloured dot, and one CTA closes the screen.</p>
+      <span class="tag">Apple-like · least risk</span>
+    </div>
+  </div>
+
+  <!-- ================= D — DARK SUMMARY ================= -->
+  <div class="col col-a4">
+    <div class="phone">
+      <div class="statusbar on-dark">
+        <span>9:41</span>
+        <span class="sig">
+          <span class="bars"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i></span>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:#fff"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10.5 10.5 0 0 1 14 0M8.5 15.5a6 6 0 0 1 7 0M12 19h.01"/></svg>
+          <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:#fff"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M4 11.5h9v2H4z" fill="#fff" stroke="none"/></svg>
+        </span>
+      </div>
+      <div class="scroller d-scroll">
+        <div class="d-header">
+          <h1>Bookings</h1>
+          <p>12 bookings since March</p>
+          <div class="d-stats">
+            <div class="d-stat"><b>2</b><span>Active</span></div>
+            <div class="d-stat"><b>4.9</b><span>Avg rating</span></div>
+            <div class="d-stat"><b>₹8.4k</b><span>Total spent</span></div>
+          </div>
+        </div>
+
+        <div class="d-carousel">
+          <div class="d-card">
+            <div class="art" style="background-image:var(--img-hvac)"></div>
+            <span class="pill pill-blue"><i class="dot-live"></i>On the way</span>
+            <h4>AC Repair</h4>
+            <p>Today, 10:30 AM · Ravi Kumar ★ 4.8</p>
+            <div class="d-card-foot">
+              <b>₹799</b>
+              <span class="d-link">Track live
+                <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="d-card">
+            <div class="art" style="background-image:var(--img-cleaning)"></div>
+            <span class="pill pill-green">Confirmed</span>
+            <h4>Bathroom deep clean</h4>
+            <p>Tomorrow, 9:00 AM · Priya S. ★ 4.9</p>
+            <div class="d-card-foot">
+              <b>₹1,499</b>
+              <span class="d-link">View
+                <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-month">October 2026</div>
+        <div class="d-list">
+          <div class="d-row">
+            <div class="art" style="background-image:var(--img-plumbing)"></div>
+            <div class="d-row-txt">
+              <b>Leak repair</b>
+              <span>Plumbing · 18 Oct · Ravi Kumar</span>
+            </div>
+            <div class="d-row-end"><b>₹649</b><span>Paid</span></div>
+          </div>
+          <div class="d-row">
+            <div class="art" style="background-image:var(--img-painting)"></div>
+            <div class="d-row-txt">
+              <b>Wall repainting</b>
+              <span>Painting · 11 Oct · Amit S.</span>
+            </div>
+            <div class="d-row-end"><b>₹2,400</b><span>Paid</span></div>
+          </div>
+          <div class="d-row">
+            <div class="art" style="background-image:var(--img-electric)"></div>
+            <div class="d-row-txt">
+              <b>Switchboard repair</b>
+              <span>Electrician · 4 Oct · Deepak R.</span>
+            </div>
+            <div class="d-row-end"><b>₹499</b><span>Paid</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Home</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search</span></div>
+        <div class="tab active"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg><span>Bookings</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg><span>Account</span></div>
+        <div class="home-ind"></div>
+      </div>
+    </div>
+    <div class="caption">
+      <h2>D — Wallet, then carousel</h2>
+      <p>A dark summary header with the numbers that make a service account feel like a relationship, then a snap carousel of live jobs. History is grouped by month underneath.</p>
+      <span class="tag">Premium account feel · richest</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // #a1 | #a2 | #a3 | #a4 renders a single variant full-bleed for the PNG captures
+  (function () {
+    const variant = location.hash.replace('#', '') || 'all';
+    document.body.dataset.variant = variant;
+    if (variant === 'all') return;
+    const cols = Array.from(document.querySelectorAll('.col'));
+    const active = cols.find((col) => col.classList.contains('col-' + variant));
+    cols.forEach((col) => {
+      if (col !== active) col.style.display = 'none';
+    });
+    document.querySelector('.intro').style.display = 'none';
+    document.querySelectorAll('.caption').forEach((el) => (el.style.display = 'none'));
+    document.body.style.padding = '0';
+    document.body.style.background = 'var(--ink-50)';
+    document.querySelectorAll('.phone').forEach((el) => {
+      el.style.borderRadius = '0';
+      el.style.boxShadow = 'none';
+    });
+  })();
+</script>
+</body>
+</html>
