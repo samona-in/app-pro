@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SAMONA — Customer home: popular skills section</title>
+<title>SAMONA — Customer home: popular skills rail</title>
 <style>
   :root{
     --brand:#054DFF; --brand-muted:#053FCC; --brand-soft:#EAF0FC;
@@ -51,25 +51,10 @@
   .caption .tag{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:999px;
     background:var(--brand-soft);color:var(--brand-muted);font-size:11px;font-weight:700;letter-spacing:.02em}
 
-  body[data-variant="a"] .col-b, body[data-variant="a"] .col-c{display:none}
-  body[data-variant="b"] .col-a, body[data-variant="b"] .col-c{display:none}
-  body[data-variant="c"] .col-a, body[data-variant="c"] .col-b{display:none}
-
-  /* single-variant mode (preview.html#a) — full-bleed screen for the PNG captures */
-  body[data-variant="a"], body[data-variant="b"], body[data-variant="c"]{
-    padding:0; background:var(--ink-50);
-  }
-  body[data-variant="a"] .intro, body[data-variant="b"] .intro, body[data-variant="c"] .intro{display:none}
-  body[data-variant="a"] .caption, body[data-variant="b"] .caption, body[data-variant="c"] .caption{display:none}
-  body[data-variant="a"] .row, body[data-variant="b"] .row, body[data-variant="c"] .row{gap:0}
-  body[data-variant="a"] .phone, body[data-variant="b"] .phone, body[data-variant="c"] .phone{
-    border-radius:0; box-shadow:none;
-  }
-
   /* ---------- scroll area (hero scrolls with the content, like the app) ---------- */
   .scroller{flex:1;overflow:hidden;position:relative;background:var(--ink-50)}
   .content{position:absolute;left:0;right:0;top:calc(-1 * var(--scroll,0px))}
-  .col-a{--scroll:34px} .col-b{--scroll:36px} .col-c{--scroll:116px}
+  .col-a1{--scroll:19px} .col-a2{--scroll:55px} .col-a3{--scroll:0px}
 
   /* ---------- status bar ---------- */
   .statusbar{position:absolute;top:0;left:0;right:0;z-index:5;height:50px;display:flex;align-items:center;justify-content:space-between;
@@ -115,54 +100,48 @@
     background-size:cover;background-position:center}
   .tile span{font-size:12px;color:var(--ink-500);text-align:center;line-height:16px}
 
-  /* ---------- popular skills section ---------- */
-  .popular{margin-top:26px;padding-bottom:26px}
+  /* ---------- popular skills section (no card chrome) ---------- */
+  .popular{margin-top:28px;padding-bottom:26px;position:relative}
   .phead{display:flex;align-items:center;justify-content:space-between;padding:0 20px}
   .phead h3{font-size:17px;font-weight:700;color:var(--ink-900);letter-spacing:-.01em;display:flex;align-items:center;gap:6px}
   .phead h3 svg{width:16px;height:16px;stroke:var(--brand);stroke-width:1.9}
   .phead a{font-size:13px;font-weight:600;color:var(--brand);display:flex;align-items:center;gap:3px}
   .phead a svg{width:13px;height:13px;stroke:var(--brand);stroke-width:2.2}
 
-  /* A — skill card rail */
-  .rail{display:flex;gap:12px;margin:14px -20px 0;padding:0 20px}
-  .pcard{flex:none;width:138px;background:var(--white);border:1px solid var(--ink-200);border-radius:20px;
-    padding:10px;box-shadow:0 1px 2px rgba(15,23,42,.06);position:relative}
-  .pcard .img{width:64px;height:64px;border-radius:14px;background:var(--ink-100);background-size:cover;background-position:center}
-  .pcard .name{font-size:13px;font-weight:600;color:var(--ink-900);line-height:17px;margin-top:9px;height:34px;overflow:hidden}
-  .pcard .meta{font-size:11px;color:var(--ink-500);margin-top:3px}
-  .pcard .flag{position:absolute;top:16px;right:16px}
-  .pcard .more::after{content:"";position:absolute;right:-10px;top:0;bottom:0;width:34px;
-    background:linear-gradient(90deg,rgba(248,250,252,0),var(--ink-50))}
   .flag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:var(--amber-700);
-    background:var(--amber-100);border-radius:999px;padding:3px 7px;letter-spacing:.01em;
-    box-shadow:0 1px 2px rgba(15,23,42,.10)}
+    background:var(--amber-100);border-radius:999px;padding:3px 7px;letter-spacing:.01em;white-space:nowrap}
   .flag svg{width:10px;height:10px;stroke:var(--amber-700);stroke-width:2}
 
-  /* B — chips + one highlighted pick */
-  .chips{display:flex;gap:8px;margin:12px -20px 0;padding:0 20px}
-  .chip{flex:none;display:flex;align-items:center;gap:9px;background:var(--white);border:1px solid var(--ink-200);
-    border-radius:999px;padding:6px 15px 6px 6px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
-  .chip .img{width:34px;height:34px;border-radius:999px;background:var(--ink-100);background-size:cover;background-position:center}
-  .chip span{font-size:14px;font-weight:500;color:var(--ink-700);line-height:20px}
-  .pick{display:flex;align-items:center;gap:12px;margin:12px 20px 0;background:var(--white);
-    border:1px solid var(--ink-200);border-radius:18px;padding:9px 12px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
-  .pick .img{width:46px;height:46px;border-radius:14px;background:var(--ink-100);background-size:cover;background-position:center;flex:none}
-  .pick .txt{min-width:0;flex:1}
-  .pick .name{font-size:14px;font-weight:600;color:var(--ink-900);line-height:19px}
-  .pick .meta{font-size:11.5px;color:var(--ink-500);margin-top:1px}
-  .pick .flag{margin-right:2px}
-  .chips-note{margin:10px 20px 0;font-size:11.5px;color:var(--ink-400)}
+  /* A1 — bare rail: artwork + type, no boxes at all */
+  .rail{display:flex;gap:14px;margin:16px -20px 0 0;padding:0 20px}
+  .item{flex:none;width:98px;position:relative}
+  .item .img{width:64px;height:64px;border-radius:18px;background:var(--ink-100);
+    background-size:cover;background-position:center}
+  .item .name{font-size:14px;font-weight:600;color:var(--ink-900);line-height:18px;margin-top:9px;
+    height:36px;overflow:hidden;letter-spacing:-.005em}
+  .item .meta{font-size:12px;color:var(--ink-400);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .flag{position:absolute;top:-7px;left:-7px;box-shadow:0 0 0 3px var(--ink-50),0 1px 2px rgba(15,23,42,.12)}
+  .rail-fade{position:absolute;right:0;top:34px;bottom:26px;width:52px;pointer-events:none;
+    background:linear-gradient(90deg,rgba(248,250,252,0),var(--ink-50) 78%)}
 
-  /* C — skill list */
-  .plist{margin:14px 20px 0;background:var(--ink-100);border-radius:22px;padding:6px}
-  .prow{display:flex;align-items:center;gap:12px;padding:8px 10px;background:var(--white);border-radius:16px}
-  .prow+.prow{margin-top:2px}
-  .prow .img{width:46px;height:46px;border-radius:14px;background:var(--ink-100);background-size:cover;background-position:center;flex:none}
-  .prow .txt{min-width:0;flex:1}
-  .prow .name{font-size:15px;font-weight:600;color:var(--ink-900);line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .prow .meta{font-size:12px;color:var(--ink-500);margin-top:2px;display:flex;align-items:center;gap:6px}
-  .prow .chev{width:16px;height:16px;stroke:var(--ink-300);stroke-width:2.2;flex:none}
-  .plink{margin:10px 20px 0;font-size:12.5px;font-weight:600;color:var(--brand);text-align:center}
+  /* A2 — the rail sits on one soft tinted ground, still no per-item boxes */
+  .panel{margin:16px 20px 0;background:var(--brand-soft);border-radius:26px;padding:18px 0 18px 18px;overflow:hidden}
+  .panel .rail{margin:0;padding:0 18px 0 0}
+  .panel .item .flag{box-shadow:0 0 0 3px var(--brand-soft),0 1px 2px rgba(15,23,42,.12)}
+  .panel .name{color:var(--ink-900)}
+
+  /* A3 — compact side rail: thumbnail beside the name */
+  .rail-side{display:flex;gap:22px;margin:20px -20px 0 0;padding:0 20px}
+  .sitem{flex:none;display:flex;align-items:center;gap:11px;width:172px}
+  .sitem .img{width:64px;height:64px;border-radius:16px;background:var(--ink-100);
+    background-size:cover;background-position:center;flex:none}
+  .sitem .txt{min-width:0}
+  .sitem .name{font-size:14px;font-weight:600;color:var(--ink-900);line-height:18px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.005em}
+  .sitem .meta{font-size:12px;color:var(--ink-400);margin-top:4px;display:flex;align-items:center;gap:6px;
+    white-space:nowrap;overflow:hidden}
+  .sitem .meta .flag{padding:2px 6px;font-size:9.5px}
+  .plink{margin:21px 20px 0;font-size:13px;font-weight:600;color:var(--brand);text-align:center}
 
   /* ---------- tab bar ---------- */
   .tabbar{flex:none;height:88px;background:var(--white);border-top:1px solid var(--ink-200);
@@ -176,16 +155,16 @@
 </head>
 <body>
   <div class="intro">
-    <h1>Customer home — a “popular skills” section below the services</h1>
-    <p>Three ways to fill the home screen below the category grid, so it scrolls, invites a second look and gets the customer into a booking with one tap.
-       Every option uses the skill’s own icon — copied from its parent service — so the cards read as the service they belong to.</p>
+    <h1>Customer home — a “popular skills” rail below the services</h1>
+    <p>The skill card is gone. Nothing here is a rounded white box with a border and a shadow — the artwork and the type carry the section on their own,
+       and the only shape on the screen is the artwork itself. Three treatments of the same sideways rail.</p>
     <div class="flow">Tap a skill → <b>booking opens on that skill, already selected</b> → the customer only adds the place and confirms.</div>
     <p class="note">The category grid is illustrative — the live catalogue currently has three active services; the artwork comes from the same public bucket.</p>
   </div>
 
   <div class="row">
-    <!-- ======================= VARIANT A ======================= -->
-    <div class="col col-a">
+    <!-- ======================= A1 — bare rail ======================= -->
+    <div class="col col-a1">
       <div class="phone">
         <div class="scroller"><div class="content">
           <div class="hero">
@@ -229,16 +208,17 @@
               <a>See all<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
             </div>
             <div class="rail">
-              <div class="pcard">
+              <div class="item">
                 <div class="img" style="background-image:var(--img-plumbing)"></div>
                 <div class="flag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.3-1.8S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>Top</div>
                 <div class="name">Plumbing leak repair</div><div class="meta">Plumbing</div>
               </div>
-              <div class="pcard"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Tap repair</div><div class="meta">Plumbing</div></div>
-              <div class="pcard"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Drain cleaning</div><div class="meta">Plumbing</div></div>
-              <div class="pcard"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Fan installation</div><div class="meta">Electrician</div></div>
-              <div class="pcard more"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Light fixture installation</div><div class="meta">Electrician</div></div>
+              <div class="item"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Tap repair</div><div class="meta">Plumbing</div></div>
+              <div class="item"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Drain cleaning</div><div class="meta">Plumbing</div></div>
+              <div class="item"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Fan installation</div><div class="meta">Electrician</div></div>
+              <div class="item"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Light fixture installation</div><div class="meta">Electrician</div></div>
             </div>
+            <div class="rail-fade"></div>
           </div>
         </div></div>
 
@@ -251,14 +231,14 @@
         </div>
       </div>
       <div class="caption">
-        <h2>A — Skill card rail</h2>
-        <p>Big image tiles on a sideways rail, with the service named under each skill and the top pick flagged. The richest option and the most obviously shoppable — the next card peeks in so the row reads as scrollable.</p>
-        <span class="tag">Most visual · 138px cards</span>
+        <h2>A1 — Bare rail</h2>
+        <p>Artwork and type on the page itself: no boxes, no borders, no shadows. The section is a strip of pictures you can swipe, and it borrows the eye-level of the category grid above instead of competing with it.</p>
+        <span class="tag">No chrome at all · 64px artwork</span>
       </div>
     </div>
 
-    <!-- ======================= VARIANT B ======================= -->
-    <div class="col col-b">
+    <!-- ======================= A2 — soft ground ======================= -->
+    <div class="col col-a2">
       <div class="phone">
         <div class="scroller"><div class="content">
           <div class="hero">
@@ -301,22 +281,19 @@
               <h3><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.3-1.8S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>Popular right now</h3>
               <a>See all<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
             </div>
-            <div class="chips">
-              <div class="chip"><div class="img" style="background-image:var(--img-plumbing)"></div><span>Leak repair</span></div>
-              <div class="chip"><div class="img" style="background-image:var(--img-plumbing)"></div><span>Tap repair</span></div>
-              <div class="chip"><div class="img" style="background-image:var(--img-plumbing)"></div><span>Drain cleaning</span></div>
-              <div class="chip"><div class="img" style="background-image:var(--img-electric)"></div><span>Fan installation</span></div>
-              <div class="chip"><div class="img" style="background-image:var(--img-electric)"></div><span>Light fitting</span></div>
-            </div>
-            <div class="pick">
-              <div class="img" style="background-image:var(--img-plumbing)"></div>
-              <div class="txt">
-                <div class="name">Plumbing leak repair</div>
-                <div class="meta">Plumbing · most booked this week</div>
+            <div class="panel">
+              <div class="rail">
+                <div class="item">
+                  <div class="img" style="background-image:var(--img-plumbing)"></div>
+                  <div class="flag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.3-1.8S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>Top</div>
+                  <div class="name">Plumbing leak repair</div><div class="meta">Plumbing</div>
+                </div>
+                <div class="item"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Tap repair</div><div class="meta">Plumbing</div></div>
+                <div class="item"><div class="img" style="background-image:var(--img-plumbing)"></div><div class="name">Drain cleaning</div><div class="meta">Plumbing</div></div>
+                <div class="item"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Fan installation</div><div class="meta">Electrician</div></div>
+                <div class="item"><div class="img" style="background-image:var(--img-electric)"></div><div class="name">Light fixture installation</div><div class="meta">Electrician</div></div>
               </div>
-              <div class="flag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.3-1.8S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>Top</div>
             </div>
-            <div class="chips-note">Tapping a skill opens the booking with that skill already chosen.</div>
           </div>
         </div></div>
 
@@ -329,14 +306,14 @@
         </div>
       </div>
       <div class="caption">
-        <h2>B — Quick chips</h2>
-        <p>A one-line rail of compact chips for browsing, plus one highlighted top pick. Adds a whole section of entry points for very little height, so the home keeps its calm top and still scrolls.</p>
-        <span class="tag">Lightest · 46px chips</span>
+        <h2>A2 — One soft ground</h2>
+        <p>The same bare items, but the whole rail sits on a single tinted panel that gives the section its own territory on the page. One shape instead of five, so it reads as a designed module rather than a row of tiles.</p>
+        <span class="tag">One tinted panel · no item boxes</span>
       </div>
     </div>
 
-    <!-- ======================= VARIANT C ======================= -->
-    <div class="col col-c">
+    <!-- ======================= A3 — side rail ======================= -->
+    <div class="col col-a3">
       <div class="phone">
         <div class="scroller"><div class="content">
           <div class="hero">
@@ -379,30 +356,25 @@
               <h3><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.3-1.8S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>Popular right now</h3>
               <a>See all<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
             </div>
-            <div class="plist">
-              <div class="prow">
+            <div class="rail-side">
+              <div class="sitem">
                 <div class="img" style="background-image:var(--img-plumbing)"></div>
                 <div class="txt">
                   <div class="name">Plumbing leak repair</div>
-                  <div class="meta">Plumbing<span class="flag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.3-1.8S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>Most booked</span></div>
+                  <div class="meta">Plumbing<span class="flag"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .3-1.8.3-1.8S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>Top</span></div>
                 </div>
-                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
               </div>
-              <div class="prow">
+              <div class="sitem">
                 <div class="img" style="background-image:var(--img-plumbing)"></div>
-                <div class="txt">
-                  <div class="name">Drain cleaning</div>
-                  <div class="meta">Plumbing</div>
-                </div>
-                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+                <div class="txt"><div class="name">Tap repair</div><div class="meta">Plumbing</div></div>
               </div>
-              <div class="prow">
+              <div class="sitem">
+                <div class="img" style="background-image:var(--img-plumbing)"></div>
+                <div class="txt"><div class="name">Drain cleaning</div><div class="meta">Plumbing</div></div>
+              </div>
+              <div class="sitem">
                 <div class="img" style="background-image:var(--img-electric)"></div>
-                <div class="txt">
-                  <div class="name">Fan installation</div>
-                  <div class="meta">Electrician</div>
-                </div>
-                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+                <div class="txt"><div class="name">Fan installation</div><div class="meta">Electrician</div></div>
               </div>
             </div>
             <div class="plink">See all popular skills</div>
@@ -418,15 +390,33 @@
         </div>
       </div>
       <div class="caption">
-        <h2>C — Skill list</h2>
-        <p>Full-width rows on a soft panel, the leader carrying a “Most booked” badge. No sideways scrolling and the most premium read, but it is the tallest of the three and shows fewer skills at a glance.</p>
-        <span class="tag">Most premium · 62px rows</span>
+        <h2>A3 — Side rail</h2>
+        <p>Thumbnail beside the name instead of above it, so the rail stays one line tall and reads like a jump-list. The calmest of the three — it adds entry points without adding another band of artwork to the page.</p>
+        <span class="tag">Compact · 56px artwork</span>
       </div>
     </div>
   </div>
 
 <script>
-  document.body.dataset.variant = location.hash.replace('#','') || 'all';
+  // #a1 | #a2 | #a3 renders a single variant full-bleed for the PNG captures
+  (function () {
+    const variant = location.hash.replace('#', '') || 'all';
+    document.body.dataset.variant = variant;
+    if (variant === 'all') return;
+    const cols = Array.from(document.querySelectorAll('.col'));
+    const active = cols.find((col) => col.classList.contains('col-' + variant));
+    cols.forEach((col) => {
+      if (col !== active) col.style.display = 'none';
+    });
+    document.querySelector('.intro').style.display = 'none';
+    document.querySelectorAll('.caption').forEach((el) => (el.style.display = 'none'));
+    document.body.style.padding = '0';
+    document.body.style.background = 'var(--ink-50)';
+    document.querySelectorAll('.phone').forEach((el) => {
+      el.style.borderRadius = '0';
+      el.style.boxShadow = 'none';
+    });
+  })();
 </script>
 </body>
 </html>
