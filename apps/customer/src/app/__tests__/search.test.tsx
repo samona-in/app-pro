@@ -4,13 +4,13 @@ import { router } from 'expo-router';
 import type { ServiceOption, SkillWithService } from '@samona/types';
 import { useBookingDraft } from '@/stores/booking';
 import { useSearchStore } from '@/stores/search';
-import Search from '../search';
+import Search from '../(tabs)/search';
 
 // The icon set lazily loads a font, which triggers a state update outside act().
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), back: jest.fn() },
+  router: { push: jest.fn(), navigate: jest.fn(), back: jest.fn() },
 }));
 
 // The catalogue hooks would reach the API, which needs a configured env.
@@ -97,6 +97,16 @@ describe('Search — the search field', () => {
     // The field is the full width of the screen, minus the screen's margin.
     expect(ancestorWith(field as ReactTestInstance, /px-5/)).not.toBeNull();
     expect(input.props.className).toMatch(/flex-1/);
+  });
+
+  it('sends the customer back to home from the arrow in the field', async () => {
+    render(<Search />);
+
+    fireEvent.press(await screen.findByLabelText('Go back'));
+
+    // The screen is a tab, so there is no stack to pop.
+    expect(router.navigate).toHaveBeenCalledWith('/home');
+    expect(router.back).not.toHaveBeenCalled();
   });
 });
 

@@ -151,6 +151,16 @@ export default function TabsLayout() {
           options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
         />
         <TopTabs.Screen
+          name="search"
+          options={{
+            title: 'Search',
+            tabBarIcon: tabIcon('search-outline', 'search'),
+            // The field grabs the keyboard on focus, so the screen must not
+            // mount before the customer asks for it.
+            lazy: true,
+          }}
+        />
+        <TopTabs.Screen
           name="bookings"
           options={{ title: 'Bookings', tabBarIcon: bookingsTabIcon(unread.total) }}
         />

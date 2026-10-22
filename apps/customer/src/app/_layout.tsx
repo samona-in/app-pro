@@ -93,7 +93,6 @@ export default function RootLayout() {
                 headerStyle: { backgroundColor: color.surface },
               }}
             />
-            <Stack.Screen name="search" />
             <Stack.Screen name="address-search" />
             <Stack.Screen
               name="address-confirm"

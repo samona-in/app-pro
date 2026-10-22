@@ -81,7 +81,9 @@ export default function Search() {
             name="arrow-back"
             accessibilityLabel="Go back"
             size={20}
-            onPress={() => router.back()}
+            // The screen is a tab now, so there is no stack to pop — the
+            // arrow goes back to the tab the customer came from.
+            onPress={() => router.navigate('/home')}
             className="ml-1"
           />
           <TextInput

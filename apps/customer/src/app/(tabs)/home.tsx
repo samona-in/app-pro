@@ -84,7 +84,7 @@ export default function Home() {
       : undefined;
 
     if (!service) {
-      router.push('/search');
+      router.navigate('/search');
       return;
     }
 
@@ -110,7 +110,7 @@ export default function Home() {
           />
         }
       >
-        <SearchBar onPress={() => router.push('/search')} />
+        <SearchBar onPress={() => router.navigate('/search')} />
       </HomeHeader>
 
       <View className="mt-3 px-2">
@@ -134,7 +134,7 @@ export default function Home() {
       <PopularSkills
         skills={popular.data ?? []}
         onSelect={handleSelectPopularSkill}
-        onSeeAll={() => router.push('/search')}
+        onSeeAll={() => router.navigate('/search')}
       />
     </Screen>
   );
