@@ -92,7 +92,7 @@ export function NotificationRow({
   return (
     <View className="relative bg-surface">
       {showDivider ? (
-        <View className="absolute left-[77px] right-5 top-0 h-px bg-border/60" />
+        <View className="absolute left-[77px] right-0 top-0 h-px bg-border/60" />
       ) : null}
 
       <View className="flex-row items-start px-5 py-[13px]">
