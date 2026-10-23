@@ -101,10 +101,13 @@ export default function AddressConfirm() {
         locationPlaceId: selected.placeId,
       });
 
-      // Navigate before any state updates so Android does not try to mutate
-      // native views (including the map) while they are being torn down.
-      router.dismissAll();
+      // Record the recent, then tear the navigator down on the next tick.
+      // Updating the list in the same tick as `dismissAll()` makes React insert
+      // the new row while Android is removing the address screens, which
+      // crashes Fabric with "addViewAt: failed to insert view into parent at
+      // index N".
       addRecent(selected);
+      setTimeout(() => router.dismissAll(), 0);
 
       // Best-effort: save to the address book. The location is already set above,
       // so a failure here is silent — the user can add the address manually later.
