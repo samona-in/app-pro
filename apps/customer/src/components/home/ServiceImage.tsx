@@ -21,11 +21,12 @@ export interface ServiceImageProps {
 }
 
 /**
- * Renders a service's image into a rounded muted tile.
+ * Renders a service's image into a rounded tile.
  *
  * The catalogue's `icon` column now holds image URLs. `expo-image` keeps
  * fetched images in memory and on disk, so a tile still renders instantly when
- * the customer returns to the screen, and shows a muted tile while loading.
+ * the customer returns to the screen. The tile uses the screen's own surface
+ * colour, so artwork sits flush on the page instead of inside a grey box.
  * There is deliberately no fade transition: its Android cross-fade can leave a
  * small tile blank when the screen is detached and re-attached behind the
  * booking flow, which is exactly the "image missing after picking a service"
@@ -36,7 +37,7 @@ export function ServiceImage({ uri, className, accessibilityLabel }: ServiceImag
   const hasImage = uri != null && isImageUrl(uri);
 
   return (
-    <View className={cn('overflow-hidden bg-surface-muted', className)}>
+    <View className={cn('overflow-hidden bg-surface', className)}>
       {hasImage ? (
         <Image
           source={uri}

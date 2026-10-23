@@ -62,7 +62,7 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mt-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 14 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 4 }}
       >
         {skills.map((skill, index) => (
           <Pressable
