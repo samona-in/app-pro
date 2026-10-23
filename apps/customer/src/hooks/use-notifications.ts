@@ -96,9 +96,10 @@ export function useMarkNotificationRead() {
 }
 
 /**
- * Marks every notice read in one call (fires when the Notifications screen
- * opens). Optimistic so the feed and the bell pill settle instantly; the
- * list is refetched from the source of truth afterwards.
+ * Marks every notice read in one call (the inbox fires it when the customer
+ * leaves, so "new" cues survive while the screen is open). Optimistic so the
+ * feed and the bell pill settle instantly; the list is refetched from the
+ * source of truth afterwards.
  */
 export function useMarkAllNotificationsRead() {
   const { user } = useSession();
@@ -127,4 +128,3 @@ export function useMarkAllNotificationsRead() {
     },
   });
 }
-

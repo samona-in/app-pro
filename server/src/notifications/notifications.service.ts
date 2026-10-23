@@ -1065,9 +1065,10 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   }
 
   /**
-   * Marks every one of the caller's unread notices as read at once. Opening
-   * the Notifications screen resets the whole feed (and the bell pill); the
-   * rows themselves no longer need to be tapped one by one.
+   * Marks every one of the caller's unread notices as read at once. The
+   * customer's inbox calls this when they leave it, so every notice is
+   * acknowledged in one request instead of row by row; the bell pill then
+   * reads zero.
    */
   async function markAllCustomerNotificationsRead(customerUserId: string): Promise<void> {
     await prisma.customerNotification.updateMany({

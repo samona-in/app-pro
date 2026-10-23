@@ -100,10 +100,10 @@ export function createNotificationsRouter(services: Services): Router {
   });
 
   /**
-   * Marks every one of the customer's notices as read. Opening the
-   * Notifications screen calls this once, so the bell pill resets without
-   * the customer having to open each row. Idempotent. Scoped entirely to the
-   * caller's own profile.
+   * Marks every one of the customer's notices as read. The Notifications
+   * screen calls this once when the customer leaves it, so the bell pill
+   * resets without the customer having to open each row. Idempotent. Scoped
+   * entirely to the caller's own profile.
    *
    * Declared before `/:notificationId/read` so the literal path is never
    * captured as a notification id.
