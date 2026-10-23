@@ -182,7 +182,7 @@ export default function AddressSearch() {
 
           {savedItems.length > 0 ? (
             <View className="px-5">
-              <Text variant="label" className="mb-1">
+              <Text variant="labelStrong" className="mb-1">
                 Saved
               </Text>
               {savedItems.map((item: SavedAddress) => (
@@ -219,20 +219,25 @@ export default function AddressSearch() {
           ) : null}
 
           {recents.length > 0 ? (
-            <View className="px-5">
-              <Text variant="label" className="mb-1 mt-2">
-                Recent
-              </Text>
-              {recents.map((recent) => (
-                <AddressListItem
-                  key={`${recent.latitude.toFixed(5)},${recent.longitude.toFixed(5)}`}
-                  icon="pin"
-                  title={recent.formattedAddress}
-                  subtitle={recentSecondary(recent)}
-                  onPress={() => void applyAddress(recent)}
-                />
-              ))}
-            </View>
+            <>
+              {savedItems.length > 0 ? (
+                <View className="my-1 h-px bg-border" />
+              ) : null}
+              <View className="px-5">
+                <Text variant="labelStrong" className="mb-1 mt-2">
+                  Recent
+                </Text>
+                {recents.map((recent) => (
+                  <AddressListItem
+                    key={`${recent.latitude.toFixed(5)},${recent.longitude.toFixed(5)}`}
+                    icon="pin"
+                    title={recent.formattedAddress}
+                    subtitle={recentSecondary(recent)}
+                    onPress={() => void applyAddress(recent)}
+                  />
+                ))}
+              </View>
+            </>
           ) : null}
 
           {!savedPending && savedItems.length === 0 && recents.length === 0 ? (

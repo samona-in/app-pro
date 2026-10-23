@@ -10,20 +10,25 @@ type Props = Omit<AddressListItemProps, 'icon' | 'title' | 'subtitle'> & {
 /**
  * A saved-address row that refreshes its own label.
  *
- * The stored address is rendered immediately; when the row carries a durable
- * place id, the label is re-resolved in the background and swapped in once it
- * arrives — so the display stays current without storing provider content
- * beyond its permitted window. With no place id (an address saved before the
- * Google switch) the stored label is simply kept.
+ * The row leads with the customer's own name for the address (e.g. "Home",
+ * "Office", "Mom's place") and shows the address itself as the secondary line.
+ * When the row carries a durable place id, the address line is re-resolved in
+ * the background and swapped in once it arrives — so the display stays current
+ * without storing provider content beyond its permitted window. With no place
+ * id (an address saved before the Google switch) the stored label is simply kept.
  */
 export function SavedAddressListItem({ address, ...rest }: Props) {
   const { data: resolved } = useResolvedPlace(address.placeId);
 
+  const storedAddress = [address.addressLine1, savedAddressSecondary(address)]
+    .filter((part): part is string => Boolean(part))
+    .join(', ');
+
   return (
     <AddressListItem
       icon={address.label}
-      title={resolved?.formattedAddress ?? address.addressLine1}
-      subtitle={resolved?.secondary ?? savedAddressSecondary(address)}
+      title={address.name.trim() || address.addressLine1}
+      subtitle={resolved?.formattedAddress ?? (storedAddress || null)}
       {...rest}
     />
   );
