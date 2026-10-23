@@ -228,7 +228,7 @@ function RecentChip({ item, onPress }: RecentChipProps) {
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={onPress}
-      className="max-w-full flex-row items-center gap-2 rounded-lg border border-border bg-surface-muted py-1.5 pl-1.5 pr-3 active:opacity-70"
+      className="max-w-full flex-row items-center gap-2 rounded-lg border border-border bg-surface py-1.5 pl-1.5 pr-3 active:opacity-70"
     >
       <ServiceImage uri={imageUri} className="h-6 w-6 rounded-full" />
       <Text variant="footnote" className="shrink text-text-primary">
