@@ -867,6 +867,64 @@ describe('createNotificationsService customer notices', () => {
     });
   });
 
+  it('deletes one of the caller’s notices and pushes the fresh count', async () => {
+    const deleteMany = jest.fn().mockResolvedValue({ count: 1 });
+    const count = jest.fn().mockResolvedValue(2);
+    const customerProfileFindUnique = jest.fn().mockResolvedValue({ id: 'cust-1' });
+    const prisma = {
+      customerProfile: { findUnique: customerProfileFindUnique },
+      customerNotification: {
+        create: jest.fn(),
+        count,
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+        deleteMany,
+      },
+    };
+    const emitToUser = jest.fn();
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+      realtime: { emitToUser } as never,
+    });
+
+    await expect(
+      service.deleteCustomerNotification('user-1', 'notif-1'),
+    ).resolves.toBeUndefined();
+
+    // Scoped to the caller's own profile in the query, never trusted from the
+    // path.
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { id: 'notif-1', customer: { userId: 'user-1' } },
+    });
+    expect(emitToUser).toHaveBeenCalledWith('user-1', REALTIME_EVENTS.NOTIFICATION_UNREAD, {
+      unreadCount: 2,
+    });
+  });
+
+  it('404s when deleting someone else’s notice', async () => {
+    const deleteMany = jest.fn().mockResolvedValue({ count: 0 });
+    const customerProfileFindUnique = jest.fn().mockResolvedValue({ id: 'cust-1' });
+    const prisma = {
+      customerProfile: { findUnique: customerProfileFindUnique },
+      customerNotification: {
+        create: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+        deleteMany,
+      },
+    };
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+    });
+
+    await expect(service.deleteCustomerNotification('user-1', 'notif-9')).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+
   it('returns an empty list and a zero count for an account with no profile', async () => {
     const customerProfileFindUnique = jest.fn().mockResolvedValue(null);
     const prisma = {

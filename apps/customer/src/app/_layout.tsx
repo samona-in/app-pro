@@ -61,14 +61,16 @@ export default function RootLayout() {
                 contentStyle: { backgroundColor: color.surface },
               }}
             />
+            {/*
+              The inbox draws its own large title and close button, so the
+              native header would only duplicate it.
+            */}
             <Stack.Screen
               name="notifications"
               options={{
-                headerShown: true,
+                headerShown: false,
                 presentation: 'modal',
-                title: 'Notifications',
-                headerTintColor: color['text-primary'],
-                headerStyle: { backgroundColor: color.surface },
+                contentStyle: { backgroundColor: color.surface },
               }}
             />
             <Stack.Screen

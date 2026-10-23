@@ -14,16 +14,6 @@ export function formatChatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 }
 
-/** Compact relative time, e.g. a notification row's age. */
-export function formatRelativeTime(iso: string): string {
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000));
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
 /** A booking date as in the list UI, e.g. "Sep 10, 2026". */
 export function formatBookingDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', {

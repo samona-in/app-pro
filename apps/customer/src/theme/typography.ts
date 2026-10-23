@@ -11,6 +11,8 @@ export const textVariants = {
   label: 'text-footnote font-semibold text-text-secondary uppercase tracking-wide',
   /** Same size/weight as `label`, but full black for section headings. */
   labelStrong: 'text-footnote font-semibold text-black uppercase tracking-wide',
+  /** A compact inline action, e.g. "Mark all read" in a screen header. */
+  action: 'text-footnote font-semibold text-brand',
 } as const;
 
 export type TextVariant = keyof typeof textVariants;

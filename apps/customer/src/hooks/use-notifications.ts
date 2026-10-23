@@ -96,9 +96,10 @@ export function useMarkNotificationRead() {
 }
 
 /**
- * Marks every notice read in one call (fires when the Notifications screen
- * opens). Optimistic so the feed and the bell pill settle instantly; the
- * list is refetched from the source of truth afterwards.
+ * Marks every notice read in one call (the inbox fires it when the customer
+ * leaves, so "new" cues survive while the screen is open). Optimistic so the
+ * feed and the bell pill settle instantly; the list is refetched from the
+ * source of truth afterwards.
  */
 export function useMarkAllNotificationsRead() {
   const { user } = useSession();
@@ -128,3 +129,37 @@ export function useMarkAllNotificationsRead() {
   });
 }
 
+/**
+ * Deletes one notice from the inbox.
+ *
+ * Optimistic so the row disappears on tap rather than after the round trip; the
+ * previous list is restored if the request fails (for example, the notice was
+ * already deleted on another device). Both the feed and the bell pill are
+ * reconciled with the server afterwards, since deleting an unread notice moves
+ * the count.
+ */
+export function useDeleteNotification() {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  const userId = user?.id;
+  const unreadKey = useMemo(() => queryKeys.notifications.unread(userId ?? ''), [userId]);
+
+  return useMutation({
+    mutationFn: (notificationId: string) => notificationsApi.remove(notificationId),
+    onMutate: async (notificationId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.notifications.list });
+      const prev = queryClient.getQueryData<CustomerNotification[]>(queryKeys.notifications.list);
+      queryClient.setQueryData<CustomerNotification[]>(queryKeys.notifications.list, (old) =>
+        (old ?? []).filter((notice) => notice.id !== notificationId),
+      );
+      return { prev };
+    },
+    onError: (_error, _notificationId, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(queryKeys.notifications.list, ctx.prev);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.list });
+      if (userId) void queryClient.invalidateQueries({ queryKey: unreadKey });
+    },
+  });
+}
