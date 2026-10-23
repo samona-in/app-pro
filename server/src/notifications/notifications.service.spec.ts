@@ -867,62 +867,6 @@ describe('createNotificationsService customer notices', () => {
     });
   });
 
-  it('deletes selected notices scoped to the caller and pushes the fresh count', async () => {
-    const deleteMany = jest.fn().mockResolvedValue({ count: 2 });
-    const count = jest.fn().mockResolvedValue(0);
-    const prisma = {
-      customerProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'cust-1' }) },
-      customerNotification: {
-        create: jest.fn(),
-        count,
-        findMany: jest.fn(),
-        updateMany: jest.fn(),
-        deleteMany,
-      },
-    };
-    const emitToUser = jest.fn();
-    const service = createNotificationsService({
-      prisma: prisma as never,
-      config: {} as never,
-      realtime: { emitToUser } as never,
-    });
-
-    await expect(
-      service.deleteCustomerNotifications('user-1', ['notif-1', 'notif-2']),
-    ).resolves.toBeUndefined();
-
-    expect(prisma.customerNotification.deleteMany).toHaveBeenCalledWith({
-      where: { customerId: 'cust-1', id: { in: ['notif-1', 'notif-2'] } },
-    });
-    expect(emitToUser).toHaveBeenCalledWith('user-1', REALTIME_EVENTS.NOTIFICATION_UNREAD, {
-      unreadCount: 0,
-    });
-  });
-
-  it('deletes nothing and still reconciles the pill for an account with no profile', async () => {
-    const deleteMany = jest.fn();
-    const count = jest.fn().mockResolvedValue(0);
-    const prisma = {
-      customerProfile: { findUnique: jest.fn().mockResolvedValue(null) },
-      customerNotification: {
-        create: jest.fn(),
-        count,
-        findMany: jest.fn(),
-        updateMany: jest.fn(),
-        deleteMany,
-      },
-    };
-    const service = createNotificationsService({
-      prisma: prisma as never,
-      config: {} as never,
-    });
-
-    await expect(
-      service.deleteCustomerNotifications('user-1', ['notif-1']),
-    ).resolves.toBeUndefined();
-    expect(deleteMany).not.toHaveBeenCalled();
-  });
-
   it('returns an empty list and a zero count for an account with no profile', async () => {
     const customerProfileFindUnique = jest.fn().mockResolvedValue(null);
     const prisma = {

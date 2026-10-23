@@ -1077,31 +1077,6 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     await emitUnreadForCustomer(customerUserId);
   }
 
-  /**
-   * Permamently deletes the caller's selected notices.
-   *
-   * The ids are only ever used inside a `where` scoped to the caller's own
-   * profile — deleting is never allowed to reach another account's rows, and
-   * an id that no longer exists is simply skipped (idempotent). Emits the
-   * fresh unread count afterwards, so the bell pill reconciles even when the
-   * customer deleted only already-read rows.
-   */
-  async function deleteCustomerNotifications(
-    customerUserId: string,
-    notificationIds: string[],
-  ): Promise<void> {
-    const customer = await prisma.customerProfile.findUnique({
-      where: { userId: customerUserId },
-      select: { id: true },
-    });
-    if (!customer) return;
-
-    await prisma.customerNotification.deleteMany({
-      where: { customerId: customer.id, id: { in: notificationIds } },
-    });
-    await emitUnreadForCustomer(customerUserId);
-  }
-
   /** Recomputes the customer's unread count and pushes it over their socket. */
   async function emitUnreadForCustomer(customerUserId: string): Promise<void> {
     const unreadCount = await countUnreadForCustomer(customerUserId);
@@ -1556,7 +1531,6 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     countUnreadForCustomer,
     markCustomerNotificationRead,
     markAllCustomerNotificationsRead,
-    deleteCustomerNotifications,
     registerPushToken,
     setPushSettings,
     sendChatPush,

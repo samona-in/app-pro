@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { idSchema } from './primitives';
 import { deviceIdSchema } from './job';
 
 /**
@@ -69,22 +68,3 @@ export const notificationListQuerySchema = z.object({
 
 export type NotificationListQuery = z.infer<typeof notificationListQuerySchema>;
 
-/**
- * Bulk-deletes customer notifications from the caller's own inbox.
- *
- * Ids are only ever used inside a `where` scoped to the caller's own profile
- * (CLAUDE.md "Security") — the server never trusts that an id "belongs" to the
- * caller. Bounded and de-duplicated so one request cannot rattle a giant
- * `IN` clause or delete the same id twice.
- */
-export const deleteNotificationsSchema = z.object({
-  notificationIds: z
-    .array(idSchema)
-    .min(1, 'Choose at least one notification to delete.')
-    .max(50, 'Too many notifications selected.')
-    .refine((ids) => new Set(ids).size === ids.length, {
-      message: 'Duplicate notification ids are not allowed.',
-    }),
-});
-
-export type DeleteNotificationsInput = z.infer<typeof deleteNotificationsSchema>;

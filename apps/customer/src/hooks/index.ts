@@ -38,7 +38,6 @@ export { useSubmitGuard } from './use-submit-guard';
 export { useMessages } from './use-messages';
 export {
   useCustomerNotifications,
-  useDeleteNotifications,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useUnreadNotifications,
