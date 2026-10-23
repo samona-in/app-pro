@@ -123,10 +123,12 @@ export default function Notifications() {
         <View>
           {groups.map((group) => (
             <View key={group.key}>
-              <View className="flex-row items-center gap-3 px-5 pb-1.5 pt-6">
-                <Text variant="caption" className="font-bold uppercase tracking-[0.12em]">
-                  {group.label}
-                </Text>
+              <View className="flex-row items-center gap-3 pr-0 pb-1.5 pt-6">
+                <View className="pl-5">
+                  <Text variant="caption" className="font-bold uppercase tracking-[0.12em]">
+                    {group.label}
+                  </Text>
+                </View>
                 <View className="h-px flex-1 bg-border/60" />
               </View>
 
