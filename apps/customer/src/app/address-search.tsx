@@ -55,6 +55,7 @@ export default function AddressSearch() {
 
   /** Applies an already-known address to the profile and returns home. */
   async function applyAddress(selected: SelectedAddress) {
+    if (save.isPending) return;
     setQuickError(null);
     try {
       await save.mutateAsync({
@@ -62,11 +63,14 @@ export default function AddressSearch() {
         locationLabel: selected.formattedAddress,
         locationPlaceId: selected.placeId,
       });
-      // Navigate before state updates: calling addRecent first causes Android to
-      // try inserting a view into a list that is simultaneously being unmounted
-      // ("addViewAt: failed to insert view into parent at index N").
-      router.back();
+      // Record the recent and pop the screen on separate ticks. Doing both in
+      // the same tick makes React insert the new row into this list while
+      // Android is removing the screen, which crashes Fabric with
+      // "addViewAt: failed to insert view into parent at index N". Simply
+      // reordering the two calls is not enough — React batches them into one
+      // commit.
       addRecent(selected);
+      setTimeout(() => router.back(), 0);
     } catch {
       setQuickError('Could not set your location. Please try again.');
     }
