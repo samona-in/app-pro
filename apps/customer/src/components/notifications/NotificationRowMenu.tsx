@@ -49,7 +49,7 @@ export function NotificationRowMenu({
       <View
         accessibilityRole="button"
         accessibilityLabel={`More actions for ${noticeTitle}`}
-        className="p-2"
+        className="h-8 w-8 items-center justify-center"
       >
         <Ionicons name="ellipsis-vertical" size={18} color={color['text-secondary']} />
       </View>

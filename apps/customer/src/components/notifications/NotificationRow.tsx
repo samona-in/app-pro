@@ -136,7 +136,13 @@ export function NotificationRow({
           </View>
         </Pressable>
 
-        <View className="-mr-1 ml-1">
+        {/*
+         * The menu gets its own gap instead of butting up against the time:
+         * 8px of separation, a 32px box whose centre sits on the title line
+         * (row padding 13 + half of the 22px line − half of 32), and a small
+         * negative right margin so the glyph stays optically flush.
+         */}
+        <View className="-mr-2 -mt-[5px] ml-2">
           <NotificationRowMenu
             noticeTitle={notice.title}
             onView={handleView}
