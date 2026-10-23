@@ -1078,6 +1078,28 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     await emitUnreadForCustomer(customerUserId);
   }
 
+  /**
+   * Permanently removes one of the caller's notices.
+   *
+   * The row is scoped to the caller's own profile in the query, so a path id
+   * belonging to someone else can never be touched; a missing row (or one that
+   * is not theirs) is a 404 instead of a silent success, without leaking which
+   * ids exist. The bell pill is re-emitted because deleting an unread notice
+   * moves the count.
+   */
+  async function deleteCustomerNotification(
+    customerUserId: string,
+    notificationId: string,
+  ): Promise<void> {
+    const deleted = await prisma.customerNotification.deleteMany({
+      where: { id: notificationId, customer: { userId: customerUserId } },
+    });
+    await emitUnreadForCustomer(customerUserId);
+    if (deleted.count === 0) {
+      throw notFound('That notification could not be found.');
+    }
+  }
+
   /** Recomputes the customer's unread count and pushes it over their socket. */
   async function emitUnreadForCustomer(customerUserId: string): Promise<void> {
     const unreadCount = await countUnreadForCustomer(customerUserId);
@@ -1532,6 +1554,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     countUnreadForCustomer,
     markCustomerNotificationRead,
     markAllCustomerNotificationsRead,
+    deleteCustomerNotification,
     registerPushToken,
     setPushSettings,
     sendChatPush,

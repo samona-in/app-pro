@@ -19,9 +19,8 @@ import { createRequireAuth, requireRole, routeParamId, validate } from '../commo
  *
  * Notification *history* is split by surface. Pros read their push history;
  * customers read their in-app notices, which the jobs domain records at each
- * booking transition. The `/notifications` list and the two customer-only
- * routes below therefore accept either role and dispatch on the caller's own
- * app type.
+ * booking transition. The `/notifications` list and the customer routes below
+ * therefore accept either role and dispatch on the caller's own app type.
  */
 export function createNotificationsRouter(services: Services): Router {
   const router = Router();
@@ -125,6 +124,23 @@ export function createNotificationsRouter(services: Services): Router {
   router.post('/:notificationId/read', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
     try {
       await services.notifications.markCustomerNotificationRead(
+        req.user!.id,
+        routeParamId(req.params.notificationId),
+      );
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Removes one of the caller's notices from the inbox. Scoped to the caller's
+   * own profile in the service, never trusted from the path; a row that is not
+   * theirs (or is already gone) is a 404.
+   */
+  router.delete('/:notificationId', requireRole('CUSTOMER', 'ADMIN'), async (req, res, next) => {
+    try {
+      await services.notifications.deleteCustomerNotification(
         req.user!.id,
         routeParamId(req.params.notificationId),
       );

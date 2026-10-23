@@ -134,4 +134,7 @@ export const notificationsApi = {
 
   /** Marks every notice as read (called once when the customer leaves the inbox). */
   readAll: () => api.post<undefined>('/notifications/read-all'),
+
+  /** Permanently removes one notice from the inbox. */
+  remove: (notificationId: string) => api.delete<void>(`/notifications/${notificationId}`),
 };
