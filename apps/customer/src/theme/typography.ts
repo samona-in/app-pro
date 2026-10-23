@@ -9,6 +9,8 @@ export const textVariants = {
   footnote: 'text-footnote text-text-secondary',
   caption: 'text-caption text-text-muted',
   label: 'text-footnote font-semibold text-text-secondary uppercase tracking-wide',
+  /** Same size/weight as `label`, but full black for section headings. */
+  labelStrong: 'text-footnote font-semibold text-black uppercase tracking-wide',
 } as const;
 
 export type TextVariant = keyof typeof textVariants;
