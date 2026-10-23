@@ -81,7 +81,9 @@ export function NotificationRowMenu({
 
 const styles = StyleSheet.create({
   trigger: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
