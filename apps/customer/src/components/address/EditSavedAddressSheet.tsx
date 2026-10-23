@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { Modal, ScrollView, View, useWindowDimensions } from 'react-native';
-import { useKeyboardHandler } from 'react-native-keyboard-controller';
+import { Modal, View, useWindowDimensions } from 'react-native';
+import { KeyboardAwareScrollView, useKeyboardHandler } from 'react-native-keyboard-controller';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -361,16 +361,18 @@ export function EditSavedAddressSheet({
         {/* ============================== */}
 
         {/*
-         * Plain ScrollView — the keyboard layout is fully handled by the
-         * outer container's animated paddingBottom and the map shrink above,
-         * so there is no need for KeyboardAwareScrollView here. Mixing it
-         * with the outer animation caused content to scroll behind the map.
+         * The outer container's animated paddingBottom (and the map shrink
+         * above) keeps the footer above the keyboard. The form inside that
+         * smaller viewport is a KeyboardAwareScrollView so the focused name
+         * field is scrolled into view on short screens, where the keyboard
+         * leaves little room.
          */}
-        <ScrollView
+        <KeyboardAwareScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 20, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bottomOffset={24}
         >
           <Input
             label="Name"
@@ -396,7 +398,7 @@ export function EditSavedAddressSheet({
               {error}
             </Text>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         {/* ============================== */}
         {/* FOOTER — always above keyboard */}
