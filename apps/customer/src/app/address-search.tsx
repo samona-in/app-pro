@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -15,7 +16,7 @@ import type { AddressSuggestion, SavedAddress, SelectedAddress } from '@samona/t
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AddressListItem } from '@/components/address/AddressListItem';
 import { SavedAddressListItem } from '@/components/address/SavedAddressListItem';
-import { IconButton, Input, Text } from '@/components/ui';
+import { IconButton, Text } from '@/components/ui';
 import { useAddressSearch, useSaveOnboardingStep, useSavedAddresses } from '@/hooks';
 import { geocodingApi } from '@/services/geocoding';
 import { useAddressStore } from '@/stores/addresses';
@@ -116,10 +117,16 @@ export default function AddressSearch() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1, backgroundColor: color.surface, paddingTop: insets.top }}
     >
-      <View className="flex-row items-center gap-1 px-2 pb-2">
-        <IconButton name="arrow-back" accessibilityLabel="Go back" onPress={() => router.back()} />
-        <View className="flex-1">
-          <Input
+      <View className="px-5 pb-3">
+        <View className="flex-row items-center rounded-xl border border-border bg-surface">
+          <IconButton
+            name="arrow-back"
+            accessibilityLabel="Go back"
+            size={20}
+            onPress={() => router.back()}
+            className="ml-1"
+          />
+          <TextInput
             value={query}
             onChangeText={(text) => {
               setQuery(text);
@@ -130,8 +137,9 @@ export default function AddressSearch() {
             autoCapitalize="words"
             returnKeyType="search"
             placeholder="Search address, street or area"
+            placeholderTextColor={color['text-muted']}
             accessibilityLabel="Search for an address"
-            containerClassName="w-full"
+            className="min-h-[52px] flex-1 bg-transparent px-2 text-body text-text-primary"
           />
         </View>
       </View>
@@ -170,9 +178,7 @@ export default function AddressSearch() {
             </Pressable>
           </View>
 
-          <View className="px-5">
-            <View className="my-1 h-px bg-border" />
-          </View>
+          <View className="my-1 h-px bg-border" />
 
           {savedPending ? (
             <View className="px-5 py-6">
