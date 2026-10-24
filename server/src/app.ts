@@ -1,10 +1,12 @@
 import express, { type Express } from 'express';
+import cookieParser from 'cookie-parser';
 import cors, { type CorsOptions } from 'cors';
 import helmet from 'helmet';
 import { API_PREFIX } from '@samona/config';
 import { ApiErrorCode } from '@samona/types';
 import type { AppConfig } from './config';
 import type { Services } from './context';
+import type { PrismaClient } from './database/prisma';
 import { createHttpError, errorHandler, notFoundHandler, requestId } from './common';
 import {
   blockPrototypePollution,
@@ -17,6 +19,14 @@ import { createApiRouter } from './routes';
 export interface CreateAppOptions {
   config: AppConfig;
   services: Services;
+  /**
+   * The process-wide Prisma client.
+   *
+   * Domain services receive it through their constructors; the admin router
+   * needs it directly for dashboard queries and session lookups, so it is
+   * threaded through here rather than hung off `services` informally.
+   */
+  prisma?: PrismaClient;
   /**
    * Rate limiter backing store. Omitting it still limits, using in-process
    * counters — the default is deliberately safe, so forgetting to wire Redis
@@ -69,7 +79,7 @@ function corsOptions(config: AppConfig): CorsOptions {
  * body parsing, then shape guards, then routing. A request that will be refused
  * should be refused before its body is parsed.
  */
-export function createApp({ config, services, rateLimit }: CreateAppOptions): Express {
+export function createApp({ config, services, prisma, rateLimit }: CreateAppOptions): Express {
   const app = express();
 
   // Behind a load balancer, req.ip is the proxy unless we trust one hop. Rate
@@ -94,6 +104,7 @@ export function createApp({ config, services, rateLimit }: CreateAppOptions): Ex
 
   app.use(cors(corsOptions(config)));
   app.use(requestId);
+  app.use(cookieParser());
 
   // Built once at startup; a limiter created per request would keep no state.
   const limiters = createLimiters(rateLimit ?? { redis: null });
@@ -110,7 +121,7 @@ export function createApp({ config, services, rateLimit }: CreateAppOptions): Ex
   app.use(blockPrototypePollution);
   app.use(limitJsonShape());
 
-  app.use(API_PREFIX, createApiRouter(services, limiters));
+  app.use(API_PREFIX, createApiRouter(services, limiters, { prisma, redis: rateLimit?.redis ?? null }));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

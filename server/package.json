@@ -31,6 +31,8 @@
     "@samona/config": "*",
     "@samona/types": "*",
     "@samona/validation": "*",
+    "@types/cookie-parser": "^1.4.10",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "expo-server-sdk": "^7.2.0",
     "express": "^5.2.1",
