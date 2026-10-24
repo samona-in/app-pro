@@ -75,9 +75,112 @@ model Profile {
   messages        Message[]
   /// The account-deletion workflow for this profile, when one exists.
   accountDeletion AccountDeletion?
+  /// Admin user record if this profile has admin privileges.
+  adminUser       AdminUser?
 
   @@index([isActive])
   @@map("profiles")
+}
+
+/// Admin role levels.
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS_ADMIN
+  FINANCE_ADMIN
+  SUPPORT_ADMIN
+}
+
+/// Admin user account linked to a Profile.
+model AdminUser {
+  id        String   @id @default(uuid()) @db.Uuid
+  profileId String   @unique @map("profile_id") @db.Uuid
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  role        AdminRole @default(OPERATIONS_ADMIN)
+  isActive    Boolean   @default(true) @map("is_active")
+  permissions Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.Uuid
+
+  sessions  AdminSession[]
+  auditLogs AdminAuditLog[]
+
+  @@map("admin_users")
+}
+
+/// Admin web sessions.
+model AdminSession {
+  id          String    @id @default(uuid()) @db.Uuid
+  adminUserId String    @map("admin_user_id") @db.Uuid
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  token     String  @unique
+  deviceId  String? @map("device_id")
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+
+  expiresAt  DateTime  @map("expires_at")
+  lastUsedAt DateTime  @default(now()) @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([adminUserId])
+  @@index([token])
+  @@map("admin_sessions")
+}
+
+/// Admin login attempt tracking for rate limiting and audit.
+model AdminLoginEvent {
+  id        String  @id @default(uuid()) @db.Uuid
+  phone     String
+  profileId String? @map("profile_id") @db.Uuid
+  ipAddress String  @map("ip_address")
+  deviceId  String? @map("device_id")
+  userAgent String? @map("user_agent")
+
+  success       Boolean
+  failureReason String? @map("failure_reason")
+  blocked       Boolean   @default(false)
+  blockedUntil  DateTime? @map("blocked_until")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([createdAt])
+  @@map("admin_login_events")
+}
+
+/// Admin audit trail for all admin actions.
+model AdminAuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  adminUserId String    @map("admin_user_id") @db.Uuid
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+
+  action     String
+  resource   String
+  resourceId String? @map("resource_id")
+  method     String
+  path       String
+
+  ipAddress    String? @map("ip_address")
+  userAgent    String? @map("user_agent")
+  requestId    String? @map("request_id")
+
+  success      Boolean
+  errorMessage String? @map("error_message")
+  beforeState  Json?   @map("before_state")
+  afterState   Json?   @map("after_state")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([adminUserId, createdAt])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }
 
 /// What kind of professional this person is.
