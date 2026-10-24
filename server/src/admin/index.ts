@@ -67,8 +67,59 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
       const customers = await prisma.customerProfile.findMany({
         take: 50,
         include: { profile: true },
+        orderBy: { createdAt: 'desc' },
       });
       res.json({ data: customers });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/customers/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const customer = await prisma.customerProfile.findUnique({
+        where: { id: req.params.id },
+        include: { profile: true, savedAddresses: true },
+      });
+
+      if (!customer) {
+        res.status(404).json({ error: { message: 'Customer not found' } });
+        return;
+      }
+
+      res.json({ data: customer });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/customers/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { displayName, avatarUrl, locationLabel, latitude, longitude } = req.body;
+
+      const updated = await prisma.customerProfile.update({
+        where: { id: req.params.id },
+        data: {
+          ...(displayName !== undefined && { displayName }),
+          ...(avatarUrl !== undefined && { avatarUrl }),
+          ...(locationLabel !== undefined && { locationLabel }),
+          ...(latitude !== undefined && latitude !== null && { latitude: Number(latitude) }),
+          ...(longitude !== undefined && longitude !== null && { longitude: Number(longitude) }),
+        },
+        include: { profile: true },
+      });
+
+      res.json({ data: updated });
     } catch (error) {
       next(error);
     }
@@ -85,8 +136,169 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
       const professionals = await prisma.proProfile.findMany({
         take: 50,
         include: { profile: true },
+        orderBy: { createdAt: 'desc' },
       });
       res.json({ data: professionals });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/professionals/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const professional = await prisma.proProfile.findUnique({
+        where: { id: req.params.id },
+        include: {
+          profile: true,
+          services: { include: { service: true } },
+          skills: { include: { skill: true } },
+          documents: true,
+        },
+      });
+
+      if (!professional) {
+        res.status(404).json({ error: { message: 'Professional not found' } });
+        return;
+      }
+
+      res.json({ data: professional });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/professionals/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { displayName, bio, experienceLevel, serviceRadiusKm, isVerified, isOnline, latitude, longitude, locationLabel } = req.body;
+
+      const updated = await prisma.proProfile.update({
+        where: { id: req.params.id },
+        data: {
+          ...(displayName !== undefined && { displayName }),
+          ...(bio !== undefined && { bio }),
+          ...(experienceLevel !== undefined && { experienceLevel }),
+          ...(serviceRadiusKm !== undefined && { serviceRadiusKm: Number(serviceRadiusKm) }),
+          ...(isVerified !== undefined && { isVerified: Boolean(isVerified) }),
+          ...(isOnline !== undefined && { isOnline: Boolean(isOnline) }),
+          ...(latitude !== undefined && latitude !== null && { latitude: Number(latitude) }),
+          ...(longitude !== undefined && longitude !== null && { longitude: Number(longitude) }),
+          ...(locationLabel !== undefined && { locationLabel }),
+        },
+        include: { profile: true },
+      });
+
+      res.json({ data: updated });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/professionals/:id/services/:serviceId', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { status, rejectionReason } = req.body;
+
+      const existing = await prisma.proService.findUnique({
+        where: {
+          proProfileId_serviceId: {
+            proProfileId: req.params.id,
+            serviceId: req.params.serviceId,
+          },
+        },
+      });
+
+      if (!existing) {
+        res.status(404).json({ error: { message: 'Service not found' } });
+        return;
+      }
+
+      const updated = await prisma.proService.update({
+        where: {
+          proProfileId_serviceId: {
+            proProfileId: req.params.id,
+            serviceId: req.params.serviceId,
+          },
+        },
+        data: {
+          status,
+          ...(status === 'REJECTED' && rejectionReason !== undefined && { rejectionReason }),
+          ...(status === 'ACCEPTED' && { rejectionReason: null }),
+          ...(status === 'PENDING' && { rejectionReason: null }),
+        },
+        include: { service: true },
+      });
+
+      res.json({ data: updated });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get('/professionals/:id/documents/:documentId/content-url', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const document = await prisma.proDocument.findFirst({
+        where: { id: req.params.documentId, proProfileId: req.params.id },
+        select: { storagePath: true },
+      });
+
+      if (!document) {
+        res.status(404).json({ error: { message: 'Document not found' } });
+        return;
+      }
+
+      const url = await services.storage.documentContentUrl(document.storagePath);
+      res.json({ url });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/professionals/:id/documents/:documentId', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { status, rejectionReason } = req.body;
+
+      if (!status) {
+        res.status(400).json({ error: { message: 'Status is required' } });
+        return;
+      }
+
+      const updated = await prisma.proDocument.update({
+        where: {
+          id: req.params.documentId,
+        },
+        data: {
+          status,
+          ...(status === 'REJECTED' && rejectionReason !== undefined && { rejectionReason }),
+          ...(status === 'APPROVED' && { rejectionReason: null, reviewedAt: new Date() }),
+          ...(status === 'PENDING' && { rejectionReason: null, reviewedAt: null }),
+        },
+      });
+
+      res.json({ data: updated });
     } catch (error) {
       next(error);
     }
@@ -121,6 +333,155 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
 
       const categories = await prisma.service.findMany({ include: { skills: true } });
       res.json({ data: categories });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Services
+  router.get('/services', async (_req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const services = await prisma.service.findMany({
+        include: { skills: true },
+        orderBy: { sortOrder: 'asc' },
+      });
+      res.json({ data: services });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/services', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { name, slug, icon, sortOrder, isActive } = req.body;
+
+      const service = await prisma.service.create({
+        data: {
+          name,
+          slug,
+          icon,
+          sortOrder: sortOrder ? Number(sortOrder) : 0,
+          isActive: isActive !== undefined ? Boolean(isActive) : true,
+        },
+      });
+      res.json({ data: service });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/services/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { name, slug, icon, sortOrder, isActive } = req.body;
+
+      const service = await prisma.service.update({
+        where: { id: req.params.id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(slug !== undefined && { slug }),
+          ...(icon !== undefined && { icon }),
+          ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+          ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+        },
+      });
+      res.json({ data: service });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/services/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      await prisma.service.delete({
+        where: { id: req.params.id },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/services/:serviceId/skills', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { name, slug, icon, sortOrder, isActive } = req.body;
+
+      const skill = await prisma.skill.create({
+        data: {
+          serviceId: req.params.serviceId,
+          name,
+          slug,
+          icon,
+          sortOrder: sortOrder ? Number(sortOrder) : 0,
+          isActive: isActive !== undefined ? Boolean(isActive) : true,
+        },
+      });
+      res.json({ data: skill });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/skills/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { name, slug, icon, sortOrder, isActive } = req.body;
+
+      const skill = await prisma.skill.update({
+        where: { id: req.params.id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(slug !== undefined && { slug }),
+          ...(icon !== undefined && { icon }),
+          ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+          ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+        },
+      });
+      res.json({ data: skill });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/skills/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      await prisma.skill.delete({
+        where: { id: req.params.id },
+      });
+      res.json({ success: true });
     } catch (error) {
       next(error);
     }

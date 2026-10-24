@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdmin } from '@/providers/admin-provider';
+import { Suspense } from 'react';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
@@ -36,7 +37,7 @@ const menuItems = [
   { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
 ];
 
-export function Sidebar() {
+function SidebarContent() {
   const pathname = usePathname();
   const { adminUser, signOut } = useAdmin();
 
@@ -84,5 +85,21 @@ export function Sidebar() {
         </button>
       </div>
     </div>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-64 bg-gray-900 text-white min-h-screen flex flex-col">
+          <div className="p-6">
+            <h1 className="text-xl font-bold">SAMONA Admin</h1>
+          </div>
+        </div>
+      }
+    >
+      <SidebarContent />
+    </Suspense>
   );
 }
