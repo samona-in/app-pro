@@ -4,6 +4,8 @@ import type { PrismaClient } from '../database/prisma';
 import type { Redis } from '../database/redis';
 import { createAdminAuthService } from './auth/admin-auth.service';
 import { createAdminAuthRouter } from './auth/admin-auth.routes';
+import { createAdminJobsRouter } from './jobs/admin-jobs.routes';
+import { createAdminLiveRouter } from './live/admin-live.routes';
 import { createRequireAdmin, requirePermission } from './middleware/require-admin';
 import { createBannerSchema, updateBannerSchema } from '@samona/validation';
 import { validate } from '../common';
@@ -306,24 +308,10 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
     }
   });
 
-  // Jobs
-  router.get('/jobs', async (_req, res, next) => {
-    try {
-      if (!prisma) {
-        res.status(503).json({ error: { message: 'Database unavailable' } });
-        return;
-      }
-
-      const jobs = await prisma.job.findMany({
-        take: 50,
-        include: { customer: true, pro: true, service: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      res.json({ data: jobs });
-    } catch (error) {
-      next(error);
-    }
-  });
+  // Jobs / bookings ledger. Kept in its own module: filtering, cursor paging
+  // and the detail joins are more than this composition root should hold.
+  router.use('/jobs', createAdminJobsRouter({ prisma: deps.prisma, storage: services.storage }));
+  router.use('/live', createAdminLiveRouter({ prisma: deps.prisma }));
 
   // Services / categories
   router.get('/categories', async (_req, res, next) => {

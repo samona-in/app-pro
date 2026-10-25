@@ -9,7 +9,14 @@ import {
   PLACE_TYPES,
   type JobStatus,
 } from '@samona/types';
-import { coordinatesSchema, latitudeSchema, longitudeSchema, slugSchema } from './primitives';
+import {
+  coordinatesSchema,
+  idSchema,
+  latitudeSchema,
+  longitudeSchema,
+  paginationSchema,
+  slugSchema,
+} from './primitives';
 
 /** Every valid lifecycle status, for filtering a caller's own job lists. */
 const jobStatusOptions = JOB_STATUSES as [JobStatus, ...JobStatus[]];
@@ -181,6 +188,92 @@ export const jobListQuerySchema = z.object({
 });
 
 export type JobListQuery = z.infer<typeof jobListQuerySchema>;
+
+/**
+ * Reads `status` as either a comma-separated list or repeated query keys — the
+ * two shapes the admin dashboard and ad-hoc API clients naturally send.
+ */
+function statusListQuery<T extends readonly [JobStatus, ...JobStatus[]]>(options: T) {
+  return z.preprocess(
+    (value) => {
+      if (value === undefined || value === '') return undefined;
+      const values = Array.isArray(value) ? value : [value];
+      return values.flatMap((entry) =>
+        typeof entry === 'string' ? entry.split(',').filter(Boolean) : [entry],
+      );
+    },
+    z.array(z.enum(options)).optional(),
+  );
+}
+
+const jobStatusListQuery = statusListQuery(jobStatusOptions);
+
+/**
+ * Statuses a live job can be in: everything before a terminal state.
+ *
+ * The live board answers "what is happening today", so settled, abandoned and
+ * expired work (PAID / CANCELLED / EXPIRED) is deliberately out of scope.
+ */
+const liveJobStatusOptions = [
+  'REQUESTED',
+  'OFFERED',
+  'ACCEPTED',
+  'TRAVELLING',
+  'ARRIVED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'PAYMENT_PENDING',
+] as const satisfies readonly JobStatus[];
+
+const liveJobStatusListQuery = statusListQuery(liveJobStatusOptions);
+
+/** How the live board orders today's rows. */
+export const ADMIN_LIVE_SORTS = ['newest', 'oldest', 'amount_desc', 'expiring'] as const;
+
+export type AdminLiveSort = (typeof ADMIN_LIVE_SORTS)[number];
+
+/**
+ * Filters for the admin live board: today's still-open jobs only.
+ *
+ * There is no cursor or date range — the server pins the window to the current
+ * day in the operations time zone and returns the whole (bounded) snapshot.
+ */
+export const adminLiveQuerySchema = z.object({
+  status: liveJobStatusListQuery,
+  sort: z.enum(ADMIN_LIVE_SORTS).default('newest'),
+  q: z.string().trim().max(80, 'Keep the search under 80 characters.').optional(),
+});
+
+export type AdminLiveQuery = z.infer<typeof adminLiveQuerySchema>;
+
+/**
+ * Filters for the admin bookings ledger.
+ *
+ * This is the read-only history of every job — including settled and cancelled
+ * ones — unlike `jobListQuerySchema`, which only ever filters one caller's own
+ * jobs. `cursor` is opaque to the client; the server encodes the last row's
+ * `createdAt` + `id` so pages stay stable while new jobs are written.
+ */
+export const adminJobListQuerySchema = paginationSchema
+  .extend({
+    limit: z.coerce.number().int().min(1).max(100).default(25),
+    status: jobStatusListQuery,
+    from: z.iso.datetime({ offset: true }).optional(),
+    to: z.iso.datetime({ offset: true }).optional(),
+    serviceId: idSchema.optional(),
+    proId: idSchema.optional(),
+    customerId: idSchema.optional(),
+    q: z.string().trim().max(80, 'Keep the search under 80 characters.').optional(),
+  })
+  .refine(
+    (value) =>
+      value.from === undefined ||
+      value.to === undefined ||
+      new Date(value.to).getTime() > new Date(value.from).getTime(),
+    { message: '`to` must be after `from`.', path: ['to'] },
+  );
+
+export type AdminJobListQuery = z.infer<typeof adminJobListQuerySchema>;
 
 /**
  * The signed, single-use offer token delivered inside a job alert's FCM data.
