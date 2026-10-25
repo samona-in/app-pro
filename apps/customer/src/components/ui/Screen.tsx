@@ -8,6 +8,8 @@ export interface ScreenProps extends ViewProps {
   scrollable?: boolean;
   padded?: boolean;
   edges?: readonly Edge[];
+  /** Indexes of scrollable children that stay pinned to the top while scrolling. */
+  stickyHeaderIndices?: number[];
   className?: string;
   contentClassName?: string;
 }
@@ -17,6 +19,7 @@ export function Screen({
   scrollable = false,
   padded = true,
   edges = ['top'],
+  stickyHeaderIndices,
   className,
   contentClassName,
   ...rest
@@ -30,6 +33,7 @@ export function Screen({
           contentContainerClassName={cn('grow pb-8', contentClasses)}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          stickyHeaderIndices={stickyHeaderIndices}
         >
           {children}
         </ScrollView>
