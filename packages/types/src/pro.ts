@@ -160,7 +160,9 @@ export interface SkillWithService extends SkillOption {
  * The order of the list is the order the server curated it in, and the first
  * entry is the "top pick" the home rail flags.
  */
-export type PopularSkill = SkillWithService;
+export interface PopularSkill extends SkillWithService {
+  isTopPick?: boolean;
+}
 
 /** Combined result for a catalogue search: matching services and skills. */
 export interface ServiceSearchResult {

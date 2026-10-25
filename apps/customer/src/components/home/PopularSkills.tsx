@@ -64,7 +64,7 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
         className="mt-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 4 }}
       >
-        {skills.map((skill, index) => (
+        {skills.map((skill) => (
           <Pressable
             key={skill.id}
             accessibilityRole="button"
@@ -77,7 +77,7 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
                 uri={skill.icon ?? skill.service.icon}
                 className="h-16 w-16 rounded-xl"
               />
-              {index === 0 ? (
+              {'isTopPick' in skill && skill.isTopPick ? (
                 <View
                   accessibilityLabel="Top pick"
                   className="absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-warning-surface"

@@ -489,6 +489,111 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
     }
   });
 
+  // Popular skills (curated home screen items)
+  router.get('/popular-skills', async (_req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const items = await prisma.popularSkill.findMany({
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        include: {
+          skill: {
+            include: {
+              service: true,
+            },
+          },
+        },
+      });
+      res.json({ data: items });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/popular-skills', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { skillId, sortOrder, isActive, isTopPick } = req.body;
+
+      if (!skillId) {
+        res.status(400).json({ error: { message: 'skillId is required' } });
+        return;
+      }
+
+      const item = await prisma.popularSkill.create({
+        data: {
+          skillId,
+          sortOrder: sortOrder !== undefined ? Number(sortOrder) : 0,
+          isActive: isActive !== undefined ? Boolean(isActive) : true,
+          isTopPick: isTopPick !== undefined ? Boolean(isTopPick) : false,
+        },
+        include: {
+          skill: {
+            include: {
+              service: true,
+            },
+          },
+        },
+      });
+      res.json({ data: item });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/popular-skills/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { sortOrder, isActive, isTopPick } = req.body;
+
+      const item = await prisma.popularSkill.update({
+        where: { id: req.params.id },
+        data: {
+          ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+          ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+          ...(isTopPick !== undefined && { isTopPick: Boolean(isTopPick) }),
+        },
+        include: {
+          skill: {
+            include: {
+              service: true,
+            },
+          },
+        },
+      });
+      res.json({ data: item });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/popular-skills/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      await prisma.popularSkill.delete({
+        where: { id: req.params.id },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Banners
   router.get('/banners', async (_req, res, next) => {
     try {
