@@ -38,6 +38,7 @@ export default function Home() {
   const bannersQuery = useBanners();
   const bookingDraft = useBookingDraft();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // The tab stays mounted behind the booking flow, so a picked service would
   // still look selected when the customer navigates back. Clear it on focus.
@@ -97,6 +98,20 @@ export default function Home() {
     router.push(`/booking/new/${service.slug}/place`);
   }
 
+  // Pull-to-refresh re-reads everything the home renders: the service
+  // catalogue, the popular rail and the banners. The location label follows
+  // the device, so it is not part of the refresh.
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await Promise.all([categories.refetch(), popular.refetch(), bannersQuery.refetch()]);
+    } catch (error) {
+      console.warn('[home] pull-to-refresh failed:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
     <View className="flex-1 bg-surface">
       <StatusBar style="light" />
@@ -106,7 +121,14 @@ export default function Home() {
           iOS and Android instead of scrolling under the system UI. */}
       <View style={{ height: insets.top }} className="bg-brand" />
 
-      <Screen scrollable edges={[]} padded={false} stickyHeaderIndices={[1]}>
+      <Screen
+        scrollable
+        edges={[]}
+        padded={false}
+        stickyHeaderIndices={[1]}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+      >
         <HomeHeader
           variant="blue"
           safeAreaTop={false}

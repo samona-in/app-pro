@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import { JobStatus, type Job } from '@samona/types';
 import { BookingRow } from '@/components/booking';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { Screen, SegmentedControl, Text } from '@/components/ui';
 import { useBookings } from '@/hooks';
+import { color } from '@/theme';
 
 const FILTERS = ['All', 'Active', 'Upcoming', 'Past'] as const;
 type Filter = (typeof FILTERS)[number];
@@ -58,6 +59,7 @@ function matchesFilter(job: Job, filter: Filter): boolean {
 export default function Bookings() {
   const [filter, setFilter] = useState<Filter>('All');
   const bookings = useBookings();
+  const [refreshing, setRefreshing] = useState(false);
 
   const jobs = useMemo(() => bookings.data ?? [], [bookings.data]);
   const visible = useMemo(() => jobs.filter((job) => matchesFilter(job, filter)), [jobs, filter]);
@@ -72,6 +74,17 @@ export default function Bookings() {
       : activeCount > 0
         ? `${jobs.length} booking${jobs.length === 1 ? '' : 's'} · ${activeCount} active`
         : `${jobs.length} booking${jobs.length === 1 ? '' : 's'}`;
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await bookings.refetch();
+    } catch (error) {
+      console.warn('[bookings] pull-to-refresh failed:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
     <Screen padded={false}>
@@ -93,6 +106,15 @@ export default function Bookings() {
         className="mt-2 flex-1"
         contentContainerStyle={{ paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={color.brand}
+            colors={[color.brand]}
+            progressBackgroundColor={color.surface}
+          />
+        }
       >
         {bookings.isPending ? (
           <View className="items-center py-10">

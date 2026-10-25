@@ -1,6 +1,6 @@
-import type { ComponentProps } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { isChatClosed, JobStatus } from '@samona/types';
 import { bookingStatusLabel, proDisplayName } from '@/components/booking';
@@ -9,6 +9,7 @@ import { ErrorState, LoadingState } from '@/components/feedback';
 import { Avatar, Button, Screen, Text } from '@/components/ui';
 import { useBooking, useCancelBooking, useSubmitGuard, useUnreadMessages } from '@/hooks';
 import { color } from '@/theme';
+import type { ComponentProps } from 'react';
 import {
   formatBookingDate,
   formatChatTime,
@@ -144,6 +145,25 @@ export default function BookingDetail() {
     ]);
   });
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } catch (error) {
+      console.warn('[booking-detail] pull-to-refresh failed:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   if (isPending) {
     return (
       <Screen edges={['bottom']}>
@@ -178,7 +198,7 @@ export default function BookingDetail() {
   const statusVisual = STATUS_ICON[job.status] ?? STATUS_ICON[JobStatus.REQUESTED];
 
   return (
-    <Screen scrollable edges={['top', 'bottom']}>
+    <Screen scrollable edges={['top', 'bottom']} onRefresh={handleRefresh} refreshing={refreshing}>
       <Stack.Screen
         options={{
           headerTitle: () => (

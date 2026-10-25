@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { ScrollView, View, type ViewProps } from 'react-native';
+import { RefreshControl, ScrollView, View, type ViewProps } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 
 export interface ScreenProps extends ViewProps {
@@ -10,6 +11,10 @@ export interface ScreenProps extends ViewProps {
   edges?: readonly Edge[];
   /** Indexes of scrollable children that stay pinned to the top while scrolling. */
   stickyHeaderIndices?: number[];
+  /** Enables pull-to-refresh; called when the scrollable content is dragged down. */
+  onRefresh?: () => void;
+  /** Whether the pull-to-refresh spinner is visible. */
+  refreshing?: boolean;
   className?: string;
   contentClassName?: string;
 }
@@ -20,6 +25,8 @@ export function Screen({
   padded = true,
   edges = ['top'],
   stickyHeaderIndices,
+  onRefresh,
+  refreshing = false,
   className,
   contentClassName,
   ...rest
@@ -34,6 +41,17 @@ export function Screen({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           stickyHeaderIndices={stickyHeaderIndices}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={color.brand}
+                colors={[color.brand]}
+                progressBackgroundColor={color.surface}
+              />
+            ) : undefined
+          }
         >
           {children}
         </ScrollView>
