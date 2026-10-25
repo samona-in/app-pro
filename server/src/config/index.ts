@@ -383,6 +383,8 @@ export interface AppConfig {
   s3BucketJobImages: string;
   /** Bucket holding per-surface profile avatars. */
   s3BucketAvatars: string;
+  /** Bucket holding marketing banners. */
+  s3BucketBanners: string | null;
   /** Bucket holding submitted pro documents; never served publicly. */
   s3BucketDocuments: string;
   /** Origin for public selfie URLs; null uses the selfies bucket's S3 URL. */
@@ -391,6 +393,8 @@ export interface AppConfig {
   s3PublicBaseUrlJobImages: string | null;
   /** Origin for public avatar URLs; null uses the avatars bucket's S3 URL. */
   s3PublicBaseUrlAvatars: string | null;
+  /** Origin for public banner URLs; null uses the banners bucket's S3 URL. */
+  s3PublicBaseUrlBanners: string | null;
   /**
    * Custom S3-compatible endpoint (Supabase, MinIO); null uses real AWS
    * endpoints and the ambient credential chain.
@@ -564,10 +568,12 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     s3BucketSelfies: env.S3_BUCKET_SELFIES,
     s3BucketJobImages: env.S3_BUCKET_JOB_IMAGES,
     s3BucketAvatars: env.S3_BUCKET_AVATARS,
+    s3BucketBanners: env.S3_BUCKET_BANNERS ?? null,
     s3BucketDocuments: env.S3_BUCKET_DOCUMENTS,
     s3PublicBaseUrlSelfies: env.S3_PUBLIC_BASE_URL_SELFIES ?? null,
     s3PublicBaseUrlJobImages: env.S3_PUBLIC_BASE_URL_JOB_IMAGES ?? null,
     s3PublicBaseUrlAvatars: env.S3_PUBLIC_BASE_URL_AVATARS ?? null,
+    s3PublicBaseUrlBanners: env.S3_PUBLIC_BASE_URL_BANNERS ?? null,
     s3Endpoint,
     s3Credentials: s3Configured
       ? { accessKeyId: s3AccessKeyId as string, secretAccessKey: s3SecretAccessKey as string }

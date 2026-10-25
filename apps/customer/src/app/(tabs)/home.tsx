@@ -19,6 +19,7 @@ import { NotificationBell } from '@/components/notifications';
 import { Screen } from '@/components/ui';
 import {
   useActiveSavedAddress,
+  useBanners,
   usePopularSkills,
   useResolvedLocationLabel,
   useServiceCategories,
@@ -32,6 +33,7 @@ export default function Home() {
   const activeSavedAddress = useActiveSavedAddress(customerProfile);
   const categories = useServiceCategories();
   const popular = usePopularSkills();
+  const bannersQuery = useBanners();
   const bookingDraft = useBookingDraft();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
 
@@ -104,7 +106,7 @@ export default function Home() {
         trailing={<NotificationBell variant="white" />}
         banner={
           <HomeBannerCarousel
-            banners={HOME_BANNERS}
+            banners={bannersQuery.data?.length ? bannersQuery.data : HOME_BANNERS}
             onPressBanner={handlePressBanner}
             variant="light"
           />

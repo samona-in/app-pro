@@ -46,4 +46,6 @@ export const queryKeys = {
     all: ['addresses'] as const,
     list: ['addresses', 'list'] as const,
   },
+  /** Home screen banners. */
+  banners: ['banners'] as const,
 } as const;

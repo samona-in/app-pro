@@ -10,3 +10,5 @@ export * from './notification';
 export * from './primitives';
 export * from './pro';
 export * from './user';
+
+export * from './banner';

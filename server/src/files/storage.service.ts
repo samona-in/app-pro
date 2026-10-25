@@ -57,6 +57,8 @@ export interface StorageServiceDeps {
   jobImagesBucket: string;
   /** Bucket holding per-surface profile avatars. */
   avatarsBucket: string;
+  /** Bucket holding marketing banners. */
+  bannersBucket?: string | null;
   /**
    * Bucket holding submitted pro documents. Private — no public origin is
    * configured for it and no public URL is ever built from its path; reads go
@@ -78,6 +80,7 @@ export interface StorageServiceDeps {
     selfies: string | null;
     jobImages: string | null;
     avatars: string | null;
+    banners?: string | null;
   };
   /**
    * The S3 client. Credential-free in production — it resolves credentials from
@@ -251,6 +254,9 @@ export function createStorageService(deps: StorageServiceDeps) {
   const selfieOrigin = resolveOrigin(selfiesBucket, publicBaseUrls.selfies);
   const jobImageOrigin = resolveOrigin(jobImagesBucket, publicBaseUrls.jobImages);
   const avatarOrigin = resolveOrigin(avatarsBucket, publicBaseUrls.avatars);
+  const bannerOrigin = deps.bannersBucket
+    ? resolveOrigin(deps.bannersBucket, publicBaseUrls.banners ?? null)
+    : null;
 
   /**
    * The origins a stored avatar URL may legitimately carry.
@@ -673,6 +679,7 @@ export function createStorageService(deps: StorageServiceDeps) {
     selfiesBucket,
     jobImagesBucket,
     avatarsBucket,
+    bannersBucket: deps.bannersBucket ?? null,
     documentsBucket,
     removeObjectPrefix,
     listObjects,

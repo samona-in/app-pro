@@ -5,6 +5,8 @@ import type { Redis } from '../database/redis';
 import { createAdminAuthService } from './auth/admin-auth.service';
 import { createAdminAuthRouter } from './auth/admin-auth.routes';
 import { createRequireAdmin, requirePermission } from './middleware/require-admin';
+import { createBannerSchema, updateBannerSchema } from '@samona/validation';
+import { validate } from '../common';
 
 export interface AdminRouterDeps {
   redis: Redis | null;
@@ -479,6 +481,94 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
       }
 
       await prisma.skill.delete({
+        where: { id: req.params.id },
+      });
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Banners
+  router.get('/banners', async (_req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const banners = await prisma.banner.findMany({
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      });
+      res.json({ data: banners });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/banners', validate(createBannerSchema), async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const banner = await prisma.banner.create({
+        data: {
+          key: req.body.key,
+          heading: req.body.heading,
+          subtitle: req.body.subtitle,
+          ctaLabel: req.body.ctaLabel,
+          serviceSlug: req.body.serviceSlug ?? null,
+          image: req.body.image,
+          imageDescription: req.body.imageDescription,
+          sortOrder: req.body.sortOrder ?? 0,
+          isActive: req.body.isActive !== undefined ? Boolean(req.body.isActive) : true,
+        },
+      });
+      res.json({ data: banner });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch('/banners/:id', validate(updateBannerSchema), async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      const { key, heading, subtitle, ctaLabel, serviceSlug, image, imageDescription, sortOrder, isActive } = req.body;
+
+      const banner = await prisma.banner.update({
+        where: { id: req.params.id },
+        data: {
+          ...(key !== undefined && { key }),
+          ...(heading !== undefined && { heading }),
+          ...(subtitle !== undefined && { subtitle }),
+          ...(ctaLabel !== undefined && { ctaLabel }),
+          ...(serviceSlug !== undefined && { serviceSlug }),
+          ...(image !== undefined && { image }),
+          ...(imageDescription !== undefined && { imageDescription }),
+          ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+          ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+        },
+      });
+      res.json({ data: banner });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete('/banners/:id', async (req, res, next) => {
+    try {
+      if (!prisma) {
+        res.status(503).json({ error: { message: 'Database unavailable' } });
+        return;
+      }
+
+      await prisma.banner.delete({
         where: { id: req.params.id },
       });
       res.json({ success: true });

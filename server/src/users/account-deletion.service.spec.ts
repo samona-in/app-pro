@@ -335,6 +335,7 @@ function makeStorage(initial: StoredObject[] = []) {
   const api = {
     selfiesBucket: 'pro-selfies',
     avatarsBucket: 'avatars',
+    bannersBucket: null,
     documentsBucket: 'pro-documents',
     jobImagesBucket: 'job-images',
     listObjects: jest.fn(async (bucket: string, prefix: string) => ({

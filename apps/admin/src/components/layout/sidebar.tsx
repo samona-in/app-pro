@@ -16,6 +16,7 @@ import {
   Shield,
   FileText,
   Activity,
+  Image,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdmin } from '@/providers/admin-provider';
@@ -28,6 +29,7 @@ const menuItems = [
   { icon: Users, label: 'Customers', href: '/dashboard/customers' },
   { icon: Briefcase, label: 'Professionals', href: '/dashboard/professionals' },
   { icon: Settings, label: 'Services & Categories', href: '/dashboard/services' },
+  { icon: Image, label: 'Banners', href: '/dashboard/banners' },
   { icon: CreditCard, label: 'Payments & Revenue', href: '/dashboard/payments' },
   { icon: HelpCircle, label: 'Support', href: '/dashboard/support' },
   { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },

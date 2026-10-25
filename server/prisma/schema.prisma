@@ -1079,3 +1079,26 @@ model LegalHold {
   @@index([active, expiresAt])
   @@map("legal_holds")
 }
+
+/// Promotional banners displayed on the customer home screen.
+model Banner {
+  id               String   @id @default(uuid()) @db.Uuid
+  /// Stable identifier used by the client to track banners.
+  key              String   @unique
+  heading          String
+  subtitle         String
+  ctaLabel         String   @map("cta_label")
+  /// Optional service slug to promote. Null opens the search screen.
+  serviceSlug      String?  @map("service_slug")
+  /// Image URL or storage path for the banner illustration.
+  image            String
+  imageDescription String   @map("image_description")
+  sortOrder        Int      @default(0) @map("sort_order")
+  isActive         Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("banners")
+}

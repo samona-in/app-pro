@@ -7,3 +7,5 @@ export * from './message';
 export * from './notification';
 export * from './pro';
 export * from './user';
+
+export * from './banner';

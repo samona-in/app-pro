@@ -49,6 +49,7 @@ function makeDeps() {
     documentsBucket: 'documents',
     selfiesBucket: 'selfies',
     avatarsBucket: 'avatars',
+    bannersBucket: null,
     jobImagesBucket: 'job-images',
     deleteObject: jest.fn().mockResolvedValue(undefined),
     deleteObjects: jest.fn().mockResolvedValue(undefined),

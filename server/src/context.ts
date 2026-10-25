@@ -17,6 +17,7 @@ import { createProsService, type ProsService } from './pros/pros.service';
 
 import { createCustomersService, type CustomersService } from './customers/customers.service';
 import { createServicesService, type ServicesService } from './services/services.service';
+import { createBannersService, type BannersService } from './banners/banners.service';
 import { createJobsService, type JobsService } from './jobs/jobs.service';
 import { createMatchingService, type MatchingService } from './matching/matching.service';
 import { createMessagesService, type MessagesService } from './messages/messages.service';
@@ -63,6 +64,7 @@ export interface Services {
   pros: ProsService;
   customers: CustomersService;
   services: ServicesService;
+  banners: BannersService;
   jobs: JobsService;
   messages: MessagesService;
   matching: MatchingService;
@@ -109,11 +111,13 @@ export function createStorageFromConfig(config: AppConfig): StorageService {
     selfiesBucket: config.s3BucketSelfies,
     jobImagesBucket: config.s3BucketJobImages,
     avatarsBucket: config.s3BucketAvatars,
+    bannersBucket: config.s3BucketBanners,
     documentsBucket: config.s3BucketDocuments,
     publicBaseUrls: {
       selfies: config.s3PublicBaseUrlSelfies,
       jobImages: config.s3PublicBaseUrlJobImages,
       avatars: config.s3PublicBaseUrlAvatars,
+      banners: config.s3PublicBaseUrlBanners,
     },
     // Production passes no credentials: the client resolves them from the
     // ambient provider chain, which on Fargate is the task role, so no key
@@ -214,6 +218,7 @@ export function createServices(
     pros: createProsService({ prisma, storage, jobs }),
     customers: createCustomersService(deps),
     services: createServicesService(deps),
+    banners: createBannersService(deps.prisma),
     jobs,
     messages,
     matching,
