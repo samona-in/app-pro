@@ -15,8 +15,8 @@ import {
   Settings,
   Shield,
   FileText,
-  Activity,
   Image,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdmin } from '@/providers/admin-provider';
@@ -46,6 +46,15 @@ function SidebarContent() {
 
   const roleLabel = adminUser ? adminUser.role.replace(/_/g, ' ').toLowerCase() : 'loading';
 
+  // Highlight exactly one item: the most specific href matching the current
+  // path. Without this, `/dashboard` (Overview) would also match every
+  // `/dashboard/...` page and stay lit on top of the real section.
+  const currentPath = pathname ?? '';
+  const activeHref =
+    menuItems
+      .filter((item) => currentPath === item.href || currentPath.startsWith(`${item.href}/`))
+      .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? null;
+
   return (
     <div className="w-64 bg-gray-900 text-white min-h-screen flex flex-col">
       <div className="p-6">
@@ -55,7 +64,7 @@ function SidebarContent() {
       <nav className="flex-1 px-3 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+          const isActive = item.href === activeHref;
           return (
             <Link
               key={item.href}
@@ -64,7 +73,7 @@ function SidebarContent() {
                 'flex items-center gap-3 px-3 py-2 rounded-lg mb-1 transition-colors',
                 isActive
                   ? 'bg-[#054DFF] text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white',
               )}
             >
               <Icon size={20} />
