@@ -30,6 +30,7 @@ const menuItems = [
   { icon: Briefcase, label: 'Professionals', href: '/dashboard/professionals' },
   { icon: Settings, label: 'Services & Categories', href: '/dashboard/services' },
   { icon: Image, label: 'Banners', href: '/dashboard/banners' },
+  { icon: BarChart3, label: 'Popular Skills', href: '/dashboard/popular-skills' },
   { icon: CreditCard, label: 'Payments & Revenue', href: '/dashboard/payments' },
   { icon: HelpCircle, label: 'Support', href: '/dashboard/support' },
   { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },

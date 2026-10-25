@@ -421,9 +421,10 @@ model Skill {
   sortOrder Int     @default(0) @map("sort_order")
   isActive  Boolean @default(true) @map("is_active")
 
-  service Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  pros    ProSkill[]
-  jobs    Job[]
+  service      Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  pros         ProSkill[]
+  jobs         Job[]
+  popularSkill PopularSkill?
 
   @@unique([serviceId, slug])
   @@index([serviceId])
@@ -1101,4 +1102,21 @@ model Banner {
 
   @@index([isActive, sortOrder])
   @@map("banners")
+}
+
+/// Skills promoted on the customer home screen ("Popular right now").
+model PopularSkill {
+  id          String  @id @default(uuid()) @db.Uuid
+  skillId     String  @unique @map("skill_id") @db.Uuid
+  sortOrder   Int     @default(0) @map("sort_order")
+  isActive    Boolean @default(true) @map("is_active")
+  isTopPick   Boolean @default(false) @map("is_top_pick")
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("popular_skills")
 }

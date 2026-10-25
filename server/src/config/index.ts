@@ -109,6 +109,12 @@ const envSchema = z.object({
   /** Origin for public avatar URLs. See `S3_PUBLIC_BASE_URL_SELFIES`. */
   S3_PUBLIC_BASE_URL_AVATARS: optional(z.string()),
 
+  /** Bucket holding marketing banners. */
+  S3_BUCKET_BANNERS: optional(z.string()),
+
+  /** Origin for public banner URLs; null uses the banners bucket's S3 URL. */
+  S3_PUBLIC_BASE_URL_BANNERS: optional(z.string()),
+
   /**
    * Custom S3-compatible endpoint for object storage — e.g. Supabase Storage's
    * S3 gateway (`https://<ref>.storage.supabase.co/storage/v1/s3`).

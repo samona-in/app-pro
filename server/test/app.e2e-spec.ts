@@ -28,6 +28,8 @@ const config: AppConfig = {
   s3PublicBaseUrlSelfies: null,
   s3PublicBaseUrlJobImages: null,
   s3PublicBaseUrlAvatars: null,
+  s3BucketBanners: null,
+  s3PublicBaseUrlBanners: null,
   s3Endpoint: null,
   s3Credentials: null,
   s3ForcePathStyle: true,

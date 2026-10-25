@@ -1,5 +1,4 @@
 import { createServicesService } from './services.service';
-import { POPULAR_SKILL_SLUGS } from './popular-skills';
 
 describe('createServicesService', () => {
   function buildService() {
@@ -8,6 +7,9 @@ describe('createServicesService', () => {
         findMany: jest.fn(),
       },
       skill: {
+        findMany: jest.fn(),
+      },
+      popularSkill: {
         findMany: jest.fn(),
       },
     };
@@ -60,77 +62,53 @@ describe('createServicesService', () => {
   describe('listPopularSkills', () => {
     const popularRows = [
       {
-        id: 'sk1',
-        serviceId: 's1',
-        slug: 'leak-repair',
-        name: 'Plumbing leak repair',
-        icon: 'https://example.test/leak.png',
-        service: { id: 's1', slug: 'plumbing', name: 'Plumbing', icon: null },
+        skill: {
+          id: 'sk1',
+          serviceId: 's1',
+          slug: 'leak-repair',
+          name: 'Plumbing leak repair',
+          icon: 'https://example.test/leak.png',
+          service: { id: 's1', slug: 'plumbing', name: 'Plumbing', icon: null },
+        },
       },
       {
-        id: 'sk2',
-        serviceId: 's2',
-        slug: 'fan-installation',
-        name: 'Fan installation',
-        icon: null,
-        service: { id: 's2', slug: 'electrician', name: 'Electrician', icon: null },
+        skill: {
+          id: 'sk2',
+          serviceId: 's2',
+          slug: 'fan-installation',
+          name: 'Fan installation',
+          icon: null,
+          service: { id: 's2', slug: 'electrician', name: 'Electrician', icon: null },
+        },
       },
     ];
 
     it('returns the curated skills with their parent service', async () => {
       const { service, prisma } = buildService();
-      prisma.skill.findMany.mockResolvedValue(popularRows);
+      prisma.popularSkill.findMany.mockResolvedValue(popularRows);
 
       const result = await service.listPopularSkills();
 
-      expect(result).toEqual(popularRows);
-      expect(prisma.skill.findMany).toHaveBeenCalledWith({
+      expect(result).toEqual([popularRows[0]!.skill, popularRows[1]!.skill]);
+      expect(prisma.popularSkill.findMany).toHaveBeenCalledWith({
         where: {
           isActive: true,
-          slug: { in: POPULAR_SKILL_SLUGS },
-          service: { isActive: true },
+          skill: { isActive: true, service: { isActive: true } },
         },
-        orderBy: [{ service: { sortOrder: 'asc' } }, { sortOrder: 'asc' }],
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         select: {
-          id: true,
-          serviceId: true,
-          slug: true,
-          name: true,
-          icon: true,
-          service: { select: { id: true, slug: true, name: true, icon: true } },
+          skill: {
+            select: {
+              id: true,
+              serviceId: true,
+              slug: true,
+              name: true,
+              icon: true,
+              service: { select: { id: true, slug: true, name: true, icon: true } },
+            },
+          },
         },
       });
-    });
-
-    it('keeps the curated order, whatever order the rows come back in', async () => {
-      const { service, prisma } = buildService();
-      prisma.skill.findMany.mockResolvedValue([popularRows[1], popularRows[0]]);
-
-      const result = await service.listPopularSkills();
-
-      expect(result.map((skill) => skill.slug)).toEqual(['leak-repair', 'fan-installation']);
-    });
-
-    it('skips a curated skill the catalogue no longer offers', async () => {
-      const { service, prisma } = buildService();
-      prisma.skill.findMany.mockResolvedValue([popularRows[0]]);
-
-      const result = await service.listPopularSkills();
-
-      expect(result.map((skill) => skill.slug)).toEqual(['leak-repair']);
-    });
-
-    it('keeps one entry per curated slug when two services share it', async () => {
-      const { service, prisma } = buildService();
-      prisma.skill.findMany.mockResolvedValue([
-        popularRows[0],
-        { ...popularRows[0], id: 'sk3', serviceId: 's9' },
-      ]);
-
-      const result = await service.listPopularSkills();
-
-      expect(result).toHaveLength(1);
-      expect(result[0]?.id).toBe('sk1');
     });
   });
 });
