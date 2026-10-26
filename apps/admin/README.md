@@ -31,6 +31,45 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This app lives in an npm-workspaces monorepo, so the Vercel project is created
+from the repository root and then pointed at this directory:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Setting          | Value                        |
+| ---------------- | ---------------------------- |
+| Framework Preset | Next.js (auto-detected)      |
+| Root Directory   | `apps/admin`                 |
+| Build Command    | `npm run build` (default)    |
+| Install Command  | `npm install` (default)      |
+| Node.js Version  | 22.x                         |
+
+Vercel detects the workspace root above `apps/admin` and installs from the
+committed `package-lock.json`, so `node_modules` resolution stays shared with
+the other workspaces.
+
+Environment variables (Production and Preview). `NEXT_PUBLIC_*` values are
+inlined at build time, so they must exist before the build runs:
+
+```bash
+NEXT_PUBLIC_API_URL=https://api.samona.in/api/v1
+NEXT_PUBLIC_SUPABASE_URL=https://mbylupexffssmyiqgwnb.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+### Custom domain is required
+
+The dashboard authenticates with the HttpOnly `admin_session` cookie, which the
+API mints with `SameSite=Lax`. Browsers only send that cookie on same-site
+requests, so the dashboard must be served from a `*.samona.in` hostname:
+
+- `admin.samona.in` → Vercel. The API's `CORS_ORIGINS` already allow-list this
+  origin (`https://admin.samona.in`).
+- The generated `*.vercel.app` hostname will load, but every API call fails
+  CORS, and the session cookie would be treated as third-party.
+
+If a Vercel preview hostname must work, add it to `CORS_ORIGINS` on the API and
+switch the cookie to `SameSite=None; Secure`.
+
+```bash
+# DNS for the custom domain (Vercel → Project → Settings → Domains)
+admin.samona.in  CNAME  cname.vercel-dns.com
+```
