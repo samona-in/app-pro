@@ -1,4 +1,3 @@
-Loaded Prisma config from prisma.config.ts.
 
 -- CreateEnum
 CREATE TYPE "AdminRole" AS ENUM ('SUPER_ADMIN', 'OPERATIONS_ADMIN', 'FINANCE_ADMIN', 'SUPPORT_ADMIN');
