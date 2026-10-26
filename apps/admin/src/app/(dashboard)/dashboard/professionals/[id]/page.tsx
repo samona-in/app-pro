@@ -162,9 +162,9 @@ function ProfessionalEditContent() {
           </CardHeader>
           <CardContent>
             <div className="mb-6 flex justify-center">
-              {professional.selfiePhotoPath ? (
+              {professional.selfiePhotoUrl ? (
                 <img
-                  src={`${process.env.NEXT_PUBLIC_SELFIE_BUCKET_URL || 'https://samona-selfies.s3.amazonaws.com'}/${professional.selfiePhotoPath}`}
+                  src={professional.selfiePhotoUrl}
                   alt="Profile"
                   className="h-32 w-32 rounded-full object-cover border"
                 />
