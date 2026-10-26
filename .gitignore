@@ -57,5 +57,9 @@ yarn-error.log*
 .turbo/
 .eslintcache
 
+# Vercel CLI project link
+.vercel/
+
 # Working notes — scratch context for picking the project back up, not docs.
 CURRENTPROGRESS.md
+.vercel

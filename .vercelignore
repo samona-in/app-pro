@@ -1,0 +1,25 @@
+# Vercel CLI uploads (see apps/admin/README.md).
+# Never upload local env files: .env.local would inline the dev API URL into the
+# production bundle. Real values come from the Vercel project settings.
+.env
+.env.*
+!.env.example
+
+# Local dependencies and build output
+node_modules/
+**/node_modules/
+.vercel/
+**/.next/
+**/.expo/
+**/dist/
+**/build/
+**/coverage/
+**/*.tsbuildinfo
+
+# Generated / infra artifacts
+infra/cdk.out/
+server/src/generated/
+
+# Repo metadata
+.git/
+.DS_Store
