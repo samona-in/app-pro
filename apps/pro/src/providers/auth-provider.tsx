@@ -31,13 +31,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Restore any persisted session first, so the app does not flash the
     // welcome screen at a user who is already signed in.
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setIsLoaded(true);
-    });
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.session);
+        setIsLoaded(true);
+      })
+      .catch((e) => {
+        console.warn('[AuthProvider] Failed to restore session', e);
+        if (!active) return;
+        setIsLoaded(true);
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (!active) return;
       setSession(next);
       setIsLoaded(true);
     });

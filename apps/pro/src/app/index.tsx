@@ -34,6 +34,7 @@ export default function Index() {
   // The splash (`SplashGate`) covers this route while it resolves; rendering
   // nothing avoids a second loading treatment flashing under the handoff.
   if (isLoading) {
+    console.log('[Index] Session still loading, deferring navigation');
     return null;
   }
 

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import type { OnboardingStep, ProProfile, PublicUser } from '@samona/types';
 import { queryKeys } from '@/constants';
-import { useAuth } from '@/providers';
+// Import directly from module to avoid circular dependency with providers barrel.
+import { useAuth } from '@/providers/auth-provider';
 import { api } from '@/services/api';
 
 /** What `GET /auth/me` returns: identity, pro profile and the routing decision. */

@@ -3,9 +3,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './auth-provider';
 import { QueryProvider } from './query-provider';
-// Imported from its module, not the `@/hooks` barrel: that barrel re-exports
-// `use-session.ts`, which imports `./auth-provider`, and re-entry through the
-// barrel would form an import cycle with this file.
+// Avoid hooks barrel imports that can create cycles; import directly.
 import { usePushNavigation } from '@/hooks/use-push-navigation';
 import { IncomingOffersSync } from '@/hooks/use-incoming-offers';
 import { JobCancellationSync } from '@/hooks/use-job-cancellation';

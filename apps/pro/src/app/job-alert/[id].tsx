@@ -51,6 +51,7 @@ export default function JobAlertRoute() {
   useEffect(() => {
     if (isLoading || !isAuthenticated || !jobId || !nativeAction || startedRef.current) return;
     startedRef.current = true;
+    console.log('[JobAlertRoute] Processing native action', { jobId, nativeAction });
     void (async () => {
       try {
         await jobNotificationService.resolveNativePendingAction(jobId, nativeAction);
@@ -61,7 +62,8 @@ export default function JobAlertRoute() {
           // the pro gets bounced to the just-accepted job instead of payment.
           await queryClient.refetchQueries({ queryKey: queryKeys.jobs.all });
         }
-      } catch {
+      } catch (e) {
+        console.warn('[JobAlertRoute] Failed to resolve native pending action', e);
         // The accept/decline is best-effort; the redirect below still routes
         // from whatever jobs are known.
       } finally {

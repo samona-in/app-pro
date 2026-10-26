@@ -157,7 +157,11 @@ export function useIncomingOffers() {
     previousCountRef.current = count;
     if (previous !== 0) return;
     if (pathname === '/incoming-jobs') return;
-    router.push('/incoming-jobs');
+    try {
+      router.push('/incoming-jobs');
+    } catch (e) {
+      console.warn('[useIncomingOffers] Failed to auto-navigate to incoming-jobs', e);
+    }
   }, [count, isAuthenticated, isOnboardingComplete, hasActiveJob, pathname, router]);
 }
 

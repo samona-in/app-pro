@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router';
+import { useRouter, useRootNavigationState } from 'expo-router';
 
 interface PushData {
   type?: unknown;
@@ -22,20 +22,50 @@ function chatRouteFor(data: PushData, pathFor: (jobId: string) => string) {
  */
 export function usePushNavigation(routeFor: (jobId: string) => string) {
   const router = useRouter();
+  const navState = useRootNavigationState();
+  const isReadyRef = useRef(false);
+
+  useEffect(() => {
+    if (navState?.key) {
+      isReadyRef.current = true;
+    }
+  }, [navState?.key]);
 
   useEffect(() => {
     const openFromResponse = (response: Notifications.NotificationResponse) => {
-      const data = (response.notification.request.content.data ?? {}) as PushData;
-      const route = chatRouteFor(data, routeFor);
-      if (route) router.push(route);
+      if (!isReadyRef.current || !navState?.key) {
+        // Defer navigation until router/navigator is ready
+        setTimeout(() => openFromResponse(response), 100);
+        return;
+      }
+      try {
+        const data = (response.notification.request.content.data ?? {}) as PushData;
+        const route = chatRouteFor(data, routeFor);
+        if (route) {
+          console.log('[usePushNavigation] Navigating from push to', route);
+          router.push(route);
+        }
+      } catch (e) {
+        console.warn('[usePushNavigation] Failed to navigate from push response', e);
+      }
     };
 
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) openFromResponse(response);
+    void Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) {
+          console.log('[usePushNavigation] Processing last notification response');
+          openFromResponse(response);
+        }
+      })
+      .catch((e) => {
+        console.warn('[usePushNavigation] getLastNotificationResponseAsync failed', e);
+      });
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      console.log('[usePushNavigation] Notification response received');
+      openFromResponse(response);
     });
-    const subscription = Notifications.addNotificationResponseReceivedListener(openFromResponse);
     return () => {
       subscription.remove();
     };
-  }, [router, routeFor]);
+  }, [router, routeFor, navState?.key]);
 }
