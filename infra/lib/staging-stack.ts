@@ -176,6 +176,7 @@ export class SamonaStagingStack extends Stack {
     // short-lived presigned URLs minted by the API. BLOCK_ALL (above) is what
     // makes that a guarantee rather than a convention.
     const documents = bucket('Documents', 'documents');
+    const banners = bucket('Banners', 'banners');
 
     // --- Image registry -----------------------------------------------------
     const repository = new ecr.Repository(this, 'Repository', {
@@ -229,6 +230,7 @@ export class SamonaStagingStack extends Stack {
     publish('s3/bucket-job-images', jobImages.bucketName);
     publish('s3/bucket-avatars', avatars.bucketName);
     publish('s3/bucket-documents', documents.bucketName);
+    publish('s3/bucket-banners', banners.bucketName);
 
     publish('ecr/repository-uri', repository.repositoryUri);
     // The name as its own parameter, not derived from the URI by splitting it:
@@ -246,6 +248,7 @@ export class SamonaStagingStack extends Stack {
       ['selfies', selfies],
       ['job-images', jobImages],
       ['avatars', avatars],
+      ['banners', banners],
     ] as const) {
       new CfnOutput(this, `Bucket${key.replace(/[^A-Za-z0-9]/g, '')}`, {
         value: bucketResource.bucketName,

@@ -128,6 +128,7 @@ export class SamonaServiceStack extends Stack {
       S3_BUCKET_JOB_IMAGES: read('s3/bucket-job-images'),
       S3_BUCKET_AVATARS: read('s3/bucket-avatars'),
       S3_BUCKET_DOCUMENTS: read('s3/bucket-documents'),
+      S3_BUCKET_BANNERS: read('s3/bucket-banners'),
       SUPABASE_URL: supabaseUrl,
       CORS_ORIGINS: corsOrigins,
     };
@@ -231,6 +232,7 @@ export class SamonaServiceStack extends Stack {
           read('s3/bucket-job-images'),
           read('s3/bucket-avatars'),
           read('s3/bucket-documents'),
+          read('s3/bucket-banners'),
         ].flatMap((bucket) => [
           `arn:${this.partition}:s3:::${bucket}`,
           `arn:${this.partition}:s3:::${bucket}/*`,
