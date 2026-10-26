@@ -15,6 +15,27 @@ export interface AdminRouterDeps {
   prisma: PrismaClient | null;
 }
 
+/**
+ * Admin read model for a professional.
+ *
+ * Selfies are stored as a bare key, and the bucket origin is a server concern
+ * (it may be an S3 regional host or a CDN). Resolving it here means the admin
+ * UI never has to know the bucket, so no storage env var leaks into the browser
+ * bundle. The raw key is dropped: `selfiePhotoUrl` is the only representation
+ * a caller needs.
+ */
+function withSelfieUrl<T extends { selfiePhotoPath: string | null }>(
+  row: T,
+  storage: Services['storage'],
+): Omit<T, 'selfiePhotoPath'> & { hasSelfie: boolean; selfiePhotoUrl: string | null } {
+  const { selfiePhotoPath, ...rest } = row;
+  return {
+    ...rest,
+    hasSelfie: selfiePhotoPath !== null,
+    selfiePhotoUrl: selfiePhotoPath ? storage.selfiePublicUrl(selfiePhotoPath) : null,
+  };
+}
+
 export function createAdminRouter(services: Services, deps: AdminRouterDeps): Router {
   const router = Router();
   const prisma = deps.prisma as any;
@@ -142,7 +163,11 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
         include: { profile: true },
         orderBy: { createdAt: 'desc' },
       });
-      res.json({ data: professionals });
+      res.json({
+        data: professionals.map((p: { selfiePhotoPath: string | null }) =>
+          withSelfieUrl(p, services.storage),
+        ),
+      });
     } catch (error) {
       next(error);
     }
@@ -170,7 +195,7 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
         return;
       }
 
-      res.json({ data: professional });
+      res.json({ data: withSelfieUrl(professional, services.storage) });
     } catch (error) {
       next(error);
     }
@@ -201,7 +226,7 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
         include: { profile: true },
       });
 
-      res.json({ data: updated });
+      res.json({ data: withSelfieUrl(updated, services.storage) });
     } catch (error) {
       next(error);
     }
