@@ -23,7 +23,7 @@ import {
 import { queryKeys } from '@/constants';
 import { occupiedJobRoute } from '@/utils/job-routes';
 import { messageForAcceptError } from '@/utils/job-errors';
-import { formatInr } from '@/utils/format';
+import { formatDistanceMeters, formatInr } from '@/utils/format';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 
@@ -229,11 +229,8 @@ export default function IncomingJobsScreen() {
   );
 }
 
-function formatOfferDistance(meters: number | null, t: TFunction): string | null {
-  if (meters === null) return null;
-  return meters >= 1000
-    ? t('format.km', { value: (meters / 1000).toFixed(1) })
-    : t('format.m', { value: meters });
+function formatOfferDistance(meters: number | null): string | null {
+  return formatDistanceMeters(meters);
 }
 
 function formatClock(remainingMs: number): string {
@@ -396,7 +393,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
   }, [error]);
 
   const amountPaise = offer.amountPaise;
-  const distanceLabel = formatOfferDistance(offer.distanceMeters, t);
+  const distanceLabel = formatOfferDistance(offer.distanceMeters);
   const deadline = offerDeadlineMs(offer);
   const remaining = deadline !== null ? Math.max(0, deadline - now) : null;
   const urgent = remaining !== null && remaining > 0 && remaining <= URGENT_THRESHOLD_MS;
@@ -424,8 +421,13 @@ const FocusedJobCard = memo(function FocusedJobCard({
             ) : null}
           </View>
 
-          <View className="mt-3 flex-row flex-wrap items-center gap-2">
-            {distanceLabel ? <Badge label={distanceLabel} tone="info" /> : null}
+          {distanceLabel ? (
+            <Text variant="body" className="mt-1 text-text-muted">
+              {distanceLabel}
+            </Text>
+          ) : null}
+
+          <View className="mt-2 flex-row flex-wrap items-center gap-2">
             {remaining !== null ? (
               <Badge
                 label={
@@ -439,7 +441,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
           </View>
 
           {offer.address ? (
-            <Text variant="body" className="mt-3 text-text-secondary">
+            <Text variant="body" className="mt-2 text-text-secondary">
               {offer.address}
             </Text>
           ) : null}

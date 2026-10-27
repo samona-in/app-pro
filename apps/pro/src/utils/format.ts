@@ -13,6 +13,17 @@ export function formatInr(paise: number | null | undefined): string {
   return `₹${rupees.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
+/** Formats a distance in metres for job alerts (matches native overlay). */
+export function formatDistanceMeters(meters: number | null | undefined): string | null {
+  if (meters === null || meters === undefined || !Number.isFinite(meters)) return null;
+  const distance = Math.round(meters);
+  if (distance < 0) return null;
+  if (distance >= 1000) {
+    return `${(distance / 1000).toFixed(1)} km away`;
+  }
+  return `${distance} m away`;
+}
+
 /** Formats a distance in kilometres for cards and detail rows. */
 export function formatDistance(km: number | null | undefined, t: TFunction): string {
   if (km === null || km === undefined) return '—';
