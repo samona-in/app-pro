@@ -278,6 +278,13 @@ Do not request background location permissions unless the feature actually requi
 
 Explain why a permission is required before requesting it.
 
+Incoming request distances use one foreground location subscription, owned by
+`IncomingOffersSync` while a free pro has pending offers. Cards derive their distance
+from the shared `useProLocationStore` and the job's retained coordinates, using the
+same `distanceKm` function in `@samona/config` that computes Android push-alert
+distances. Legacy native/push offers fetch missing job coordinates once through
+`GET /jobs/:id`. Selection and countdown ticks never drive distance updates.
+
 ### Live location in the customer app
 
 The customer app refreshes the customer's active location by itself: it reads the

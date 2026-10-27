@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, View, type ViewToken } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import type { JobDetail } from '@samona/types';
 import Svg, { Circle } from 'react-native-svg';
@@ -26,6 +25,10 @@ import { messageForAcceptError } from '@/utils/job-errors';
 import { formatDistanceMeters, formatInr } from '@/utils/format';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
+import {
+  useIncomingOfferDistances,
+  type IncomingOfferWithDistance,
+} from '@/hooks/use-incoming-offer-distances';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -39,9 +42,9 @@ const VIEWABILITY_CONFIG = { viewAreaCoveragePercentThreshold: 30 };
  * The requested ordering: nearest offers first (by straight-line distance).
  * Amount is shown for comparison only and never affects the order.
  */
-function nearestFirst(offersById: Record<string, PendingOffer>): PendingOffer[] {
+function nearestFirst(offers: IncomingOfferWithDistance[]): IncomingOfferWithDistance[] {
   const distance = (offer: PendingOffer) => offer.distanceMeters ?? Number.POSITIVE_INFINITY;
-  return Object.values(offersById).sort((a, b) => distance(a) - distance(b));
+  return offers.sort((a, b) => distance(a) - distance(b));
 }
 
 /**
@@ -67,11 +70,11 @@ function nearestFirst(offersById: Record<string, PendingOffer>): PendingOffer[] 
 export default function IncomingJobsScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const offersById = useIncomingOffersStore((state) => state.offersById);
+  const offersWithDistance = useIncomingOfferDistances();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
 
-  const offers = useMemo(() => nearestFirst(offersById), [offersById]);
+  const offers = nearestFirst(offersWithDistance);
 
   // The highlighted job, derived from the selection: when the selected offer
   // is gone (accepted/declined/expired) the highlight falls back to the first
@@ -82,7 +85,7 @@ export default function IncomingJobsScreen() {
     return selected ? selectedJobId : (offers[0]?.jobId ?? null);
   }, [selectedJobId, offers]);
 
-  const listRef = useRef<FlatList<PendingOffer>>(null);
+  const listRef = useRef<FlatList<IncomingOfferWithDistance>>(null);
   // The last pager index we deliberately scrolled/highlighted to, so the
   // re-scroll effect below knows when a list reshuffle needs a scroll and
   // never fights a manual swipe.
@@ -100,15 +103,13 @@ export default function IncomingJobsScreen() {
 
   const focus = useCallback(
     (jobId: string) => {
-      const index = nearestFirst(useIncomingOffersStore.getState().offersById).findIndex(
-        (offer) => offer.jobId === jobId,
-      );
+      const index = offers.findIndex((offer) => offer.jobId === jobId);
       if (index < 0) return;
       activeIndexRef.current = index;
       setSelectedJobId(jobId);
       scrollToIndex(index);
     },
-    [scrollToIndex],
+    [offers, scrollToIndex],
   );
 
   // When the active job's position in the list moves (an earlier offer expired)
@@ -124,7 +125,7 @@ export default function IncomingJobsScreen() {
 
   // The pager drives the highlight whenever the user swipes between cards.
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken<PendingOffer>[] }) => {
+    ({ viewableItems }: { viewableItems: ViewToken<IncomingOfferWithDistance>[] }) => {
       const first = viewableItems.find(
         (token) => token.index !== null && token.index !== undefined,
       );
@@ -157,7 +158,7 @@ export default function IncomingJobsScreen() {
         setBusyJobId(null);
       }
     },
-    [queryClient],
+    [queryClient, t],
   );
 
   const handleDecline = useCallback(
@@ -227,10 +228,6 @@ export default function IncomingJobsScreen() {
       </View>
     </Screen>
   );
-}
-
-function formatOfferDistance(meters: number | null): string | null {
-  return formatDistanceMeters(meters);
 }
 
 function formatClock(remainingMs: number): string {
@@ -377,7 +374,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
   onAccept,
   onDecline,
 }: {
-  offer: PendingOffer;
+  offer: IncomingOfferWithDistance;
   busy: boolean;
   onAccept: (offer: PendingOffer) => Promise<string | null>;
   onDecline: (offer: PendingOffer) => Promise<string | null>;
@@ -393,7 +390,13 @@ const FocusedJobCard = memo(function FocusedJobCard({
   }, [error]);
 
   const amountPaise = offer.amountPaise;
-  const distanceLabel = formatOfferDistance(offer.distanceMeters);
+  const distanceLabel =
+    formatDistanceMeters(offer.distanceMeters) ??
+    t(
+      offer.distanceStatus === 'loading'
+        ? 'incomingJobs.calculatingDistance'
+        : 'incomingJobs.distanceUnavailable',
+    );
   const deadline = offerDeadlineMs(offer);
   const remaining = deadline !== null ? Math.max(0, deadline - now) : null;
   const urgent = remaining !== null && remaining > 0 && remaining <= URGENT_THRESHOLD_MS;
@@ -421,11 +424,9 @@ const FocusedJobCard = memo(function FocusedJobCard({
             ) : null}
           </View>
 
-          {distanceLabel ? (
-            <Text variant="body" className="mt-1 text-text-muted">
-              {distanceLabel}
-            </Text>
-          ) : null}
+          <Text variant="body" className="mt-1 text-text-muted">
+            {distanceLabel}
+          </Text>
 
           <View className="mt-2 flex-row flex-wrap items-center gap-2">
             {remaining !== null ? (

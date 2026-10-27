@@ -109,9 +109,20 @@ describe('toPendingOfferFromAvailableJob', () => {
     expect(offer.expiresAt).toBeNull();
     expect(offer.offerExpiresAt).toBeNull();
   });
+
+  it('retains work coordinates for reactive distance calculation', () => {
+    expect(toPendingOfferFromAvailableJob(job)).toMatchObject({
+      coordinates: { latitude: 12.97, longitude: 77.6 },
+    });
+  });
 });
 
 describe('toPendingOfferFromPushData', () => {
+  it('preserves a zero-metre distance from push', () => {
+    expect(
+      toPendingOfferFromPushData({ jobId: 'job-1', distanceMeters: '0' })?.distanceMeters,
+    ).toBe(0);
+  });
   it('ignores the job-level push expiry for the offer window', () => {
     const offer = toPendingOfferFromPushData({
       jobId: 'job-1',
@@ -153,6 +164,10 @@ describe('toPendingOfferFromNative', () => {
     expect(offer.offerExpiresAt).toBeNull();
   });
 
+  it('preserves a zero-metre distance from the overlay', () => {
+    expect(toPendingOfferFromNative({ ...native, distanceMeters: '0' }).distanceMeters).toBe(0);
+  });
+
   it('keeps a minted offer window from the native store', () => {
     const offer = toPendingOfferFromNative({
       ...native,
@@ -181,7 +196,9 @@ describe('incoming offers store offer window', () => {
 
     const stored = getOffer('job-1');
     expect(stored.receivedAt).toBe(receivedAt);
-    expect(stored.offerExpiresAt).toBe(new Date(receivedAt + JOB_DEFAULTS.offerTtlMs).toISOString());
+    expect(stored.offerExpiresAt).toBe(
+      new Date(receivedAt + JOB_DEFAULTS.offerTtlMs).toISOString(),
+    );
     expect(stored.expiresAt).toBeNull();
     expect(offerDeadlineMs(stored)).toBe(receivedAt + JOB_DEFAULTS.offerTtlMs);
     expect(offerRemainingFraction(stored, receivedAt)).toBe(1);
@@ -260,7 +277,9 @@ describe('incoming offers store offer window', () => {
 
     const stored = getOffer('job-1');
     expect(stored.expiresAt).toBeNull();
-    expect(stored.offerExpiresAt).toBe(new Date(receivedAt + JOB_DEFAULTS.offerTtlMs).toISOString());
+    expect(stored.offerExpiresAt).toBe(
+      new Date(receivedAt + JOB_DEFAULTS.offerTtlMs).toISOString(),
+    );
     expect(offerDeadlineMs(stored)).toBe(receivedAt + JOB_DEFAULTS.offerTtlMs);
   });
 });

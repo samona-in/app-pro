@@ -238,6 +238,8 @@
     "count_one": "{{count}} job",
     "count_other": "{{count}} jobs",
     "titleFallback": "New job request",
+    "calculatingDistance": "Calculating distance...",
+    "distanceUnavailable": "Distance unavailable",
     "amountA11y": "{{amount}} — job request",
     "expiresIn": "Expires in {{time}}",
     "accept": "Accept",
