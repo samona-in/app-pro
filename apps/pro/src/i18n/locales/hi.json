@@ -238,6 +238,8 @@
     "count_one": "{{count}} काम",
     "count_other": "{{count}} काम",
     "titleFallback": "नया काम अनुरोध",
+    "calculatingDistance": "दूरी की गणना हो रही है...",
+    "distanceUnavailable": "दूरी उपलब्ध नहीं है",
     "amountA11y": "{{amount}} — काम अनुरोध",
     "expiresIn": "{{time}} में समाप्त होता है",
     "accept": "स्वीकार करें",

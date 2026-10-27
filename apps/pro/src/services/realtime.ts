@@ -1,7 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { APP_TYPES, REALTIME_PATH } from '@samona/config';
 import type {
-  AvailableJob,
+  Job,
   ChatMessage,
   JobDetail,
   MessageReceiptUpdate,
@@ -20,8 +20,8 @@ import { env } from '@/env';
  *    closed: no token, no connection.
  */
 export interface RealtimeEventMap {
-  /** A new open job landed the pro may want. Payload: AvailableJob. */
-  'job:new': AvailableJob;
+  /** A new open job DTO; per-recipient distance is carried by push, not this event. */
+  'job:new': Job;
   /** A job the pro is party to changed state. Payload: JobDetail. */
   'job:status': JobDetail;
   /** A new chat message landed on a job the pro is party to. Payload: ChatMessage. */

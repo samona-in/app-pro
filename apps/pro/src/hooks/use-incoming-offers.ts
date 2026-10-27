@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { usePathname, useRouter } from 'expo-router';
-import { isActiveJobStatus, JobStatus, type AvailableJob, type JobDetail } from '@samona/types';
+import { isActiveJobStatus, JobStatus, type Job, type JobDetail } from '@samona/types';
 import { subscribe } from '@/services/realtime';
 import { setOverlaySuppressed } from '@/services/overlay-alert';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@/stores/incoming-offers';
 import { useSession } from './use-session';
 import { useProJobs } from './use-jobs';
+import { useProLocationSync } from './use-pro-location-sync';
 
 const UNAVAILABLE_STATUSES: ReadonlySet<JobDetail['status']> = new Set<JobDetail['status']>([
   JobStatus.ACCEPTED,
@@ -56,6 +57,9 @@ export function useIncomingOffers() {
   const hasActiveJob = jobs.some((job) => isActiveJobStatus(job.status));
 
   const count = useIncomingOffersStore((state) => Object.keys(state.offersById).length);
+  // Track only while requests need distances; availability is independently
+  // managed by the online-status service and its profile cache.
+  useProLocationSync(isAuthenticated && isOnboardingComplete && !hasActiveJob && count > 0);
   const previousCountRef = useRef(0);
 
   // Advance the countdown clock and prune expired offers once a second.
@@ -100,7 +104,7 @@ export function useIncomingOffers() {
   useEffect(() => {
     if (!isAuthenticated) return;
     const unsubscribes = [
-      subscribe('job:new', (job: AvailableJob) => {
+      subscribe('job:new', (job: Job) => {
         useIncomingOffersStore.getState().upsert(toPendingOfferFromAvailableJob(job));
       }),
       subscribe('job:status', (detail: JobDetail) => {

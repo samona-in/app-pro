@@ -6,6 +6,7 @@ import { env } from '@/env';
 import { i18nInstance } from '@/i18n';
 import { api } from './api';
 import { checkDeviceReadiness, isDeviceReady } from './device-readiness-state';
+import { useProLocationStore } from '@/stores/pro-location';
 import {
   type OnlineStatus,
   type OnlineStatusState,
@@ -109,7 +110,12 @@ async function getValidLocation(): Promise<{ latitude: number; longitude: number
       // master toggle is off, instead of just failing.
       mayShowUserSettingsDialog: true,
     });
-    return { latitude: position.coords.latitude, longitude: position.coords.longitude };
+    const coordinates = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    };
+    useProLocationStore.getState().setCoordinates(coordinates);
+    return coordinates;
   } catch (error) {
     // Surface one clear, actionable reason instead of a raw fatal error.
     const code = (error as { code?: string } | null)?.code;

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { JOB_DEFAULTS } from '@samona/config';
-import type { AvailableJob } from '@samona/types';
+import type { AvailableJob, Job } from '@samona/types';
+import type { Coordinates } from '@/services/location';
 import {
   clearNativeJobAlert,
   getPendingNativeJobs,
@@ -46,6 +47,8 @@ export interface PendingOffer {
   address: string | null;
   /** Straight-line distance from the pro, in metres; null when unknown. */
   distanceMeters: number | null;
+  /** Work coordinates, retained from the socket DTO; absent on legacy native/push offers. */
+  coordinates?: Coordinates | null;
   /** Guaranteed amount, in paise. */
   amountPaise: number | null;
   /** Job-level expiry (ISO); never the offer countdown. */
@@ -67,6 +70,7 @@ function mergeOffer(existing: PendingOffer, incoming: PendingOffer): PendingOffe
     serviceCategory: incoming.serviceCategory ?? existing.serviceCategory,
     address: incoming.address ?? existing.address,
     distanceMeters: incoming.distanceMeters ?? existing.distanceMeters,
+    coordinates: incoming.coordinates ?? existing.coordinates,
     amountPaise: incoming.amountPaise ?? existing.amountPaise,
     expiresAt: incoming.expiresAt ?? existing.expiresAt,
     offerExpiresAt: incoming.offerExpiresAt ?? existing.offerExpiresAt,
@@ -89,9 +93,14 @@ function mergeOffer(existing: PendingOffer, incoming: PendingOffer): PendingOffe
  */
 function ensureOfferDeadline(offer: PendingOffer): PendingOffer {
   const deadline =
-    offer.offerExpiresAt ??
-    new Date(offer.receivedAt + JOB_DEFAULTS.offerTtlMs).toISOString();
+    offer.offerExpiresAt ?? new Date(offer.receivedAt + JOB_DEFAULTS.offerTtlMs).toISOString();
   return { ...offer, offerExpiresAt: deadline };
+}
+
+function parseDistance(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const meters = Number(value);
+  return Number.isFinite(meters) && meters >= 0 ? meters : null;
 }
 
 /** An offer as persisted by the native AlertStore (rehydrated on foreground). */
@@ -102,7 +111,7 @@ export function toPendingOfferFromNative(native: PendingNativeJob): PendingOffer
     serviceName: native.serviceName,
     serviceCategory: native.serviceCategory,
     address: native.address,
-    distanceMeters: native.distanceMeters ? Number(native.distanceMeters) || null : null,
+    distanceMeters: parseDistance(native.distanceMeters),
     amountPaise: native.amountPaise ? Number(native.amountPaise) || null : null,
     // The native store's `expiresAt` is the job-level expiry, so it never
     // becomes the offer window; `offerExpiresAt` is kept when a minted token
@@ -123,13 +132,19 @@ export function toPendingOfferFromNative(native: PendingNativeJob): PendingOffer
  * the offer deadline instead: `ensureOfferDeadline` applies the default offer
  * window from this offer's arrival time.
  */
-export function toPendingOfferFromAvailableJob(job: AvailableJob): PendingOffer {
+export function toPendingOfferFromAvailableJob(
+  job: Job & Partial<Pick<AvailableJob, 'distanceKm'>>,
+): PendingOffer {
   return {
     jobId: job.id,
     title: `${job.service.name} job nearby`,
     serviceName: job.service.name,
     serviceCategory: job.customSkill ?? job.skill.name,
     address: job.locationLabel,
+    coordinates:
+      job.latitude != null && job.longitude != null
+        ? { latitude: job.latitude, longitude: job.longitude }
+        : null,
     distanceMeters:
       typeof job.distanceKm === 'number' && Number.isFinite(job.distanceKm)
         ? Math.round(job.distanceKm * 1000)
@@ -148,7 +163,7 @@ export function toPendingOfferFromPushData(data: Record<string, unknown>): Pendi
   if (!jobId) return null;
   const str = (key: string): string | null =>
     typeof data[key] === 'string' && data[key] !== '' ? (data[key] as string) : null;
-  const dist = str('distanceMeters') ? Number(str('distanceMeters')) || null : null;
+  const dist = parseDistance(data.distanceMeters);
   const amount = str('amountPaise') ? Number(str('amountPaise')) || null : null;
   return {
     jobId,

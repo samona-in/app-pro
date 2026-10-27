@@ -238,6 +238,8 @@
     "count_one": "{{count}} పని",
     "count_other": "{{count}} పనులు",
     "titleFallback": "కొత్త పని అభ్యర్థన",
+    "calculatingDistance": "దూరం లెక్కిస్తోంది...",
+    "distanceUnavailable": "దూరం అందుబాటులో లేదు",
     "amountA11y": "{{amount}} — పని అభ్యర్థన",
     "expiresIn": "{{time}}లో గడువు ముగుస్తుంది",
     "accept": "అంగీకరించండి",
