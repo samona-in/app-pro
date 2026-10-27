@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "in.samona.pro",
-      "versionCode": 7,
+      "versionCode": 8,
       "newArchEnabled": true,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
