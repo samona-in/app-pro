@@ -14,6 +14,7 @@ import {
 } from '@/constants/support';
 import { color } from '@/theme';
 import { openExternalUrl } from '@/utils/open-url';
+import { formatPhoneForCall } from '@/utils/phone';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -116,13 +117,15 @@ export default function HelpSupport() {
         <LinkRow
           icon="call-outline"
           label="Call support"
-          onPress={() =>
+          onPress={() => {
+            const formatted = formatPhoneForCall(SUPPORT_PHONE);
+            if (!formatted) return;
             openExternalUrl(
-              `tel:${SUPPORT_PHONE}`,
+              `tel:${formatted}`,
               'Could not start the call',
               'No app on this device can place calls.',
-            )
-          }
+            );
+          }}
         />
         <LinkRow
           icon="logo-whatsapp"

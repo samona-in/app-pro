@@ -16,6 +16,7 @@ import {
 } from '@/constants/support';
 import { color } from '@/theme';
 import { openExternalUrl } from '@/utils/open-url';
+import { formatPhoneForCall } from '@/utils/phone';
 
 function SectionHeading({ children }: { children: string }) {
   return (
@@ -75,13 +76,15 @@ export default function HelpSupport() {
         <ListRow
           icon="call-outline"
           label={t('helpSupport.rows.callSupport')}
-          onPress={() =>
+          onPress={() => {
+            const formatted = formatPhoneForCall(SUPPORT_PHONE);
+            if (!formatted) return;
             openExternalUrl(
-              `tel:${SUPPORT_PHONE}`,
+              `tel:${formatted}`,
               t('helpSupport.errors.callFailedTitle'),
               t('helpSupport.errors.callFailedMessage'),
-            )
-          }
+            );
+          }}
         />
         <ListRow
           icon="logo-whatsapp"
