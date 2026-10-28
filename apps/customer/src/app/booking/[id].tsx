@@ -140,19 +140,26 @@ export default function BookingDetail() {
       </View>
 
       {job.status === JobStatus.ARRIVED && job.verificationOtp ? (
-        <View className="items-center pb-4">
-          <Text variant="body" className="text-text-muted text-center">
-            Share your verification code with your professional to start the work.
-          </Text>
-          <View className="mt-3 items-center px-6 py-2">
+        <View className="mt-2">
+          <View className="h-px bg-border w-full" />
+          <View className="px-3 flex-row items-center justify-between py-3">
+            <View>
+              <Text variant="bodyStrong" className="text-text-primary">
+                Verification code
+              </Text>
+              <Text variant="footnote" className="mt-0.5 text-text-muted">
+                Share with your professional to start work
+              </Text>
+            </View>
             <Text
-              variant="display"
-              className="font-semibold tracking-widest"
-              style={{ color: '#054DFF', letterSpacing: 12 }}
+              variant="title"
+              className="font-semibold"
+              style={{ color: '#054DFF', letterSpacing: 8 }}
             >
               {job.verificationOtp}
             </Text>
           </View>
+          <View className="h-px bg-border w-full" />
         </View>
       ) : null}
 
