@@ -10,6 +10,7 @@ import { LoadingState } from '@/components/feedback';
 import { proDisplayName } from '@/components/booking';
 import { useBooking, useMessages, useSession } from '@/hooks';
 import { color } from '@/theme';
+import { formatPhoneForCall } from '@/utils/phone';
 
 /**
  * The Customer's "call professional" control in the native header, styled like
@@ -17,13 +18,14 @@ import { color } from '@/theme';
  * with the icon tinted brand.
  */
 function ChatHeaderRight({ phone, label }: { phone: string | null | undefined; label: string }) {
-  if (!phone) return null;
+  const formattedPhone = formatPhoneForCall(phone);
+  if (!formattedPhone) return null;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Call ${label}`}
       onPress={() => {
-        void openURL(`tel:${phone}`).catch(() => {
+        void openURL(`tel:${formattedPhone}`).catch(() => {
           Alert.alert('Could not start the call', 'No app on this device can place calls.');
         });
       }}

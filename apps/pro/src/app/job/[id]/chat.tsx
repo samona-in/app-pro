@@ -10,6 +10,7 @@ import { ChatFooter, ConversationClosed, MessageBubble, QuickChatPresets } from 
 import { LoadingState } from '@/components/feedback';
 import { useMessages, useProJobs, useSession } from '@/hooks';
 import { color } from '@/theme';
+import { formatPhoneForCall } from '@/utils/phone';
 
 /**
  * The Pro's "call customer" control in the native header, styled like the
@@ -18,13 +19,14 @@ import { color } from '@/theme';
  */
 function ChatHeaderRight({ phone }: { phone: string | null | undefined }) {
   const { t } = useTranslation();
-  if (!phone) return null;
+  const formattedPhone = formatPhoneForCall(phone);
+  if (!formattedPhone) return null;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t('chat.callCustomer')}
       onPress={() => {
-        void openURL(`tel:${phone}`).catch(() => {
+        void openURL(`tel:${formattedPhone}`).catch(() => {
           Alert.alert(t('chat.couldNotStartCall'), t('chat.couldNotStartCallBody'));
         });
       }}

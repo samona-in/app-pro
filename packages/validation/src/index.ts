@@ -7,6 +7,7 @@ export * from './job';
 export * from './location';
 export * from './message';
 export * from './notification';
+export * from './phone';
 export * from './primitives';
 export * from './pro';
 export * from './user';

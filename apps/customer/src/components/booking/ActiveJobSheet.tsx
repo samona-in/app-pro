@@ -25,6 +25,7 @@ import { ServiceImage } from '@/components/home/ServiceImage';
 import { useActiveOrders } from '@/hooks';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
+import { formatPhoneForCall } from '@/utils/phone';
 import { jobStatusHint, proDisplayName } from './active-job-copy';
 
 /** The collapsed hint strip. Compact: grab handle + one 44pt touch row. */
@@ -120,8 +121,9 @@ function HintHandle({ job, hasMore, extraCount }: HintHandleProps) {
 
   const callPro = useCallback(() => {
     const phone = job.pro?.phone;
-    if (!phone) return;
-    void openURL(`tel:${phone}`).catch(() => {
+    const formattedPhone = formatPhoneForCall(phone);
+    if (!formattedPhone) return;
+    void openURL(`tel:${formattedPhone}`).catch(() => {
       Alert.alert('Could not start the call', 'No app on this device can place calls.');
     });
   }, [job.pro?.phone]);
