@@ -77,19 +77,8 @@ export function BookingStatusHero({ job }: Props) {
           Work in progress
         </Text>
         <Text variant="body" className="mt-1 text-center text-text-muted">
-          Share your verification code with your professional to start the work.
+          Your professional is working on your service.
         </Text>
-        {job.verificationOtp ? (
-          <View className="mt-4 items-center px-6 py-2">
-            <Text
-              variant="display"
-              className="font-semibold tracking-widest"
-              style={{ color: '#054DFF', letterSpacing: 12 }}
-            >
-              {job.verificationOtp}
-            </Text>
-          </View>
-        ) : null}
         {job.acceptedAt ? (
           <Text variant="footnote" className="mt-2 text-text-muted">
             Started at {formatClockTime(job.acceptedAt)}

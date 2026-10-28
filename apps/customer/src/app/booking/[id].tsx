@@ -139,6 +139,23 @@ export default function BookingDetail() {
         <BookingStatusHero job={job} />
       </View>
 
+      {job.status === JobStatus.ARRIVED && job.verificationOtp ? (
+        <View className="items-center pb-4">
+          <Text variant="body" className="text-text-muted text-center">
+            Share your verification code with your professional to start the work.
+          </Text>
+          <View className="mt-3 items-center px-6 py-2">
+            <Text
+              variant="display"
+              className="font-semibold tracking-widest"
+              style={{ color: '#054DFF', letterSpacing: 12 }}
+            >
+              {job.verificationOtp}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {showMap ? <ProfessionalTrackingMap job={job} proLocation={null} /> : null}
 
       {showProCard && job.status !== JobStatus.REQUESTED && job.status !== JobStatus.OFFERED && job.status !== JobStatus.CANCELLED && job.status !== JobStatus.EXPIRED ? (
