@@ -34,10 +34,10 @@ export function BookingStatusHero({ job }: Props) {
           />
         ) : null}
         <Text variant="title" className="mt-2 text-center">
-          Finding the best professional near you...
+          Waiting for professional acceptance
         </Text>
-        <Text variant="body" className="mt-1 text-center text-text-secondary">
-          We're searching for available professionals in your area.
+        <Text variant="body" className="mt-1 text-center text-text-muted">
+          Once the professional accepts, you will get notified
         </Text>
       </View>
     );
