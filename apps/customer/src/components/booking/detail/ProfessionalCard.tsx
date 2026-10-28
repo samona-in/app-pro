@@ -91,9 +91,9 @@ export function ProfessionalCard({ job }: Props) {
             accessibilityLabel="Call professional"
           >
             <View className="h-10 w-10 items-center justify-center">
-              <Ionicons name="call" size={22} color="#054DFF" />
+              <Ionicons name="call" size={22} color={color['text-primary']} />
             </View>
-            <Text variant="caption" style={{ color: '#054DFF' }}>
+            <Text variant="caption" className="text-text-primary">
               Call
             </Text>
           </Pressable>
