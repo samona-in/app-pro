@@ -60,11 +60,11 @@ export function BookingStatusHero({ job }: Props) {
           Share your verification code with your professional to start the work.
         </Text>
         {job.verificationOtp ? (
-          <View className="mt-4 items-center rounded-2xl bg-brand-soft px-6 py-3">
+          <View className="mt-4 items-center px-6 py-2">
             <Text
               variant="display"
-              className="font-semibold"
-              style={{ color: '#054DFF', letterSpacing: 8 }}
+              className="font-semibold tracking-widest"
+              style={{ color: '#054DFF', letterSpacing: 12 }}
             >
               {job.verificationOtp}
             </Text>
