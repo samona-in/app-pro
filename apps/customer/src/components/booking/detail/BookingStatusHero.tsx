@@ -56,20 +56,9 @@ export function BookingStatusHero({ job }: Props) {
         <Text variant="title" className="mt-2 text-center">
           Professional has arrived
         </Text>
-        <Text variant="body" className="mt-1 text-center text-text-secondary">
-          Share your verification code with your professional to start the work.
+        <Text variant="body" className="mt-1 text-center text-text-muted">
+          Your professional is at the location
         </Text>
-        {job.verificationOtp ? (
-          <View className="mt-4 items-center px-6 py-2">
-            <Text
-              variant="display"
-              className="font-semibold tracking-widest"
-              style={{ color: '#054DFF', letterSpacing: 12 }}
-            >
-              {job.verificationOtp}
-            </Text>
-          </View>
-        ) : null}
       </View>
     );
   }
