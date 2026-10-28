@@ -2,29 +2,18 @@ import { useCallback, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, View } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { isChatClosed, JobStatus } from '@samona/types';
-import { bookingStatusLabel, proDisplayName } from '@/components/booking';
-import { UnreadBadge } from '@/components/chat';
+import { JobStatus } from '@samona/types';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { BookingStatusHero, ProfessionalCard, ProfessionalTrackingMap } from '@/components/booking/detail';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { Avatar, Button, Screen, Text } from '@/components/ui';
-import { useBooking, useCancelBooking, useSubmitGuard, useUnreadMessages } from '@/hooks';
+import { Button, Screen, Text } from '@/components/ui';
+import { useBooking, useCancelBooking, useSubmitGuard } from '@/hooks';
 import { color } from '@/theme';
-import type { ComponentProps } from 'react';
-import {
-  formatBookingDate,
-  formatChatTime,
-  formatClockTime,
-  formatJobDate,
-  formatRupees,
-} from '@/utils/format';
+import { formatBookingDate, formatRupees } from '@/utils/format';
 
-/**
- * Statuses the customer may still cancel: only before the professional starts
- * the work. Once the job is in progress there is no turning back — the last
- * chance is after arrival, when the pro has seen the job and can hand it back.
- */
 const CANCELLABLE: JobStatus[] = [
   JobStatus.REQUESTED,
+  JobStatus.OFFERED,
   JobStatus.ACCEPTED,
   JobStatus.TRAVELLING,
   JobStatus.ARRIVED,
@@ -34,93 +23,16 @@ function canCancel(status: JobStatus): boolean {
   return CANCELLABLE.includes(status);
 }
 
-/** Icon and background colour for each booking status. */
-type IoniconsName = ComponentProps<typeof Ionicons>['name'];
-
-const STATUS_ICON: Record<JobStatus, { icon: IoniconsName; surface: string; tint: string }> = {
-  REQUESTED: { icon: 'time-outline', surface: 'bg-info-surface', tint: color.info },
-  OFFERED: { icon: 'time-outline', surface: 'bg-info-surface', tint: color.info },
-  ACCEPTED: {
-    icon: 'checkmark-circle-outline',
-    surface: 'bg-info-surface',
-    tint: color.info,
-  },
-  TRAVELLING: {
-    icon: 'navigate-outline',
-    surface: 'bg-info-surface',
-    tint: color.info,
-  },
-  ARRIVED: {
-    icon: 'location-outline',
-    surface: 'bg-info-surface',
-    tint: color.info,
-  },
-  IN_PROGRESS: {
-    icon: 'construct-outline',
-    surface: 'bg-info-surface',
-    tint: color.info,
-  },
-  COMPLETED: {
-    icon: 'cash-outline',
-    surface: 'bg-warning-surface',
-    tint: color.warning,
-  },
-  PAYMENT_PENDING: {
-    icon: 'cash-outline',
-    surface: 'bg-warning-surface',
-    tint: color.warning,
-  },
-  PAID: {
-    icon: 'checkmark-circle-outline',
-    surface: 'bg-success-surface',
-    tint: color.success,
-  },
-  CANCELLED: {
-    icon: 'close-circle-outline',
-    surface: 'bg-danger-surface',
-    tint: color.danger,
-  },
-  EXPIRED: {
-    icon: 'time-outline',
-    surface: 'bg-surface-muted',
-    tint: color['text-secondary'],
-  },
-};
-
-/**
- * Compound "call + message" contact button in the native header. A chat-bubble
- * glyph with a small call badge reads as both ways to reach the professional;
- * the 44pt surface circle keeps it consistent with IconButton. Only rendered
- * once a pro is assigned — before that there is nobody to reach. The red dot in
- * the corner carries how many pro messages are still unread.
- */
-function CallMessageButton({ jobId, unread }: { jobId: string; unread: number }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Call or message professional"
-      onPress={() => router.push({ pathname: '/booking/[id]/chat', params: { id: jobId } })}
-      className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted active:opacity-70"
-    >
-      <View>
-        <Ionicons name="chatbubble-ellipses" size={22} color={color.brand} />
-        <View className="absolute -bottom-1 -right-2 h-5 w-5 items-center justify-center rounded-full bg-brand">
-          <Ionicons name="call" size={11} color={color['brand-contrast']} />
-        </View>
-      </View>
-      <UnreadBadge count={unread} className="absolute -right-1 -top-1" />
-    </Pressable>
-  );
-}
-
-function formatCreatedAt(iso: string): string {
-  return `${formatBookingDate(iso)} · ${formatChatTime(iso)}`;
+function formatHeaderDateTime(iso: string): string {
+  return `${formatBookingDate(iso)} · ${new Date(iso).toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })}`;
 }
 
 export default function BookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: job, isPending, isError, refetch } = useBooking(id);
-  const unread = useUnreadMessages();
 
   const cancel = useCancelBooking(id);
   const { run: requestCancel, isSubmitting: cancelling } = useSubmitGuard(() => {
@@ -166,8 +78,8 @@ export default function BookingDetail() {
 
   if (isPending) {
     return (
-      <Screen edges={['bottom']}>
-        <View className="flex-1 justify-center">
+      <Screen edges={['bottom']} padded={false}>
+        <View className="flex-1 justify-center px-3">
           <LoadingState message="Loading booking" size="inline" />
         </View>
       </Screen>
@@ -176,8 +88,8 @@ export default function BookingDetail() {
 
   if (isError || !job) {
     return (
-      <Screen edges={['bottom']}>
-        <View className="flex-1 justify-center">
+      <Screen edges={['bottom']} padded={false}>
+        <View className="flex-1 justify-center px-3">
           <ErrorState
             title="Couldn't load this booking"
             message="Check your connection and try again."
@@ -189,215 +101,180 @@ export default function BookingDetail() {
   }
 
   const isTerminal = ([JobStatus.CANCELLED, JobStatus.EXPIRED] as JobStatus[]).includes(job.status);
-  const isInProgress = job.status === JobStatus.IN_PROGRESS;
-  const isPaid = job.status === JobStatus.PAID;
-  const showTiming =
-    (isInProgress || isPaid || job.completedAt !== null) && job.acceptedAt !== null;
+  const showMap = job.status === JobStatus.ACCEPTED || job.status === JobStatus.TRAVELLING;
+  const showProCard = job.pro !== null || job.status !== JobStatus.REQUESTED;
   const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  const paidLabel = isPaid ? 'Amount paid' : 'Amount';
-  const statusVisual = STATUS_ICON[job.status] ?? STATUS_ICON[JobStatus.REQUESTED];
+
+  const serviceTitle = job.skill?.name && job.skill.name !== job.service.name ? job.skill.name : job.service.name;
+  const hasLocation = typeof job.latitude === 'number' && typeof job.longitude === 'number';
 
   return (
-    <Screen scrollable edges={['top', 'bottom']} onRefresh={handleRefresh} refreshing={refreshing}>
+    <Screen scrollable edges={['top', 'bottom']} onRefresh={handleRefresh} refreshing={refreshing} padded={false}>
       <Stack.Screen
         options={{
           headerTitle: () => (
             <View>
               <Text variant="bodyStrong" numberOfLines={1}>
-                {job.service.name}
+                {serviceTitle}
               </Text>
               <Text variant="caption" className="text-text-secondary">
-                {formatCreatedAt(job.createdAt)}
+                {formatHeaderDateTime(job.createdAt)}
               </Text>
             </View>
           ),
-          headerRight:
-            job.pro && !isChatClosed(job.status)
-              ? () => <CallMessageButton jobId={job.id} unread={unread.countFor(job.id)} />
-              : undefined,
+          headerRight: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Help"
+              onPress={() => router.push('/help-support')}
+              className="mr-2 h-10 w-10 items-center justify-center rounded-full"
+            >
+              <Ionicons name="help-circle-outline" size={24} color={color['text-primary']} />
+            </Pressable>
+          ),
         }}
       />
 
-      <View className="pt-4 flex-row items-center gap-3">
-        <View
-          className={`h-11 w-11 items-center justify-center rounded-xl ${statusVisual.surface}`}
-        >
-          <Ionicons name={statusVisual.icon} size={22} color={statusVisual.tint} />
-        </View>
-        <Text variant="bodyLg" className="font-semibold">
-          {bookingStatusLabel(job.status)}
-        </Text>
+      <View className="pt-2 px-3">
+        <BookingStatusHero job={job} />
       </View>
 
-      {job.status === JobStatus.ARRIVED && job.verificationOtp ? (
-        <View className="mt-4 flex-row items-center gap-3">
-          <View className="h-11 w-11 items-center justify-center rounded-xl bg-brand-soft">
-            <Ionicons name="shield-checkmark-outline" size={22} color={color.brand} />
-          </View>
-          <View className="flex-1">
-            <Text variant="bodyStrong" className="text-brand">
-              Verification code
+      {showMap ? <ProfessionalTrackingMap job={job} proLocation={null} /> : null}
+
+      {showProCard && job.status !== JobStatus.REQUESTED && job.status !== JobStatus.OFFERED && job.status !== JobStatus.CANCELLED && job.status !== JobStatus.EXPIRED ? (
+        <ProfessionalCard job={job} />
+      ) : null}
+
+      <View className="mt-2">
+        <View className="px-3 flex-row items-center gap-3 py-3">
+          <Ionicons name="cash-outline" size={20} color={color['text-primary']} />
+          <View className="flex-1 flex-row items-center justify-between">
+            <View>
+              <Text variant="bodyStrong" className="text-text-primary">
+                Total amount
+              </Text>
+              <Text variant="footnote" className="mt-0.5 text-text-muted">
+                The amount agreed with professional.
+              </Text>
+            </View>
+            <Text variant="title" className="text-text-primary">
+              {formatRupees(amount)}
             </Text>
           </View>
-          <Text
-            variant="title"
-            className="font-semibold"
-            style={{ color: color.brand, letterSpacing: 4 }}
-          >
-            {job.verificationOtp}
-          </Text>
         </View>
-      ) : null}
+        <View className="h-px bg-border w-full" />
 
-      <View className="my-2 -mx-5 h-px bg-border" />
-
-      <View className="py-4 flex-row items-center gap-3">
-        {job.pro ? (
-          <Avatar name={proDisplayName(job.pro)} uri={job.pro.photoUrl} size="md" />
-        ) : (
-          <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-muted">
-            <Ionicons name="search-outline" size={18} color={color['text-secondary']} />
+        <View className="px-3 flex-row items-start gap-3 py-4">
+          <Ionicons name="location-outline" size={20} color={color['text-primary']} />
+          <View className="flex-1">
+            <Text variant="bodyStrong" className="text-text-primary">
+              Service address
+            </Text>
+            <Text variant="footnote" className="mt-0.5 text-text-muted">
+              {job.locationLabel ?? 'Service location'}
+            </Text>
           </View>
-        )}
-        <View className="flex-1">
-          <Text variant="bodyLg" className="font-semibold">
-            {job.pro
-              ? job.pro.isDeleted
-                ? 'Deleted Professional'
-                : (job.pro.displayName ?? 'Professional assigned')
-              : 'Looking for a professional'}
-          </Text>
-          <Text variant="footnote" className="mt-0.5 text-text-secondary">
-            {job.pro
-              ? job.pro.isDeleted
-                ? 'This professional is no longer with Samona'
-                : job.pro.rating !== null
-                  ? `Rated ${job.pro.rating.toFixed(1)}`
-                  : 'Professional on this job'
-              : 'We notify you when someone accepts'}
-          </Text>
-        </View>
-      </View>
-
-      <View className="my-2 -mx-5 h-px bg-border" />
-
-      <View className="py-4">
-        <View className="flex-row items-center justify-between">
-          <Text variant="label">{paidLabel}</Text>
-          <Text variant="title" className="text-text-primary">
-            {formatRupees(amount)}
-          </Text>
-        </View>
-        <Text variant="footnote" className="mt-1 text-text-secondary">
-          {job.agreedPayPaise || job.finalPayPaise
-            ? 'The amount agreed with your professional.'
-            : 'The guaranteed amount offered. The final price is agreed with the professional before payment.'}
-        </Text>
-      </View>
-
-      {showTiming ? (
-        <>
-          <View className="my-2 -mx-5 h-px bg-border" />
-          <View className="py-4 flex-row items-start gap-3">
-            <View className="mt-0.5 h-11 w-11 items-center justify-center rounded-full bg-surface-muted">
-              <Ionicons name="time-outline" size={20} color={color['text-secondary']} />
+          {hasLocation ? (
+            <View className="h-16 w-16 overflow-hidden rounded-lg">
+              <MapView
+                provider={PROVIDER_DEFAULT}
+                style={{ flex: 1 }}
+                initialRegion={{
+                  latitude: job.latitude!,
+                  longitude: job.longitude!,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                pitchEnabled={false}
+                rotateEnabled={false}
+              >
+                <Marker coordinate={{ latitude: job.latitude!, longitude: job.longitude! }}>
+                  <Ionicons name="location" size={24} color="#054DFF" />
+                </Marker>
+              </MapView>
             </View>
-            <View className="flex-1">
-              <Text variant="bodyStrong">
-                {formatJobDate((job.completedAt ?? job.acceptedAt) as string)}
+          ) : null}
+        </View>
+        <View className="h-px bg-border w-full" />
+
+        <View className="px-3 py-4">
+          <Text variant="bodyStrong" className="text-text-primary">
+            What's needed
+          </Text>
+          <Text variant="body" className="mt-1 text-text-muted">
+            {job.description}
+          </Text>
+        </View>
+
+        {job.imageUrls.length > 0 ? (
+          <>
+            <View className="h-px bg-border w-full" />
+            <View className="px-3 py-4">
+              <Text variant="bodyStrong" className="text-text-primary">
+                Reference photos
               </Text>
-              <View className="mt-1 flex-row items-center gap-4">
-                <Text variant="footnote" className="text-text-secondary">
-                  started {formatClockTime(job.acceptedAt as string)}
-                </Text>
-                {isPaid ? (
-                  <Text variant="footnote" className="text-text-secondary">
-                    completed {formatClockTime(job.completedAt as string)}
-                  </Text>
-                ) : isInProgress ? (
-                  <Text variant="footnote" style={{ color: color.info }}>
-                    In progress
-                  </Text>
-                ) : (
-                  <Text variant="footnote" style={{ color: color.warning }}>
-                    Payment pending
-                  </Text>
-                )}
-              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerClassName="mt-2 flex-row gap-2"
+              >
+                {job.imageUrls.map((url) => (
+                  <Image key={url} source={{ uri: url }} className="h-24 w-24 rounded-lg" />
+                ))}
+              </ScrollView>
             </View>
-          </View>
-        </>
-      ) : null}
-
-      <View className="my-2 -mx-5 h-px bg-border" />
-
-      <View className="py-4 flex-row items-start gap-3">
-        <View className="mt-0.5 h-11 w-11 items-center justify-center rounded-full bg-surface-muted">
-          <Ionicons name="location-outline" size={20} color={color['text-secondary']} />
-        </View>
-        <View className="flex-1">
-          <Text variant="label">Where</Text>
-          <Text variant="body" className="mt-0.5" numberOfLines={2}>
-            {job.locationLabel}
-          </Text>
-        </View>
+          </>
+        ) : null}
       </View>
-
-      <View className="my-2 -mx-5 h-px bg-border" />
-
-      <View className="py-4">
-        <Text variant="label">What's needed</Text>
-        <Text variant="body" className="mt-1">
-          {job.description}
-        </Text>
-      </View>
-
-      {job.imageUrls.length > 0 ? (
-        <>
-          <View className="my-2 -mx-5 h-px bg-border" />
-          <View className="py-4">
-            <Text variant="label">Reference photos</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerClassName="flex-row gap-2 mt-2"
-            >
-              {job.imageUrls.map((url) => (
-                <Image key={url} source={{ uri: url }} className="h-28 w-28 rounded-lg" />
-              ))}
-            </ScrollView>
-          </View>
-        </>
-      ) : null}
 
       {isTerminal ? (
-        <View className="mt-4 rounded-xl border border-border bg-surface-muted p-4">
-          <Text variant="body" className="text-center text-text-secondary">
-            {job.status === JobStatus.CANCELLED
-              ? 'This booking was cancelled.'
-              : 'This request expired because no professional accepted it in time.'}
-          </Text>
+        <View className="mt-2">
+          <View className="h-px bg-border w-full" />
+          <View className="px-3 py-4">
+            <Text variant="bodyStrong" className="text-text-primary">
+              {job.status === JobStatus.CANCELLED ? 'Booking cancelled' : 'Request expired'}
+            </Text>
+            <Text variant="body" className="mt-1 text-text-muted">
+              {job.status === JobStatus.CANCELLED
+                ? 'This booking was cancelled.'
+                : 'No professional accepted your request within the available time.'}
+            </Text>
+          </View>
         </View>
       ) : null}
 
       {job.status === JobStatus.PAYMENT_PENDING ? (
-        <View className="mt-4 rounded-xl border border-brand bg-brand-soft p-4">
-          <Text variant="bodyStrong" className="text-brand">
-            Pay your professional in cash
+        <View className="mt-4 px-3">
+          <Text variant="bodyStrong" style={{ color: '#054DFF' }}>
+            Payment pending
           </Text>
-          <Text variant="footnote" className="mt-0.5 text-text-secondary">
-            SAMONA takes cash only today. Settle the agreed amount with your professional; they'll
-            confirm the collection on their side.
+          <Text variant="footnote" className="mt-0.5 text-text-muted">
+            Your professional has finished the work. Please complete the payment.
           </Text>
         </View>
-      ) : canCancel(job.status) ? (
-        <View className="mt-6 pb-4">
+      ) : null}
+
+      {canCancel(job.status) ? (
+        <View className="mt-6 mb-4 px-3">
           <Button
             label="Cancel booking"
             variant="ghost"
             size="md"
             loading={cancelling}
             onPress={() => void requestCancel()}
+          />
+        </View>
+      ) : null}
+
+      {job.status === JobStatus.CANCELLED || job.status === JobStatus.EXPIRED ? (
+        <View className="mb-4 px-3">
+          <Button
+            label="Book again"
+            variant="primary"
+            size="md"
+            onPress={() => router.replace('/(tabs)')}
           />
         </View>
       ) : null}
