@@ -29,9 +29,9 @@ export declare const createJobSchema: z.ZodObject<{
     skillSlug: z.ZodString;
     customSkill: z.ZodOptional<z.ZodString>;
     placeType: z.ZodEnum<{
+        OTHER: "OTHER";
         RESIDENCE: "RESIDENCE";
         OFFICE: "OFFICE";
-        OTHER: "OTHER";
     }>;
     placeDescription: z.ZodOptional<z.ZodString>;
     locationLabel: z.ZodOptional<z.ZodString>;

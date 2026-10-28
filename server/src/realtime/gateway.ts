@@ -4,6 +4,7 @@ import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
 import type { AuthService } from '../auth/auth.service';
 import { bearerToken, type TokenVerifier } from '../auth/token';
+import type { PrismaClient } from '../database/prisma';
 
 /**
  * Realtime delivery for the order-service lifecycle.
@@ -69,6 +70,22 @@ export const REALTIME_EVENTS = {
    * agree without waiting for the offer window to close.
    */
   JOB_OFFER_ENDED: 'job:offer:ended',
+  /**
+   * Live location update for a booking from the professional.
+   */
+  BOOKING_LOCATION_UPDATED: 'booking:location:updated',
+  /**
+   * Live tracking became unavailable (e.g. GPS disabled).
+   */
+  BOOKING_TRACKING_UNAVAILABLE: 'booking:tracking:unavailable',
+  /**
+   * Live tracking was restored after being unavailable.
+   */
+  BOOKING_TRACKING_RESTORED: 'booking:tracking:restored',
+  /**
+   * Tracking status update for a booking.
+   */
+  BOOKING_TRACKING_STATUS: 'booking:tracking:status',
 } as const;
 
 export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];
@@ -83,6 +100,8 @@ export type RealtimeEvent = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENT
 export interface RealtimeSession {
   verifier: TokenVerifier;
   authService: AuthService;
+  prisma?: PrismaClient;
+  services?: any;
 }
 
 /**
@@ -103,6 +122,8 @@ export interface RealtimeService {
   emitToUser(userId: string, event: RealtimeEvent, payload: unknown): void;
   /** Fires an event to a list of users in one pass. */
   emitToUsers(userIds: string[], event: RealtimeEvent, payload: unknown): void;
+  /** Fires an event to a room. */
+  emitToRoom?(room: string, event: RealtimeEvent, payload: unknown): void;
   /**
    * Disconnects a user's sockets — all of them, or only those on one surface
    * (`appType`). Account deletion uses it to drop a deleted identity's sockets
@@ -118,7 +139,7 @@ export function createRealtimeService(config: AppConfig): RealtimeService {
 
   const socketsByIp = new Map<string, number>();
 
-  function attach(httpServer: HttpServer, session: RealtimeSession): void {
+  function attach(httpServer: HttpServer, session: RealtimeSession & { prisma?: PrismaClient }): void {
     if (io) return;
 
     io = new SocketServer(httpServer, {
@@ -179,6 +200,62 @@ export function createRealtimeService(config: AppConfig): RealtimeService {
       void socket.join(`user:${socket.data.user.id}`);
       socket.data.userId = socket.data.user.id;
 
+      // Tracking room subscription (opt-in)
+      socket.on('booking:tracking:subscribe', async (payload: any) => {
+        try {
+          const bookingId = payload?.bookingId;
+          if (!bookingId || !session.prisma) return;
+          const job = await session.prisma.job.findUnique({
+            where: { id: bookingId },
+            include: { customer: { select: { userId: true } }, pro: { select: { userId: true } } },
+          });
+          if (!job) return;
+          const uid = socket.data.user.id;
+          if (job.customer.userId !== uid && job.pro?.userId !== uid) return;
+          await socket.join(`booking:${bookingId}:tracking`);
+        } catch (e) {
+          logger.debug('tracking subscribe failed', e);
+        }
+      });
+      socket.on('booking:tracking:unsubscribe', async (payload: any) => {
+        try {
+          const bookingId = payload?.bookingId;
+          if (!bookingId) return;
+          await socket.leave(`booking:${bookingId}:tracking`);
+        } catch {}
+      });
+
+      // Pro directly emits location updates over socket (fallback path)
+      socket.on('pro:location:update', async (payload: any) => {
+        try {
+          const uid = socket.data.user.id;
+          const appType = socket.data.user.appType;
+          if (appType !== 'pro') return;
+          const bookingId = payload?.bookingId;
+          if (!bookingId) return;
+          if ((session as any).services?.tracking?.updateLocation) {
+            await (session as any).services.tracking.updateLocation(uid, payload);
+            return;
+          }
+        } catch (e) {
+          logger.debug('pro:location:update failed', e);
+        }
+      });
+
+      socket.on('pro:tracking:status', async (payload: any) => {
+        try {
+          const uid = socket.data.user.id;
+          const appType = socket.data.user.appType;
+          if (appType !== 'pro') return;
+          const bookingId = payload?.bookingId;
+          if (!bookingId || !session.prisma) return;
+          const status = payload?.status === 'available' ? 'available' : 'unavailable';
+          await (session as any).services?.tracking?.setTrackingStatus?.(uid, { bookingId, status, reason: payload?.reason });
+        } catch (e) {
+          logger.debug('pro:tracking:status failed', e);
+        }
+      });
+
       socket.on('disconnect', (reason) => {
         const remaining = (socketsByIp.get(ip) ?? 1) - 1;
         // Delete at zero so the map cannot grow unbounded across many addresses —
@@ -204,6 +281,14 @@ export function createRealtimeService(config: AppConfig): RealtimeService {
     io.to(userIds.map((id) => `user:${id}`)).emit(event, payload);
   }
 
+  function emitToRoom(room: string, event: RealtimeEvent, payload: unknown): void {
+    if (!io) {
+      logger.debug(`Realtime not attached; dropped ${event} for room ${room}.`);
+      return;
+    }
+    io.to(room).emit(event, payload);
+  }
+
   function disconnectUser(userId: string, options?: { appType?: string }): void {
     if (!io) return;
     for (const socket of io.sockets.sockets.values()) {
@@ -221,5 +306,5 @@ export function createRealtimeService(config: AppConfig): RealtimeService {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
-  return { attach, emitToUser, emitToUsers, disconnectUser, close };
+  return { attach, emitToUser, emitToUsers, emitToRoom, disconnectUser, close };
 }

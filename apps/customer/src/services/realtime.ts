@@ -6,6 +6,9 @@ import type {
   JobDetail,
   MessageReceiptUpdate,
   MessageUnreadUpdate,
+  ProLocation,
+  TrackingUnavailablePayload,
+  TrackingRestoredPayload,
 } from '@samona/types';
 import { env } from '@/env';
 
@@ -36,6 +39,10 @@ export interface RealtimeEventMap {
    * notifications list itself is refetched from REST.
    */
   'notification:unread': CustomerNotificationUnread;
+  'booking:location:updated': ProLocation;
+  'booking:tracking:unavailable': TrackingUnavailablePayload;
+  'booking:tracking:restored': TrackingRestoredPayload;
+  'booking:tracking:status': { bookingId: string; status: string; reason?: string };
 }
 type RealtimeEvent = keyof RealtimeEventMap;
 
@@ -91,4 +98,8 @@ export function subscribe<E extends RealtimeEvent>(
 
 export function isRealtimeConnected(): boolean {
   return socket?.connected ?? false;
+}
+
+export function getRealtimeSocket(): Socket | null {
+  return socket;
 }

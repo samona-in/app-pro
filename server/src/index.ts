@@ -47,6 +47,8 @@ async function main(): Promise<void> {
   realtime.attach(httpServer, {
     verifier: services.tokenVerifier,
     authService: services.auth,
+    prisma,
+    services,
   });
 
   // Slowloris and friends: a client that opens a connection and dribbles bytes

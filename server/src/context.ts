@@ -48,6 +48,7 @@ import {
   type RetentionCleanupService,
 } from './retention/cleanup.service';
 import { createRetentionScheduler, type RetentionScheduler } from './retention/scheduler';
+import { createTrackingService, type TrackingService } from './tracking/tracking.service';
 
 /**
  * Every domain service, constructed once per process.
@@ -89,6 +90,8 @@ export interface Services {
   retention: RetentionCleanupService;
   /** Scheduler that periodically runs the retention sweep. */
   retentionScheduler: RetentionScheduler;
+  /** Live tracking for active jobs. */
+  tracking: TrackingService;
 }
 
 /** Shared infrastructure plus the service layer built on top of it. */
@@ -207,6 +210,9 @@ export function createServices(
     dryRunDefault: config.retention.dryRunDefault,
   });
 
+  const tracking = createTrackingService({ prisma, realtime });
+  tracking.startTrackingHeartbeatCheck();
+
   return {
     auth: createAuthService({ prisma }),
     tokenVerifier: createTokenVerifier({
@@ -259,5 +265,6 @@ export function createServices(
     orphan,
     retention,
     retentionScheduler,
+    tracking,
   };
 }

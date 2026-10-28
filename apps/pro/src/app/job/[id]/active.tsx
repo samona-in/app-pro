@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Modal, Pressable, View } from 'react-native';
 import { Redirect, Stack, router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { openURL } from 'expo-linking';
@@ -22,6 +22,7 @@ import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
 import { formatDistance, formatEta, formatInr } from '@/utils/format';
 import { regionFor } from '@/utils/map';
+import { startJobTracking, stopJobTracking } from '@/services/job-tracking';
 
 interface Coordinates {
   latitude: number;
@@ -161,6 +162,7 @@ export default function ActiveJobScreen() {
   const { data: jobs, isPending, isFetching, refetch } = useProJobs();
   const transition = useTransitionJob();
   const unread = useUnreadMessages();
+  const [locationBlocked, setLocationBlocked] = useState(false);
   // Docks the start-work OTP sheet. The server issues a single code the moment
   // the pro swipes Start Work; the job only moves ARRIVED → IN_PROGRESS once
   // the pro enters the code the customer reads out to them.
@@ -233,7 +235,15 @@ export default function ActiveJobScreen() {
         const granted =
           status === 'granted' ||
           (await Location.requestForegroundPermissionsAsync()).status === 'granted';
-        if (!granted || cancelled) return;
+        if (!granted || cancelled) {
+          setLocationBlocked(true);
+          return;
+        }
+        const services = await Location.hasServicesEnabledAsync();
+        if (!services || cancelled) {
+          setLocationBlocked(true);
+          return;
+        }
 
         const position = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -248,7 +258,7 @@ export default function ActiveJobScreen() {
         }
 
         subscription = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.Balanced, distanceInterval: 10 },
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 5, timeInterval: 3000 },
           (loc) => {
             if (!cancelled) {
               const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
@@ -258,17 +268,22 @@ export default function ActiveJobScreen() {
           },
         );
       } catch {
+        setLocationBlocked(true);
         // Location is unavailable — the customer pin alone is still useful, and
         // the swipe action remains available.
       }
     }
 
     void startTracking();
+    if (id) {
+      void startJobTracking(id);
+    }
     return () => {
       cancelled = true;
       if (subscription) void subscription.remove();
+      void stopJobTracking();
     };
-  }, []);
+  }, [id]);
 
   // ── Camera: fit both markers once the map and both points are ready ──────
   useEffect(() => {
@@ -422,6 +437,31 @@ export default function ActiveJobScreen() {
         }}
       />
       <Screen edges={['bottom']} padded={false} className="bg-surface">
+        <Modal visible={locationBlocked} transparent animationType="fade">
+          <View className="flex-1 items-center justify-center bg-black/60 px-6">
+            <View className="w-full rounded-2xl bg-surface p-6">
+              <Text variant="title" className="text-center">Location is turned off</Text>
+              <Text variant="body" className="mt-2 text-center text-text-secondary">
+                Turn on location services and grant permissions to continue tracking for this job.
+              </Text>
+              <View className="mt-4">
+                <Button
+                  label="Turn On Location"
+                  onPress={async () => {
+                    try {
+                      await Location.requestForegroundPermissionsAsync();
+                      const services = await Location.hasServicesEnabledAsync();
+                      if (services) {
+                        setLocationBlocked(false);
+                        void startJobTracking(id as string);
+                      }
+                    } catch {}
+                  }}
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
         {/* Map body */}
         <View className="flex-1 overflow-hidden">
           <MapView
