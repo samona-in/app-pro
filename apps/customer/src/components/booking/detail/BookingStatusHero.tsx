@@ -34,10 +34,10 @@ export function BookingStatusHero({ job }: Props) {
           />
         ) : null}
         <Text variant="title" className="mt-2 text-center">
-          Finding the best professional near you...
+          Waiting for professional acceptance near you...
         </Text>
-        <Text variant="body" className="mt-1 text-center text-text-secondary">
-          We're searching for available professionals in your area.
+        <Text variant="footnote" className="mt-1 text-center text-text-muted">
+          Once the professional accepts, you will get notified
         </Text>
       </View>
     );
@@ -56,20 +56,9 @@ export function BookingStatusHero({ job }: Props) {
         <Text variant="title" className="mt-2 text-center">
           Professional has arrived
         </Text>
-        <Text variant="body" className="mt-1 text-center text-text-secondary">
-          Share your verification code with your professional to start the work.
+        <Text variant="body" className="mt-1 text-center text-text-muted">
+          Your professional is at the location
         </Text>
-        {job.verificationOtp ? (
-          <View className="mt-4 items-center rounded-2xl bg-brand-soft px-6 py-3">
-            <Text
-              variant="display"
-              className="font-semibold"
-              style={{ color: '#054DFF', letterSpacing: 8 }}
-            >
-              {job.verificationOtp}
-            </Text>
-          </View>
-        ) : null}
       </View>
     );
   }
@@ -87,11 +76,11 @@ export function BookingStatusHero({ job }: Props) {
         <Text variant="title" className="mt-2 text-center">
           Work in progress
         </Text>
-        <Text variant="body" className="mt-1 text-center text-text-secondary">
+        <Text variant="body" className="mt-1 text-center text-text-muted">
           Your professional is working on your service.
         </Text>
         {job.acceptedAt ? (
-          <Text variant="footnote" className="mt-2 text-text-secondary">
+          <Text variant="footnote" className="mt-2 text-text-muted">
             Started at {formatClockTime(job.acceptedAt)}
           </Text>
         ) : null}
