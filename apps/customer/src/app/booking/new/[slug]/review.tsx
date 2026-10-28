@@ -4,7 +4,12 @@ import { PlaceType, JOB_DESCRIPTION_MIN } from '@samona/types';
 import { BookingStep } from '@/components/booking';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { Card, Divider, Text } from '@/components/ui';
-import { useCreateBooking } from '@/hooks';
+import {
+  useActiveSavedAddress,
+  useCreateBooking,
+  useResolvedLocationLabel,
+  useSession,
+} from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
 import { formatRupees } from '@/utils/format';
 
@@ -20,6 +25,12 @@ function SummaryRow({ label, children }: { label: string; children: React.ReactN
 export default function BookingReview() {
   const draft = useBookingDraft();
   const create = useCreateBooking();
+  const { customerProfile } = useSession();
+  const locationLabel = useResolvedLocationLabel(customerProfile);
+  const activeSavedAddress = useActiveSavedAddress(customerProfile);
+
+  const addressCaption = activeSavedAddress?.name ?? 'Your location';
+  const fullAddress = locationLabel ?? addressCaption;
 
   const placeLabel =
     draft.placeType === PlaceType.OTHER ? draft.placeDescription : humanize(draft.placeType);
@@ -87,6 +98,11 @@ export default function BookingReview() {
 
         <SummaryRow label="Where">
           <Text variant="body">{placeLabel}</Text>
+          {fullAddress ? (
+            <Text variant="caption" className="mt-0.5">
+              {fullAddress}
+            </Text>
+          ) : null}
         </SummaryRow>
         <Divider />
         <SummaryRow label="What's needed">
