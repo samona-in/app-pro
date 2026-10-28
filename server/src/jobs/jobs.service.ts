@@ -679,6 +679,9 @@ export function createJobsService(deps: JobsServiceDeps) {
       });
     });
 
+    // Stop tracking
+    await prisma.jobTracking.updateMany({ where: { jobId: row.id }, data: { isAvailable: false, lastError: 'tracking_stopped' } }).catch(() => undefined);
+
     const cancelledBy = actorIsCustomer ? ('customer' as const) : ('pro' as const);
     const customerDetail = toJobDetail(
       updated as unknown as JobDetailRow,
@@ -1257,6 +1260,18 @@ export function createJobsService(deps: JobsServiceDeps) {
     updated: JobDetailRow,
     proId: string,
   ): Promise<JobDetail> {
+    // Initialize tracking state when job is accepted
+    await prisma.jobTracking
+      .upsert({
+        where: { jobId: updated.id },
+        create: {
+          jobId: updated.id,
+          isAvailable: false,
+        },
+        update: {},
+      })
+      .catch(() => undefined);
+
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
     const customerDetail = toJobDetail(
       updated as unknown as JobDetailRow,
@@ -1514,6 +1529,10 @@ export function createJobsService(deps: JobsServiceDeps) {
 
       return next;
     });
+
+    if (action === 'complete') {
+      await prisma.jobTracking.updateMany({ where: { jobId }, data: { isAvailable: false, lastError: 'tracking_stopped' } }).catch(() => undefined);
+    }
 
     const proDetail = toJobDetail(updated as unknown as JobDetailRow, 'pro', storage, config);
     const customerDetail = toJobDetail(

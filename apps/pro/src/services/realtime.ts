@@ -6,6 +6,9 @@ import type {
   JobDetail,
   MessageReceiptUpdate,
   MessageUnreadUpdate,
+  ProLocation,
+  TrackingUnavailablePayload,
+  TrackingRestoredPayload,
 } from '@samona/types';
 import { env } from '@/env';
 
@@ -34,6 +37,10 @@ export interface RealtimeEventMap {
   'message:unread': MessageUnreadUpdate;
   /** The pro declined a pending offer (explicit tap or via an offer token). Payload: { jobId }. */
   'job:offer:ended': { jobId: string };
+  'booking:location:updated': ProLocation;
+  'booking:tracking:unavailable': TrackingUnavailablePayload;
+  'booking:tracking:restored': TrackingRestoredPayload;
+  'booking:tracking:status': { bookingId: string; status: string; reason?: string };
 }
 type RealtimeEvent = keyof RealtimeEventMap;
 
@@ -89,4 +96,8 @@ export function subscribe<E extends RealtimeEvent>(
 
 export function isRealtimeConnected(): boolean {
   return socket?.connected ?? false;
+}
+
+export function getRealtimeSocket(): Socket | null {
+  return socket;
 }

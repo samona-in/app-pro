@@ -30,12 +30,12 @@ export declare const documentPathSchema: z.ZodString;
  */
 export declare const documentUploadStartSchema: z.ZodObject<{
     type: z.ZodEnum<{
-        OTHER: "OTHER";
         ID_PROOF: "ID_PROOF";
         ADDRESS_PROOF: "ADDRESS_PROOF";
         PAYOUT_PROOF: "PAYOUT_PROOF";
         TRADE_LICENCE: "TRADE_LICENCE";
         CERTIFICATE: "CERTIFICATE";
+        OTHER: "OTHER";
     }>;
     fileName: z.ZodString;
     contentType: z.ZodEnum<{
@@ -52,12 +52,12 @@ export declare const documentUploadStartSchema: z.ZodObject<{
  */
 export declare const documentCompleteSchema: z.ZodObject<{
     type: z.ZodEnum<{
-        OTHER: "OTHER";
         ID_PROOF: "ID_PROOF";
         ADDRESS_PROOF: "ADDRESS_PROOF";
         PAYOUT_PROOF: "PAYOUT_PROOF";
         TRADE_LICENCE: "TRADE_LICENCE";
         CERTIFICATE: "CERTIFICATE";
+        OTHER: "OTHER";
     }>;
     fileName: z.ZodString;
     path: z.ZodString;

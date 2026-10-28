@@ -600,6 +600,7 @@ model Job {
   declines      JobDecline[]
   jobOffers     JobOffer[]
   messages      Message[]
+  tracking      JobTracking?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1119,4 +1120,36 @@ model PopularSkill {
 
   @@index([isActive, sortOrder])
   @@map("popular_skills")
+}
+
+/// Live tracking state for an active job.
+model JobTracking {
+  id       String @id @default(uuid()) @db.Uuid
+  jobId    String @unique @map("job_id") @db.Uuid
+  job      Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  /// Professional's latest reported location
+  latitude  Float?
+  longitude Float?
+  accuracy  Float?
+  heading   Float?
+  speed     Float?
+  /// Sequence number for ordering/deduplication
+  sequence  Int       @default(0)
+  /// Last location update timestamp from device
+  lastLocationAt DateTime? @map("last_location_at")
+  /// Server timestamp of last update
+  lastUpdatedAt DateTime   @default(now()) @updatedAt @map("last_updated_at")
+
+  /// Tracking availability status
+  isAvailable Boolean @default(true) @map("is_available")
+  lastError   String? @map("last_error")
+
+  /// Heartbeat tracking
+  lastHeartbeatAt DateTime? @map("last_heartbeat_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([jobId])
+  @@map("job_tracking")
 }

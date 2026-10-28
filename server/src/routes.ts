@@ -21,6 +21,7 @@ import { createNotificationsRouter } from './notifications/notifications.routes'
 import { createReviewsRouter } from './reviews/reviews.routes';
 import { createDocumentsRouter } from './documents/documents.routes';
 import { createAdminRouter } from './admin';
+import { createTrackingRouter } from './tracking/tracking.routes';
 
 export function createApiRouter(
   services: Services,
@@ -45,6 +46,7 @@ export function createApiRouter(
   router.use('/earnings', limiters.expensive, createEarningsRouter(services));
   router.use('/files', limiters.expensive, createFilesRouter(services));
   router.use('/documents', limiters.expensive, createDocumentsRouter(services));
+  router.use('/tracking', limiters.location, createTrackingRouter(services));
 
   router.use(
     '/admin',

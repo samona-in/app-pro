@@ -28,6 +28,7 @@ __exportStar(require("./notification"), exports);
 __exportStar(require("./phone"), exports);
 __exportStar(require("./primitives"), exports);
 __exportStar(require("./pro"), exports);
+__exportStar(require("./tracking"), exports);
 __exportStar(require("./user"), exports);
 __exportStar(require("./banner"), exports);
 //# sourceMappingURL=index.js.map

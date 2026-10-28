@@ -6,6 +6,7 @@ export * from './job';
 export * from './message';
 export * from './notification';
 export * from './pro';
+export * from './tracking';
 export * from './user';
 
 export * from './banner';

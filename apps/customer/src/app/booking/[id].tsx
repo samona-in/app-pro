@@ -101,7 +101,10 @@ export default function BookingDetail() {
   }
 
   const isTerminal = ([JobStatus.CANCELLED, JobStatus.EXPIRED] as JobStatus[]).includes(job.status);
-  const showMap = job.status === JobStatus.ACCEPTED || job.status === JobStatus.TRAVELLING;
+  const showMap =
+    job.status === JobStatus.ACCEPTED ||
+    job.status === JobStatus.TRAVELLING ||
+    job.status === JobStatus.ARRIVED;
   const showProCard = job.pro !== null || job.status !== JobStatus.REQUESTED;
   const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
 
@@ -163,7 +166,7 @@ export default function BookingDetail() {
         </View>
       ) : null}
 
-      {showMap ? <ProfessionalTrackingMap job={job} proLocation={null} /> : null}
+      {showMap ? <ProfessionalTrackingMap job={job} /> : null}
 
       {showProCard && job.status !== JobStatus.REQUESTED && job.status !== JobStatus.OFFERED && job.status !== JobStatus.CANCELLED && job.status !== JobStatus.EXPIRED ? (
         <ProfessionalCard job={job} />

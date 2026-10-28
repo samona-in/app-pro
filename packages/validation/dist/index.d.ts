@@ -10,6 +10,7 @@ export * from './notification';
 export * from './phone';
 export * from './primitives';
 export * from './pro';
+export * from './tracking';
 export * from './user';
 export * from './banner';
 //# sourceMappingURL=index.d.ts.map
