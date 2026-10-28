@@ -36,7 +36,7 @@ export function BookingStatusHero({ job }: Props) {
         <Text variant="title" className="mt-2 text-center">
           Waiting for professional acceptance
         </Text>
-        <Text variant="body" className="mt-1 text-center text-text-muted">
+        <Text variant="footnote" className="mt-1 text-center text-text-muted">
           Once the professional accepts, you will get notified
         </Text>
       </View>
