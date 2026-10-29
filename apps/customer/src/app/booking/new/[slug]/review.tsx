@@ -1,9 +1,17 @@
-import { Image, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
-import { PlaceType, JOB_DESCRIPTION_MIN } from '@samona/types';
-import { BookingStep } from '@/components/booking';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import BottomSheet, {
+  BottomSheetScrollView,
+  useBottomSheetSpringConfigs,
+} from '@gorhom/bottom-sheet';
+import { JOB_DESCRIPTION_MIN, PLACE_TYPES, PlaceType } from '@samona/types';
 import { ServiceImage } from '@/components/home/ServiceImage';
-import { Card, Divider, Text } from '@/components/ui';
+import { Button, Text } from '@/components/ui';
 import {
   useActiveSavedAddress,
   useCreateBooking,
@@ -11,13 +19,129 @@ import {
   useSession,
 } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
+import { color, elevation } from '@/theme';
 import { formatRupees } from '@/utils/format';
 
-function SummaryRow({ label, children }: { label: string; children: React.ReactNode }) {
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+/** The review step is the last of the five booking questions. */
+const TOTAL_STEPS = 5;
+
+/** How much of the screen the sheet covers when resting and when pulled up. */
+const SHEET_COLLAPSED_RATIO = 0.46;
+const SHEET_EXPANDED_RATIO = 0.82;
+
+/** Rough half-span (in degrees) of the box used to frame the service location. */
+const FIT_HALF_SPAN = 0.003;
+
+/** Top radius of the sheet, matching the rest of the app's surfaces. */
+const TOP_RADIUS = 24;
+
+const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+    backgroundColor: color.surface,
+    borderTopLeftRadius: TOP_RADIUS,
+    borderTopRightRadius: TOP_RADIUS,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.border,
+    boxShadow: '0px -16px 24px rgba(15, 23, 42, 0.14)',
+  },
+  mapMarker: {
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 8,
+  },
+});
+
+function SheetBackground() {
+  return <View style={styles.background} />;
+}
+
+/** The grabber at the top of the sheet. */
+function SheetHandle() {
   return (
-    <View className="py-2.5">
-      <Text variant="label">{label}</Text>
-      <View className="mt-1">{children}</View>
+    <View className="items-center pb-1 pt-2">
+      <View className="h-1.5 w-10 rounded-full bg-border-strong" />
+    </View>
+  );
+}
+
+/** The service location: a small place label above a branded pin. */
+function ServiceMarker({ label, icon }: { label: string; icon: IoniconName }) {
+  return (
+    <View className="items-center">
+      <View className="rounded-full bg-surface px-3 py-1" style={[elevation.md, { maxWidth: 190 }]}>
+        <Text variant="caption" className="font-semibold text-text-primary" numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+      <View
+        className="mt-1 h-11 w-11 items-center justify-center rounded-full border-[3px] border-surface bg-brand"
+        style={styles.mapMarker}
+      >
+        <Ionicons name={icon} size={20} color={color['brand-contrast']} />
+      </View>
+    </View>
+  );
+}
+
+/** The five-step progress, shown as a compact floating pill over the map. */
+function StepPill({ step }: { step: number }) {
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 1, max: TOTAL_STEPS, now: step }}
+      accessibilityLabel={`Step ${step} of ${TOTAL_STEPS}`}
+      className="flex-row items-center rounded-full bg-surface px-3 py-2"
+      style={elevation.md}
+    >
+      <View className="flex-row gap-1">
+        {Array.from({ length: TOTAL_STEPS }, (_, index) => (
+          <View
+            key={index}
+            className={`h-1.5 w-4 rounded-full ${index < step ? 'bg-brand' : 'bg-border'}`}
+          />
+        ))}
+      </View>
+      <Text variant="caption" className="ml-2 font-semibold text-text-secondary">
+        {step}/{TOTAL_STEPS}
+      </Text>
+    </View>
+  );
+}
+
+/** A single compact row in the sheet: an icon tile, a title and a caption. */
+function DetailRow({
+  icon,
+  iconClassName,
+  iconColor,
+  title,
+  caption,
+}: {
+  icon: IoniconName;
+  iconClassName: string;
+  iconColor: string;
+  title: string;
+  caption: string | null;
+}) {
+  return (
+    <View className="flex-row items-center">
+      <View className={`h-9 w-9 items-center justify-center rounded-full ${iconClassName}`}>
+        <Ionicons name={icon} size={17} color={iconColor} />
+      </View>
+      <View className="ml-3 flex-1">
+        <Text variant="bodyStrong" numberOfLines={1}>
+          {title}
+        </Text>
+        {caption ? (
+          <Text variant="caption" numberOfLines={1} className="mt-0.5">
+            {caption}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -29,18 +153,108 @@ export default function BookingReview() {
   const locationLabel = useResolvedLocationLabel(customerProfile);
   const activeSavedAddress = useActiveSavedAddress(customerProfile);
 
-  const addressCaption = activeSavedAddress?.name ?? 'Your location';
-  const fullAddress = locationLabel ?? addressCaption;
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
 
+  const mapRef = useRef<MapView | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  const serviceLat = customerProfile?.latitude ?? activeSavedAddress?.latitude ?? null;
+  const serviceLng = customerProfile?.longitude ?? activeSavedAddress?.longitude ?? null;
+  const hasServiceLocation = serviceLat !== null && serviceLng !== null;
+
+  /** Resting sheet height: enough for the summary without hiding the map. */
+  const collapsedHeight = useMemo(
+    () =>
+      Math.min(
+        Math.max(windowHeight * SHEET_COLLAPSED_RATIO, 336),
+        windowHeight - insets.top - 180,
+      ),
+    [windowHeight, insets.top],
+  );
+
+  /** Pulled-up height for reference photos and a longer description. */
+  const expandedHeight = useMemo(
+    () =>
+      Math.max(
+        collapsedHeight + 96,
+        Math.min(windowHeight * SHEET_EXPANDED_RATIO, windowHeight - insets.top - 72),
+      ),
+    [collapsedHeight, windowHeight, insets.top],
+  );
+
+  const snapPoints = useMemo(
+    () => [collapsedHeight, expandedHeight] as number[],
+    [collapsedHeight, expandedHeight],
+  );
+
+  const springConfig = useBottomSheetSpringConfigs({
+    damping: 22,
+    stiffness: 240,
+    mass: 0.9,
+    overshootClamping: true,
+  });
+
+  /**
+   * Frames the service location in the map area that stays visible above the
+   * sheet. A symmetric box around the pin plus asymmetric edge padding puts
+   * the pin at the centre of the unobstructed map — on both map providers —
+   * so the customer always sees where the work will happen.
+   */
+  const focusServiceLocation = useCallback(
+    (animated: boolean) => {
+      if (!mapReady || !mapRef.current || serviceLat === null || serviceLng === null) return;
+
+      mapRef.current.fitToCoordinates(
+        [
+          { latitude: serviceLat - FIT_HALF_SPAN, longitude: serviceLng - FIT_HALF_SPAN },
+          { latitude: serviceLat + FIT_HALF_SPAN, longitude: serviceLng + FIT_HALF_SPAN },
+        ],
+        {
+          edgePadding: {
+            top: insets.top + 72,
+            right: 48,
+            bottom: collapsedHeight + 40,
+            left: 48,
+          },
+          animated,
+        },
+      );
+    },
+    [mapReady, serviceLat, serviceLng, insets.top, collapsedHeight],
+  );
+
+  useEffect(() => {
+    if (!mapReady) return;
+    // Glide the pin up into the unobstructed map on first paint.
+    focusServiceLocation(true);
+  }, [mapReady, focusServiceLocation]);
+
+  const handleSheetChange = useCallback(
+    (index: number) => {
+      void Haptics.impactAsync(
+        index > 0 ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light,
+      ).catch(() => {});
+      // Returning to the resting height always brings the pin back into the
+      // unobstructed part of the map.
+      if (index === 0) focusServiceLocation(true);
+    },
+    [focusServiceLocation],
+  );
+
+  const place = PLACE_TYPES.find((option) => option.value === draft.placeType);
   const placeLabel =
-    draft.placeType === PlaceType.OTHER ? draft.placeDescription : humanize(draft.placeType);
+    draft.placeType === PlaceType.OTHER ? draft.placeDescription || 'Other' : (place?.label ?? '—');
+  const placeIcon = (place?.icon ?? 'location') as IoniconName;
 
-  function humanize(value: string | null): string {
-    if (!value) return '—';
-    return value.charAt(0) + value.slice(1).toLowerCase();
-  }
+  const skillLabel = draft.customSkill || draft.skill?.name || '—';
+  const addressCaption = activeSavedAddress?.name ?? null;
+  const fullAddress = locationLabel ?? addressCaption ?? null;
+  const amountLabel = draft.basePayPaise > 0 ? formatRupees(draft.basePayPaise) : '—';
+  const referencePhotos = draft.images.filter((image) => Boolean(image.uri));
 
   async function onSubmit() {
+    if (create.isPending) return;
     if (!draft.service || !draft.skill || !draft.placeType) return;
     if (draft.description.trim().length < JOB_DESCRIPTION_MIN) return;
 
@@ -60,7 +274,7 @@ export default function BookingReview() {
         basePayPaise: draft.basePayPaise,
       });
     } catch {
-      // The layout surfaces `create.isError`; a failed request must not be
+      // The sheet surfaces `create.isError`; a failed request must not be
       // reported as a successful booking.
       return;
     }
@@ -72,73 +286,186 @@ export default function BookingReview() {
   }
 
   return (
-    <BookingStep
-      step={5}
-      title="Review your request"
-      subtitle="Check the details before we look for a matching professional."
-      primaryLabel="Place request"
-      isSaving={create.isPending}
-      error={create.isError ? 'Could not place your request. Please try again.' : null}
-      onPrimary={() => void onSubmit()}
-    >
-      <Card>
-        <View className="flex-row items-center">
-          <ServiceImage
-            uri={draft.service?.icon}
-            accessibilityLabel={draft.service?.name}
-            className="h-11 w-11 rounded-lg"
-          />
-          <View className="ml-3 flex-1">
-            <Text variant="title">{draft.service?.name ?? '—'}</Text>
-            <Text variant="caption">{draft.customSkill || draft.skill?.name || '—'}</Text>
+    <View className="flex-1 bg-surface-muted">
+      {hasServiceLocation ? (
+        <MapView
+          ref={mapRef}
+          provider={PROVIDER_DEFAULT}
+          style={StyleSheet.absoluteFill}
+          initialRegion={{
+            latitude: serviceLat,
+            longitude: serviceLng,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}
+          onMapReady={() => setMapReady(true)}
+          toolbarEnabled={false}
+          showsCompass={false}
+          showsMyLocationButton={false}
+          pitchEnabled={false}
+          rotateEnabled={false}
+        >
+          <Marker
+            coordinate={{ latitude: serviceLat, longitude: serviceLng }}
+            anchor={{ x: 0.5, y: 0.92 }}
+          >
+            <ServiceMarker label={addressCaption ?? placeLabel} icon={placeIcon} />
+          </Marker>
+        </MapView>
+      ) : (
+        <View className="flex-1 items-center justify-center">
+          <Ionicons name="location-outline" size={40} color={color['text-muted']} />
+          <Text variant="body" className="mt-2 text-text-secondary">
+            Service location unavailable
+          </Text>
+        </View>
+      )}
+
+      {/* Floating chrome: back, step progress, and a recenter control. */}
+      <View
+        pointerEvents="box-none"
+        className="absolute inset-x-0 flex-row items-center justify-between px-4"
+        style={{ top: insets.top + 8 }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          hitSlop={8}
+          className="h-11 w-11 items-center justify-center rounded-full bg-surface active:opacity-80"
+          style={elevation.md}
+        >
+          <Ionicons name="arrow-back" size={22} color={color['text-primary']} />
+        </Pressable>
+
+        <StepPill step={5} />
+      </View>
+
+      {hasServiceLocation ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Recenter on the service location"
+          onPress={() => focusServiceLocation(true)}
+          className="absolute right-4 h-11 w-11 items-center justify-center rounded-full bg-surface active:opacity-80"
+          style={[elevation.md, { bottom: collapsedHeight + 16 }]}
+        >
+          <Ionicons name="locate" size={21} color={color.brand} />
+        </Pressable>
+      ) : null}
+
+      <BottomSheet
+        index={0}
+        snapPoints={snapPoints}
+        enableOverDrag={false}
+        enablePanDownToClose={false}
+        enableDynamicSizing={false}
+        animationConfigs={springConfig}
+        backgroundComponent={SheetBackground}
+        handleComponent={SheetHandle}
+        onChange={handleSheetChange}
+      >
+        <View className="flex-1">
+          <BottomSheetScrollView
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12 }}
+          >
+            {/* Service + amount: the two things the customer checks first. */}
+            <View className="flex-row items-center">
+              <ServiceImage
+                uri={draft.service?.icon}
+                accessibilityLabel={draft.service?.name}
+                className="h-12 w-12 rounded-xl border border-border"
+              />
+              <View className="ml-3 flex-1 pr-3">
+                <Text variant="title" numberOfLines={1}>
+                  {draft.service?.name ?? '—'}
+                </Text>
+                <Text variant="caption" numberOfLines={1} className="mt-0.5">
+                  {skillLabel}
+                </Text>
+              </View>
+              <View className="items-end">
+                <Text variant="caption">Base pay</Text>
+                <Text variant="titleLg" className="mt-0.5">
+                  {amountLabel}
+                </Text>
+              </View>
+            </View>
+
+            <View className="my-4 h-px bg-border" />
+
+            <DetailRow
+              icon="location"
+              iconClassName="bg-brand-soft"
+              iconColor={color.brand}
+              title={placeLabel}
+              caption={fullAddress}
+            />
+
+            <View className="mt-3 flex-row items-start">
+              <Ionicons
+                name="reader-outline"
+                size={16}
+                color={color['text-muted']}
+                style={{ marginTop: 2 }}
+              />
+              <Text
+                variant="footnote"
+                numberOfLines={2}
+                className="ml-2 flex-1 text-text-secondary"
+              >
+                {draft.description}
+              </Text>
+            </View>
+
+            {referencePhotos.length > 0 ? (
+              <View className="mt-3 flex-row items-center gap-2">
+                <Ionicons name="images-outline" size={16} color={color['text-muted']} />
+                {referencePhotos.slice(0, 4).map((image) => (
+                  <Image
+                    key={image.uri}
+                    source={{ uri: image.uri }}
+                    className="h-11 w-11 rounded-lg"
+                  />
+                ))}
+                {referencePhotos.length > 4 ? (
+                  <View className="h-11 w-11 items-center justify-center rounded-lg bg-surface-muted">
+                    <Text variant="caption" className="font-semibold">
+                      +{referencePhotos.length - 4}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            <View className="mt-3 flex-row items-center">
+              <Ionicons name="shield-checkmark" size={14} color={color.success} />
+              <Text variant="caption" className="ml-1.5">
+                Pay after the work is done
+              </Text>
+            </View>
+          </BottomSheetScrollView>
+
+          {/* Primary action stays pinned so it never needs a scroll. */}
+          <View
+            className="border-t border-border px-5 pt-3"
+            style={{ paddingBottom: insets.bottom + 16 }}
+          >
+            {create.isError ? (
+              <Text variant="footnote" className="mb-2 text-center text-danger">
+                Could not place your request. Please try again.
+              </Text>
+            ) : null}
+            <Button
+              label="Place request"
+              size="lg"
+              loading={create.isPending}
+              onPress={() => void onSubmit()}
+            />
           </View>
         </View>
-
-        <Divider spaced />
-
-        <SummaryRow label="Where">
-          <Text variant="body">{placeLabel}</Text>
-          {fullAddress ? (
-            <Text variant="caption" className="mt-0.5">
-              {fullAddress}
-            </Text>
-          ) : null}
-        </SummaryRow>
-        <Divider />
-        <SummaryRow label="What's needed">
-          <Text variant="body">{draft.description}</Text>
-        </SummaryRow>
-
-        {draft.images.length > 0 ? (
-          <>
-            <Divider />
-            <SummaryRow label={`Reference photos (${draft.images.length})`}>
-              <View className="flex-row flex-wrap gap-2">
-                {draft.images.map((image) =>
-                  image.uri ? (
-                    <Image
-                      key={image.uri}
-                      source={{ uri: image.uri }}
-                      className="h-16 w-16 rounded-lg"
-                    />
-                  ) : null,
-                )}
-              </View>
-            </SummaryRow>
-          </>
-        ) : null}
-      </Card>
-
-      <Card className="mt-4">
-        <View className="flex-row items-center justify-between">
-          <Text variant="body">Base pay</Text>
-          <Text variant="bodyStrong">{formatRupees(draft.basePayPaise)}</Text>
-        </View>
-        <Text variant="footnote" className="mt-2">
-          A guarantee to the professional before work starts. You'll agree on the final amount with
-          them once they're on the job.
-        </Text>
-      </Card>
-    </BookingStep>
+      </BottomSheet>
+    </View>
   );
 }
