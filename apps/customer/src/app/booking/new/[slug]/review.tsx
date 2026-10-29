@@ -67,7 +67,7 @@ export default function BookingReview() {
 
     if (job) {
       draft.reset();
-      router.replace('/booking/success');
+      router.replace({ pathname: '/booking/success', params: { id: job.id } });
     }
   }
 
