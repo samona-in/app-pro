@@ -8,6 +8,7 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import BottomSheet, {
   BottomSheetScrollView,
   useBottomSheetSpringConfigs,
+  type BottomSheetBackgroundProps,
 } from '@gorhom/bottom-sheet';
 import { JOB_DESCRIPTION_MIN, PLACE_TYPES, PlaceType } from '@samona/types';
 import { ServiceImage } from '@/components/home/ServiceImage';
@@ -39,7 +40,6 @@ const TOP_RADIUS = 24;
 
 const styles = StyleSheet.create({
   background: {
-    flex: 1,
     backgroundColor: color.surface,
     borderTopLeftRadius: TOP_RADIUS,
     borderTopRightRadius: TOP_RADIUS,
@@ -56,8 +56,13 @@ const styles = StyleSheet.create({
   },
 });
 
-function SheetBackground() {
-  return <View style={styles.background} />;
+/**
+ * The sheet surface. `@gorhom/bottom-sheet` hands the background an
+ * `absoluteFill` style; it must be forwarded or the view collapses to zero
+ * height and the map shows straight through the sheet.
+ */
+function SheetBackground({ style }: BottomSheetBackgroundProps) {
+  return <View pointerEvents="none" style={[style, styles.background]} />;
 }
 
 /** The grabber at the top of the sheet. */
@@ -364,7 +369,7 @@ export default function BookingReview() {
         handleComponent={SheetHandle}
         onChange={handleSheetChange}
       >
-        <View className="flex-1">
+        <View className="flex-1 bg-surface">
           <BottomSheetScrollView
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
