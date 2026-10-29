@@ -1,14 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import BottomSheet, {
+  BottomSheetFooter,
   BottomSheetScrollView,
   useBottomSheetSpringConfigs,
   type BottomSheetBackgroundProps,
+  type BottomSheetFooterProps,
 } from '@gorhom/bottom-sheet';
 import { JOB_DESCRIPTION_MIN, PLACE_TYPES, PlaceType } from '@samona/types';
 import { ServiceImage } from '@/components/home/ServiceImage';
@@ -28,9 +37,22 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 /** The review step is the last of the five booking questions. */
 const TOTAL_STEPS = 5;
 
-/** How much of the screen the sheet covers when resting and when pulled up. */
-const SHEET_COLLAPSED_RATIO = 0.46;
+/**
+ * The sheet rests at exactly the height its content needs, so nothing hides
+ * behind the pinned action and the map keeps as much room as possible.
+ * The resting height is measured; the fallback only covers the first frame.
+ */
+const SHEET_FALLBACK_RATIO = 0.46;
+/** Pulled-up height, as a share of the window, for the longer detail view. */
 const SHEET_EXPANDED_RATIO = 0.82;
+/** The sheet never gets shorter than this, so it still reads as a sheet. */
+const SHEET_MIN_HEIGHT = 300;
+/** Space kept above the sheet for the floating map chrome. */
+const SHEET_TOP_RESERVE = 180;
+/** Height of the grab handle; snap points are measured below it. */
+const SHEET_HANDLE_HEIGHT = 18;
+/** Breathing room below the last detail row, inside the scroll area. */
+const SHEET_CONTENT_PADDING_BOTTOM = 12;
 
 /** Rough half-span (in degrees) of the box used to frame the service location. */
 const FIT_HALF_SPAN = 0.003;
@@ -68,7 +90,7 @@ function SheetBackground({ style }: BottomSheetBackgroundProps) {
 /** The grabber at the top of the sheet. */
 function SheetHandle() {
   return (
-    <View className="items-center pb-1 pt-2">
+    <View className="items-center justify-center" style={{ height: SHEET_HANDLE_HEIGHT }}>
       <View className="h-1.5 w-10 rounded-full bg-border-strong" />
     </View>
   );
@@ -164,19 +186,27 @@ export default function BookingReview() {
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
+  /** Natural heights, measured so the resting sheet fits its content exactly. */
+  const [detailsHeight, setDetailsHeight] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
+
   const serviceLat = customerProfile?.latitude ?? activeSavedAddress?.latitude ?? null;
   const serviceLng = customerProfile?.longitude ?? activeSavedAddress?.longitude ?? null;
   const hasServiceLocation = serviceLat !== null && serviceLng !== null;
 
-  /** Resting sheet height: enough for the summary without hiding the map. */
-  const collapsedHeight = useMemo(
-    () =>
-      Math.min(
-        Math.max(windowHeight * SHEET_COLLAPSED_RATIO, 336),
-        windowHeight - insets.top - 180,
-      ),
-    [windowHeight, insets.top],
-  );
+  /**
+   * Resting height: the handle, the detail block and the pinned action, so the
+   * action sits right below the content instead of off the bottom of the sheet.
+   */
+  const collapsedHeight = useMemo(() => {
+    const maxHeight = windowHeight - insets.top - SHEET_TOP_RESERVE;
+    const measured =
+      detailsHeight > 0 && footerHeight > 0
+        ? SHEET_HANDLE_HEIGHT + detailsHeight + footerHeight + SHEET_CONTENT_PADDING_BOTTOM
+        : Math.round(windowHeight * SHEET_FALLBACK_RATIO);
+
+    return Math.min(Math.max(measured, SHEET_MIN_HEIGHT), maxHeight);
+  }, [detailsHeight, footerHeight, windowHeight, insets.top]);
 
   /** Pulled-up height for reference photos and a longer description. */
   const expandedHeight = useMemo(
@@ -247,6 +277,15 @@ export default function BookingReview() {
     [focusServiceLocation],
   );
 
+  /** Keeps the resting snap point in step with the real content height. */
+  const handleDetailsLayout = useCallback((event: LayoutChangeEvent) => {
+    setDetailsHeight(event.nativeEvent.layout.height);
+  }, []);
+
+  const handleFooterLayout = useCallback((event: LayoutChangeEvent) => {
+    setFooterHeight(event.nativeEvent.layout.height);
+  }, []);
+
   const place = PLACE_TYPES.find((option) => option.value === draft.placeType);
   const placeLabel =
     draft.placeType === PlaceType.OTHER ? draft.placeDescription || 'Other' : (place?.label ?? '—');
@@ -258,7 +297,7 @@ export default function BookingReview() {
   const amountLabel = draft.basePayPaise > 0 ? formatRupees(draft.basePayPaise) : '—';
   const referencePhotos = draft.images.filter((image) => Boolean(image.uri));
 
-  async function onSubmit() {
+  const onSubmit = useCallback(async () => {
     if (create.isPending) return;
     if (!draft.service || !draft.skill || !draft.placeType) return;
     if (draft.description.trim().length < JOB_DESCRIPTION_MIN) return;
@@ -288,7 +327,40 @@ export default function BookingReview() {
       draft.reset();
       router.replace({ pathname: '/booking/success', params: { id: job.id } });
     }
-  }
+  }, [create, draft]);
+
+  /**
+   * The action is rendered through `footerComponent`, not as the last child of
+   * the sheet. `@gorhom/bottom-sheet` sizes the children to the tallest snap
+   * point, so a footer in the normal flow lands far below the resting sheet and
+   * is only reachable by dragging it up. The footer component is anchored to
+   * the sheet's bottom edge at every snap point, so "Place request" is always
+   * on screen.
+   */
+  const renderFooter = useCallback(
+    (props: BottomSheetFooterProps) => (
+      <BottomSheetFooter {...props} bottomInset={0}>
+        <View
+          onLayout={handleFooterLayout}
+          className="border-t border-border bg-surface px-5 pt-3"
+          style={{ paddingBottom: insets.bottom + 16 }}
+        >
+          {create.isError ? (
+            <Text variant="footnote" className="mb-2 text-center text-danger">
+              Could not place your request. Please try again.
+            </Text>
+          ) : null}
+          <Button
+            label="Place request"
+            size="lg"
+            loading={create.isPending}
+            onPress={() => void onSubmit()}
+          />
+        </View>
+      </BottomSheetFooter>
+    ),
+    [insets.bottom, create.isError, create.isPending, handleFooterLayout, onSubmit],
+  );
 
   return (
     <View className="flex-1 bg-surface-muted">
@@ -367,14 +439,17 @@ export default function BookingReview() {
         animationConfigs={springConfig}
         backgroundComponent={SheetBackground}
         handleComponent={SheetHandle}
+        footerComponent={renderFooter}
         onChange={handleSheetChange}
       >
-        <View className="flex-1 bg-surface">
-          <BottomSheetScrollView
-            showsVerticalScrollIndicator={false}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 12 }}
-          >
+        <BottomSheetScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: SHEET_CONTENT_PADDING_BOTTOM,
+          }}
+        >
+          <View onLayout={handleDetailsLayout}>
             {/* Service + amount: the two things the customer checks first. */}
             <View className="flex-row items-center">
               <ServiceImage
@@ -424,6 +499,14 @@ export default function BookingReview() {
               </Text>
             </View>
 
+            {/* Trust line stays above the photos so it is visible at rest. */}
+            <View className="mt-3 flex-row items-center">
+              <Ionicons name="shield-checkmark" size={14} color={color.success} />
+              <Text variant="caption" className="ml-1.5">
+                Pay after the work is done
+              </Text>
+            </View>
+
             {referencePhotos.length > 0 ? (
               <View className="mt-3 flex-row items-center gap-2">
                 <Ionicons name="images-outline" size={16} color={color['text-muted']} />
@@ -443,33 +526,8 @@ export default function BookingReview() {
                 ) : null}
               </View>
             ) : null}
-
-            <View className="mt-3 flex-row items-center">
-              <Ionicons name="shield-checkmark" size={14} color={color.success} />
-              <Text variant="caption" className="ml-1.5">
-                Pay after the work is done
-              </Text>
-            </View>
-          </BottomSheetScrollView>
-
-          {/* Primary action stays pinned so it never needs a scroll. */}
-          <View
-            className="border-t border-border px-5 pt-3"
-            style={{ paddingBottom: insets.bottom + 16 }}
-          >
-            {create.isError ? (
-              <Text variant="footnote" className="mb-2 text-center text-danger">
-                Could not place your request. Please try again.
-              </Text>
-            ) : null}
-            <Button
-              label="Place request"
-              size="lg"
-              loading={create.isPending}
-              onPress={() => void onSubmit()}
-            />
           </View>
-        </View>
+        </BottomSheetScrollView>
       </BottomSheet>
     </View>
   );
