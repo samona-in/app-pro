@@ -44,7 +44,10 @@ export function useCreateBooking() {
 
   return useMutation({
     mutationFn: (input: CreateJobInput) => bookingApi.create(input),
-    onSuccess: () => {
+    onSuccess: (job) => {
+      // Seed the detail so the booking screen the flow lands on renders the
+      // real job immediately instead of flashing a loading state.
+      queryClient.setQueryData(queryKeys.bookings.detail(job.id), job);
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
     },
   });

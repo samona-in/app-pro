@@ -39,11 +39,12 @@ export interface BookingStepProps {
 }
 
 /**
- * Shared chrome for the five-step booking flow.
+ * Shared chrome for the booking questions.
  *
- * Each step lives on its own stacked route (place → skill → details → pay →
- * review) so back gestures behave, while this layout keeps the header, step
- * progress, footer and error treatment identical across them.
+ * Each question lives on its own stacked route (place → skill → details → pay)
+ * so back gestures behave, while this layout keeps the header, step progress,
+ * footer and error treatment identical across them. The final review step is a
+ * full-screen map with its own bottom sheet instead.
  */
 export function BookingStep({
   step,
