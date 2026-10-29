@@ -455,7 +455,7 @@ export default function BookingReview() {
               <ServiceImage
                 uri={draft.service?.icon}
                 accessibilityLabel={draft.service?.name}
-                className="h-12 w-12 rounded-xl border border-border"
+                className="h-12 w-12 border border-border"
               />
               <View className="ml-3 flex-1 pr-3">
                 <Text variant="title" numberOfLines={1}>
