@@ -324,8 +324,15 @@ export default function BookingReview() {
     }
 
     if (job) {
-      draft.reset();
-      router.replace({ pathname: '/booking/success', params: { id: job.id } });
+      const bookingId = job.id;
+      // Land straight on the live booking, with no confirmation detour. The
+      // finished five-step flow is dismissed first so back from the booking
+      // lands on the tabs, not on a step the customer already completed.
+      router.dismissAll();
+      router.push({ pathname: '/booking/[id]', params: { id: bookingId } });
+      // Clear the draft after the transition: resetting it here would re-render
+      // this screen with empty content while the navigator is tearing it down.
+      setTimeout(() => draft.reset(), 0);
     }
   }, [create, draft]);
 
