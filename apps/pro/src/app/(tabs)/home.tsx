@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { CancellationAlertModal } from '@/components/home/CancellationAlertModal';
+import { ProfileCompletionWidget } from '@/components/home/ProfileCompletionWidget';
 import { TodayStack } from '@/components/home/TodayStack';
 import { ServicesVerificationCard } from '@/components/services/ServicesVerificationCard';
 import { Button, Card, IconButton, Screen, Text } from '@/components/ui';
@@ -337,6 +338,8 @@ export default function Home() {
         <View className="mt-6">
           <AvailabilityCard />
         </View>
+
+        <ProfileCompletionWidget />
 
         <IncomingRequestsCard />
 

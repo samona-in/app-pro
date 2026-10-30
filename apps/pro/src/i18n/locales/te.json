@@ -435,6 +435,31 @@
       "deleteAccount": "ఖాతా తొలగించండి"
     }
   },
+  "profileCompletion": {
+    "title": "మీ ప్రొఫైల్‌ను పూర్తి చేయండి",
+    "subtitle": "{{total}}లో {{completed}} దశలు పూర్తయ్యాయి",
+    "percent": "{{percent}}%",
+    "progressLabel": "ప్రొఫైల్ పూర్తి స్థాయి",
+    "steps": {
+      "profile": "ప్రొఫైల్ సృష్టి",
+      "services": "సేవలు & నైపుణ్యాలు జోడించండి",
+      "documents": "పత్రాలను అప్‌లోడ్ చేయండి",
+      "verification": "ధృవీకరణ"
+    },
+    "status": {
+      "complete": "పూర్తయింది",
+      "pending": "సమీక్షలో ఉంది",
+      "rejected": "చర్య అవసరం",
+      "todo": "ప్రారంభించలేదు"
+    },
+    "actions": {
+      "completeProfile": "ప్రొఫైల్ పూర్తి చేయండి",
+      "addServices": "సేవలు & నైపుణ్యాలు జోడించండి",
+      "uploadDocuments": "పత్రాలను అప్‌లోడ్ చేయండి",
+      "viewVerificationStatus": "ధృవీకరణ స్థితిని చూడండి"
+    },
+    "loadError": "మీ పురోగతిని లోడ్ చేయలేకపోయాము."
+  },
   "documents": {
     "subtitle": "ధృవీకరణ కోసం ID, చిరునామా మరియు చెల్లింపు పత్రాలు. మా సమీక్షా బృందం మాత్రమే వాటిని చూడగలదు.",
     "loading": "మీ పత్రాలు లోడ్ అవుతున్నాయి…",

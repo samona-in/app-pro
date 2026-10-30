@@ -435,6 +435,31 @@
       "deleteAccount": "खाता हटाएं"
     }
   },
+  "profileCompletion": {
+    "title": "अपनी प्रोफ़ाइल पूरी करें",
+    "subtitle": "{{total}} में से {{completed}} चरण पूरे हुए",
+    "percent": "{{percent}}%",
+    "progressLabel": "प्रोफ़ाइल पूर्णता",
+    "steps": {
+      "profile": "प्रोफ़ाइल बनाना",
+      "services": "सेवाएं और कौशल जोड़ें",
+      "documents": "दस्तावेज़ अपलोड करें",
+      "verification": "सत्यापन"
+    },
+    "status": {
+      "complete": "पूरा हुआ",
+      "pending": "समीक्षा में",
+      "rejected": "कार्रवाई आवश्यक",
+      "todo": "शुरू नहीं हुआ"
+    },
+    "actions": {
+      "completeProfile": "प्रोफ़ाइल पूरी करें",
+      "addServices": "सेवाएं और कौशल जोड़ें",
+      "uploadDocuments": "दस्तावेज़ अपलोड करें",
+      "viewVerificationStatus": "सत्यापन स्थिति देखें"
+    },
+    "loadError": "आपकी प्रगति लोड नहीं हो सकी।"
+  },
   "documents": {
     "subtitle": "सत्यापन के लिए ID, पता और भुगतान पहचान दस्तावेज़। केवल हमारी समीक्षा टीम उन्हें देख सकती है।",
     "loading": "आपके दस्तावेज़ लोड हो रहे हैं…",

@@ -435,6 +435,31 @@
       "deleteAccount": "Delete account"
     }
   },
+  "profileCompletion": {
+    "title": "Complete your profile",
+    "subtitle": "{{completed}} of {{total}} steps completed",
+    "percent": "{{percent}}%",
+    "progressLabel": "Profile completion",
+    "steps": {
+      "profile": "Profile Creation",
+      "services": "Add Services & Skills",
+      "documents": "Upload Documents",
+      "verification": "Verification"
+    },
+    "status": {
+      "complete": "Completed",
+      "pending": "In review",
+      "rejected": "Action needed",
+      "todo": "Not started"
+    },
+    "actions": {
+      "completeProfile": "Complete Profile",
+      "addServices": "Add Services & Skills",
+      "uploadDocuments": "Upload Documents",
+      "viewVerificationStatus": "View Verification Status"
+    },
+    "loadError": "Could not load your progress."
+  },
   "documents": {
     "subtitle": "ID, address and payout documents for verification. Only our review team can see them.",
     "loading": "Loading your documents…",
