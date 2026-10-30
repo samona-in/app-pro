@@ -5,12 +5,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { AvailableJob, JobDetail } from '@samona/types';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
+import { AvailabilityToggle } from '@/components/home/AvailabilityToggle';
 import { Divider, Screen } from '@/components/ui';
 import { JobPoolCard } from '@/components/jobs';
 import { offerActions } from '@/services/offer-actions';
 import { queryKeys } from '@/constants';
-import { useJobPool, useSession } from '@/hooks';
-import { isOnline as checkIsOnline } from '@/services/online-status';
+import { useAvailability, useJobPool, useSession } from '@/hooks';
 import { occupiedJobRoute } from '@/utils/job-routes';
 import { messageForAcceptError } from '@/utils/job-errors';
 
@@ -29,14 +29,17 @@ function PoolSeparator() {
  * when money is owed). Realtime `job:new` / `job:status` keep the pool in step
  * with claims, cancellations and expiry.
  *
- * Viewing the pool requires being online; when offline the pro is pointed
- * back to the home toggle.
+ * Viewing the pool requires being online. The availability switch lives here
+ * too and is backed by the same global online-status store as the Home header,
+ * so flipping it in either place updates both.
  */
 export default function JobPoolScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isLoading, isAuthenticated, isOnboardingComplete, nextStep } = useSession();
-  const isOnline = checkIsOnline();
+  // Shared availability state — the same store the Home header subscribes to,
+  // so this screen is never out of step with the pro's real duty status.
+  const { isOnline, isTransitioning, toggle } = useAvailability();
   const {
     data: jobs = [],
     isPending,
@@ -44,7 +47,9 @@ export default function JobPoolScreen() {
     isRefetching,
     refetch,
   } = useJobPool({
-    enabled: isAuthenticated && isOnboardingComplete && !isLoading,
+    // The pool is only meaningful while on duty; enabling it here also means
+    // the list loads by itself the moment the pro switches online.
+    enabled: isAuthenticated && isOnboardingComplete && !isLoading && isOnline,
   });
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
 
@@ -69,7 +74,7 @@ export default function JobPoolScreen() {
         setBusyJobId(null);
       }
     },
-    [queryClient],
+    [queryClient, t],
   );
 
   if (isLoading) {
@@ -90,6 +95,19 @@ export default function JobPoolScreen() {
 
   return (
     <Screen edges={['bottom']}>
+      {/*
+        The pro can turn availability on (or off) right here instead of being
+        sent back to Home. The switch is the same shared control, so the header
+        reflects this change immediately.
+      */}
+      <View className="flex-row items-center justify-end pt-2">
+        <AvailabilityToggle
+          isOnline={isOnline}
+          isTransitioning={isTransitioning}
+          onToggle={toggle}
+        />
+      </View>
+
       {!isOnline ? (
         <View className="mt-2 flex-1">
           <EmptyState
