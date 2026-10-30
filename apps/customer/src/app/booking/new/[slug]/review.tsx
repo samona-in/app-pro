@@ -54,8 +54,12 @@ const SHEET_HANDLE_HEIGHT = 18;
 /** Breathing room below the last detail row, inside the scroll area. */
 const SHEET_CONTENT_PADDING_BOTTOM = 12;
 
-/** Rough half-span (in degrees) of the box used to frame the service location. */
-const FIT_HALF_SPAN = 0.003;
+/**
+ * Rough half-span (in degrees) of the box used to frame the service location.
+ * Kept tight on purpose (~90 m each way): the customer should see the actual
+ * doorway the professional will arrive at, not just the surrounding area.
+ */
+const FIT_HALF_SPAN = 0.0008;
 
 /** Top radius of the sheet, matching the rest of the app's surfaces. */
 const TOP_RADIUS = 24;

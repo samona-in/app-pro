@@ -6,7 +6,8 @@ import * as Location from 'expo-location';
 import { OnboardingStepLayout } from '@/components/onboarding';
 import { Button, Text } from '@/components/ui';
 import { useCustomerProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
-import { regionFor } from '@/utils/map';
+import { readPreciseLocation } from '@/services/location';
+import { CITY_ZOOM, STREET_ZOOM, regionFor } from '@/utils/map';
 
 interface Coordinates {
   latitude: number;
@@ -14,7 +15,6 @@ interface Coordinates {
 }
 
 const INITIAL_CENTER: [number, number] = [77.209, 28.6139]; // [lng, lat] — India-first default
-const INITIAL_ZOOM = 12.5;
 
 /** Composes a short human-readable area label; null when the platform yields nothing usable. */
 function formatAreaLabel(place: Location.LocationGeocodedAddress): string | null {
@@ -94,17 +94,16 @@ export default function OnboardingAddress() {
         return;
       }
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const point: Coordinates = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-      setCoords(point);
+      const position = await readPreciseLocation();
+      if (!position) {
+        setLocationError('Could not get a precise fix — drag the map to your exact spot instead.');
+        return;
+      }
+
+      setCoords(position);
       setPhase('moving');
       cameraRef.current?.animateToRegion(
-        regionFor([point.longitude, point.latitude], INITIAL_ZOOM + 1.5),
+        regionFor([position.longitude, position.latitude], STREET_ZOOM),
         600,
       );
     } catch {
@@ -146,7 +145,9 @@ export default function OnboardingAddress() {
             style={{ height: 264 }}
             initialRegion={regionFor(
               coords ? [coords.longitude, coords.latitude] : INITIAL_CENTER,
-              INITIAL_ZOOM,
+              // A known coordinate is a real place: open on the street so the
+              // customer lands on their home rather than their neighbourhood.
+              coords ? STREET_ZOOM : CITY_ZOOM,
             )}
             onRegionChange={() => setPhase('moving')}
             onRegionChangeComplete={onRegionChangeComplete}
