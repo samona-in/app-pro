@@ -23,6 +23,7 @@ export {
 } from './use-jobs';
 export { useProServices, useRequestProService } from './use-pro-services';
 export { useDeleteDocument, useDocuments, useUploadDocument } from './use-documents';
+export { useProfileCompletion } from './use-profile-completion';
 export { useRealtimeSync } from './use-realtime';
 export { useIncomingOffers, IncomingOffersSync } from './use-incoming-offers';
 export { useJobCancellation, JobCancellationSync } from './use-job-cancellation';
