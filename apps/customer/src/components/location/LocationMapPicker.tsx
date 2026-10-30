@@ -1,20 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { AddressSuggestion } from '@samona/types';
 import { Text } from '@/components/ui';
+import { readPreciseLocation } from '@/services/location';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
-import { regionFor } from '@/utils/map';
+import { CITY_ZOOM, STREET_ZOOM, regionFor } from '@/utils/map';
 
 interface Coordinates {
   latitude: number;
@@ -60,7 +55,6 @@ export interface LocationMapPickerProps {
 }
 
 const DEFAULT_CENTER: [number, number] = [77.209, 28.6139]; // [lng, lat] — India-first default
-const DEFAULT_ZOOM = 12.5;
 
 /** Half of the marker's 54px box, so the needle tip sits on the exact center. */
 const MARKER_OFFSET = 27;
@@ -136,7 +130,7 @@ export function LocationMapPicker({
 
   useEffect(() => {
     if (!focus) return;
-    mapRef.current?.animateToRegion(regionFor(focus.center, DEFAULT_ZOOM), 450);
+    mapRef.current?.animateToRegion(regionFor(focus.center, STREET_ZOOM), 450);
   }, [focus]);
 
   const resolveLabel = useCallback(
@@ -202,16 +196,15 @@ export function LocationMapPicker({
         return;
       }
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const point: Coordinates = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
+      const position = await readPreciseLocation();
+      if (!position) {
+        setLocationError('Could not get a precise fix — drag the map to your exact spot instead.');
+        return;
+      }
+
       setPhase('moving');
       mapRef.current?.animateToRegion(
-        regionFor([point.longitude, point.latitude], DEFAULT_ZOOM + 1.5),
+        regionFor([position.longitude, position.latitude], STREET_ZOOM),
         600,
       );
     } catch {
@@ -224,13 +217,16 @@ export function LocationMapPicker({
   return (
     <View className={cn('relative overflow-hidden', className)} style={style}>
       <MapView
+        ref={mapRef}
         // Default provider: Google on Android, Apple Maps on iOS. The Android
         // key is injected via app config; iOS needs none.
         provider={PROVIDER_DEFAULT}
         style={{ flex: 1 }}
         initialRegion={regionFor(
           value ? [value.longitude, value.latitude] : DEFAULT_CENTER,
-          DEFAULT_ZOOM,
+          // A known coordinate is a real place: open on the street so the
+          // customer lands on their home rather than their neighbourhood.
+          value ? STREET_ZOOM : CITY_ZOOM,
         )}
         onRegionChange={() => setPhase('moving')}
         onRegionChangeComplete={onRegionChangeComplete}
