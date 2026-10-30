@@ -32,6 +32,8 @@ const config = {
     // Copies the looping alarm into res/raw so the overlay and channel sound ring.
     './plugins/withJobAlertAudio',
     'expo-audio',
+    "expo-router",
+    "expo-image",
   ],
 };
 
