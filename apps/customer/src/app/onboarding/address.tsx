@@ -22,13 +22,33 @@ const INITIAL_CENTER: [number, number] = [77.209, 28.6139]; // [lng, lat] — In
 /** Height reserved for the two lines of the resolved address, so the panel never jumps. */
 const ADDRESS_LINE_HEIGHT = 44;
 
+/** The selection marker: a 44 px disc with an 8 px needle whose tip is the pick. */
+const MARKER_SIZE = 44;
+const MARKER_NEEDLE = 8;
+
 const styles = StyleSheet.create({
-  pin: {
+  marker: {
+    alignItems: 'center',
+    transform: [{ translateY: -(MARKER_SIZE + MARKER_NEEDLE) / 2 }],
+  },
+  markerDisc: {
     shadowColor: '#000',
     shadowOpacity: 0.35,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
     elevation: 8,
+  },
+  /** A downward triangle tucked under the disc, pointing at the chosen spot. */
+  markerNeedle: {
+    width: 0,
+    height: 0,
+    marginTop: -1,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderTopWidth: MARKER_NEEDLE,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: color.brand,
   },
 });
 
@@ -253,16 +273,23 @@ export default function OnboardingAddress() {
         rotateEnabled={false}
       />
 
-      {/* The pick: a pin floating in the map area the panel leaves clear. */}
+      {/* The pick. A home pin, deliberately not a blue dot: the device's own
+          position is already the map's blue dot, and two blue dots read as two
+          different places. */}
       <View
         pointerEvents="none"
         className="absolute inset-x-0 items-center justify-center"
         style={{ top: 0, bottom: panelHeight }}
       >
-        <View
-          className="h-5 w-5 rounded-full border-[3px] border-surface bg-brand"
-          style={styles.pin}
-        />
+        <View style={styles.marker}>
+          <View
+            className="items-center justify-center rounded-full border-[3px] border-surface bg-brand"
+            style={[{ width: MARKER_SIZE, height: MARKER_SIZE }, styles.markerDisc]}
+          >
+            <Ionicons name="home" size={20} color={color['brand-contrast']} />
+          </View>
+          <View style={styles.markerNeedle} />
+        </View>
       </View>
 
       {/* The question, floating over the map. */}
