@@ -1,11 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -224,6 +218,7 @@ export function LocationMapPicker({
   return (
     <View className={cn('relative overflow-hidden', className)} style={style}>
       <MapView
+        ref={mapRef}
         // Default provider: Google on Android, Apple Maps on iOS. The Android
         // key is injected via app config; iOS needs none.
         provider={PROVIDER_DEFAULT}

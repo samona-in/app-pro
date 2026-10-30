@@ -141,6 +141,7 @@ export default function OnboardingAddress() {
       <View className="overflow-hidden rounded-2xl border border-border">
         <View className="relative">
           <MapView
+            ref={cameraRef}
             provider={PROVIDER_DEFAULT}
             style={{ height: 264 }}
             initialRegion={regionFor(
