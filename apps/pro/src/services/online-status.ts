@@ -263,7 +263,12 @@ export async function goOnline(token: string): Promise<AvailabilityResult> {
     return { success: false, error: 'Already transitioning' };
   }
 
+  // A failed toggle must leave the UI on the state the server still holds, so
+  // capture the pre-transition value and restore it (with the real error) in
+  // every failure path. Only a backend-confirmed success may show "online".
+  const previous = getStatusState().status === 'online' ? 'online' : 'offline';
   abortController = new AbortController();
+  setIsTransitioning(true);
   setStatus('loading');
 
   try {
@@ -280,7 +285,8 @@ export async function goOnline(token: string): Promise<AvailabilityResult> {
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
       const message = i18nInstance.t('onlineStatus.permNeeded');
-      setStatus('offline', message);
+      setIsTransitioning(false);
+      setStatus(previous, message);
       return { success: false, error: message };
     }
 
@@ -301,13 +307,15 @@ export async function goOnline(token: string): Promise<AvailabilityResult> {
 
     startLocationServicesMonitor();
 
+    setIsTransitioning(false);
     setStatus('online');
     return { success: true };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : i18nInstance.t('onlineStatus.failedGoOnline');
-    setStatus('offline', message);
-    disconnectSocket();
+    setIsTransitioning(false);
+    setStatus(previous, message);
+    if (previous !== 'online') disconnectSocket();
     if (isDeviceNotReadyError(error)) {
       return { success: false, error: message, reason: DEVICE_NOT_READY_REASON };
     }
@@ -320,7 +328,12 @@ export async function goOffline(_token: string): Promise<AvailabilityResult> {
     return { success: false, error: 'Already transitioning' };
   }
 
+  // Going offline is a backend action too: if it fails the pro is still online
+  // on the server, so the toggle must stay (or return to) online rather than
+  // falsely claiming to be off duty while jobs keep arriving.
+  const previous = getStatusState().status === 'online' ? 'online' : 'offline';
   abortController = new AbortController();
+  setIsTransitioning(true);
   setStatus('loading');
 
   try {
@@ -330,12 +343,14 @@ export async function goOffline(_token: string): Promise<AvailabilityResult> {
     stopLocationServicesMonitor();
     disconnectSocket();
 
+    setIsTransitioning(false);
     setStatus('offline');
     return { success: true };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : i18nInstance.t('onlineStatus.failedGoOffline');
-    setStatus('offline', message);
+    setIsTransitioning(false);
+    setStatus(previous, message);
     return { success: false, error: message };
   }
 }
@@ -346,10 +361,10 @@ export function cancelTransition(): void {
     abortController = null;
   }
   const status = getStatusState().status;
+  setIsTransitioning(false);
   if (status === 'loading') {
     setStatus('offline');
   }
-  setIsTransitioning(false);
 }
 
 export { isOnline, isOffline, getOnlineStatus } from './online-status-state';

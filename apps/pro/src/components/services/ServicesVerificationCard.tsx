@@ -120,7 +120,7 @@ export function ServicesVerificationCard() {
   }
 
   return (
-    <View className="mt-6">
+    <View>
       <View className="flex-row items-center justify-between">
         <Text variant="title">{t('servicesVerification.yourServices')}</Text>
         <Pressable
