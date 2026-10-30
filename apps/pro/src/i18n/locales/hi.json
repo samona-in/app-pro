@@ -234,6 +234,62 @@
       "review": "समीक्षा करें"
     }
   },
+  "dashboard": {
+    "header": {
+      "onDuty": "ऑनलाइन",
+      "offDuty": "ऑफ़लाइन",
+      "notifications": "सूचनाएँ"
+    },
+    "earnings": {
+      "title": "आज की कमाई",
+      "loadingShort": "लोड हो रहा है...",
+      "unavailable": "आज की कमाई अभी उपलब्ध नहीं है।",
+      "retry": "फिर कोशिश करें",
+      "today": "आज",
+      "completed": "पूरे हुए",
+      "pending": "बाकी",
+      "viewAll": "कमाई देखें"
+    },
+    "offline": {
+      "title": "आप अभी ऑफ़लाइन हैं",
+      "subtitle": "अपने आस-पास के काम के अनुरोध पाने के लिए ऑनलाइन जाएँ।"
+    },
+    "map": {
+      "markerLabel": "आपकी वर्तमान लोकेशन",
+      "locating": "आपकी लोकेशन ढूँढी जा रही है...",
+      "permissionTitle": "लोकेशन की अनुमति चाहिए",
+      "permissionMessage": "मानचित्र पर आपको दिखाने और आस-पास के कामों से जोड़ने के लिए लोकेशन एक्सेस की अनुमति दें।",
+      "unavailableTitle": "आपकी लोकेशन नहीं मिल रही",
+      "unavailableMessage": "जाँचें कि लोकेशन सेवाएँ चालू हैं, फिर फिर कोशिश करें।",
+      "allowLocation": "लोकेशन की अनुमति दें",
+      "retry": "फिर कोशिश करें",
+      "recenter": "मानचित्र को केंद्र में लाएँ"
+    },
+    "sheet": {
+      "todayProgress": "आज की प्रगति",
+      "jobsCompleted_one": "{{count}} काम पूरा हुआ",
+      "jobsCompleted_other": "{{count}} काम पूरे हुए",
+      "viewRequests": "काम के अनुरोध देखें",
+      "requests_one": "{{count}} अनुरोध",
+      "requests_other": "{{count}} अनुरोध",
+      "requestsWithCount_one": "{{count}} अनुरोध",
+      "requestsWithCount_other": "{{count}} अनुरोध",
+      "yourProgress": "आपकी प्रगति",
+      "viewEarnings": "कमाई देखें",
+      "yourServices": "आपकी सेवाएँ",
+      "manageServices": "सेवाएँ प्रबंधित करें",
+      "noServices": "आपको अभी तक किसी सेवा के लिए स्वीकृत नहीं किया गया है।",
+      "addServices": "सेवाएँ जोड़ें",
+      "jobRequests": "काम के अनुरोध",
+      "noRequests": "अभी कोई काम का अनुरोध नहीं है।",
+      "madeIn": "SAMONA made in Hyderabad"
+    },
+    "incoming": {
+      "title": "आने वाले अनुरोध",
+      "waiting_one": "{{count}} काम आपका इंतज़ार कर रहा है",
+      "waiting_other": "{{count}} काम आपका इंतज़ार कर रहे हैं"
+    }
+  },
   "incomingJobs": {
     "count_one": "{{count}} काम",
     "count_other": "{{count}} काम",

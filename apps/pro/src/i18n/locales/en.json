@@ -234,6 +234,62 @@
       "review": "Review"
     }
   },
+  "dashboard": {
+    "header": {
+      "onDuty": "Online",
+      "offDuty": "Offline",
+      "notifications": "Notifications"
+    },
+    "earnings": {
+      "title": "Today's earnings",
+      "loadingShort": "Loading...",
+      "unavailable": "Today's earnings aren't available right now.",
+      "retry": "Retry",
+      "today": "Today",
+      "completed": "Completed",
+      "pending": "Pending",
+      "viewAll": "View earnings"
+    },
+    "offline": {
+      "title": "You're currently offline",
+      "subtitle": "Go online to start receiving job requests near you."
+    },
+    "map": {
+      "markerLabel": "Your current location",
+      "locating": "Finding your location...",
+      "permissionTitle": "Location permission needed",
+      "permissionMessage": "Allow location access so we can show you on the map and match you with nearby jobs.",
+      "unavailableTitle": "Can't find your location",
+      "unavailableMessage": "Check that location services are on, then try again.",
+      "allowLocation": "Allow location",
+      "retry": "Try again",
+      "recenter": "Recenter map"
+    },
+    "sheet": {
+      "todayProgress": "Today's progress",
+      "jobsCompleted_one": "{{count}} job completed",
+      "jobsCompleted_other": "{{count}} jobs completed",
+      "viewRequests": "View job requests",
+      "requests_one": "{{count}} request",
+      "requests_other": "{{count}} requests",
+      "requestsWithCount_one": "{{count}} request",
+      "requestsWithCount_other": "{{count}} requests",
+      "yourProgress": "Your progress",
+      "viewEarnings": "View earnings",
+      "yourServices": "Your services",
+      "manageServices": "Manage services",
+      "noServices": "You haven't been approved for any services yet.",
+      "addServices": "Add services",
+      "jobRequests": "Job requests",
+      "noRequests": "No job requests right now.",
+      "madeIn": "SAMONA made in Hyderabad"
+    },
+    "incoming": {
+      "title": "Incoming requests",
+      "waiting_one": "{{count}} job is waiting for you",
+      "waiting_other": "{{count}} jobs are waiting for you"
+    }
+  },
   "incomingJobs": {
     "count_one": "{{count}} job",
     "count_other": "{{count}} jobs",

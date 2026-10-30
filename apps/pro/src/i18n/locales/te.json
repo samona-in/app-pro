@@ -234,6 +234,62 @@
       "review": "సమీక్షించండి"
     }
   },
+  "dashboard": {
+    "header": {
+      "onDuty": "ఆన్‌లైన్",
+      "offDuty": "ఆఫ్‌లైన్",
+      "notifications": "నోటిఫికేషన్‌లు"
+    },
+    "earnings": {
+      "title": "ఈరోజు ఆదాయం",
+      "loadingShort": "లోడ్ అవుతోంది...",
+      "unavailable": "ఈరోజు ఆదాయం ఇప్పుడు అందుబాటులో లేదు.",
+      "retry": "మళ్లీ ప్రయత్నించండి",
+      "today": "ఈరోజు",
+      "completed": "పూర్తయినవి",
+      "pending": "పెండింగ్",
+      "viewAll": "ఆదాయం చూడండి"
+    },
+    "offline": {
+      "title": "మీరు ఇప్పుడు ఆఫ్‌లైన్‌లో ఉన్నారు",
+      "subtitle": "మీ దగ్గరున్న పని అభ్యర్థనలను పొందడానికి ఆన్‌లైన్‌కు వెళ్లండి."
+    },
+    "map": {
+      "markerLabel": "మీ ప్రస్తుత లొకేషన్",
+      "locating": "మీ లొకేషన్ కనుగొంటున్నాము...",
+      "permissionTitle": "లొకేషన్ అనుమతి అవసరం",
+      "permissionMessage": "మ్యాప్‌లో మిమ్మల్ని చూపించడానికి మరియు దగ్గరలోని పనులతో జోడించడానికి లొకేషన్ యాక్సెస్‌ను అనుమతించండి.",
+      "unavailableTitle": "మీ లొకేషన్ కనుగొనలేకపోతున్నాము",
+      "unavailableMessage": "లొకేషన్ సేవలు ఆన్‌లో ఉన్నాయో తనిఖీ చేసి, మళ్లీ ప్రయత్నించండి.",
+      "allowLocation": "లొకేషన్ అనుమతించండి",
+      "retry": "మళ్లీ ప్రయత్నించండి",
+      "recenter": "మ్యాప్‌ను మధ్యలోకి తీసుకురండి"
+    },
+    "sheet": {
+      "todayProgress": "ఈరోజు పురోగతి",
+      "jobsCompleted_one": "{{count}} పని పూర్తయింది",
+      "jobsCompleted_other": "{{count}} పనులు పూర్తయ్యాయి",
+      "viewRequests": "పని అభ్యర్థనలు చూడండి",
+      "requests_one": "{{count}} అభ్యర్థన",
+      "requests_other": "{{count}} అభ్యర్థనలు",
+      "requestsWithCount_one": "{{count}} అభ్యర్థన",
+      "requestsWithCount_other": "{{count}} అభ్యర్థనలు",
+      "yourProgress": "మీ పురోగతి",
+      "viewEarnings": "ఆదాయం చూడండి",
+      "yourServices": "మీ సేవలు",
+      "manageServices": "సేవలను నిర్వహించండి",
+      "noServices": "మీరు ఇంకా ఏ సేవకు ఆమోదించబడలేదు.",
+      "addServices": "సేవలను జోడించండి",
+      "jobRequests": "పని అభ్యర్థనలు",
+      "noRequests": "ఇప్పుడు పని అభ్యర్థనలు లేవు.",
+      "madeIn": "SAMONA made in Hyderabad"
+    },
+    "incoming": {
+      "title": "వచ్చే అభ్యర్థనలు",
+      "waiting_one": "{{count}} పని మీ కోసం వేచి ఉంది",
+      "waiting_other": "{{count}} పనులు మీ కోసం వేచి ఉన్నాయి"
+    }
+  },
   "incomingJobs": {
     "count_one": "{{count}} పని",
     "count_other": "{{count}} పనులు",
