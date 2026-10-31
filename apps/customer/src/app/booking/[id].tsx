@@ -203,6 +203,7 @@ export default function BookingDetail() {
             <View className="h-16 w-16 overflow-hidden rounded-lg">
               <MapView
                 provider={PROVIDER_DEFAULT}
+                userInterfaceStyle="light"
                 style={{ flex: 1 }}
                 initialRegion={{
                   latitude: job.latitude!,

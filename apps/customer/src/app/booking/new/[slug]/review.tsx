@@ -379,6 +379,7 @@ export default function BookingReview() {
         <MapView
           ref={mapRef}
           provider={PROVIDER_DEFAULT}
+          userInterfaceStyle="light"
           style={StyleSheet.absoluteFill}
           initialRegion={{
             latitude: serviceLat,

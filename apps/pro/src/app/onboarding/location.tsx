@@ -137,6 +137,7 @@ export default function OnboardingLocation() {
         <View className="relative">
           <MapView
             provider={PROVIDER_DEFAULT}
+            userInterfaceStyle="light"
             style={{ height: 264 }}
             initialRegion={regionFor(
               coords ? [coords.longitude, coords.latitude] : INITIAL_CENTER,

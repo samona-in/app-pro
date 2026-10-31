@@ -205,6 +205,7 @@ export function ProfessionalTrackingMap({ job, proLocation: initialProLocation =
       <MapView
         ref={mapRef}
         provider={PROVIDER_DEFAULT}
+        userInterfaceStyle="light"
         style={{ flex: 1 }}
         initialRegion={region}
         showsUserLocation={false}
