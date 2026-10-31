@@ -103,6 +103,7 @@ export function startPushTokenSync(getAccessToken: () => Promise<string | null>)
   let active = Platform.OS !== 'web';
   let latestNative: Notifications.DevicePushToken | undefined;
   let uploadedToken: string | null = null;
+  let uploadedAt = 0;
   let pending = false;
   let forceUpload = true;
   let running: Promise<void> | null = null;
@@ -143,7 +144,9 @@ export function startPushTokenSync(getAccessToken: () => Promise<string | null>)
     if (!active) return;
     const force = forceUpload;
     forceUpload = false;
-    if (!force && uploadedToken === pushToken) return;
+    // Re-read on foreground, but avoid repeat writes for an unchanged token
+    // confirmed in the last minute. Refresh events bypass this naturally.
+    if (uploadedToken === pushToken && (!force || Date.now() - uploadedAt < 60000)) return;
 
     const upload = tokenUploadQueue.then(async () => {
       const accessToken = await getAccessToken();
@@ -158,10 +161,13 @@ export function startPushTokenSync(getAccessToken: () => Promise<string | null>)
         {
           skipAuth: true,
           headers: { Authorization: `Bearer ${accessToken}` },
-          timeoutMs: 10000,
+          // Allow the backend's bounded transaction/connection wait to finish
+          // before a retry can overlap the original registration.
+          timeoutMs: 30000,
         },
       );
       uploadedToken = pushToken;
+      uploadedAt = Date.now();
       attempt = 0;
       logTokenEvent('Customer device registered', pushToken);
     });
@@ -184,6 +190,8 @@ export function startPushTokenSync(getAccessToken: () => Promise<string | null>)
           uploadedToken = null;
           console.warn('[Notifications] Customer token synchronization failed', {
             status: isApiError(error) ? error.status : 'native-or-network',
+            code: isApiError(error) ? error.code : 'NATIVE',
+            requestId: isApiError(error) ? error.requestId : undefined,
           });
           if (active && (!isApiError(error) || isRetryable(error))) {
             const backoff = Math.min(60000, 1000 * 2 ** Math.min(attempt++, 6));

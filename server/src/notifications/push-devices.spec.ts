@@ -1,5 +1,6 @@
 import { createNotificationsService } from './notifications.service';
 import { verifyJobOffer } from '../jobs/job-offers';
+import { logger } from '../common/logger';
 
 const mockSend = jest.fn();
 jest.mock('./fcm', () => ({
@@ -159,6 +160,46 @@ describe('Pro push devices', () => {
         'device-a',
       ),
     ).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('does not report a registered device when the transaction commit fails', async () => {
+    const { service, prisma } = build();
+    const infoLog = jest.spyOn(logger, 'info').mockImplementation();
+    const warningLog = jest.spyOn(logger, 'warn').mockImplementation();
+    prisma.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => {
+      await fn(prisma);
+      throw Object.assign(new Error('commit failed with private-registration-token'), {
+        code: 'P2028',
+        meta: { query: 'private-registration-token' },
+      });
+    });
+    try {
+      await expect(
+        service.registerPushToken(
+          'user-1',
+          'pro',
+          'private-registration-token',
+          'android',
+          'fcm',
+          'device-a',
+        ),
+      ).rejects.toMatchObject({ status: 503 });
+      expect(infoLog.mock.calls.some(([message]) => message.includes('Registered pro'))).toBe(
+        false,
+      );
+      expect(warningLog).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          code: 'P2028',
+          operation: 'register',
+          elapsedMs: expect.any(Number),
+        }),
+      );
+      expect(JSON.stringify(warningLog.mock.calls)).not.toContain('private-registration-token');
+    } finally {
+      infoLog.mockRestore();
+      warningLog.mockRestore();
+    }
   });
 
   it('sends terminal events to all devices so every overlay stops', async () => {
