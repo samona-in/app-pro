@@ -33,7 +33,7 @@ const menuItems = [
   { icon: BarChart3, label: 'Popular Skills', href: '/dashboard/popular-skills' },
   { icon: CreditCard, label: 'Payments & Revenue', href: '/dashboard/payments' },
   { icon: HelpCircle, label: 'Support', href: '/dashboard/support' },
-  { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },
+  { icon: Bell, label: 'Marketing & Notifications', href: '/dashboard/notifications' },
   { icon: BarChart3, label: 'Analytics', href: '/dashboard/analytics' },
   { icon: Shield, label: 'Admin Management', href: '/dashboard/admins' },
   { icon: FileText, label: 'Audit Logs', href: '/dashboard/audit-logs' },

@@ -1584,6 +1584,33 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     return { jobAlertsEnabled };
   }
 
+  /**
+   * Send a push notification for marketing campaigns
+   */
+  async function sendCampaignNotification(input: {
+    token: string;
+    title: string;
+    body: string;
+    data?: Record<string, unknown>;
+    platform?: PushTargetPlatform;
+    provider?: PushTargetProvider;
+  }): Promise<{ ok: boolean; providerRef?: string; error?: string }> {
+    const platform = input.platform || 'ANDROID';
+    const provider = input.provider || (platform === 'IOS' ? 'EXPO' : null);
+    const result = await sendPush(
+      input.token,
+      {
+        title: input.title,
+        body: input.body,
+        data: input.data || { type: 'CAMPAIGN' },
+        channelId: 'campaigns',
+      },
+      platform,
+      provider,
+    );
+    return result;
+  }
+
   // -------------------------------------------------------------------------
   // Repeating job-alert scheduler
   // -------------------------------------------------------------------------
@@ -1747,6 +1774,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     setPushSettings,
     sendChatPush,
     sendCustomerPush,
+    sendCampaignNotification,
     start,
     stop,
   };

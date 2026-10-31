@@ -74,3 +74,50 @@ export const notificationListQuerySchema = z.object({
 });
 
 export type NotificationListQuery = z.infer<typeof notificationListQuerySchema>;
+
+
+
+// ==================== Admin Campaign Validation ====================
+
+const emptyStringToUndefined = z.preprocess((v) => {
+  if (typeof v === 'string' && v.trim() === '') return undefined;
+  return v;
+}, z.unknown());
+
+export const createCampaignSchema = z.object({
+  name: z.string().min(1).max(100),
+  title: z.string().min(1).max(100),
+  body: z.string().min(1).max(500),
+  imageUrl: emptyStringToUndefined.pipe(z.string().url()).optional(),
+  type: z.enum(['PROMOTIONAL_OFFERS', 'BOOKING_REMINDERS', 'PRO_ENGAGEMENT', 'NEW_SERVICE_ANNOUNCEMENTS', 'APPLICATION_UPDATES', 'IMPORTANT_ANNOUNCEMENTS', 'CUSTOM_NOTIFICATIONS']),
+  audience: z.enum(['ALL_CUSTOMERS', 'ALL_PROFESSIONALS', 'EVERYONE', 'VERIFIED_PROFESSIONALS', 'OFFLINE_PROFESSIONALS', 'ONLINE_PROFESSIONALS', 'PROFESSIONALS_INCOMPLETE_PROFILES', 'CUSTOMERS_NOT_BOOKED_RECENTLY', 'CUSTOMERS_WITH_COMPLETED_BOOKINGS', 'CITY_BASED', 'CUSTOM']),
+  audienceFilters: z.any().optional(),
+  deepLink: emptyStringToUndefined.pipe(z.string()).optional(),
+  sendNow: z.boolean().optional(),
+  scheduledAt: emptyStringToUndefined.pipe(z.string()).optional(),
+});
+
+export const updateCampaignSchema = createCampaignSchema.partial();
+
+export const sendCampaignSchema = z.object({
+  testMode: z.boolean().optional(),
+  testToken: z.string().optional(),
+}).passthrough().optional();
+
+export const createAutomationSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(['OFFLINE_REMINDER', 'PROFILE_COMPLETION_REMINDER', 'VERIFICATION_REMINDER', 'ENGAGEMENT_REMINDER', 'BOOKING_REMINDER', 'UPCOMING_BOOKING_REMINDER', 'SERVICE_ANNOUNCEMENT']),
+  enabled: z.boolean().optional(),
+  triggerConfig: z.any(),
+  template: z.any(),
+  cooldownHours: z.number().int().min(0).optional(),
+  maxPerDay: z.number().int().min(0).optional(),
+  quietHoursStart: z.number().int().min(0).max(23).optional().nullable(),
+  quietHoursEnd: z.number().int().min(0).max(23).optional().nullable(),
+  audienceFilters: z.any().optional(),
+});
+
+export const updateAutomationSchema = createAutomationSchema.partial();
+
+export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
+export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>;
