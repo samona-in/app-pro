@@ -130,3 +130,130 @@ export interface IncomingJobAlert {
   /** When the alert was first received (ISO). */
   receivedAt: string;
 }
+
+
+// ==================== Admin Notification Management ====================
+
+export const CampaignStatus = {
+  DRAFT: 'DRAFT',
+  SCHEDULED: 'SCHEDULED',
+  QUEUED: 'QUEUED',
+  SENDING: 'SENDING',
+  COMPLETED: 'COMPLETED',
+  PARTIALLY_FAILED: 'PARTIALLY_FAILED',
+  FAILED: 'FAILED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type CampaignStatus = (typeof CampaignStatus)[keyof typeof CampaignStatus];
+
+export const CAMPAIGN_STATUSES = Object.values(CampaignStatus);
+
+export const NotificationTargetType = {
+  PROMOTIONAL_OFFERS: 'PROMOTIONAL_OFFERS',
+  BOOKING_REMINDERS: 'BOOKING_REMINDERS',
+  PRO_ENGAGEMENT: 'PRO_ENGAGEMENT',
+  NEW_SERVICE_ANNOUNCEMENTS: 'NEW_SERVICE_ANNOUNCEMENTS',
+  APPLICATION_UPDATES: 'APPLICATION_UPDATES',
+  IMPORTANT_ANNOUNCEMENTS: 'IMPORTANT_ANNOUNCEMENTS',
+  CUSTOM_NOTIFICATIONS: 'CUSTOM_NOTIFICATIONS',
+} as const;
+
+export type NotificationTargetType = (typeof NotificationTargetType)[keyof typeof NotificationTargetType];
+
+export const NOTIFICATION_TARGET_TYPES = Object.values(NotificationTargetType);
+
+export const AudienceType = {
+  ALL_CUSTOMERS: 'ALL_CUSTOMERS',
+  ALL_PROFESSIONALS: 'ALL_PROFESSIONALS',
+  EVERYONE: 'EVERYONE',
+  VERIFIED_PROFESSIONALS: 'VERIFIED_PROFESSIONALS',
+  OFFLINE_PROFESSIONALS: 'OFFLINE_PROFESSIONALS',
+  ONLINE_PROFESSIONALS: 'ONLINE_PROFESSIONALS',
+  PROFESSIONALS_INCOMPLETE_PROFILES: 'PROFESSIONALS_INCOMPLETE_PROFILES',
+  CUSTOMERS_NOT_BOOKED_RECENTLY: 'CUSTOMERS_NOT_BOOKED_RECENTLY',
+  CUSTOMERS_WITH_COMPLETED_BOOKINGS: 'CUSTOMERS_WITH_COMPLETED_BOOKINGS',
+  CITY_BASED: 'CITY_BASED',
+  CUSTOM: 'CUSTOM',
+} as const;
+
+export type AudienceType = (typeof AudienceType)[keyof typeof AudienceType];
+
+export const AUDIENCE_TYPES = Object.values(AudienceType);
+
+export const AutomationType = {
+  OFFLINE_REMINDER: 'OFFLINE_REMINDER',
+  PROFILE_COMPLETION_REMINDER: 'PROFILE_COMPLETION_REMINDER',
+  VERIFICATION_REMINDER: 'VERIFICATION_REMINDER',
+  ENGAGEMENT_REMINDER: 'ENGAGEMENT_REMINDER',
+  BOOKING_REMINDER: 'BOOKING_REMINDER',
+  UPCOMING_BOOKING_REMINDER: 'UPCOMING_BOOKING_REMINDER',
+  SERVICE_ANNOUNCEMENT: 'SERVICE_ANNOUNCEMENT',
+} as const;
+
+export type AutomationType = (typeof AutomationType)[keyof typeof AutomationType];
+
+export const AUTOMATION_TYPES = Object.values(AutomationType);
+
+export interface NotificationCampaign {
+  id: string;
+  name: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  type: NotificationTargetType;
+  audience: AudienceType;
+  audienceFilters: any;
+  deepLink: string | null;
+  status: CampaignStatus;
+  sendNow: boolean;
+  scheduledAt: string | null;
+  timezone: string;
+  recipientCount: number;
+  successfulCount: number;
+  failedCount: number;
+  openedCount: number;
+  conversionCount: number;
+  createdById: string | null;
+  sentAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationCampaignRecipient {
+  id: string;
+  campaignId: string;
+  customerId: string | null;
+  proId: string | null;
+  userId: string | null;
+  pushToken: string | null;
+  status: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  failedAt: string | null;
+  errorMessage: string | null;
+  providerRef: string | null;
+}
+
+export interface NotificationAutomation {
+  id: string;
+  name: string;
+  type: AutomationType;
+  enabled: boolean;
+  triggerConfig: any;
+  template: any;
+  cooldownHours: number;
+  maxPerDay: number;
+  quietHoursStart: number | null;
+  quietHoursEnd: number | null;
+  audienceFilters: any;
+}
+
+export interface NotificationPreferences {
+  id: string;
+  userId: string;
+  promotionalEnabled: boolean;
+  bookingRemindersEnabled: boolean;
+  proEngagementEnabled: boolean;
+}

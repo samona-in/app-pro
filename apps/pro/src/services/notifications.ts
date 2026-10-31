@@ -67,6 +67,12 @@ export const CANCELLATION_CHANNEL = 'job_cancelled';
 export const CHAT_CHANNEL = 'chat_messages_v2';
 
 /**
+ * The notification channel marketing/campaign pushes are delivered on (Android).
+ * Matches the server's `channelId` on campaign FCM pushes.
+ */
+export const CAMPAIGN_CHANNEL = 'campaigns';
+
+/**
  * The EAS project id used to mint Expo push tokens.
  *
  * `Constants.easConfig.projectId` is only populated by EAS cloud builds; a
@@ -119,6 +125,12 @@ async function ensureChannel(): Promise<void> {
     sound: null,
     vibrationPattern: [],
     enableVibrate: false,
+  });
+  await Notifications.setNotificationChannelAsync(CAMPAIGN_CHANNEL, {
+    name: 'Marketing & Updates',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250],
+    enableVibrate: true,
   });
 }
 

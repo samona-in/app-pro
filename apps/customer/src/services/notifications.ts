@@ -43,6 +43,11 @@ export const JOB_STATUS_CHANNEL = 'job_updates';
 /** Matches the backend channel for the customer's start-work code. */
 export const JOB_OTP_CHANNEL = 'job_otp';
 
+/**
+ * The notification channel marketing/campaign pushes are delivered on (Android).
+ */
+export const CAMPAIGN_CHANNEL = 'campaigns';
+
 /** EAS project id used to mint Expo push tokens (see the Pro app for the chain). */
 const PROJECT_ID =
   env.easProjectId ?? Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
@@ -67,6 +72,12 @@ async function ensureChannel(): Promise<void> {
   });
   await Notifications.setNotificationChannelAsync(JOB_OTP_CHANNEL, {
     name: 'Start-work codes',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250],
+    enableVibrate: true,
+  });
+  await Notifications.setNotificationChannelAsync(CAMPAIGN_CHANNEL, {
+    name: 'Marketing & Updates',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250],
     enableVibrate: true,

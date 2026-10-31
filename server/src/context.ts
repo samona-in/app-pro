@@ -92,6 +92,7 @@ export interface Services {
   retentionScheduler: RetentionScheduler;
   /** Live tracking for active jobs. */
   tracking: TrackingService;
+  config: AppConfig;
 }
 
 /** Shared infrastructure plus the service layer built on top of it. */
@@ -266,5 +267,6 @@ export function createServices(
     retention,
     retentionScheduler,
     tracking,
+    config,
   };
 }
