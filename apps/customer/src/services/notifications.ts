@@ -1,4 +1,5 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
+import { isApiError, isRetryable } from '@samona/api-client';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import type { CustomerNotification, CustomerNotificationUnread } from '@samona/types';
@@ -39,6 +40,14 @@ export const CHAT_CHANNEL = 'chat_messages_v2';
 /** The channel booking-status pushes (accepted, on the way, arrived, etc.) raise on. */
 export const JOB_STATUS_CHANNEL = 'job_updates';
 
+/** Matches the backend channel for the customer's start-work code. */
+export const JOB_OTP_CHANNEL = 'job_otp';
+
+/**
+ * The notification channel marketing/campaign pushes are delivered on (Android).
+ */
+export const CAMPAIGN_CHANNEL = 'campaigns';
+
 /** EAS project id used to mint Expo push tokens (see the Pro app for the chain). */
 const PROJECT_ID =
   env.easProjectId ?? Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
@@ -61,55 +70,171 @@ async function ensureChannel(): Promise<void> {
     vibrationPattern: [0, 250, 250],
     enableVibrate: true,
   });
+  await Notifications.setNotificationChannelAsync(JOB_OTP_CHANNEL, {
+    name: 'Start-work codes',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250],
+    enableVibrate: true,
+  });
+  await Notifications.setNotificationChannelAsync(CAMPAIGN_CHANNEL, {
+    name: 'Marketing & Updates',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250],
+    enableVibrate: true,
+  });
+}
+
+// An old session's in-flight request must finish before another customer
+// registers this installation with the shared API client.
+let tokenUploadQueue: Promise<unknown> = Promise.resolve();
+
+function logTokenEvent(event: string, token: string): void {
+  const label = token.length > 12 ? `…${token.slice(-6)}` : '[redacted]';
+  // eslint-disable-next-line no-console -- Full device tokens never appear in lifecycle logs.
+  console.log(`[Notifications] ${event}, token=${label}`);
 }
 
 /**
- * Requests permission and, if granted, registers the device's push token with
- * the server. Returns the token that was stored, or null if denied/absent.
- *
- * Called after sign-in. The server stores the token on the Customer's profile
- * and uses it to deliver chat-message pushes.
+ * Keep the current customer's token synchronized on startup, native refresh,
+ * network recovery and foreground. Android supplies native FCM tokens; iOS
+ * keeps Expo delivery. The supplied bearer getter is scoped to this customer.
  */
-export async function registerPushToken(): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
+export function startPushTokenSync(getAccessToken: () => Promise<string | null>) {
+  let active = Platform.OS !== 'web';
+  let latestNative: Notifications.DevicePushToken | undefined;
+  let uploadedToken: string | null = null;
+  let pending = false;
+  let forceUpload = true;
+  let running: Promise<void> | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let attempt = 0;
+  let permissionAsked = false;
 
-  await ensureChannel();
+  async function synchronize(): Promise<void> {
+    await ensureChannel();
+    const settings = await Notifications.getPermissionsAsync();
+    let granted = settings.granted;
+    if (!granted && !permissionAsked) {
+      permissionAsked = true;
+      granted = (await Notifications.requestPermissionsAsync()).granted;
+    }
+    if (!active || !granted) return;
 
-  const settings = await Notifications.getPermissionsAsync();
-  let granted = settings.granted;
-  if (!granted) {
-    const request = await Notifications.requestPermissionsAsync();
-    granted = request.granted;
+    const native = latestNative ?? (await Notifications.getDevicePushTokenAsync());
+    if (!active) return;
+    if (latestNative && latestNative.data !== native.data) {
+      pending = true;
+      return;
+    }
+    latestNative = native;
+    // getDevicePushTokenAsync can emit this same token. Consume that event so
+    // a failed upload respects backoff instead of immediately uploading again.
+    pending = false;
+    const isAndroid = Platform.OS === 'android';
+    if (!isAndroid && !PROJECT_ID) return;
+    const pushToken = isAndroid
+      ? String(native.data)
+      : (
+          await Notifications.getExpoPushTokenAsync({
+            projectId: PROJECT_ID,
+            devicePushToken: native,
+          })
+        ).data;
+    if (!active) return;
+    const force = forceUpload;
+    forceUpload = false;
+    if (!force && uploadedToken === pushToken) return;
+
+    const upload = tokenUploadQueue.then(async () => {
+      const accessToken = await getAccessToken();
+      if (!active || !accessToken) return;
+      await api.post(
+        '/notifications/register-token',
+        {
+          pushToken,
+          platform: isAndroid ? 'android' : 'ios',
+          provider: isAndroid ? 'fcm' : 'expo',
+        } satisfies RegisterPushTokenInput,
+        {
+          skipAuth: true,
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeoutMs: 10000,
+        },
+      );
+      uploadedToken = pushToken;
+      attempt = 0;
+      logTokenEvent('Customer device registered', pushToken);
+    });
+    // Keep the serialization queue usable after a rejected request; the caller
+    // still receives the rejection and schedules the appropriate recovery.
+    tokenUploadQueue = upload.catch(() => undefined);
+    await upload;
   }
-  if (!granted) return null;
 
-  const isAndroid = Platform.OS === 'android';
-
-  // Android registers the raw FCM registration token so the server can reach
-  // Firebase directly with a display payload that survives the process being
-  // dead. No Expo project id is needed for it.
-  let pushToken: string;
-  if (isAndroid) {
-    const tokenData = await Notifications.getDevicePushTokenAsync();
-    pushToken = tokenData.data;
-  } else {
-    if (!PROJECT_ID) return null;
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
-    pushToken = tokenData.data;
+  function requestSync(): void {
+    if (!active) return;
+    pending = true;
+    if (running || retryTimer) return;
+    running = (async () => {
+      while (active && pending) {
+        pending = false;
+        try {
+          await synchronize();
+        } catch (error) {
+          uploadedToken = null;
+          console.warn('[Notifications] Customer token synchronization failed', {
+            status: isApiError(error) ? error.status : 'native-or-network',
+          });
+          if (active && (!isApiError(error) || isRetryable(error))) {
+            const backoff = Math.min(60000, 1000 * 2 ** Math.min(attempt++, 6));
+            const delay = Math.max(
+              backoff + Math.round(Math.random() * 1000),
+              isApiError(error) ? (error.retryAfterMs ?? 0) : 0,
+            );
+            retryTimer = setTimeout(() => {
+              retryTimer = undefined;
+              requestSync();
+            }, delay);
+            pending = false;
+          }
+          // Preserve newer token/session events queued during a permanent
+          // rejection. A transient failure waits and uploads the latest token.
+        }
+      }
+    })().finally(() => {
+      running = null;
+      if (active && pending) requestSync();
+    });
   }
 
-  try {
-    await api.post<undefined>('/notifications/register-token', {
-      pushToken,
-      platform: isAndroid ? 'android' : 'ios',
-      provider: isAndroid ? 'fcm' : 'expo',
-    } satisfies RegisterPushTokenInput);
-    return pushToken;
-  } catch (error) {
-    // A push-token fetch or registration failure is non-fatal to sign-in.
-    console.error('[Notifications] Push token registration failed:', error);
-    return null;
-  }
+  const tokenSubscription = active
+    ? Notifications.addPushTokenListener((token) => {
+        if (!active || token.type !== Platform.OS || token.data === latestNative?.data) return;
+        latestNative = token;
+        logTokenEvent('Customer native token refreshed', String(token.data));
+        requestSync();
+      })
+    : null;
+  const stateSubscription = active
+    ? AppState.addEventListener('change', (state) => {
+        if (!active || state !== 'active') return;
+        latestNative = undefined;
+        forceUpload = true;
+        requestSync();
+      })
+    : null;
+
+  requestSync();
+  return {
+    synchronize: requestSync,
+    stop(): void {
+      active = false;
+      pending = false;
+      if (retryTimer) clearTimeout(retryTimer);
+      tokenSubscription?.remove();
+      stateSubscription?.remove();
+    },
+  };
 }
 
 /**

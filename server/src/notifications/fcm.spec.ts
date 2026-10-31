@@ -1,4 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto';
+import { format } from 'node:util';
 import { createFcmClient } from './fcm';
 import { logger } from '../common/logger';
 
@@ -97,5 +98,16 @@ describe('FCM delivery errors', () => {
     );
     expect((await client().send(token, { data: {} })).ok).toBe(true);
     expect(JSON.stringify((logger.info as jest.Mock).mock.calls)).not.toContain(token);
+  });
+
+  it('preserves a provider message id containing console format placeholders', async () => {
+    (logger.info as jest.Mock).mockRestore();
+    const output = jest.spyOn(console, 'warn').mockImplementation();
+    const messageId = 'projects/test/messages/0:1793435713586835%f9f9b880';
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ name: messageId })));
+    await client().send(token, { data: { type: 'CAMPAIGN' } });
+    const rendered = output.mock.calls.map((args) => format(...args)).join('\n');
+    expect(rendered).toContain(messageId);
+    expect(rendered).not.toContain(token);
   });
 });

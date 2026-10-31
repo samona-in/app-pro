@@ -77,6 +77,7 @@ model Profile {
   accountDeletion AccountDeletion?
   /// Admin user record if this profile has admin privileges.
   adminUser       AdminUser?
+  notificationPreferences NotificationPreferences?
 
   @@index([isActive])
   @@map("profiles")
@@ -106,6 +107,7 @@ model AdminUser {
 
   sessions  AdminSession[]
   auditLogs AdminAuditLog[]
+  campaigns NotificationCampaign[]
 
   @@map("admin_users")
 }
@@ -273,6 +275,7 @@ model ProProfile {
   declines      JobDecline[]
   jobOffers     JobOffer[]
   pushDevices   ProPushDevice[]
+  campaignRecipients NotificationCampaignRecipient[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -358,7 +361,8 @@ model CustomerProfile {
   notifications CustomerNotification[]
   savedAddresses SavedAddress[]
   /// The account-deletion run that tombstoned this row, when one exists.
-  accountDeletion AccountDeletion?
+  accountDeletion AccountDeletion[]
+  campaignRecipients NotificationCampaignRecipient[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1170,4 +1174,197 @@ model JobTracking {
 
   @@index([jobId])
   @@map("job_tracking")
+}
+
+
+// ==================== Notification Management System ====================
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  QUEUED
+  SENDING
+  COMPLETED
+  PARTIALLY_FAILED
+  FAILED
+  CANCELLED
+}
+
+enum NotificationTargetType {
+  PROMOTIONAL_OFFERS
+  BOOKING_REMINDERS
+  PRO_ENGAGEMENT
+  NEW_SERVICE_ANNOUNCEMENTS
+  APPLICATION_UPDATES
+  IMPORTANT_ANNOUNCEMENTS
+  CUSTOM_NOTIFICATIONS
+}
+
+enum AudienceType {
+  ALL_CUSTOMERS
+  ALL_PROFESSIONALS
+  EVERYONE
+  VERIFIED_PROFESSIONALS
+  OFFLINE_PROFESSIONALS
+  ONLINE_PROFESSIONALS
+  PROFESSIONALS_INCOMPLETE_PROFILES
+  CUSTOMERS_NOT_BOOKED_RECENTLY
+  CUSTOMERS_WITH_COMPLETED_BOOKINGS
+  CITY_BASED
+  CUSTOM
+}
+
+enum AutomationType {
+  OFFLINE_REMINDER
+  PROFILE_COMPLETION_REMINDER
+  VERIFICATION_REMINDER
+  ENGAGEMENT_REMINDER
+  BOOKING_REMINDER
+  UPCOMING_BOOKING_REMINDER
+  SERVICE_ANNOUNCEMENT
+}
+
+enum RecipientStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model NotificationCampaign {
+  id String @id @default(uuid()) @db.Uuid
+
+  name        String
+  title       String
+  body        String
+  imageUrl    String? @map("image_url")
+  type        NotificationTargetType
+  audience    AudienceType
+  audienceFilters Json? @map("audience_filters") // For complex filters like city, etc.
+  deepLink    String? @map("deep_link")
+
+  status      CampaignStatus @default(DRAFT)
+  
+  // Scheduling
+  sendNow     Boolean  @default(false) @map("send_now")
+  scheduledAt DateTime? @map("scheduled_at")
+  timezone    String   @default("Asia/Kolkata")
+  
+  // Delivery stats
+  recipientCount      Int @default(0) @map("recipient_count")
+  successfulCount     Int @default(0) @map("successful_count")
+  failedCount         Int @default(0) @map("failed_count")
+  openedCount         Int @default(0) @map("opened_count")
+  conversionCount     Int @default(0) @map("conversion_count")
+  
+  // Metadata
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy   AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  
+  sentAt      DateTime? @map("sent_at")
+  completedAt DateTime? @map("completed_at")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  recipients NotificationCampaignRecipient[]
+  events     NotificationEvent[]
+  
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdAt])
+  @@map("notification_campaigns")
+}
+
+model NotificationCampaignRecipient {
+  id String @id @default(uuid()) @db.Uuid
+  
+  campaignId String @map("campaign_id") @db.Uuid
+  campaign   NotificationCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Can be customer or pro
+  customerId String? @map("customer_id") @db.Uuid
+  customer   CustomerProfile? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  proId String? @map("pro_id") @db.Uuid
+  pro   ProProfile? @relation(fields: [proId], references: [id], onDelete: Cascade)
+  
+  userId String? @map("user_id") @db.Uuid // For quick lookup
+  
+  pushToken String? @map("push_token")
+  status     RecipientStatus @default(PENDING)
+  
+  sentAt        DateTime? @map("sent_at")
+  deliveredAt   DateTime? @map("delivered_at")
+  failedAt      DateTime? @map("failed_at")
+  errorMessage  String?   @map("error_message")
+  providerRef   String?   @map("provider_ref") // FCM message ID
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([proId])
+  @@index([status])
+  @@unique([campaignId, customerId])
+  @@unique([campaignId, proId])
+  @@map("notification_campaign_recipients")
+}
+
+model NotificationAutomation {
+  id String @id @default(uuid()) @db.Uuid
+  
+  name        String
+  type        AutomationType
+  enabled     Boolean @default(false)
+  
+  // Configuration
+  triggerConfig Json @map("trigger_config") // hours offline, etc.
+  template      Json // title, body template
+  cooldownHours Int  @default(24) @map("cooldown_hours")
+  maxPerDay     Int  @default(1) @map("max_per_day")
+  quietHoursStart Int? @map("quiet_hours_start") // 0-23
+  quietHoursEnd   Int? @map("quiet_hours_end")
+  
+  audienceFilters Json? @map("audience_filters")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@index([enabled, type])
+  @@map("notification_automations")
+}
+
+model NotificationEvent {
+  id String @id @default(uuid()) @db.Uuid
+  
+  campaignId String? @map("campaign_id") @db.Uuid
+  campaign   NotificationCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  eventType String @map("event_type") // opened, clicked, converted
+  userId    String? @map("user_id") @db.Uuid
+  metadata  Json?
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@index([campaignId])
+  @@index([eventType])
+  @@map("notification_events")
+}
+
+model NotificationPreferences {
+  id String @id @default(uuid()) @db.Uuid
+  
+  userId String @unique @map("user_id") @db.Uuid
+  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  promotionalEnabled Boolean @default(true) @map("promotional_enabled")
+  bookingRemindersEnabled Boolean @default(true) @map("booking_reminders_enabled")
+  proEngagementEnabled Boolean @default(true) @map("pro_engagement_enabled")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  @@map("notification_preferences")
 }

@@ -6,6 +6,7 @@ import { createAdminAuthService } from './auth/admin-auth.service';
 import { createAdminAuthRouter } from './auth/admin-auth.routes';
 import { createAdminJobsRouter } from './jobs/admin-jobs.routes';
 import { createAdminLiveRouter } from './live/admin-live.routes';
+import { createAdminNotificationsRouter } from './notifications/admin-notifications.routes';
 import { createRequireAdmin, requirePermission } from './middleware/require-admin';
 import { createBannerSchema, updateBannerSchema } from '@samona/validation';
 import { validate } from '../common';
@@ -337,6 +338,7 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
   // and the detail joins are more than this composition root should hold.
   router.use('/jobs', createAdminJobsRouter({ prisma: deps.prisma, storage: services.storage }));
   router.use('/live', createAdminLiveRouter({ prisma: deps.prisma }));
+  router.use('/notifications', createAdminNotificationsRouter({ prisma: deps.prisma, config: services.config as any, services }));
 
   // Services / categories
   router.get('/categories', async (_req, res, next) => {
