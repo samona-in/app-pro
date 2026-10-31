@@ -307,9 +307,10 @@ export function buildPushMessage(
 }
 
 /**
- * Builds the FCM HTTP v1 payload for a job alert.
+ * Builds an FCM HTTP v1 push. Campaigns and ordinary alerts carry a display
+ * notification so Android can present them while the app is backgrounded.
  *
- * Deliberately DATA-ONLY. `firebase-messaging`'s `dispatchMessage` short-
+ * NEW_JOB stays deliberately DATA-ONLY. `firebase-messaging`'s `dispatchMessage` short-
  * circuits when a message carries a top-level `notification` (or
  * `android.notification`) block: it renders the tray notification itself via
  * `DisplayNotification` and NEVER calls `onMessageReceived` — so the native
@@ -333,8 +334,13 @@ export function buildFcmPushMessage(
   },
   options: { ttlMs: number; collapseKey: string },
 ): FcmMessagePayload {
+  const isJobAlert = message.data.type === 'NEW_JOB';
   return {
-    data: toFcmData(message.data),
+    ...(isJobAlert ? {} : { notification: { title: message.title, body: message.body } }),
+    data: toFcmData({
+      ...message.data,
+      ...(isJobAlert ? {} : { title: message.title, body: message.body }),
+    }),
     android: {
       priority: 'high',
       // FCM's android.ttl is a protobuf Duration: whole seconds with an `s`
@@ -342,6 +348,9 @@ export function buildFcmPushMessage(
       // sub-second TTL never collapses to zero.
       ttl: `${Math.ceil(options.ttlMs / 1000)}s`,
       collapseKey: options.collapseKey,
+      ...(isJobAlert ? {} : {
+        notification: { channelId: message.channelId ?? JOB_ALERT_CHANNEL, sound: 'default' },
+      }),
     },
   };
 }
@@ -585,7 +594,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         pushToken,
         buildFcmPushMessage(message, {
           ttlMs: config.jobAlertTtlMs,
-          collapseKey: String(message.data.jobId ?? 'job-alert'),
+          collapseKey: String(message.data.jobId ?? message.data.campaignId ?? 'job-alert'),
         }),
       );
       return { ok: result.ok, providerRef: result.messageId, error: result.error };
