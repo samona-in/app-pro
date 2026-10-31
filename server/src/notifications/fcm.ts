@@ -166,9 +166,12 @@ export function createFcmClient(credentials: FcmCredentials) {
 
     if (response.ok) {
       const parsed = (await response.json().catch(() => null)) as { name?: string } | null;
-      logger.info(
-        `[FCM] Sent message, token=${pushTokenId(token)}, message=${parsed?.name ?? 'accepted'}.`,
-      );
+      logger.info(`[FCM] Accepted by Firebase, token=${pushTokenId(token)}.`, {
+        messageId: parsed?.name ?? null,
+        type: message.data.type ?? null,
+        display: message.notification !== undefined,
+        channelId: message.android?.notification?.channelId ?? null,
+      });
       return { ok: true, messageId: parsed?.name };
     }
 
