@@ -178,6 +178,7 @@ export function startPushTokenSync(userId: string, getAccessToken: () => Promise
   let active = Platform.OS !== 'web';
   let latestNative: Notifications.DevicePushToken | undefined;
   let uploadedToken: string | null = null;
+  let uploadedAt = 0;
   let pending = false;
   let forceUpload = true;
   let running: Promise<void> | null = null;
@@ -246,7 +247,10 @@ export function startPushTokenSync(userId: string, getAccessToken: () => Promise
     if (!active) return;
     const force = forceUpload;
     forceUpload = false;
-    if (!force && uploadedToken === pushToken) return;
+    // Permission prompts and brief app switches can emit multiple foreground
+    // events. Still read the native token each time, but coalesce recent,
+    // unchanged registrations. New tokens always upload immediately.
+    if (uploadedToken === pushToken && (!force || Date.now() - uploadedAt < 60000)) return;
     if (isAndroid) await configureJobAlertModule();
     const deviceId = await getPushDeviceId();
     const registration: RegisterPushTokenInput = {
@@ -261,9 +265,12 @@ export function startPushTokenSync(userId: string, getAccessToken: () => Promise
       await api.post('/notifications/register-token', registration, {
         skipAuth: true,
         headers: { Authorization: `Bearer ${accessToken}` },
-        timeoutMs: 10000,
+        // Covers the backend's bounded transaction and connection wait, plus
+        // authentication and transport time on a slow mobile connection.
+        timeoutMs: 30000,
       });
       uploadedToken = pushToken;
+      uploadedAt = Date.now();
       attempt = 0;
       logTokenEvent(
         `Registered device token=${tokenLabel(pushToken)}, provider=${registration.provider}`,
@@ -289,9 +296,11 @@ export function startPushTokenSync(userId: string, getAccessToken: () => Promise
           await synchronize();
         } catch (error) {
           uploadedToken = null;
-          // API/provider errors may contain full tokens. Log status only.
+          // API/provider messages may contain full tokens. Log safe fields only.
           console.warn('[Notifications] Token synchronization failed', {
             status: isApiError(error) ? error.status : 'native-or-network',
+            code: isApiError(error) ? error.code : 'NATIVE',
+            requestId: isApiError(error) ? error.requestId : undefined,
           });
           if (active && (!isApiError(error) || isRetryable(error))) {
             const backoff = Math.min(60000, 1000 * 2 ** Math.min(attempt++, 6));

@@ -142,6 +142,59 @@ describe('customer push registration', () => {
     expect(post.mock.calls.at(-1)?.[1].pushToken).toBe('foreground-native-token');
   });
 
+  it('rechecks foreground tokens without repeatedly uploading a recently confirmed registration', async () => {
+    start();
+    await flush();
+    stateListener('active');
+    await flush();
+    stateListener('active');
+    await flush();
+    expect(nativeToken).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenCalledTimes(1);
+
+    await jest.advanceTimersByTimeAsync(60001);
+    stateListener('active');
+    await flush();
+    expect(post).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets a slow registration finish without timing out and submitting it again', async () => {
+    post.mockImplementationOnce(
+      (_path, _body, options) =>
+        new Promise((resolve, reject) => {
+          const timeout = setTimeout(
+            () => reject(createApiError({ code: ApiErrorCode.TIMEOUT, message: 'timeout' })),
+            options.timeoutMs,
+          );
+          setTimeout(() => {
+            clearTimeout(timeout);
+            resolve(undefined);
+          }, 12000);
+        }),
+    );
+    start();
+    await flush();
+    await jest.advanceTimersByTimeAsync(12000);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Customer device registered'));
+  });
+
+  it('distinguishes request timeouts in safe synchronization failure logs', async () => {
+    post.mockRejectedValueOnce(
+      createApiError({
+        code: ApiErrorCode.TIMEOUT,
+        message: 'request containing a private token timed out',
+      }),
+    );
+    start();
+    await flush();
+    expect(console.warn).toHaveBeenCalledWith(
+      '[Notifications] Customer token synchronization failed',
+      expect.objectContaining({ status: 0, code: ApiErrorCode.TIMEOUT }),
+    );
+    expect(JSON.stringify((console.warn as jest.Mock).mock.calls)).not.toContain('private token');
+  });
+
   it('does not retry a permanent registration error without another event', async () => {
     post.mockRejectedValue(
       createApiError({ code: ApiErrorCode.BAD_REQUEST, message: 'invalid', status: 400 }),

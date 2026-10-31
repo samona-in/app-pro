@@ -175,8 +175,19 @@ function pushProviderOf(pro: { pushProvider?: 'EXPO' | 'FCM' | null }): PushTarg
   return pro.pushProvider ?? null;
 }
 
-/** Prisma errors may embed token-bearing queries; never pass those to logs. */
-function tokenStorageFailure(): never {
+/** Prisma errors may embed token-bearing queries; only log allowlisted codes. */
+function tokenStorageFailure(
+  error: unknown,
+  context?: { operation: 'register'; surface: 'pro' | 'customer'; elapsedMs: number },
+): never {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
+      ? error.code
+      : '';
+  logger.warn('[Push] Device token storage failed.', {
+    ...context,
+    code: /^(P\d{4}|[0-9A-Z]{5}|ECONNRESET|ECONNREFUSED|ETIMEDOUT)$/.test(code) ? code : 'UNKNOWN',
+  });
   throw createHttpError(
     503,
     ApiErrorCode.INTERNAL,
@@ -348,9 +359,11 @@ export function buildFcmPushMessage(
       // sub-second TTL never collapses to zero.
       ttl: `${Math.ceil(options.ttlMs / 1000)}s`,
       collapseKey: options.collapseKey,
-      ...(isJobAlert ? {} : {
-        notification: { channelId: message.channelId ?? JOB_ALERT_CHANNEL, sound: 'default' },
-      }),
+      ...(isJobAlert
+        ? {}
+        : {
+            notification: { channelId: message.channelId ?? JOB_ALERT_CHANNEL, sound: 'default' },
+          }),
     },
   };
 }
@@ -1235,6 +1248,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     provider: PushProviderInput,
     deviceId?: string | null,
   ): Promise<void> {
+    const startedAt = Date.now();
     logger.info(`[Push] Token registration request received for user ${userId} (${provider})`);
 
     // Validate the token shape: Expo tokens must look like Expo push tokens,
@@ -1264,104 +1278,120 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     // admin client) defaults to the pro surface, matching `roleForAppType`.
     const onCustomer = appType === 'customer';
 
-    await prisma
-      .$transaction(async (tx) => {
-        // A device token identifies one device; a re-sign-in, re-install or a
-        // deleted-then-re-registered account must not leave a stale copy on another
-        // row behind (violating the unique index). A pro surface is always linked
-        // (`ProProfile.userId` is non-null), so `not` alone is enough there.
-        await tx.proProfile.updateMany({
-          where: { pushToken, userId: { not: userId } },
-          data: { pushToken: null, pushPlatform: null, pushProvider: null },
-        });
-        // A finalized customer surface keeps its row with `userId` unlinked, and SQL
-        // `user_id <> $x` is UNKNOWN — not true — for a NULL, so `not` alone would
-        // skip it. That skipped token still occupies the unique `push_token` index,
-        // so the upsert below would fail forever with a unique violation. The OR's
-        // first branch clears those orphans.
-        await tx.customerProfile.updateMany({
-          where: { pushToken, OR: [{ userId: null }, { userId: { not: userId } }] },
-          data: { pushToken: null, pushPlatform: null, pushProvider: null },
-        });
+    const profileId = await prisma
+      .$transaction(
+        async (tx) => {
+          // A device token identifies one device; a re-sign-in, re-install or a
+          // deleted-then-re-registered account must not leave a stale copy on another
+          // row behind (violating the unique index). A pro surface is always linked
+          // (`ProProfile.userId` is non-null), so `not` alone is enough there.
+          await tx.proProfile.updateMany({
+            where: { pushToken, userId: { not: userId } },
+            data: { pushToken: null, pushPlatform: null, pushProvider: null },
+          });
+          // A finalized customer surface keeps its row with `userId` unlinked, and SQL
+          // `user_id <> $x` is UNKNOWN — not true — for a NULL, so `not` alone would
+          // skip it. That skipped token still occupies the unique `push_token` index,
+          // so the upsert below would fail forever with a unique violation. The OR's
+          // first branch clears those orphans.
+          await tx.customerProfile.updateMany({
+            where: { pushToken, OR: [{ userId: null }, { userId: { not: userId } }] },
+            data: { pushToken: null, pushPlatform: null, pushProvider: null },
+          });
 
-        if (onCustomer) {
-          const row = await tx.customerProfile.upsert({
+          if (onCustomer) {
+            const row = await tx.customerProfile.upsert({
+              where: { userId },
+              create: {
+                userId,
+                pushToken,
+                pushPlatform: storedPlatform,
+                pushProvider: providerValue,
+              },
+              update: {
+                pushToken,
+                pushPlatform: storedPlatform,
+                pushProvider: providerValue,
+              },
+            });
+            // Self-heal: the same token must never also sit on this account's pro
+            // surface (a buggy/legacy registration can leave it there), or a push
+            // meant for one phone would split across the two rows of one person.
+            await tx.proProfile.updateMany({
+              where: { userId, pushToken },
+              data: { pushToken: null, pushPlatform: null, pushProvider: null },
+            });
+            await tx.proPushDevice.deleteMany({ where: { pushToken } });
+            return row.id;
+          }
+
+          // Pro path: the Pro profile owns job alerts, plus the device binding that
+          // lets the native overlay operate on a dead process.
+          if (deviceId) {
+            await tx.proProfile.updateMany({
+              where: { pushDeviceId: deviceId, userId: { not: userId } },
+              data: { pushToken: null, pushPlatform: null, pushProvider: null, pushDeviceId: null },
+            });
+          }
+          const pro = await tx.proProfile.upsert({
             where: { userId },
             create: {
               userId,
               pushToken,
               pushPlatform: storedPlatform,
               pushProvider: providerValue,
+              pushDeviceId: deviceId ?? null,
             },
             update: {
               pushToken,
               pushPlatform: storedPlatform,
               pushProvider: providerValue,
+              pushDeviceId: deviceId ?? null,
             },
           });
-          // Self-heal: the same token must never also sit on this account's pro
-          // surface (a buggy/legacy registration can leave it there), or a push
-          // meant for one phone would split across the two rows of one person.
-          await tx.proProfile.updateMany({
+          // See the customer branch above — drop any duplicate of this token that a
+          // legacy registration left on the same account's customer surface.
+          await tx.customerProfile.updateMany({
             where: { userId, pushToken },
             data: { pushToken: null, pushPlatform: null, pushProvider: null },
           });
-          await tx.proPushDevice.deleteMany({ where: { pushToken } });
-          logger.info(
-            `[Push] Registered customer ${row.id}, token=${pushTokenId(pushToken)}, provider=${providerValue}.`,
-          );
-          return;
-        }
-
-        // Pro path: the Pro profile owns job alerts, plus the device binding that
-        // lets the native overlay operate on a dead process.
-        if (deviceId) {
-          await tx.proProfile.updateMany({
-            where: { pushDeviceId: deviceId, userId: { not: userId } },
-            data: { pushToken: null, pushPlatform: null, pushProvider: null, pushDeviceId: null },
+          const installId = deviceId || `legacy:${pro.id}`;
+          // Adopt any migrated/legacy copy of this token without disturbing other devices.
+          await tx.proPushDevice.deleteMany({ where: { pushToken, deviceId: { not: installId } } });
+          const registration = {
+            proId: pro.id,
+            pushToken,
+            pushPlatform: storedPlatform,
+            pushProvider: providerValue,
+          } as const;
+          await tx.proPushDevice.upsert({
+            where: { deviceId: installId },
+            create: { ...registration, deviceId: installId },
+            update: registration,
           });
-        }
-        const pro = await tx.proProfile.upsert({
-          where: { userId },
-          create: {
-            userId,
-            pushToken,
-            pushPlatform: storedPlatform,
-            pushProvider: providerValue,
-            pushDeviceId: deviceId ?? null,
-          },
-          update: {
-            pushToken,
-            pushPlatform: storedPlatform,
-            pushProvider: providerValue,
-            pushDeviceId: deviceId ?? null,
-          },
-        });
-        // See the customer branch above — drop any duplicate of this token that a
-        // legacy registration left on the same account's customer surface.
-        await tx.customerProfile.updateMany({
-          where: { userId, pushToken },
-          data: { pushToken: null, pushPlatform: null, pushProvider: null },
-        });
-        const installId = deviceId || `legacy:${pro.id}`;
-        // Adopt any migrated/legacy copy of this token without disturbing other devices.
-        await tx.proPushDevice.deleteMany({ where: { pushToken, deviceId: { not: installId } } });
-        const registration = {
-          proId: pro.id,
-          pushToken,
-          pushPlatform: storedPlatform,
-          pushProvider: providerValue,
-        } as const;
-        await tx.proPushDevice.upsert({
-          where: { deviceId: installId },
-          create: { ...registration, deviceId: installId },
-          update: registration,
-        });
-        logger.info(
-          `[Push] Registered pro ${userId}, device=${pushTokenId(installId)}, token=${pushTokenId(pushToken)}, provider=${providerValue}.`,
-        );
-      })
-      .catch(tokenStorageFailure);
+          return pro.id;
+        },
+        {
+          // Several sequential ownership/legacy cleanup queries share this
+          // transaction. The default 5 s expires on a slow remote connection.
+          maxWait: 5000,
+          timeout: 15000,
+        },
+      )
+      .catch((error: unknown) =>
+        tokenStorageFailure(error, {
+          operation: 'register',
+          surface: onCustomer ? 'customer' : 'pro',
+          elapsedMs: Date.now() - startedAt,
+        }),
+      );
+    // A successful callback can still fail during COMMIT. Only report a
+    // registered token after the transaction has actually committed.
+    logger.info(
+      onCustomer
+        ? `[Push] Registered customer ${profileId}, token=${pushTokenId(pushToken)}, provider=${providerValue}.`
+        : `[Push] Registered pro ${userId}, device=${pushTokenId(deviceId || `legacy:${profileId}`)}, token=${pushTokenId(pushToken)}, provider=${providerValue}.`,
+    );
   }
 
   /** Unregisters only the authenticated caller's current installation/token. */
