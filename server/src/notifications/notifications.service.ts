@@ -1,5 +1,6 @@
 import {
   JobStatus,
+  ApiErrorCode,
   NotificationKind,
   type AppNotification,
   type ChatMessage,
@@ -10,11 +11,12 @@ import type { AppType } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
 import type { AppConfig } from '../config';
 import { logger } from '../common/logger';
-import { badRequest, notFound } from '../common/errors';
+import { badRequest, createHttpError, notFound } from '../common/errors';
 import { distanceKm } from '../common/geo';
 import { REALTIME_EVENTS, type RealtimeService } from '../realtime/gateway';
 import { mintJobOffer } from '../jobs/job-offers';
 import { createFcmClient, type FcmClient, type FcmMessagePayload, type FcmSendResult } from './fcm';
+import { pushTokenId } from './push-token';
 
 /**
  * Notifications domain service.
@@ -109,6 +111,51 @@ const ROUTE_PREFIX = 'samonapro://job/';
 /** Server-side view of a push target's OS (mirrors the Prisma enum values). */
 type PushTargetPlatform = 'ANDROID' | 'IOS' | null;
 
+type PushTarget = {
+  pushToken: string;
+  pushPlatform: PushTargetPlatform;
+  pushProvider: PushTargetProvider;
+  deviceId: string | null;
+};
+
+const pushDeviceSelect = {
+  pushToken: true,
+  pushPlatform: true,
+  pushProvider: true,
+  deviceId: true,
+} as const;
+
+/** Prefer per-install registrations, with a fallback for legacy profiles. */
+function pushTargetsOf(pro: {
+  pushToken?: string | null;
+  pushPlatform?: PushTargetPlatform;
+  pushProvider?: PushTargetProvider;
+  pushDeviceId?: string | null;
+  pushDevices?: {
+    pushToken: string;
+    pushPlatform: PushTargetPlatform;
+    pushProvider: PushTargetProvider;
+    deviceId: string;
+  }[];
+}): PushTarget[] {
+  if (pro.pushDevices?.length) {
+    return pro.pushDevices.map((device) => ({
+      ...device,
+      deviceId: device.deviceId.startsWith('legacy:') ? null : device.deviceId,
+    }));
+  }
+  return pro.pushToken
+    ? [
+        {
+          pushToken: pro.pushToken,
+          pushPlatform: pro.pushPlatform ?? null,
+          pushProvider: pro.pushProvider ?? null,
+          deviceId: pro.pushDeviceId ?? null,
+        },
+      ]
+    : [];
+}
+
 /** The notification channel job alerts raise on (Android). */
 const JOB_ALERT_CHANNEL = 'incoming_jobs';
 
@@ -126,6 +173,15 @@ function notificationRoute(jobId: string): string {
 
 function pushProviderOf(pro: { pushProvider?: 'EXPO' | 'FCM' | null }): PushTargetProvider {
   return pro.pushProvider ?? null;
+}
+
+/** Prisma errors may embed token-bearing queries; never pass those to logs. */
+function tokenStorageFailure(): never {
+  throw createHttpError(
+    503,
+    ApiErrorCode.INTERNAL,
+    'Device token synchronization is temporarily unavailable.',
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -398,6 +454,51 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   } | null> | null = null;
 
   let fcmClient: FcmClient | null = null;
+  // Avoid re-sending a rejected token from an already-loaded scheduler batch.
+  // The database deletion is the durable source of truth across processes.
+  const rejectedTokens = new Set<string>();
+
+  async function deleteRejectedToken(token: string): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await tx.proPushDevice.deleteMany({ where: { pushToken: token } });
+      await tx.proProfile.updateMany({
+        where: { pushToken: token },
+        data: { pushToken: null, pushPlatform: null, pushProvider: null, pushDeviceId: null },
+      });
+      await tx.customerProfile.updateMany({
+        where: { pushToken: token },
+        data: { pushToken: null, pushPlatform: null, pushProvider: null },
+      });
+    });
+    logger.info(`[Push] Deleted rejected token=${pushTokenId(token)}.`);
+  }
+
+  /** Shared by job, terminal, cancellation, chat and campaign FCM delivery. */
+  async function sendFcm(token: string, message: FcmMessagePayload): Promise<FcmSendResult> {
+    if (rejectedTokens.has(token)) {
+      // Retry cleanup if an earlier database write failed, never the delivery.
+      try {
+        await deleteRejectedToken(token);
+      } catch {
+        logger.error(`[Push] Rejected-token cleanup failed, token=${pushTokenId(token)}.`);
+      }
+      return { ok: false, errorCode: 'UNREGISTERED', invalidToken: true };
+    }
+    const client = getFcmClient();
+    if (!client) return { ok: false, error: 'FCM is not configured.' };
+    const result = await client.send(token, message);
+    if (result.invalidToken) {
+      rejectedTokens.add(token);
+      if (rejectedTokens.size > 10000) rejectedTokens.delete(rejectedTokens.values().next().value!);
+      try {
+        await deleteRejectedToken(token);
+      } catch {
+        // Do not log the Prisma exception: its query can include full tokens.
+        logger.error(`[Push] Rejected-token cleanup failed, token=${pushTokenId(token)}.`);
+      }
+    }
+    return result;
+  }
 
   async function getExpoClient() {
     if (!config.expoAccessToken) return null;
@@ -480,7 +581,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         );
         return { ok: false };
       }
-      const result: FcmSendResult = await client.send(
+      const result: FcmSendResult = await sendFcm(
         pushToken,
         buildFcmPushMessage(message, {
           ttlMs: config.jobAlertTtlMs,
@@ -503,18 +604,20 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       const tickets = await client.sendPushNotificationsAsync([
         buildPushMessage(pushToken, message, platform),
       ]);
-      const ticket = tickets?.[0] as { status: string; id?: string; message?: string } | undefined;
+      const ticket = tickets?.[0] as
+        { status: string; id?: string; details?: { error?: string } } | undefined;
       if (ticket?.status === 'ok') {
         logger.info(
-          `[Push] Sent to ${pushToken} for job ${String(message.data.jobId ?? 'unknown')}: ticket ${ticket.id ?? 'no-id'}`,
+          `[Push] Sent token=${pushTokenId(pushToken)} for job ${String(message.data.jobId ?? 'unknown')}: ticket ${ticket.id ?? 'no-id'}`,
         );
         return { ok: true, providerRef: ticket.id };
       }
-      logger.warn(`[Push] Expo rejected push to ${pushToken}: ${ticket?.message ?? 'no message'}`);
-      return { ok: false, error: ticket?.message ?? 'Push rejected by Expo.' };
-    } catch (error) {
-      logger.error('[Push] Push send failed.', error);
-      return { ok: false, error: error instanceof Error ? error.message : 'Push failed.' };
+      logger.warn(`[Push] Expo rejected token=${pushTokenId(pushToken)}.`);
+      if (ticket?.details?.error === 'DeviceNotRegistered') await deleteRejectedToken(pushToken);
+      return { ok: false, error: 'Push rejected by Expo.' };
+    } catch {
+      logger.error(`[Push] Push send failed, token=${pushTokenId(pushToken)}.`);
+      return { ok: false, error: 'Push failed.' };
     }
   }
 
@@ -534,7 +637,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       logger.warn(`[Push] FCM not configured — skipping terminal ${type} push for job ${jobId}.`);
       return;
     }
-    const result = await client.send(pushToken, buildFcmTerminalMessage(type, jobId));
+    const result = await sendFcm(pushToken, buildFcmTerminalMessage(type, jobId));
     if (!result.ok) {
       logger.warn(`[Push] Terminal ${type} push for job ${jobId} was not delivered.`);
     }
@@ -560,9 +663,9 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   ): Promise<void> {
     const pro = await prisma.proProfile.findUnique({
       where: { userId: proUserId },
-      select: { pushToken: true, pushProvider: true },
+      select: { pushToken: true, pushProvider: true, pushDevices: { select: pushDeviceSelect } },
     });
-    if (!pro?.pushToken || pushProviderOf(pro) !== 'FCM') return;
+    if (!pro) return;
     const client = getFcmClient();
     if (!client) {
       logger.warn(
@@ -570,13 +673,18 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       );
       return;
     }
-    const result = await client.send(
-      pro.pushToken,
-      buildFcmAssignmentCancelMessage(jobId, cancelledAt),
+    await Promise.all(
+      pushTargetsOf(pro)
+        .filter((target) => target.pushProvider === 'FCM')
+        .map(async (target) => {
+          const result = await sendFcm(
+            target.pushToken,
+            buildFcmAssignmentCancelMessage(jobId, cancelledAt),
+          );
+          if (!result.ok)
+            logger.warn(`[Push] Assigned-cancellation push for job ${jobId} was not delivered.`);
+        }),
     );
-    if (!result.ok) {
-      logger.warn(`[Push] Assigned-cancellation push for job ${jobId} was not delivered.`);
-    }
   }
 
   /**
@@ -587,7 +695,11 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
    * We poll the receipts for tickets we just sent so a failed/invalid token is
    * discovered promptly and never retried.
    */
-  async function checkPushReceipts(receiptIds: string[], proId: string): Promise<void> {
+  async function checkPushReceipts(
+    receiptIds: string[],
+    proId: string,
+    token: string,
+  ): Promise<void> {
     if (receiptIds.length === 0) return;
     const client = await getExpoClient();
     if (!client?.getPushNotificationReceiptsAsync) return;
@@ -596,32 +708,16 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
       const receipts = await client.getPushNotificationReceiptsAsync(receiptIds);
       for (const [id, receipt] of Object.entries(receipts)) {
         if (receipt.status !== 'ok') {
-          logger.warn(
-            `[Push] Receipt ${id} for pro ${proId}: ${receipt.message ?? receipt.status}`,
-          );
+          logger.warn(`[Push] Receipt ${id} failed for pro ${proId}, token=${pushTokenId(token)}.`);
           // Expo stopped accepting this token (device uninstalled / app removed).
           // Stop both delivering to it and paging it further until it re-registers.
-          if (
-            receipt.status === 'DeviceNotRegistered' ||
-            receipt.status === 'InvalidToken' ||
-            receipt.status === 'MessageTooBig' ||
-            receipt.status === 'MessageRateExceeded' ||
-            receipt.status === 'InvalidCredentials'
-          ) {
-            const removed = await prisma.proProfile.updateMany({
-              where: { id: proId, pushToken: { not: null } },
-              data: { pushToken: null, pushProvider: null },
-            });
-            if (removed.count > 0) {
-              logger.warn(`[Push] Removed invalid push token for pro ${proId}.`);
-            }
-          }
+          if (receipt.details?.error === 'DeviceNotRegistered') await deleteRejectedToken(token);
         } else {
           logger.debug(`[Push] Receipt ${id} for pro ${proId}: delivered.`);
         }
       }
-    } catch (error) {
-      logger.error('[Push] Receipt check failed.', error);
+    } catch {
+      logger.error(`[Push] Receipt check failed, token=${pushTokenId(token)}.`);
     }
   }
 
@@ -679,28 +775,39 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
   async function alertOne(
     proId: string,
     info: JobAlertInfo,
-    token: string,
+    targets: PushTarget[],
     isRepeat: boolean,
-    platform: PushTargetPlatform,
-    provider: PushTargetProvider,
-    deviceId: string | null,
     rearm = false,
   ): Promise<void> {
-    const data = jobAlertData(info, config);
-    await attachOfferData(data, proId, info.jobId, deviceId, provider);
-    const message = {
-      title: jobAlertTitle(info),
-      body: jobAlertBody(info),
-      data,
-    };
-    const result = await sendPush(token, message, platform, provider);
-
-    // If the provider accepted the work, verify actual delivery shortly after.
-    if (result.ok && result.providerRef) {
-      void checkPushReceipts([result.providerRef], proId);
-    }
-
-    await upsertAlert(proId, info, result, isRepeat, rearm);
+    const results = await Promise.all(
+      targets.map(async (target) => {
+        const data = jobAlertData(info, config);
+        if (!rejectedTokens.has(target.pushToken)) {
+          await attachOfferData(data, proId, info.jobId, target.deviceId, target.pushProvider);
+        }
+        const result = await sendPush(
+          target.pushToken,
+          {
+            title: jobAlertTitle(info),
+            body: jobAlertBody(info),
+            data,
+          },
+          target.pushPlatform,
+          target.pushProvider,
+        );
+        if (target.pushProvider !== 'FCM' && result.ok && result.providerRef) {
+          void checkPushReceipts([result.providerRef], proId, target.pushToken);
+        }
+        return result;
+      }),
+    );
+    await upsertAlert(
+      proId,
+      info,
+      results.find((result) => result.ok) ?? { ok: false },
+      isRepeat,
+      rearm,
+    );
   }
 
   /**
@@ -769,6 +876,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         pushPlatform: true,
         pushProvider: true,
         pushDeviceId: true,
+        pushDevices: { select: pushDeviceSelect },
         jobAlertsEnabled: true,
       },
     });
@@ -787,7 +895,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         };
 
         // Skip anyone who turned alerts off or has no token yet.
-        if (!pro.jobAlertsEnabled || !pro.pushToken) {
+        if (!pro.jobAlertsEnabled || pushTargetsOf(pro).length === 0) {
           logger.warn(
             `[Push] Skipping pro ${pro.id} for job ${info.jobId}: ${!pro.jobAlertsEnabled ? 'alerts disabled' : 'no push token stored'}`,
           );
@@ -796,15 +904,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           await upsertAlert(pro.id, infoForRecipient, { ok: false, providerRef: null }, false);
           return;
         }
-        await alertOne(
-          pro.id,
-          infoForRecipient,
-          pro.pushToken,
-          false,
-          pro.pushPlatform,
-          pushProviderOf(pro),
-          pro.pushDeviceId ?? null,
-        );
+        await alertOne(pro.id, infoForRecipient, pushTargetsOf(pro), false);
       }),
     );
   }
@@ -840,6 +940,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           pushPlatform: true,
           pushProvider: true,
           pushDeviceId: true,
+          pushDevices: { select: pushDeviceSelect },
           jobAlertsEnabled: true,
         },
       }),
@@ -868,7 +969,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           distanceKm: recipient?.distanceKm ?? null,
         };
 
-        if (!pro.jobAlertsEnabled || !pro.pushToken) {
+        if (!pro.jobAlertsEnabled || pushTargetsOf(pro).length === 0) {
           // Still record the offer for history, but skip delivery.
           await upsertAlert(pro.id, infoForRecipient, { ok: false, providerRef: null }, false);
           return;
@@ -878,15 +979,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
 
         // Never alerted before → normal immediate push (treat as fresh).
         if (!previous) {
-          await alertOne(
-            pro.id,
-            infoForRecipient,
-            pro.pushToken,
-            false,
-            pro.pushPlatform,
-            pushProviderOf(pro),
-            pro.pushDeviceId ?? null,
-          );
+          await alertOne(pro.id, infoForRecipient, pushTargetsOf(pro), false);
           return;
         }
 
@@ -902,11 +995,8 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         await alertOne(
           pro.id,
           infoForRecipient,
-          pro.pushToken,
+          pushTargetsOf(pro),
           false,
-          pro.pushPlatform,
-          pushProviderOf(pro),
-          pro.pushDeviceId ?? null,
           true, // rearm
         );
       }),
@@ -929,7 +1019,14 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     const open = await prisma.notification.findMany({
       where: { jobId, kind: NotificationKind.JOB_ALERT, resolvedAt: null },
       select: {
-        pro: { select: { pushToken: true, pushPlatform: true, pushProvider: true } },
+        pro: {
+          select: {
+            pushToken: true,
+            pushPlatform: true,
+            pushProvider: true,
+            pushDevices: { select: pushDeviceSelect },
+          },
+        },
       },
     });
 
@@ -951,9 +1048,11 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     // for the next repeat or a socket reconnect.
     await Promise.all(
       open.map(async (row) => {
-        const token = row.pro.pushToken;
-        if (!token || pushProviderOf(row.pro) !== 'FCM') return;
-        await sendTerminalAlert(token, jobId, terminalType);
+        await Promise.all(
+          pushTargetsOf(row.pro)
+            .filter((target) => target.pushProvider === 'FCM')
+            .map((target) => sendTerminalAlert(target.pushToken, jobId, terminalType)),
+        );
       }),
     );
   }
@@ -1156,75 +1255,147 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     // admin client) defaults to the pro surface, matching `roleForAppType`.
     const onCustomer = appType === 'customer';
 
-    // A device token identifies one device; a re-sign-in, re-install or a
-    // deleted-then-re-registered account must not leave a stale copy on another
-    // row behind (violating the unique index). A pro surface is always linked
-    // (`ProProfile.userId` is non-null), so `not` alone is enough there.
-    await prisma.proProfile.updateMany({
-      where: { pushToken, userId: { not: userId } },
-      data: { pushToken: null, pushPlatform: null, pushProvider: null },
-    });
-    // A finalized customer surface keeps its row with `userId` unlinked, and SQL
-    // `user_id <> $x` is UNKNOWN — not true — for a NULL, so `not` alone would
-    // skip it. That skipped token still occupies the unique `push_token` index,
-    // so the upsert below would fail forever with a unique violation. The OR's
-    // first branch clears those orphans.
-    await prisma.customerProfile.updateMany({
-      where: { pushToken, OR: [{ userId: null }, { userId: { not: userId } }] },
-      data: { pushToken: null, pushPlatform: null, pushProvider: null },
-    });
+    await prisma
+      .$transaction(async (tx) => {
+        // A device token identifies one device; a re-sign-in, re-install or a
+        // deleted-then-re-registered account must not leave a stale copy on another
+        // row behind (violating the unique index). A pro surface is always linked
+        // (`ProProfile.userId` is non-null), so `not` alone is enough there.
+        await tx.proProfile.updateMany({
+          where: { pushToken, userId: { not: userId } },
+          data: { pushToken: null, pushPlatform: null, pushProvider: null },
+        });
+        // A finalized customer surface keeps its row with `userId` unlinked, and SQL
+        // `user_id <> $x` is UNKNOWN — not true — for a NULL, so `not` alone would
+        // skip it. That skipped token still occupies the unique `push_token` index,
+        // so the upsert below would fail forever with a unique violation. The OR's
+        // first branch clears those orphans.
+        await tx.customerProfile.updateMany({
+          where: { pushToken, OR: [{ userId: null }, { userId: { not: userId } }] },
+          data: { pushToken: null, pushPlatform: null, pushProvider: null },
+        });
 
-    if (onCustomer) {
-      const row = await prisma.customerProfile.upsert({
-        where: { userId },
-        create: {
-          userId,
+        if (onCustomer) {
+          const row = await tx.customerProfile.upsert({
+            where: { userId },
+            create: {
+              userId,
+              pushToken,
+              pushPlatform: storedPlatform,
+              pushProvider: providerValue,
+            },
+            update: {
+              pushToken,
+              pushPlatform: storedPlatform,
+              pushProvider: providerValue,
+            },
+          });
+          // Self-heal: the same token must never also sit on this account's pro
+          // surface (a buggy/legacy registration can leave it there), or a push
+          // meant for one phone would split across the two rows of one person.
+          await tx.proProfile.updateMany({
+            where: { userId, pushToken },
+            data: { pushToken: null, pushPlatform: null, pushProvider: null },
+          });
+          await tx.proPushDevice.deleteMany({ where: { pushToken } });
+          logger.info(
+            `[Push] Registered customer ${row.id}, token=${pushTokenId(pushToken)}, provider=${providerValue}.`,
+          );
+          return;
+        }
+
+        // Pro path: the Pro profile owns job alerts, plus the device binding that
+        // lets the native overlay operate on a dead process.
+        if (deviceId) {
+          await tx.proProfile.updateMany({
+            where: { pushDeviceId: deviceId, userId: { not: userId } },
+            data: { pushToken: null, pushPlatform: null, pushProvider: null, pushDeviceId: null },
+          });
+        }
+        const pro = await tx.proProfile.upsert({
+          where: { userId },
+          create: {
+            userId,
+            pushToken,
+            pushPlatform: storedPlatform,
+            pushProvider: providerValue,
+            pushDeviceId: deviceId ?? null,
+          },
+          update: {
+            pushToken,
+            pushPlatform: storedPlatform,
+            pushProvider: providerValue,
+            pushDeviceId: deviceId ?? null,
+          },
+        });
+        // See the customer branch above — drop any duplicate of this token that a
+        // legacy registration left on the same account's customer surface.
+        await tx.customerProfile.updateMany({
+          where: { userId, pushToken },
+          data: { pushToken: null, pushPlatform: null, pushProvider: null },
+        });
+        const installId = deviceId || `legacy:${pro.id}`;
+        // Adopt any migrated/legacy copy of this token without disturbing other devices.
+        await tx.proPushDevice.deleteMany({ where: { pushToken, deviceId: { not: installId } } });
+        const registration = {
+          proId: pro.id,
           pushToken,
           pushPlatform: storedPlatform,
           pushProvider: providerValue,
-        },
-        update: {
-          pushToken,
-          pushPlatform: storedPlatform,
-          pushProvider: providerValue,
-        },
-      });
-      // Self-heal: the same token must never also sit on this account's pro
-      // surface (a buggy/legacy registration can leave it there), or a push
-      // meant for one phone would split across the two rows of one person.
-      await prisma.proProfile.updateMany({
-        where: { userId, pushToken },
-        data: { pushToken: null, pushPlatform: null, pushProvider: null },
-      });
-      logger.info(`[Push] Token stored successfully for customer ${row.id} (${providerValue}).`);
-      return;
+        } as const;
+        await tx.proPushDevice.upsert({
+          where: { deviceId: installId },
+          create: { ...registration, deviceId: installId },
+          update: registration,
+        });
+        logger.info(
+          `[Push] Registered pro ${userId}, device=${pushTokenId(installId)}, token=${pushTokenId(pushToken)}, provider=${providerValue}.`,
+        );
+      })
+      .catch(tokenStorageFailure);
+  }
+
+  /** Unregisters only the authenticated caller's current installation/token. */
+  async function unregisterPushToken(
+    userId: string,
+    appType: AppType | null,
+    input: { deviceId?: string; pushToken?: string },
+  ): Promise<void> {
+    // Also enforce this when invoked outside the validated HTTP route.
+    if (!input.deviceId && !input.pushToken)
+      throw badRequest('A device or push token is required.');
+    if (appType === 'customer') {
+      if (!input.pushToken) throw badRequest('A push token is required.');
+      await prisma.customerProfile
+        .updateMany({
+          where: { userId, pushToken: input.pushToken },
+          data: { pushToken: null, pushPlatform: null, pushProvider: null },
+        })
+        .catch(tokenStorageFailure);
+    } else {
+      await prisma
+        .$transaction(async (tx) => {
+          await tx.proPushDevice.deleteMany({
+            where: {
+              pro: { userId },
+              ...(input.deviceId ? { deviceId: input.deviceId } : { pushToken: input.pushToken! }),
+            },
+          });
+          await tx.proProfile.updateMany({
+            where: {
+              userId,
+              ...(input.deviceId
+                ? { pushDeviceId: input.deviceId }
+                : { pushToken: input.pushToken! }),
+            },
+            data: { pushToken: null, pushPlatform: null, pushProvider: null, pushDeviceId: null },
+          });
+        })
+        .catch(tokenStorageFailure);
     }
-
-    // Pro path: the Pro profile owns job alerts, plus the device binding that
-    // lets the native overlay operate on a dead process.
-    await prisma.proProfile.upsert({
-      where: { userId },
-      create: {
-        userId,
-        pushToken,
-        pushPlatform: storedPlatform,
-        pushProvider: providerValue,
-        ...(deviceId ? { pushDeviceId: deviceId } : {}),
-      },
-      update: {
-        pushToken,
-        pushPlatform: storedPlatform,
-        pushProvider: providerValue,
-        ...(deviceId ? { pushDeviceId: deviceId } : {}),
-      },
-    });
-    // See the customer branch above — drop any duplicate of this token that a
-    // legacy registration left on the same account's customer surface.
-    await prisma.customerProfile.updateMany({
-      where: { userId, pushToken },
-      data: { pushToken: null, pushPlatform: null, pushProvider: null },
-    });
-    logger.info(`[Push] Token stored successfully for pro ${userId} (${providerValue}).`);
+    logger.info(
+      `[Push] Unregistered user ${userId}, registration=${pushTokenId(input.deviceId ?? input.pushToken!)}.`,
+    );
   }
 
   /**
@@ -1261,10 +1432,15 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         })
       : prisma.proProfile.findUnique({
           where: { userId: input.userId },
-          select: { pushToken: true, pushPlatform: true, pushProvider: true },
+          select: {
+            pushToken: true,
+            pushPlatform: true,
+            pushProvider: true,
+            pushDevices: { select: pushDeviceSelect },
+          },
         }));
-    const token = profile?.pushToken;
-    if (!token) return;
+    if (!profile) return;
+    const targets = pushTargetsOf(profile);
 
     const title = input.senderName ?? 'New message';
     const body = input.message.content;
@@ -1280,36 +1456,40 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     // bumped (with the apps) to a channel that uses the device default sound.
     const channelId = 'chat_messages_v2';
 
-    if (pushProviderOf(profile as { pushProvider?: 'EXPO' | 'FCM' | null }) === 'FCM') {
-      const client = getFcmClient();
-      if (!client) {
-        logger.warn('[Push] FCM not configured — skipping a chat push.');
-        return;
-      }
-      // A display message (with a `notification` block) survives the process
-      // being dead, unlike a data-only message. collapseKey keys the thread so
-      // a burst of messages replaces rather than stacks.
-      const result = await client.send(token, {
-        notification: { title, body },
-        data: { ...data, title, body },
-        android: {
-          priority: 'high',
-          collapseKey: `chat-${input.jobId}`,
-          notification: { channelId, sound: 'default' },
-        },
-      });
-      if (!result.ok) {
-        logger.warn(`[Push] Chat push to ${input.userId} on job ${input.jobId} not delivered.`);
-      }
-      return;
-    }
+    await Promise.all(
+      targets.map(async (target) => {
+        const token = target.pushToken;
+        if (target.pushProvider === 'FCM') {
+          const client = getFcmClient();
+          if (!client) {
+            logger.warn('[Push] FCM not configured — skipping a chat push.');
+            return;
+          }
+          // A display message (with a `notification` block) survives the process
+          // being dead, unlike a data-only message. collapseKey keys the thread so
+          // a burst of messages replaces rather than stacks.
+          const result = await sendFcm(token, {
+            notification: { title, body },
+            data: { ...data, title, body },
+            android: {
+              priority: 'high',
+              collapseKey: `chat-${input.jobId}`,
+              notification: { channelId, sound: 'default' },
+            },
+          });
+          if (!result.ok) {
+            logger.warn(`[Push] Chat push to ${input.userId} on job ${input.jobId} not delivered.`);
+          }
+          return;
+        }
 
-    const result = await sendPush(token, { title, body, data }, profile.pushPlatform, 'EXPO');
-    if (!result.ok) {
-      logger.warn(`[Push] Chat push to ${input.userId} on job ${input.jobId} not delivered.`);
-    }
+        const result = await sendPush(token, { title, body, data }, target.pushPlatform, 'EXPO');
+        if (!result.ok) {
+          logger.warn(`[Push] Chat push to ${input.userId} on job ${input.jobId} not delivered.`);
+        }
+      }),
+    );
   }
-
   /**
    * One-off push to a customer's device — used to surface the start-work OTP.
    *
@@ -1353,7 +1533,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
         logger.warn(`[Push] FCM not configured — skipping a customer push (${type}).`);
         return;
       }
-      const result = await client.send(token, {
+      const result = await sendFcm(token, {
         notification: { title: input.title, body: input.body },
         data: { ...data, title: input.title, body: input.body },
         android: {
@@ -1420,7 +1600,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           pro: {
             isOnline: true,
             jobAlertsEnabled: true,
-            pushToken: { not: null },
+            OR: [{ pushToken: { not: null } }, { pushDevices: { some: {} } }],
             deletedAt: null,
             deletionRequestedAt: null,
           },
@@ -1436,6 +1616,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
               pushPlatform: true,
               pushProvider: true,
               pushDeviceId: true,
+              pushDevices: { select: pushDeviceSelect },
               latitude: true,
               longitude: true,
             },
@@ -1484,8 +1665,8 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
           });
           continue;
         }
-        const token = row.pro.pushToken;
-        if (!token) continue;
+        const targets = pushTargetsOf(row.pro);
+        if (targets.length === 0) continue;
 
         const distanceMeters =
           row.pro.latitude !== null &&
@@ -1512,11 +1693,8 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
             professionalId: row.pro.id,
             distanceKm: distanceMeters,
           },
-          token,
+          targets,
           true,
-          row.pro.pushPlatform,
-          pushProviderOf(row.pro),
-          row.pro.pushDeviceId ?? null,
         );
       }
     } catch (error) {
@@ -1556,6 +1734,7 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     markAllCustomerNotificationsRead,
     deleteCustomerNotification,
     registerPushToken,
+    unregisterPushToken,
     setPushSettings,
     sendChatPush,
     sendCustomerPush,

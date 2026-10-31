@@ -50,6 +50,13 @@ export const registerPushTokenSchema = z.object({
 
 export type RegisterPushTokenInput = z.infer<typeof registerPushTokenSchema>;
 
+export const unregisterPushTokenSchema = z.object({
+  deviceId: deviceIdSchema.optional(),
+  pushToken: expoPushTokenSchema.optional(),
+}).refine((value) => value.deviceId || value.pushToken, 'A device or push token is required.');
+
+export type UnregisterPushTokenInput = z.infer<typeof unregisterPushTokenSchema>;
+
 /**
  * The Pro's job-alert preference. Only `jobAlertsEnabled` is client-settable —
  * the push token itself is managed through `registerPushTokenSchema`.
@@ -67,4 +74,3 @@ export const notificationListQuerySchema = z.object({
 });
 
 export type NotificationListQuery = z.infer<typeof notificationListQuerySchema>;
-

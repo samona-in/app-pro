@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   registerPushTokenSchema,
+  unregisterPushTokenSchema,
   pushSettingsSchema,
   notificationListQuerySchema,
 } from '@samona/validation';
@@ -44,6 +45,15 @@ export function createNotificationsRouter(services: Services): Router {
         req.body.provider,
         req.body.deviceId,
       );
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post('/unregister-token', validate(unregisterPushTokenSchema), async (req, res, next) => {
+    try {
+      await services.notifications.unregisterPushToken(req.user!.id, req.user!.appType, req.body);
       res.status(204).send();
     } catch (error) {
       next(error);

@@ -671,6 +671,7 @@ export function createAccountDeletionService(deps: AccountDeletionServiceDeps) {
             await tx.notification.deleteMany({ where: { proId: pro.id } });
             await tx.jobDecline.deleteMany({ where: { proId: pro.id } });
             await tx.jobOffer.deleteMany({ where: { proId: pro.id } });
+            await tx.proPushDevice.deleteMany({ where: { proId: pro.id } });
 
             await tx.proProfile.update({
               where: { id: pro.id },
