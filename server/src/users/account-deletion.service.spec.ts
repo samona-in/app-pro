@@ -295,6 +295,7 @@ function fakePrisma(initial: {
     notification: { deleteMany: jest.fn(async () => ({ count: 0 })) },
     jobDecline: { deleteMany: jest.fn(async () => ({ count: 0 })) },
     jobOffer: { deleteMany: jest.fn(async () => ({ count: 0 })) },
+    proPushDevice: { deleteMany: jest.fn(async () => ({ count: 0 })) },
     cleanupAuditLog: { create: jest.fn(async () => ({})) },
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma as unknown)),
     __updates: updates,
@@ -560,6 +561,7 @@ describe('createAccountDeletionService', () => {
       expect(prisma.__profile.deletedAt).toBeNull();
       expect(prisma.__pros[0]!.deletedAt).not.toBeNull();
       expect(prisma.__pros[0]!.displayName).toBeNull();
+      expect(prisma.proPushDevice.deleteMany).toHaveBeenCalledWith({ where: { proId: prisma.__pros[0]!.id } });
       expect(prisma.__deletions[0]!.status).toBe(AccountDeletionStatus.COMPLETED);
       // A PRO_PROFILE deletion never touches the Supabase identity.
       expect(admin.deleteUser).not.toHaveBeenCalled();

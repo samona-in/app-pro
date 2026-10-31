@@ -1,9 +1,17 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase';
 import { setSessionTokenGetter } from '@/services/api';
 import { connectRealtime, disconnectRealtime } from '@/services/realtime';
-import { registerPushToken } from '@/services/notifications';
+import { startPushTokenSync } from '@/services/notifications';
 
 interface AuthState {
   /** False until the persisted session has been restored from Secure Store. */
@@ -25,6 +33,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const pushSync = useRef<ReturnType<typeof startPushTokenSync> | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -80,8 +89,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // signed in, so job alerts reach the pro even with the app locked/backgrounded.
   // Best-effort: denied permission or a failed registration must not block sign-in.
   useEffect(() => {
-    if (!session?.access_token) return;
-    void registerPushToken();
+    const userId = session?.user.id;
+    if (!userId) return;
+    const sync = startPushTokenSync(userId, async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.user.id === userId ? data.session.access_token : null;
+    });
+    pushSync.current = sync;
+    return () => {
+      sync.stop();
+      if (pushSync.current === sync) pushSync.current = null;
+    };
+  }, [session?.user.id]);
+
+  useEffect(() => {
+    if (session?.access_token) pushSync.current?.synchronize();
   }, [session?.access_token]);
 
   // The socket outlives a render but not the app; drop it on provider unmount.
@@ -95,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSignedIn: session !== null,
       session,
       signOut: async () => {
+        await pushSync.current?.unregister();
         await supabase.auth.signOut();
       },
     }),

@@ -372,7 +372,13 @@ describe('createNotificationsService.registerPushToken', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         upsert: customerProfileUpsert,
       },
+      proPushDevice: {
+        upsert: jest.fn().mockResolvedValue({}),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma));
 
     const service = createNotificationsService({
       prisma: prisma as never,

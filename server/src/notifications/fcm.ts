@@ -1,5 +1,6 @@
 import { createSign } from 'node:crypto';
 import { logger } from '../common/logger';
+import { pushTokenId } from './push-token';
 
 /**
  * Minimal Firebase Cloud Messaging HTTP v1 client.
@@ -50,6 +51,10 @@ export interface FcmSendResult {
   messageId?: string;
   /** A client-safe error description when it failed. */
   error?: string;
+  /** Structured provider code, independent of the HTTP status. */
+  errorCode?: string;
+  /** Only a token-specific permanent rejection permits deleting a token. */
+  invalidToken?: boolean;
 }
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -109,14 +114,13 @@ export function createFcmClient(credentials: FcmCredentials) {
           assertion,
         }),
       });
-    } catch (error) {
-      logger.error('[FCM] OAuth token exchange failed (network).', error);
+    } catch {
+      logger.error('[FCM] OAuth token exchange failed (network).');
       return null;
     }
 
     if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      logger.error(`[FCM] OAuth token exchange failed (HTTP ${response.status}): ${body.slice(0, 300)}`);
+      logger.error(`[FCM] OAuth token exchange failed (HTTP ${response.status}).`);
       return null;
     }
 
@@ -136,6 +140,10 @@ export function createFcmClient(credentials: FcmCredentials) {
    * as `{ ok: false, error }`.
    */
   async function send(token: string, message: FcmMessagePayload): Promise<FcmSendResult> {
+    if (!token || /^(ExponentPushToken|ExpoPushToken)\[/.test(token)) {
+      logger.warn(`[FCM] Rejected non-native token ${pushTokenId(token)} before delivery.`);
+      return { ok: false, error: 'Direct FCM delivery requires a native FCM registration token.' };
+    }
     const accessToken = await getAccessToken();
     if (!accessToken) {
       return { ok: false, error: 'Could not mint an FCM access token.' };
@@ -151,20 +159,39 @@ export function createFcmClient(credentials: FcmCredentials) {
         },
         body: JSON.stringify({ message: { token, ...message } }),
       });
-    } catch (error) {
-      logger.error('[FCM] Message send failed (network).', error);
-      return { ok: false, error: error instanceof Error ? error.message : 'FCM send failed.' };
+    } catch {
+      logger.error(`[FCM] Message send failed (network), token=${pushTokenId(token)}.`);
+      return { ok: false, error: 'FCM send failed (network).' };
     }
 
     if (response.ok) {
       const parsed = (await response.json().catch(() => null)) as { name?: string } | null;
-      logger.info(`[FCM] Sent message to ${token}: ${parsed?.name ?? 'accepted'}`);
+      logger.info(
+        `[FCM] Sent message, token=${pushTokenId(token)}, message=${parsed?.name ?? 'accepted'}.`,
+      );
       return { ok: true, messageId: parsed?.name };
     }
 
-    const body = await response.text().catch(() => '');
-    logger.warn(`[FCM] Message rejected (HTTP ${response.status}): ${body.slice(0, 400)}`);
-    return { ok: false, error: `FCM rejected the message (HTTP ${response.status}).` };
+    const parsed = (await response.json().catch(() => null)) as {
+      error?: { status?: string; details?: { '@type'?: string; errorCode?: string }[] };
+    } | null;
+    const details = parsed?.error?.details;
+    const code =
+      (Array.isArray(details) ? details : []).find(
+        (detail) => detail?.['@type'] === 'type.googleapis.com/google.firebase.fcm.v1.FcmError',
+      )?.errorCode ?? parsed?.error?.status;
+    const errorCode = typeof code === 'string' && /^[A-Z_]{1,64}$/.test(code) ? code : undefined;
+    const invalidToken = errorCode === 'UNREGISTERED';
+    // Provider messages can echo the rejected token. Log only structured codes.
+    logger.warn(
+      `[FCM] Message rejected, token=${pushTokenId(token)}, HTTP=${response.status}, code=${errorCode ?? 'UNKNOWN'}.`,
+    );
+    return {
+      ok: false,
+      errorCode,
+      invalidToken,
+      error: `FCM rejected the message (HTTP ${response.status}, ${errorCode ?? 'UNKNOWN'}).`,
+    };
   }
 
   return { send };

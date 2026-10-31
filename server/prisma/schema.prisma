@@ -272,6 +272,7 @@ model ProProfile {
   notifications Notification[]
   declines      JobDecline[]
   jobOffers     JobOffer[]
+  pushDevices   ProPushDevice[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -279,6 +280,23 @@ model ProProfile {
   @@index([onboardingStatus])
   @@index([isOnline])
   @@map("pro_profiles")
+}
+
+/// One current registration per Pro app installation. ProProfile push fields
+/// remain a compatibility mirror for older callers; delivery prefers devices.
+model ProPushDevice {
+  id           String       @id @default(uuid()) @db.Uuid
+  proId        String       @map("pro_id") @db.Uuid
+  pro          ProProfile   @relation(fields: [proId], references: [id], onDelete: Cascade)
+  deviceId     String       @unique @map("device_id")
+  pushToken    String       @unique @map("push_token")
+  pushPlatform PushPlatform @map("push_platform")
+  pushProvider PushProvider @map("push_provider")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@index([proId])
+  @@map("pro_push_devices")
 }
 
 /// A customer's profile, storing their display identity and default location.

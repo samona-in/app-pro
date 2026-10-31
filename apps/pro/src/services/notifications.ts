@@ -1,4 +1,6 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import { isApiError, isRetryable } from '@samona/api-client';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import type { AppNotification } from '@samona/types';
@@ -120,88 +122,242 @@ async function ensureChannel(): Promise<void> {
   });
 }
 
+const INSTALL_ID_KEY = 'samona.push-install-id';
+const PENDING_UNREGISTER_KEY = 'samona.push-unregister-pending';
+
+type StoredRegistration = { userId: string; deviceId: string };
+
+async function getPushDeviceId(): Promise<string> {
+  const nativeId = await getNativeDeviceId();
+  if (nativeId) return nativeId;
+  // Persist a unique launch id once for iOS / builds without the native module.
+  // Android with the overlay always uses its native offer-redemption identity.
+  const stored = await SecureStore.getItemAsync(INSTALL_ID_KEY);
+  if (stored) return stored;
+  const id = Constants.sessionId;
+  await SecureStore.setItemAsync(INSTALL_ID_KEY, id);
+  return id;
+}
+
+function tokenLabel(token: string): string {
+  return token.length > 12 ? `…${token.slice(-6)}` : '[redacted]';
+}
+
+function logTokenEvent(message: string): void {
+  // eslint-disable-next-line no-console -- Lifecycle messages contain redacted token identifiers only.
+  console.log(`[Notifications] ${message}`);
+}
+
+// Serialize mutations across session changes too: an old in-flight upload must
+// finish before a new account registers this installation.
+let pushMutationQueue: Promise<unknown> = Promise.resolve();
+function mutatePush<T>(operation: () => Promise<T>): Promise<T> {
+  const result = pushMutationQueue.then(operation);
+  pushMutationQueue = result.catch(() => undefined);
+  return result;
+}
+
 /**
- * Requests permission and, if granted, registers the device's push token with
- * the server. Returns the token that was stored, or null if denied/absent.
- *
- * Called after sign-in. The server stores the token on the Pro's profile and
- * uses it to deliver job-alert pushes.
+ * Owns one authenticated Pro's token lifecycle. Expo forwards the native FCM
+ * onNewToken event through addPushTokenListener (including our subclassed job
+ * alert service). Never fetch a native token from inside that callback.
  */
-export async function registerPushToken(): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
+export function startPushTokenSync(userId: string, getAccessToken: () => Promise<string | null>) {
+  let active = Platform.OS !== 'web';
+  let latestNative: Notifications.DevicePushToken | undefined;
+  let uploadedToken: string | null = null;
+  let pending = false;
+  let forceUpload = true;
+  let running: Promise<void> | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let attempt = 0;
+  let permissionAsked = false;
+  let offeredAlertPermissions = false;
 
-  console.log('[Notifications] Starting push token registration...');
-
-  await ensureChannel();
-  console.log('[Notifications] Android notification channel ensured');
-
-  const settings = await Notifications.getPermissionsAsync();
-  console.log('[Notifications] Current permission status:', settings.status);
-  let granted = settings.granted;
-  if (!granted) {
-    const request = await Notifications.requestPermissionsAsync();
-    granted = request.granted;
-    console.log('[Notifications] Permission request result:', request.status);
+  async function clearPendingLogout(accessToken: string): Promise<void> {
+    const raw = await SecureStore.getItemAsync(PENDING_UNREGISTER_KEY);
+    const stored = raw ? (JSON.parse(raw) as StoredRegistration) : null;
+    if (stored?.userId !== userId) return;
+    await api.post(
+      '/notifications/unregister-token',
+      { deviceId: stored.deviceId },
+      {
+        skipAuth: true,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeoutMs: 10000,
+      },
+    );
+    await SecureStore.deleteItemAsync(PENDING_UNREGISTER_KEY);
+    logTokenEvent('Completed pending device unregistration');
   }
-  if (!granted) {
-    console.log('[Notifications] Permission not granted — skipping push registration');
-    return null;
-  }
 
-  const isAndroid = Platform.OS === 'android';
-
-  // Android registers the raw FCM registration token so the server can reach
-  // Firebase directly with per-job ttl/collapseKey/tag and a display payload
-  // that survives the process being dead. No Expo project id is needed for it.
-  // The device id binds the minted single-use offer tokens to this exact
-  // install, and the native overlay is pointed at this bundle's API so it can
-  // redeem them without waiting for the app to load.
-  let pushToken: string;
-  let deviceId: string | null = null;
-  if (isAndroid) {
-    console.log('[Notifications] Using raw FCM device token');
-    const tokenData = await Notifications.getDevicePushTokenAsync();
-    pushToken = tokenData.data;
-    await configureJobAlertModule();
-    deviceId = (await getNativeDeviceId()) || null;
-    console.log('[Notifications] Native overlay configured with device id');
-  } else {
-    // No project id means we cannot mint an Expo push token; skip registration.
-    if (!PROJECT_ID) {
-      console.log('[Notifications] No Expo project ID found — skipping push registration');
-      return null;
+  async function synchronize(): Promise<void> {
+    const authenticated = await mutatePush(async () => {
+      const accessToken = await getAccessToken();
+      if (!active || !accessToken) return false;
+      // Logout cleanup must also recover when notification permission was
+      // subsequently revoked. It is independent of fetching a new token.
+      await clearPendingLogout(accessToken);
+      return true;
+    });
+    if (!authenticated || !active) return;
+    await ensureChannel();
+    const settings = await Notifications.getPermissionsAsync();
+    let granted = settings.granted;
+    if (!granted && !permissionAsked) {
+      permissionAsked = true;
+      granted = (await Notifications.requestPermissionsAsync()).granted;
     }
-    console.log('[Notifications] Expo project ID:', PROJECT_ID);
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
-    pushToken = tokenData.data;
-  }
-  console.log('[Notifications] Push token generated:', pushToken);
+    if (!active || !granted) return;
 
-  try {
-    console.log('[Notifications] Sending token to backend...');
-    await api.post<undefined>('/notifications/register-token', {
+    const native = latestNative ?? (await Notifications.getDevicePushTokenAsync());
+    if (!active) return;
+    // A newer event may have arrived while the native fetch was outstanding.
+    if (latestNative && latestNative.data !== native.data) {
+      pending = true;
+      return;
+    }
+    latestNative = native;
+    // The native fetch can emit this same token. That event is satisfied by
+    // this upload and must not bypass backoff if the upload then fails.
+    pending = false;
+    const isAndroid = Platform.OS === 'android';
+    if (!isAndroid && !PROJECT_ID) return;
+    const pushToken = isAndroid
+      ? String(native.data)
+      : (
+          await Notifications.getExpoPushTokenAsync({
+            projectId: PROJECT_ID,
+            devicePushToken: native,
+          })
+        ).data;
+    if (!active) return;
+    const force = forceUpload;
+    forceUpload = false;
+    if (!force && uploadedToken === pushToken) return;
+    if (isAndroid) await configureJobAlertModule();
+    const deviceId = await getPushDeviceId();
+    const registration: RegisterPushTokenInput = {
       pushToken,
-      // The server shapes the payload per OS: Android job alerts carry a
-      // display payload so FCM shows the alert even when the app is killed,
-      // plus the job data for the full-screen ring whenever the app is running.
+      deviceId,
       platform: isAndroid ? 'android' : 'ios',
       provider: isAndroid ? 'fcm' : 'expo',
-      ...(deviceId ? { deviceId } : {}),
-    } satisfies RegisterPushTokenInput);
-    console.log('[Notifications] Token successfully stored on backend');
-
-    // Rapido-style: once the device is registered for alerts, offer the
-    // Android 14+ full-screen role and (where the role is unavailable) the
-    // "display over other apps" overlay permission. One-time, best-effort;
-    // never blocks or re-loops.
-    await Promise.all([promptForFullScreenIntentOnce(), promptForOverlayPermissionOnce()]);
-
-    return pushToken;
-  } catch (error) {
-    // A push-token fetch or registration failure is non-fatal to sign-in.
-    console.error('[Notifications] Push token registration failed:', error);
-    return null;
+    };
+    await mutatePush(async () => {
+      const accessToken = await getAccessToken();
+      if (!active || !accessToken) return;
+      await api.post('/notifications/register-token', registration, {
+        skipAuth: true,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeoutMs: 10000,
+      });
+      uploadedToken = pushToken;
+      attempt = 0;
+      logTokenEvent(
+        `Registered device token=${tokenLabel(pushToken)}, provider=${registration.provider}`,
+      );
+    });
+    if (active && uploadedToken && !offeredAlertPermissions) {
+      offeredAlertPermissions = true;
+      await Promise.all([promptForFullScreenIntentOnce(), promptForOverlayPermissionOnce()]);
+    }
   }
+
+  function requestSync(): void {
+    if (!active) return;
+    pending = true;
+    // Refresh events update latestNative while respecting an existing backoff
+    // (including Retry-After). The scheduled upload will use the newest token.
+    if (retryTimer) return;
+    if (running) return;
+    running = (async () => {
+      while (active && pending) {
+        pending = false;
+        try {
+          await synchronize();
+        } catch (error) {
+          uploadedToken = null;
+          // API/provider errors may contain full tokens. Log status only.
+          console.warn('[Notifications] Token synchronization failed', {
+            status: isApiError(error) ? error.status : 'native-or-network',
+          });
+          if (active && (!isApiError(error) || isRetryable(error))) {
+            const backoff = Math.min(60000, 1000 * 2 ** Math.min(attempt++, 6));
+            const delay = Math.max(
+              backoff + Math.round(Math.random() * 1000),
+              isApiError(error) ? (error.retryAfterMs ?? 0) : 0,
+            );
+            retryTimer = setTimeout(() => {
+              retryTimer = undefined;
+              requestSync();
+            }, delay);
+            pending = false;
+          }
+          // Preserve a new token/session event queued during a permanently
+          // rejected upload. Native fetch events were already consumed above.
+        }
+      }
+    })().finally(() => {
+      running = null;
+      if (active && pending) requestSync();
+    });
+  }
+
+  const tokenSubscription = active
+    ? Notifications.addPushTokenListener((token) => {
+        if (!active || token.type !== Platform.OS || token.data === latestNative?.data) return;
+        latestNative = token;
+        logTokenEvent(`Native token refreshed, token=${tokenLabel(String(token.data))}`);
+        requestSync();
+      })
+    : null;
+  const appStateSubscription = active
+    ? AppState.addEventListener('change', (state) => {
+        if (state !== 'active' || !active) return;
+        latestNative = undefined;
+        forceUpload = true;
+        requestSync();
+      })
+    : null;
+
+  function stop(): void {
+    active = false;
+    pending = false;
+    if (retryTimer) clearTimeout(retryTimer);
+    tokenSubscription?.remove();
+    appStateSubscription?.remove();
+  }
+
+  requestSync();
+  return {
+    stop,
+    /** Called before Supabase sign-out while this user's bearer is still valid. */
+    async unregister(): Promise<void> {
+      stop();
+      if (Platform.OS === 'web') return;
+      try {
+        const deviceId = await getPushDeviceId();
+        await SecureStore.setItemAsync(
+          PENDING_UNREGISTER_KEY,
+          JSON.stringify({ userId, deviceId }),
+        );
+        // Queue behind actual uploads, without waiting for a stalled native
+        // token fetch. Such a fetch checks active before it can upload later.
+        await mutatePush(async () => {
+          const accessToken = await getAccessToken();
+          if (!accessToken) return;
+          await clearPendingLogout(accessToken);
+          logTokenEvent('Unregistered current device');
+        });
+      } catch {
+        // Offline sign-out still works. Cleanup is retried before the next
+        // login's upload; a different Pro login atomically reassigns the device.
+        console.warn('[Notifications] Device unregistration pending network/session recovery');
+      }
+    },
+    /** Refresh authentication without replacing listeners on every JWT renewal. */
+    synchronize: requestSync,
+  };
 }
 
 /**

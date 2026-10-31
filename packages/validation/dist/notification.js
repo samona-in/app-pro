@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.notificationListQuerySchema = exports.pushSettingsSchema = exports.registerPushTokenSchema = exports.pushProviderSchema = exports.pushPlatformSchema = exports.expoPushTokenSchema = void 0;
+exports.notificationListQuerySchema = exports.pushSettingsSchema = exports.unregisterPushTokenSchema = exports.registerPushTokenSchema = exports.pushProviderSchema = exports.pushPlatformSchema = exports.expoPushTokenSchema = void 0;
 const zod_1 = require("zod");
 const job_1 = require("./job");
 /**
@@ -42,6 +42,10 @@ exports.registerPushTokenSchema = zod_1.z.object({
      */
     deviceId: job_1.deviceIdSchema.optional(),
 });
+exports.unregisterPushTokenSchema = zod_1.z.object({
+    deviceId: job_1.deviceIdSchema.optional(),
+    pushToken: exports.expoPushTokenSchema.optional(),
+}).refine((value) => value.deviceId || value.pushToken, 'A device or push token is required.');
 /**
  * The Pro's job-alert preference. Only `jobAlertsEnabled` is client-settable —
  * the push token itself is managed through `registerPushTokenSchema`.

@@ -35,6 +35,11 @@ export declare const registerPushTokenSchema: z.ZodObject<{
     deviceId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type RegisterPushTokenInput = z.infer<typeof registerPushTokenSchema>;
+export declare const unregisterPushTokenSchema: z.ZodObject<{
+    deviceId: z.ZodOptional<z.ZodString>;
+    pushToken: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type UnregisterPushTokenInput = z.infer<typeof unregisterPushTokenSchema>;
 /**
  * The Pro's job-alert preference. Only `jobAlertsEnabled` is client-settable —
  * the push token itself is managed through `registerPushTokenSchema`.
