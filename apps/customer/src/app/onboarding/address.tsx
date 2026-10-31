@@ -256,6 +256,7 @@ export default function OnboardingAddress() {
       <MapView
         ref={cameraRef}
         provider={PROVIDER_DEFAULT}
+        userInterfaceStyle="light"
         style={StyleSheet.absoluteFill}
         initialRegion={regionFor(
           coords ? [coords.longitude, coords.latitude] : INITIAL_CENTER,

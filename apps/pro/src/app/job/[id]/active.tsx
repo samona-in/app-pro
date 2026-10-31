@@ -467,6 +467,7 @@ export default function ActiveJobScreen() {
           <MapView
             ref={cameraRef}
             provider={PROVIDER_DEFAULT}
+            userInterfaceStyle="light"
             style={{ flex: 1 }}
             initialRegion={regionFor(
               hasCustomerCoords

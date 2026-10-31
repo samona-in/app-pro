@@ -221,6 +221,7 @@ export function LocationMapPicker({
         // Default provider: Google on Android, Apple Maps on iOS. The Android
         // key is injected via app config; iOS needs none.
         provider={PROVIDER_DEFAULT}
+        userInterfaceStyle="light"
         style={{ flex: 1 }}
         initialRegion={regionFor(
           value ? [value.longitude, value.latitude] : DEFAULT_CENTER,
