@@ -2,7 +2,7 @@ import type { OnboardingStatus } from './pro';
 import type { Gender } from './user';
 
 /** Customer onboarding steps, in order. */
-export const CUSTOMER_ONBOARDING_STEPS = ['intro', 'name', 'gender', 'address', 'review'] as const;
+export const CUSTOMER_ONBOARDING_STEPS = ['intro', 'name', 'address'] as const;
 
 export type CustomerOnboardingStep = (typeof CUSTOMER_ONBOARDING_STEPS)[number];
 
@@ -25,25 +25,21 @@ export interface CustomerProfile {
  * The one definition of "customer onboarding is done".
  */
 export function isCustomerProfileComplete(
-  profile: Pick<CustomerProfile, 'displayName' | 'gender'> | null,
+  profile: Pick<CustomerProfile, 'displayName'> | null,
 ): boolean {
   if (!profile) return false;
 
-  return (
-    typeof profile.displayName === 'string' &&
-    profile.displayName.trim().length >= 2 &&
-    profile.gender !== null
-  );
+  return typeof profile.displayName === 'string' && profile.displayName.trim().length >= 2;
 }
 
 /**
- * The first customer onboarding step still missing data.
+ * The first customer onboarding step still missing data, or null once there is
+ * nothing left to ask.
  */
 export function nextIncompleteCustomerStep(
   profile: CustomerProfile | null,
-): CustomerOnboardingStep {
+): CustomerOnboardingStep | null {
   if (!profile) return 'intro';
   if (!profile.displayName || profile.displayName.trim().length < 2) return 'name';
-  if (!profile.gender) return 'gender';
-  return 'review';
+  return null;
 }

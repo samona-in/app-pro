@@ -10,7 +10,7 @@ export interface SessionResponse {
   user: PublicUser;
   customerProfile: CustomerProfile;
   onboardingStatus: CustomerProfile['onboardingStatus'];
-  nextStep: CustomerOnboardingStep;
+  nextStep: CustomerOnboardingStep | null;
 }
 
 export function useSession() {

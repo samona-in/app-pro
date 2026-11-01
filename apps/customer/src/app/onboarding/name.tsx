@@ -25,12 +25,11 @@ export default function OnboardingName() {
       // The layout surfaces `save.isError`; a failed save must not advance.
       return;
     }
-    router.push('/onboarding/gender');
+    router.push('/onboarding/address');
   }
 
   return (
     <OnboardingStepLayout
-      step="name"
       title="What's your name?"
       subtitle="Professionals will see this when they accept your request."
       onPrimary={() => void onContinue()}
