@@ -147,6 +147,9 @@ export interface SkillOption {
   name: string;
   /** The skill's own icon; copied from the parent service when seeded. */
   icon: string | null;
+  groupId?: string | null;
+  /** Admin-configured suggested base price, stored in paise. */
+  basePricePaise?: number | null;
 }
 
 /** A skill with its parent service, returned by catalogue search. */
@@ -162,6 +165,25 @@ export interface SkillWithService extends SkillOption {
  */
 export interface PopularSkill extends SkillWithService {
   isTopPick?: boolean;
+}
+
+export interface ServiceWorkGroup {
+  id: string;
+  serviceId: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface ServiceWorkGroupWithWorks extends ServiceWorkGroup {
+  works: SkillOption[];
+}
+
+export interface ServiceWithWorkGroups {
+  service: ServiceOption | null;
+  groups: ServiceWorkGroupWithWorks[];
 }
 
 /** Combined result for a catalogue search: matching services and skills. */

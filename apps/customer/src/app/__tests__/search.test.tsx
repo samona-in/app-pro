@@ -152,7 +152,7 @@ describe('Search — recent items', () => {
 
     fireEvent.press(screen.getByLabelText('Plumbing'));
 
-    expect(router.push).toHaveBeenCalledWith('/booking/new/plumbing/place');
+    expect(router.push).toHaveBeenCalledWith('/booking/new/plumbing/skill');
   });
 
   it('opens the parent service with the skill preselected from a skill chip', async () => {
@@ -161,7 +161,7 @@ describe('Search — recent items', () => {
 
     fireEvent.press(screen.getByLabelText('Leak repair'));
 
-    expect(router.push).toHaveBeenCalledWith('/booking/new/plumbing/place');
+    expect(router.push).toHaveBeenCalledWith('/booking/new/plumbing/skill');
     expect(useBookingDraft.getState().skill?.name).toBe('Leak repair');
   });
 });

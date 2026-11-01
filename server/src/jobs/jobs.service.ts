@@ -170,8 +170,6 @@ type JobRow = {
   service: Job['service'];
   skill: Job['skill'];
   customSkill: string | null;
-  placeType: Job['placeType'];
-  placeDescription: string | null;
   locationLabel: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -209,8 +207,6 @@ function toJobDto(row: JobRow, storage: StorageService, config: AppConfig): Job 
     skill: row.skill,
     customSkill: row.customSkill,
     status: row.status,
-    placeType: row.placeType,
-    placeDescription: row.placeDescription,
     locationLabel: row.locationLabel,
     latitude: row.latitude,
     longitude: row.longitude,
@@ -416,8 +412,6 @@ export function createJobsService(deps: JobsServiceDeps) {
           skillId: skill.id,
           customSkill,
           status: JobStatus.REQUESTED,
-          placeType: input.placeType,
-          placeDescription: input.placeType === 'OTHER' ? (input.placeDescription ?? null) : null,
           locationLabel,
           latitude: coords?.latitude ?? null,
           longitude: coords?.longitude ?? null,

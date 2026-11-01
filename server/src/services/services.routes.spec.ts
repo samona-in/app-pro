@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express from 'express';
-import type { PopularSkill } from '@samona/types';
+import type { PopularSkill, ServiceWithWorkGroups } from '@samona/types';
 import type { Services } from '../context';
 import { errorHandler } from '../common/middleware/error-handler';
 import { createServicesRouter } from './services.routes';
@@ -27,6 +27,31 @@ const popular: PopularSkill[] = [
   },
 ];
 
+const groupedWorks: ServiceWithWorkGroups = {
+  service: { id: 'service-1', slug: 'electrician', name: 'Electrician', icon: null },
+  groups: [
+    {
+      id: 'group-1',
+      serviceId: 'service-1',
+      name: 'Fans',
+      slug: 'fans',
+      imageUrl: 'asset://service-work-groups/fan',
+      sortOrder: 1,
+      isActive: true,
+      works: [
+        {
+          id: 'skill-1',
+          serviceId: 'service-1',
+          slug: 'fan-repair',
+          name: 'Fan repair',
+          icon: null,
+          groupId: 'group-1',
+        },
+      ],
+    },
+  ],
+};
+
 function buildServices(overrides: Partial<Services> = {}) {
   return {
     tokenVerifier: {
@@ -38,6 +63,7 @@ function buildServices(overrides: Partial<Services> = {}) {
     services: {
       listActive: jest.fn().mockResolvedValue([]),
       listSkillsForService: jest.fn().mockResolvedValue([]),
+      listSkillGroupsForService: jest.fn().mockResolvedValue(groupedWorks),
       listPopularSkills: jest.fn().mockResolvedValue(popular),
       searchServices: jest.fn().mockResolvedValue({ services: [], skills: [] }),
     },
@@ -63,6 +89,18 @@ describe('services routes', () => {
 
     expect(response.body).toEqual(popular);
     expect(services.services.listPopularSkills).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves grouped works with the configured display data', async () => {
+    const services = buildServices();
+
+    const response = await request(appWith(services))
+      .get('/services/electrician/groups')
+      .set('authorization', 'Bearer token')
+      .expect(200);
+
+    expect(response.body).toEqual(groupedWorks);
+    expect(services.services.listSkillGroupsForService).toHaveBeenCalledWith('electrician');
   });
 
   it('does not treat "popular-skills" as a service slug', async () => {

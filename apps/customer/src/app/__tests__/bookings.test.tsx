@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { JobStatus, PlaceType, type JobDetail } from '@samona/types';
+import { JobStatus, type JobDetail } from '@samona/types';
 import Bookings from '../(tabs)/bookings';
 
 const mockBookings: JobDetail[] = [
@@ -12,8 +12,6 @@ const mockBookings: JobDetail[] = [
     skill: { id: 'sk1', slug: 'ac-repair', name: 'AC Repair' },
     customSkill: null,
     status: JobStatus.TRAVELLING,
-    placeType: PlaceType.RESIDENCE,
-    placeDescription: null,
     locationLabel: 'Koramangala, Bengaluru',
     latitude: null,
     longitude: null,
@@ -55,8 +53,6 @@ const mockBookings: JobDetail[] = [
     skill: { id: 'sk2', slug: 'leak-repair', name: 'Leak repair' },
     customSkill: null,
     status: JobStatus.PAID,
-    placeType: PlaceType.RESIDENCE,
-    placeDescription: null,
     locationLabel: 'Indiranagar, Bengaluru',
     latitude: null,
     longitude: null,

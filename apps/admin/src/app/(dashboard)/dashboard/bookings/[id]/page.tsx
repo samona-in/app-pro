@@ -168,14 +168,6 @@ function BookingDetail({ job }: { job: AdminJobDetail }) {
               </div>
 
               <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2">
-                <DetailRow
-                  label="Place"
-                  value={
-                    job.placeType === 'OTHER'
-                      ? job.placeDescription || 'Other'
-                      : job.placeType.replace(/_/g, ' ').toLowerCase()
-                  }
-                />
                 <DetailRow label="Location" value={job.locationLabel ?? '—'} />
                 <DetailRow label="Created" value={formatDateTime(job.createdAt)} />
                 <DetailRow label="Accepted" value={formatDateTime(job.acceptedAt)} />

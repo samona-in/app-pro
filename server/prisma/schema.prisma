@@ -1,23 +1,9 @@
-// SAMONA database schema.
-//
-// Foundational only: the shared `User` record and its role. The full
-// marketplace schema (ProProfile, Job, JobStatusHistory, Payment, Earning,
-// Review, ...) lands with the features that need it — see CLAUDE.md
-// "Database" for the expected entity set.
-//
-// Schema changes go through migrations. Never edit a deployed database by hand.
-
 generator client {
   provider     = "prisma-client"
   output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
 
-// Prisma 7 takes the connection URL from `prisma.config.ts` (for migrations)
-// and from the driver adapter passed to PrismaClient (at runtime), so no `url`
-// belongs here. The database is AWS RDS Postgres; Supabase is the identity
-// provider only. `DIRECT_URL` is an optional Prisma convention that is unused
-// today, since nothing sits between this API and the database.
 datasource db {
   provider = "postgresql"
 }
@@ -43,71 +29,50 @@ model Profile {
   /// No Prisma relation is declared because there is nothing to declare one to:
   /// `auth.users` lives in Supabase, not in this database, and must not be
   /// managed by our migrations.
-  id String @id @db.Uuid
-
+  id                      String                   @id @db.Uuid
+  /// Mirrored from the verified token on sign-in. Supabase verifies the phone
+  /// number; we cache it for queries and display.
+  email                   String?                  @unique
+  phone                   String?                  @unique
+  fullName                String?
+  isActive                Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
   /// The only stored privilege. Authoritative; never read from a token claim or
   /// a client payload. A non-admin may operate on both the Pro and Customer
   /// surfaces; this flag grants additional, admin-only routes.
-  isAdmin Boolean @default(false) @map("is_admin")
-
-  /// Mirrored from the verified token on sign-in. Supabase verifies the phone
-  /// number; we cache it for queries and display.
-  email String? @unique
-  phone String? @unique
-
-  fullName  String?
-
-  isActive Boolean @default(true)
-
+  isAdmin                 Boolean                  @default(false) @map("is_admin")
   /// When the account was deleted. Set on the tombstone row (the row itself is
   /// never removed — Job.proId and Message.senderId reference it, and RESTRICT
   /// guards both). A deleted profile has no usable contact details and is
   /// rejected by `requireAuth`; dual-role accounts keep this null so the customer
   /// surface keeps working.
-  deletedAt DateTime? @map("deleted_at")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  proProfile      ProProfile?
-  customerProfile CustomerProfile?
-  /// Chat messages this account sent in a job conversation.
-  messages        Message[]
-  /// The account-deletion workflow for this profile, when one exists.
-  accountDeletion AccountDeletion?
-  /// Admin user record if this profile has admin privileges.
-  adminUser       AdminUser?
+  deletedAt               DateTime?                @map("deleted_at")
+  accountDeletion         AccountDeletion?
+  adminUser               AdminUser?
+  customerProfile         CustomerProfile?
+  messages                Message[]
   notificationPreferences NotificationPreferences?
+  proProfile              ProProfile?
 
   @@index([isActive])
   @@map("profiles")
 }
 
-/// Admin role levels.
-enum AdminRole {
-  SUPER_ADMIN
-  OPERATIONS_ADMIN
-  FINANCE_ADMIN
-  SUPPORT_ADMIN
-}
-
 /// Admin user account linked to a Profile.
 model AdminUser {
-  id        String   @id @default(uuid()) @db.Uuid
-  profileId String   @unique @map("profile_id") @db.Uuid
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  role        AdminRole @default(OPERATIONS_ADMIN)
-  isActive    Boolean   @default(true) @map("is_active")
+  id          String                 @id @default(uuid()) @db.Uuid
+  profileId   String                 @unique @map("profile_id") @db.Uuid
+  role        AdminRole              @default(OPERATIONS_ADMIN)
+  isActive    Boolean                @default(true) @map("is_active")
   permissions Json?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  createdBy String?  @map("created_by") @db.Uuid
-
-  sessions  AdminSession[]
-  auditLogs AdminAuditLog[]
-  campaigns NotificationCampaign[]
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+  createdBy   String?                @map("created_by") @db.Uuid
+  auditLogs   AdminAuditLog[]
+  sessions    AdminSession[]
+  profile     Profile                @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  campaigns   NotificationCampaign[]
 
   @@map("admin_users")
 }
@@ -116,18 +81,15 @@ model AdminUser {
 model AdminSession {
   id          String    @id @default(uuid()) @db.Uuid
   adminUserId String    @map("admin_user_id") @db.Uuid
+  token       String    @unique
+  deviceId    String?   @map("device_id")
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  expiresAt   DateTime  @map("expires_at")
+  lastUsedAt  DateTime  @default(now()) @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
   adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
-
-  token     String  @unique
-  deviceId  String? @map("device_id")
-  ipAddress String? @map("ip_address")
-  userAgent String? @map("user_agent")
-
-  expiresAt  DateTime  @map("expires_at")
-  lastUsedAt DateTime  @default(now()) @map("last_used_at")
-  revokedAt  DateTime? @map("revoked_at")
-
-  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([adminUserId])
   @@index([token])
@@ -136,19 +98,17 @@ model AdminSession {
 
 /// Admin login attempt tracking for rate limiting and audit.
 model AdminLoginEvent {
-  id        String  @id @default(uuid()) @db.Uuid
-  phone     String
-  profileId String? @map("profile_id") @db.Uuid
-  ipAddress String  @map("ip_address")
-  deviceId  String? @map("device_id")
-  userAgent String? @map("user_agent")
-
+  id            String    @id @default(uuid()) @db.Uuid
+  phone         String
+  profileId     String?   @map("profile_id") @db.Uuid
+  ipAddress     String    @map("ip_address")
+  deviceId      String?   @map("device_id")
+  userAgent     String?   @map("user_agent")
   success       Boolean
-  failureReason String? @map("failure_reason")
+  failureReason String?   @map("failure_reason")
   blocked       Boolean   @default(false)
   blockedUntil  DateTime? @map("blocked_until")
-
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
   @@index([phone, createdAt])
   @@index([ipAddress, createdAt])
@@ -158,26 +118,22 @@ model AdminLoginEvent {
 
 /// Admin audit trail for all admin actions.
 model AdminAuditLog {
-  id          String    @id @default(uuid()) @db.Uuid
-  adminUserId String    @map("admin_user_id") @db.Uuid
-  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
-
-  action     String
-  resource   String
-  resourceId String? @map("resource_id")
-  method     String
-  path       String
-
-  ipAddress    String? @map("ip_address")
-  userAgent    String? @map("user_agent")
-  requestId    String? @map("request_id")
-
+  id           String    @id @default(uuid()) @db.Uuid
+  adminUserId  String    @map("admin_user_id") @db.Uuid
+  action       String
+  resource     String
+  resourceId   String?   @map("resource_id")
+  method       String
+  path         String
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent")
+  requestId    String?   @map("request_id")
   success      Boolean
-  errorMessage String? @map("error_message")
-  beforeState  Json?   @map("before_state")
-  afterState   Json?   @map("after_state")
-
-  createdAt DateTime @default(now()) @map("created_at")
+  errorMessage String?   @map("error_message")
+  beforeState  Json?     @map("before_state")
+  afterState   Json?     @map("after_state")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  adminUser    AdminUser @relation(fields: [adminUserId], references: [id])
 
   @@index([adminUserId, createdAt])
   @@index([resource, resourceId])
@@ -191,94 +147,78 @@ model AdminAuditLog {
 /// and professional profile ("what do they do") change independently, and a
 /// customer will never have one of these.
 model ProProfile {
-  id     String @id @default(uuid()) @db.Uuid
+  id                  String                          @id @default(uuid()) @db.Uuid
   /// One Pro profile per account. Unique, not just indexed.
-  userId String @unique @map("user_id") @db.Uuid
-
-  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  userId              String                          @unique @map("user_id") @db.Uuid
   /// Derived from the required fields on write; see `isProProfileComplete`.
   /// Stored so routing does not have to recompute it on every request.
-  onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
-
-  displayName     String?          @map("display_name")
-  gender          Gender?
-  bio             String?
-  experienceLevel ExperienceLevel? @map("experience_level")
-
+  onboardingStatus    OnboardingStatus                @default(NOT_STARTED) @map("onboarding_status")
+  displayName         String?                         @map("display_name")
+  bio                 String?
+  experienceLevel     ExperienceLevel?                @map("experience_level")
   /// Kilometres. Bounded by LOCATION_DEFAULTS in @samona/config.
-  serviceRadiusKm Int     @default(10) @map("service_radius_km")
-  latitude        Float?
-  longitude       Float?
+  serviceRadiusKm     Int                             @default(10) @map("service_radius_km")
+  latitude            Float?
+  longitude           Float?
   /// Human-readable label for the service area, shown back to the Pro.
-  locationLabel   String? @map("location_label")
-  /// Durable Google place id for the service area, used to re-resolve the label
-  /// on read. Null for coordinates never resolved through the geocoder.
-  locationPlaceId String? @map("location_place_id")
-
-  languages String[] @default([])
-
+  locationLabel       String?                         @map("location_label")
+  languages           String[]                        @default([])
+  /// Server-controlled. A client must never write these.
+  isOnline            Boolean                         @default(false) @map("is_online")
+  isVerified          Boolean                         @default(false) @map("is_verified")
+  rating              Float?
+  completedJobs       Int                             @default(0) @map("completed_jobs")
+  createdAt           DateTime                        @default(now()) @map("created_at")
+  updatedAt           DateTime                        @updatedAt @map("updated_at")
   /// Storage path of the live-captured face photo inside the selfie bucket.
   /// The public URL is derived from it on read; a client never writes this.
-  selfiePhotoPath  String?   @map("selfie_photo_path")
+  selfiePhotoPath     String?                         @map("selfie_photo_path")
   /// When the accepted selfie finished uploading. Drives re-verification UX.
-  selfieCapturedAt DateTime? @map("selfie_captured_at")
-
-  /// Server-controlled. A client must never write these.
-  isOnline      Boolean @default(false) @map("is_online")
-  isVerified    Boolean @default(false) @map("is_verified")
-  rating        Float?
-  completedJobs Int     @default(0) @map("completed_jobs")
-
+  selfieCapturedAt    DateTime?                       @map("selfie_captured_at")
+  gender              Gender?
   /// Push delivery: the Expo device token registered by this Pro's own app.
   /// Written through the notifications domain, never trusted as a client-issued
   /// identity. Null until the app has asked for, and been granted, permission.
-  pushToken String? @unique @map("push_token")
-
+  pushToken           String?                         @unique @map("push_token")
+  /// Whether this Pro wants job alerts at all. Server-side, so the API stays
+  /// the single writer of preference; the app only toggles it through the
+  /// notifications domain.
+  jobAlertsEnabled    Boolean                         @default(true) @map("job_alerts_enabled")
   /// The device OS that holds `pushToken`. The job-alert push is sent as a
   /// data-only message on Android (so the native full-screen service runs even
   /// when the app is closed) and as a display alert on iOS. Always written
   /// together with `pushToken`; null only for legacy registrations.
-  pushPlatform PushPlatform? @map("push_platform")
-
+  pushPlatform        PushPlatform?                   @map("push_platform")
   /// The push service that owns `pushToken`: `EXPO` via the Expo service,
   /// `FCM` via Firebase direct delivery. Null only for legacy registrations.
-  pushProvider PushProvider? @map("push_provider")
-
-  /// Whether this Pro wants job alerts at all. Server-side, so the API stays
-  /// the single writer of preference; the app only toggles it through the
-  /// notifications domain.
-  jobAlertsEnabled Boolean @default(true) @map("job_alerts_enabled")
-
+  pushProvider        PushProvider?                   @map("push_provider")
   /// A per-install identifier minted by the Android job-alert module and sent
   /// with the push token at registration. It binds minted job-offer tokens to
   /// one physical device, so an offer a push was delivered to cannot be
   /// redeemed from any other device. Null for legacy registrations.
-  pushDeviceId String? @map("push_device_id")
-
+  pushDeviceId        String?                         @map("push_device_id")
+  /// When the tombstone was finalized. Set together with `Profile.deletedAt`
+  /// (FULL scope) or alone (PRO_PROFILE scope). The row survives so historical
+  /// jobs, ratings and cancellations keep their relationship; only PII is gone.
+  deletedAt           DateTime?                       @map("deleted_at")
   /// When the professional asked to delete their account. Set the moment a
   /// deletion is accepted so new matching, offers and job claims stop
   /// immediately; the pro keeps working only their already-active jobs until the
   /// sweeper finalizes. Never reverted once set.
-  deletionRequestedAt DateTime? @map("deletion_requested_at")
-  /// When the tombstone was finalized. Set together with `Profile.deletedAt`
-  /// (FULL scope) or alone (PRO_PROFILE scope). The row survives so historical
-  /// jobs, ratings and cancellations keep their relationship; only PII is gone.
-  deletedAt DateTime? @map("deleted_at")
-
-  services      ProService[]
-  skills        ProSkill[]
-  documents     ProDocument[]
-  /// Jobs this professional accepted. Authorised against ProProfile.userId.
-  jobs          Job[]
-  notifications Notification[]
-  declines      JobDecline[]
-  jobOffers     JobOffer[]
-  pushDevices   ProPushDevice[]
-  campaignRecipients NotificationCampaignRecipient[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  deletionRequestedAt DateTime?                       @map("deletion_requested_at")
+  /// Durable Google place id for the service area, used to re-resolve the label
+  /// on read. Null for coordinates never resolved through the geocoder.
+  locationPlaceId     String?                         @map("location_place_id")
+  declines            JobDecline[]
+  jobOffers           JobOffer[]
+  jobs                Job[]
+  campaignRecipients  NotificationCampaignRecipient[]
+  notifications       Notification[]
+  documents           ProDocument[]
+  profile             Profile                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pushDevices         ProPushDevice[]
+  services            ProService[]
+  skills              ProSkill[]
 
   @@index([onboardingStatus])
   @@index([isOnline])
@@ -290,13 +230,13 @@ model ProProfile {
 model ProPushDevice {
   id           String       @id @default(uuid()) @db.Uuid
   proId        String       @map("pro_id") @db.Uuid
-  pro          ProProfile   @relation(fields: [proId], references: [id], onDelete: Cascade)
   deviceId     String       @unique @map("device_id")
   pushToken    String       @unique @map("push_token")
   pushPlatform PushPlatform @map("push_platform")
   pushProvider PushProvider @map("push_provider")
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
+  pro          ProProfile   @relation(fields: [proId], references: [id], onDelete: Cascade)
 
   @@index([proId])
   @@map("pro_push_devices")
@@ -308,7 +248,7 @@ model ProPushDevice {
 /// skill matrix, and do not need verification. The profile exists so the
 /// marketplace knows who is requesting work and where they are.
 model CustomerProfile {
-  id     String @id @default(uuid()) @db.Uuid
+  id                  String                          @id @default(uuid()) @db.Uuid
   /// Link to the shared identity row, unique while live.
   ///
   /// Nullable so a deleted surface can be replaced: when `CUSTOMER_PROFILE` (or
@@ -318,54 +258,46 @@ model CustomerProfile {
   /// pointing at it) but, with `userId` unlinked, nothing that authorises by
   /// identity will ever resolve the old surface again. The unique constraint is
   /// what makes `ensureForUser`'s race-safe upsert keep working.
-  userId String? @unique @map("user_id") @db.Uuid
-
-  profile Profile? @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  userId              String?                         @unique @map("user_id") @db.Uuid
   /// Derived from required fields on write; see `isCustomerProfileComplete`.
-  onboardingStatus OnboardingStatus @default(NOT_STARTED) @map("onboarding_status")
-
-  displayName   String? @map("display_name")
-  gender        Gender?
-  /// The customer's public profile photo. Lives on the surface profile (not
-  /// the shared identity row) so a person who is both a customer and a
-  /// professional keeps an independent image for each surface.
-  avatarUrl     String? @map("avatar_url")
-  locationLabel String? @map("location_label")
-  /// Durable Google place id for the customer's active location, used to
-  /// re-resolve the label on read. Null for coordinates never resolved through
-  /// the geocoder.
-  locationPlaceId String? @map("location_place_id")
-  latitude      Float?
-  longitude     Float?
-
+  onboardingStatus    OnboardingStatus                @default(NOT_STARTED) @map("onboarding_status")
+  displayName         String?                         @map("display_name")
+  latitude            Float?
+  longitude           Float?
+  createdAt           DateTime                        @default(now()) @map("created_at")
+  updatedAt           DateTime                        @updatedAt @map("updated_at")
+  locationLabel       String?                         @map("location_label")
+  gender              Gender?
   /// Push delivery: the device push token registered by this customer's own app,
   /// written through the notifications domain. Mirrors the Pro profile fields so
   /// the same provider-aware delivery path can reach a customer.
-  pushToken    String?       @unique @map("push_token")
-  pushPlatform PushPlatform? @map("push_platform")
-  pushProvider PushProvider? @map("push_provider")
-
-  /// When the customer asked to delete their account. Set the moment a deletion
-  /// is accepted so new bookings stop immediately; the customer keeps finishing
-  /// only their already-active jobs until the sweeper finalizes. Never reverted
-  /// once set.
-  deletionRequestedAt DateTime? @map("deletion_requested_at")
+  pushToken           String?                         @unique @map("push_token")
+  pushPlatform        PushPlatform?                   @map("push_platform")
+  pushProvider        PushProvider?                   @map("push_provider")
+  /// The customer's public profile photo. Lives on the surface profile (not
+  /// the shared identity row) so a person who is both a customer and a
+  /// professional keeps an independent image for each surface.
+  avatarUrl           String?                         @map("avatar_url")
   /// When the tombstone was finalized. Set together with `Profile.deletedAt`
   /// (FULL scope) or alone (CUSTOMER_PROFILE scope). The row survives so
   /// historical jobs and their status history keep their relationship; only PII
   /// is gone.
-  deletedAt           DateTime? @map("deleted_at")
-
-  jobs          Job[]
-  notifications CustomerNotification[]
-  savedAddresses SavedAddress[]
-  /// The account-deletion run that tombstoned this row, when one exists.
-  accountDeletion AccountDeletion[]
-  campaignRecipients NotificationCampaignRecipient[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt           DateTime?                       @map("deleted_at")
+  /// When the customer asked to delete their account. Set the moment a deletion
+  /// is accepted so new bookings stop immediately; the customer keeps finishing
+  /// only their already-active jobs until the sweeper finalizes. Never reverted
+  /// once set.
+  deletionRequestedAt DateTime?                       @map("deletion_requested_at")
+  /// Durable Google place id for the customer's active location, used to
+  /// re-resolve the label on read. Null for coordinates never resolved through
+  /// the geocoder.
+  locationPlaceId     String?                         @map("location_place_id")
+  accountDeletion     AccountDeletion?
+  notifications       CustomerNotification[]
+  profile             Profile?                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs                Job[]
+  campaignRecipients  NotificationCampaignRecipient[]
+  savedAddresses      SavedAddress[]
 
   @@index([onboardingStatus])
   @@map("customer_profiles")
@@ -378,37 +310,30 @@ model CustomerProfile {
 /// rows are the customer's permanent, labelled places. One customer may keep
 /// several; at most one is the default.
 model SavedAddress {
-  id     String @id @default(uuid()) @db.Uuid
-  userId String @map("user_id") @db.Uuid
-
-  customer CustomerProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
-
-  /// The customer's own name for this address (free text), shown in lists.
-  name String
-
+  id           String          @id @default(uuid()) @db.Uuid
+  userId       String          @map("user_id") @db.Uuid
   /// Home, Work or Other — the human label shown across the app.
-  label AddressLabel
-
-  addressLine1 String @map("address_line1")
-  addressLine2 String? @map("address_line2")
+  label        AddressLabel
+  addressLine1 String          @map("address_line1")
+  addressLine2 String?         @map("address_line2")
   landmark     String?
   locality     String?
   city         String?
   state        String?
-  postalCode   String? @map("postal_code")
-
-  latitude  Float
-  longitude Float
+  postalCode   String?         @map("postal_code")
+  latitude     Float
+  longitude    Float
+  /// At most one default per customer; enforced by the service, not the schema.
+  isDefault    Boolean         @default(false) @map("is_default")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  /// The customer's own name for this address (free text), shown in lists.
+  name         String
   /// Durable Google place id for this address, used to re-resolve the display
   /// label on read. Null for addresses saved before the switch or when the
   /// geocoder yielded no id.
-  placeId   String? @map("place_id")
-
-  /// At most one default per customer; enforced by the service, not the schema.
-  isDefault Boolean @default(false) @map("is_default")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  placeId      String?         @map("place_id")
+  customer     CustomerProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@index([userId])
   @@map("saved_addresses")
@@ -416,40 +341,42 @@ model SavedAddress {
 
 /// The service catalogue a professional selects from (onboarding step 3).
 model Service {
-  id        String  @id @default(uuid()) @db.Uuid
+  id                  String                @id @default(uuid()) @db.Uuid
   /// Stable machine name, safe to reference from code and seeds.
-  slug      String  @unique
-  name      String
-  icon      String?
-  sortOrder Int     @default(0) @map("sort_order")
-  isActive  Boolean @default(true) @map("is_active")
-
-  skills Skill[]
-  pros   ProService[]
-  jobs   Job[]
+  slug                String                @unique
+  name                String
+  icon                String?
+  sortOrder           Int                   @default(0) @map("sort_order")
+  isActive            Boolean               @default(true) @map("is_active")
+  jobs                Job[]
+  pros                ProService[]
+  workGroups          ServiceWorkGroup[]
+  skills              Skill[]
 
   @@map("services")
 }
 
-/// A specialty within a service (onboarding step 4), e.g. "AC installation".
 model Skill {
-  id        String  @id @default(uuid()) @db.Uuid
-  serviceId String  @map("service_id") @db.Uuid
-  slug      String
-  name      String
+  id                  String               @id @default(uuid()) @db.Uuid
+  serviceId           String               @map("service_id") @db.Uuid
+  slug                String
+  name                String
+  sortOrder           Int                  @default(0) @map("sort_order")
+  isActive            Boolean              @default(true) @map("is_active")
+  basePricePaise      Int?                 @map("base_price_paise")
   /// Icon of the skill itself. Seeded from the parent service's icon, so a
   /// skill can be given an icon of its own later.
-  icon      String?
-  sortOrder Int     @default(0) @map("sort_order")
-  isActive  Boolean @default(true) @map("is_active")
-
-  service      Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  pros         ProSkill[]
-  jobs         Job[]
-  popularSkill PopularSkill?
+  icon                String?
+  groupId             String?              @map("group_id") @db.Uuid
+  jobs                Job[]
+  popularSkill        PopularSkill?
+  pros                ProSkill[]
+  workGroup           ServiceWorkGroup?    @relation(fields: [groupId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  service             Service              @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@unique([serviceId, slug])
   @@index([serviceId])
+  @@index([groupId])
   @@map("skills")
 }
 
@@ -459,17 +386,14 @@ model Skill {
 /// status directly in the database (there is no admin panel yet); the pro app
 /// only reads this. `REJECTED` carries the reason the pro is shown.
 model ProService {
-  proProfileId String @map("pro_profile_id") @db.Uuid
-  serviceId    String @map("service_id") @db.Uuid
-
+  proProfileId    String           @map("pro_profile_id") @db.Uuid
+  serviceId       String           @map("service_id") @db.Uuid
   status          ProServiceStatus @default(PENDING)
   rejectionReason String?          @map("rejection_reason")
-
-  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
-  service    Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  proProfile      ProProfile       @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  service         Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@id([proProfileId, serviceId])
   @@index([status])
@@ -477,11 +401,10 @@ model ProService {
 }
 
 model ProSkill {
-  proProfileId String @map("pro_profile_id") @db.Uuid
-  skillId      String @map("skill_id") @db.Uuid
-
-  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
-  skill      Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  proProfileId String     @map("pro_profile_id") @db.Uuid
+  skillId      String     @map("skill_id") @db.Uuid
+  proProfile   ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
+  skill        Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   @@id([proProfileId, skillId])
   @@map("pro_skills")
@@ -500,34 +423,28 @@ model ProSkill {
 /// short-lived presigned URL minted by the API for the owner or an admin.
 /// Mirrors `DocumentType` / `DocumentStatus` in `@samona/types`.
 model ProDocument {
-  id           String         @id @default(uuid()) @db.Uuid
-  proProfileId String         @map("pro_profile_id") @db.Uuid
-
-  type   DocumentType
-  status DocumentStatus @default(PENDING)
-
+  id              String         @id @default(uuid()) @db.Uuid
+  proProfileId    String         @map("pro_profile_id") @db.Uuid
+  type            DocumentType
+  status          DocumentStatus @default(PENDING)
   /// Set when an admin rejects the document; shown verbatim to the Pro.
-  rejectionReason String? @map("rejection_reason")
+  rejectionReason String?        @map("rejection_reason")
   /// When the verdict was returned. Null while `PENDING`.
-  reviewedAt DateTime? @map("reviewed_at")
-
+  reviewedAt      DateTime?      @map("reviewed_at")
   /// The server-minted S3 key. A client never chooses where bytes land and
   /// never sees this value back — it is internal state, not a URL.
-  storagePath String @unique @map("storage_path")
-
+  storagePath     String         @unique @map("storage_path")
   /// The display name the Pro gave the file, bounded by the shared upload
   /// schema. Shown in the app; never used to build the storage key.
-  fileName    String @map("file_name")
+  fileName        String         @map("file_name")
   /// Read from the object's own HEAD on complete, never trusted from the
   /// client: the declared content type is only a claim until the bytes land.
-  contentType String @map("content_type")
+  contentType     String         @map("content_type")
   /// Likewise read from HEAD. Enforced against the per-kind limit there.
-  sizeBytes   Int    @map("size_bytes")
-
-  proProfile ProProfile @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  sizeBytes       Int            @map("size_bytes")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  proProfile      ProProfile     @relation(fields: [proProfileId], references: [id], onDelete: Cascade)
 
   @@index([proProfileId])
   @@map("pro_documents")
@@ -539,37 +456,36 @@ model ProDocument {
 /// transitions in `@samona/types` `JOB_STATUS_TRANSITIONS`. The customer never
 /// asserts a status; it only requests a transition.
 model Job {
-  id         String  @id @default(uuid()) @db.Uuid
+  id                    String                 @id @default(uuid()) @db.Uuid
   /// The CustomerProfile that placed the request.
-  customerId String  @map("customer_id") @db.Uuid
+  customerId            String                 @map("customer_id") @db.Uuid
   /// The ProProfile that accepted it; null until then.
-  proId      String? @map("pro_id") @db.Uuid
-
-  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  /// RESTRICT, not SetNull: deleting a pro must never nullify a customer's
-  /// historical job. Pro profiles are tombstones, never hard-deleted, so this
-  /// can never actually fire — it is a guard against a future bug. The same
-  /// guarantee holds for `customer` above: a customer profile is tombstoned,
-  /// never hard-deleted, so a job can never lose either party.
-  pro      ProProfile?     @relation(fields: [proId], references: [id], onDelete: Restrict)
-
-  serviceId String @map("service_id") @db.Uuid
-  skillId   String @map("skill_id") @db.Uuid
-
-  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Restrict)
-
+  proId                 String?                @map("pro_id") @db.Uuid
+  serviceId             String                 @map("service_id") @db.Uuid
+  skillId               String                 @map("skill_id") @db.Uuid
+  status                JobStatus              @default(REQUESTED)
+  /// Free-text description of the requested job.
+  description           String
+  /// Storage paths of reference photos (0–5), inside the job-images bucket.
+  /// Public URLs are derived on read; a client never writes these.
+  imagePaths            String[]               @default([]) @map("image_paths")
+  /// The guaranteed amount, in paise, the customer commits to paying. It is
+  /// what makes acceptance attractive; the professional may still agree a
+  /// different final charge once they understand the scope.
+  basePayPaise          Int                    @map("base_pay_paise")
+  /// Amount agreed after the professional prices the actual scope.
+  agreedPayPaise        Int?                   @map("agreed_pay_paise")
+  /// Amount actually settled, after the final charge is agreed.
+  finalPayPaise         Int?                   @map("final_pay_paise")
+  acceptedAt            DateTime?              @map("accepted_at")
+  completedAt           DateTime?              @map("completed_at")
+  cancelledAt           DateTime?              @map("cancelled_at")
+  expiresAt             DateTime?              @map("expires_at")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
   /// The free-text category when `skill.slug` is `other` (a service-level
   /// sentinel skill). Null for any predefined category saved "as is".
-  customSkill String? @map("custom_skill")
-
-  status JobStatus @default(REQUESTED)
-
-  /// Where the work will happen. `placeDescription` is captured when
-  /// `placeType` is OTHER.
-  placeType        PlaceType @map("place_type")
-  placeDescription String?   @map("place_description")
-
+  customSkill           String?                @map("custom_skill")
   /// The work location, snapshotted onto the job when it is created so the job
   /// stays correct even when the customer's saved profile location changes or
   /// when they book from somewhere else entirely (e.g. an office after booking
@@ -577,55 +493,33 @@ model Job {
   /// the customer profile's saved location is copied here at creation time.
   /// `locationLabel` is display-only; `latitude`/`longitude` drive distance,
   /// ETA and nearby-pro matching. Coordinates are null until one is known.
-  locationLabel String? @map("location_label")
-  latitude      Float?
-  longitude     Float?
-
-  /// Free-text description of the requested job.
-  description String
-
-  /// Storage paths of reference photos (0–5), inside the job-images bucket.
-  /// Public URLs are derived on read; a client never writes these.
-  imagePaths String[] @default([]) @map("image_paths")
-
-  /// The guaranteed amount, in paise, the customer commits to paying. It is
-  /// what makes acceptance attractive; the professional may still agree a
-  /// different final charge once they understand the scope.
-  basePayPaise   Int  @map("base_pay_paise")
-  /// Amount agreed after the professional prices the actual scope.
-  agreedPayPaise Int? @map("agreed_pay_paise")
-  /// Amount actually settled, after the final charge is agreed.
-  finalPayPaise  Int? @map("final_pay_paise")
-
-  acceptedAt  DateTime? @map("accepted_at")
-  completedAt DateTime? @map("completed_at")
-  cancelledAt DateTime? @map("cancelled_at")
-  expiresAt   DateTime? @map("expires_at")
-
+  locationLabel         String?                @map("location_label")
+  latitude              Float?
+  longitude             Float?
   /// The one-time code the customer shares with the pro to start work.
   /// Generated once when the pro swipes Start Work; null until then. Never
   /// shipped to the pro's API view — only the customer, who reads it to the
   /// pro (CLAUDE.md "Security": never trust a client-supplied code, and only
   /// the party that can see it may enter it).
-  verificationOtp String? @map("verification_otp")
+  verificationOtp       String?                @map("verification_otp")
   /// When `verificationOtp` was issued, so a repeat Start Work swipe cannot
   /// mint a fresh code — one job, one code, one chance to start.
-  otpIssuedAt DateTime? @map("otp_issued_at")
+  otpIssuedAt           DateTime?              @map("otp_issued_at")
   /// Failed attempts to verify the start code, so a wrong code cannot be
   /// sprayed indefinitely even across many callers (pairs with the per-identity
   /// brute-force guard in `common/security/brute-force.ts`).
-  startOtpAttempts Int @default(0) @map("start_otp_attempts")
-
-  statusHistory JobStatusHistory[]
-  notifications Notification[]
+  startOtpAttempts      Int                    @default(0) @map("start_otp_attempts")
   customerNotifications CustomerNotification[]
-  declines      JobDecline[]
-  jobOffers     JobOffer[]
-  messages      Message[]
-  tracking      JobTracking?
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  declines              JobDecline[]
+  jobOffers             JobOffer[]
+  statusHistory         JobStatusHistory[]
+  tracking              JobTracking?
+  customer              CustomerProfile        @relation(fields: [customerId], references: [id])
+  pro                   ProProfile?            @relation(fields: [proId], references: [id], onDelete: Restrict)
+  service               Service                @relation(fields: [serviceId], references: [id])
+  skill                 Skill                  @relation(fields: [skillId], references: [id])
+  messages              Message[]
+  notifications         Notification[]
 
   @@index([customerId, status])
   @@index([serviceId, status])
@@ -640,13 +534,13 @@ model Job {
 model JobStatusHistory {
   id          String     @id @default(uuid()) @db.Uuid
   jobId       String     @map("job_id") @db.Uuid
-  job         Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
   /// Null means the job was created into `toStatus`.
   fromStatus  JobStatus? @map("from_status")
   toStatus    JobStatus  @map("to_status")
   /// The profile/user that drove the transition; null for a system action.
   changedById String?    @map("changed_by_id") @db.Uuid
   createdAt   DateTime   @default(now()) @map("created_at")
+  job         Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
   @@map("job_status_history")
@@ -659,39 +553,39 @@ model JobStatusHistory {
 /// alert knows who has already been paged. Repeats do not create new rows —
 /// the `repeats` counter scans what was already sent for that event.
 model Notification {
-  id          String           @id @default(uuid()) @db.Uuid
+  id             String           @id @default(uuid()) @db.Uuid
   /// The ProProfile this push was delivered to.
-  proId       String           @map("pro_id") @db.Uuid
-  pro         ProProfile       @relation(fields: [proId], references: [id], onDelete: Cascade)
+  proId          String           @map("pro_id") @db.Uuid
   /// The job the alert was about, when it was a job alert.
-  jobId       String?          @map("job_id") @db.Uuid
-  job         Job?             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId          String?          @map("job_id") @db.Uuid
   /// Short machine label, e.g. `job_alert`. Mirrors `NotificationKind`.
-  kind        NotificationKind @map("kind")
+  kind           NotificationKind @map("kind")
   /// The title shown in the push.
-  title       String
+  title          String
   /// The body shown in the push.
-  body        String
+  body           String
+  /// The deep-link / route to open when the alert is tapped.
+  route          String?
+  /// Whether the latest attempt to deliver this alert succeeded.
+  delivered      Boolean          @default(false)
+  /// Errors from the push provider, logged server-side; never sent to clients.
+  providerRef    String?          @map("provider_ref")
+  /// How many times this same alert has been re-sent (repeat mode).
+  repeats        Int              @default(0)
+  /// Set once the alert stops recurring (job accepted, expired, cancelled).
+  resolvedAt     DateTime?        @map("resolved_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
   /// i18n key (in the pro app's resources) that composes `title`; null means
   /// `title` is authoritative. See `messageBodyKey` / `params`.
-  messageKey  String?          @map("message_key")
+  messageKey     String?          @map("message_key")
   /// i18n key that composes `body`; null means `body` is authoritative.
-  messageBodyKey String?       @map("message_body_key")
+  messageBodyKey String?          @map("message_body_key")
   /// Interpolation values for `messageKey` / `messageBodyKey` (JSON object of
   /// string values; catalogue data passes through unlocalized).
-  params      Json?            @db.JsonB
-  /// The deep-link / route to open when the alert is tapped.
-  route       String?
-  /// Whether the latest attempt to deliver this alert succeeded.
-  delivered   Boolean          @default(false)
-  /// Errors from the push provider, logged server-side; never sent to clients.
-  providerRef String?          @map("provider_ref")
-  /// How many times this same alert has been re-sent (repeat mode).
-  repeats     Int              @default(0)
-  /// Set once the alert stops recurring (job accepted, expired, cancelled).
-  resolvedAt  DateTime?        @map("resolved_at")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  params         Json?
+  job            Job?             @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  pro            ProProfile       @relation(fields: [proId], references: [id], onDelete: Cascade)
 
   @@unique([proId, jobId, kind])
   @@index([proId, createdAt])
@@ -713,10 +607,8 @@ model CustomerNotification {
   id         String           @id @default(uuid()) @db.Uuid
   /// The CustomerProfile this notice belongs to.
   customerId String           @map("customer_id") @db.Uuid
-  customer   CustomerProfile  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   /// The booking a job-status notice is about; null for a system notice.
   jobId      String?          @map("job_id") @db.Uuid
-  job        Job?             @relation(fields: [jobId], references: [id], onDelete: Cascade)
   /// Short machine label, e.g. `job_status`. Mirrors `NotificationKind`.
   kind       NotificationKind @map("kind")
   /// The title shown on the row, e.g. "Rakesh took your booking".
@@ -728,9 +620,11 @@ model CustomerNotification {
   route      String?
   /// The customer opened it; null while unread. The bell's unread pill counts
   /// rows where this is null.
-  readAt     DateTime?         @map("read_at")
-  createdAt  DateTime          @default(now()) @map("created_at")
-  updatedAt  DateTime          @updatedAt @map("updated_at")
+  readAt     DateTime?        @map("read_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+  customer   CustomerProfile  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  job        Job?             @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([customerId, createdAt])
   @@index([jobId])
@@ -747,14 +641,12 @@ model CustomerNotification {
 /// the first row matters, so a duplicate Reject tap or a racing network retry
 /// is harmless.
 model JobDecline {
-  id    String @id @default(uuid()) @db.Uuid
-  jobId String @map("job_id") @db.Uuid
-  proId String @map("pro_id") @db.Uuid
-
-  job Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  pro ProProfile @relation(fields: [proId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String     @id @default(uuid()) @db.Uuid
+  jobId     String     @map("job_id") @db.Uuid
+  proId     String     @map("pro_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at")
+  job       Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  pro       ProProfile @relation(fields: [proId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, proId])
   @@index([proId])
@@ -773,9 +665,7 @@ model JobDecline {
 model JobOffer {
   id         String           @id @default(uuid()) @db.Uuid
   jobId      String           @map("job_id") @db.Uuid
-  job        Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
   proId      String           @map("pro_id") @db.Uuid
-  pro        ProProfile       @relation(fields: [proId], references: [id], onDelete: Cascade)
   /// SHA-256 of the signed token; the token text is never stored.
   tokenHash  String           @unique @map("token_hash")
   /// The device the token is bound to (ProProfile.pushDeviceId at mint time).
@@ -786,6 +676,8 @@ model JobOffer {
   consumedAt DateTime?        @map("consumed_at")
   outcome    JobOfferOutcome? @map("outcome")
   createdAt  DateTime         @default(now()) @map("created_at")
+  job        Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  pro        ProProfile       @relation(fields: [proId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
   @@index([proId])
@@ -807,28 +699,21 @@ model Message {
   jobId       String     @map("job_id") @db.Uuid
   /// Which Profile sent this message (matches `auth.users.id`, like `Profile`).
   senderId    String     @map("sender_id") @db.Uuid
-  /// Which side of the job sent it. Stored, never derived: one account can be
-  /// both the customer and the pro of the same job, so `senderId` alone cannot
-  /// tell the sides apart. Mirrors `UserRole` in `@samona/types`.
-  senderRole  SenderRole @map("sender_role")
   /// The message text. Bounded by the shared send schema (max 500 chars).
   content     String
   /// When the server persisted the message.
   sentAt      DateTime   @default(now()) @map("sent_at")
   /// When the recipient's device confirmed delivery (double grey tick).
-  deliveredAt DateTime? @map("delivered_at")
+  deliveredAt DateTime?  @map("delivered_at")
   /// When the recipient's app marked the message as read (double blue tick).
-  readAt      DateTime? @map("read_at")
+  readAt      DateTime?  @map("read_at")
+  /// Which side of the job sent it. Stored, never derived: one account can be
+  /// both the customer and the pro of the same job, so `senderId` alone cannot
+  /// tell the sides apart. Mirrors `UserRole` in `@samona/types`.
+  senderRole  SenderRole @map("sender_role")
+  job         Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sender      Profile    @relation(fields: [senderId], references: [id])
 
-  job    Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  /// RESTRICT, not Cascade: deleting a profile must never wipe chat history the
-  /// other party still needs. Profiles are tombstones, never hard-deleted, so
-  /// this can never actually fire — it is a guard against a future bug.
-  sender Profile @relation(fields: [senderId], references: [id], onDelete: Restrict)
-
-  /// Covers the thread read: list by job, newest-first. `id` is carried so the
-  /// `(sent_at, id)` cursor used to page history is index-ordered end to end,
-  /// rather than sorting each equal-`sent_at` tie group afresh.
   @@index([jobId, sentAt, id])
   @@map("messages")
 }
@@ -838,10 +723,10 @@ model Message {
 /// One row per profile. It holds both sides of the feature:
 ///
 /// - the **single-use deletion authorization** minted only after the backend has
-///   verified a fresh OTP (`authTokenHash` / `authTokenExpiresAt` /
-///   `authTokenConsumedAt`), and
+/// verified a fresh OTP (`authTokenHash` / `authTokenExpiresAt` /
+/// `authTokenConsumedAt`), and
 /// - the **workflow state** as deletion runs in idempotent, retry-safe steps
-///   across Prisma, S3 and Supabase Auth (`status`, `step`, `attempts`).
+/// across Prisma, S3 and Supabase Auth (`status`, `step`, `attempts`).
 ///
 /// A row is created when the authorization is issued; the raw token is returned
 /// to the client exactly once and every other step works on the hash, which
@@ -849,54 +734,285 @@ model Message {
 /// completion before moving on, so a crash mid-flight resumes from the last
 /// finished step instead of redoing or skipping work.
 model AccountDeletion {
-  id        String @id @default(uuid()) @db.Uuid
-  profileId String @unique @map("profile_id") @db.Uuid
-
-  profile Profile @relation(fields: [profileId], references: [id], onDelete: Restrict)
-
-  /// The customer surface this run tombstoned, when the run touches it.
-  ///
-  /// Frozen at acceptance so a retry of PURGE_DB always targets the *original*
-  /// row, never a profile the same identity re-registered in between. `null`
-  /// for PRO_PROFILE runs and for rows created before this was tracked.
-  customerProfileId String? @unique @map("customer_profile_id") @db.Uuid
-
-  customerProfile CustomerProfile? @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
-
+  id                  String                @id @default(uuid()) @db.Uuid
+  profileId           String                @unique @map("profile_id") @db.Uuid
   /// Whether the account carries a profile on the *other* surface. Determines
   /// what deletion removes: `PRO_PROFILE` / `CUSTOMER_PROFILE` keep the other
   /// surface and Supabase Auth, `FULL_ACCOUNT` tears the identity down
   /// completely. Re-issued (reset) when a dual-role account deletes its second
   /// surface, so the single row always describes the latest request.
-  scope AccountDeletionScope
-
-  status AccountDeletionStatus @default(AUTHORIZED)
+  scope               AccountDeletionScope
+  status              AccountDeletionStatus @default(AUTHORIZED)
   /// The last workflow step that finished. `null` while nothing has run yet.
-  step   AccountDeletionStep?
-  attempts Int @default(0)
-  lastError String?
-
+  step                AccountDeletionStep?
+  attempts            Int                   @default(0)
+  lastError           String?
+  /// SHA-256 of the single-use deletion authorization. The raw token is shown
+  /// to the client once at issue; this hash is all that is ever stored.
+  authTokenHash       String?               @unique @map("auth_token_hash")
+  authTokenExpiresAt  DateTime?             @map("auth_token_expires_at")
+  authTokenConsumedAt DateTime?             @map("auth_token_consumed_at")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  /// Storage paths of a profile's documents an active hold protects.
+  heldDocumentPaths   String[]              @default([]) @map("held_document_paths")
   /// The legal-hold decision, captured exactly once before the first
   /// destructive step and consumed by both PURGE_S3 and PURGE_DB. Freezing it
   /// on the row means a hold created between the two steps can no longer make
   /// one step preserve what the other deleted. `null` until captured.
-  holdsCapturedAt DateTime? @map("holds_captured_at")
+  holdsCapturedAt     DateTime?             @map("holds_captured_at")
   /// Whether a profile-level hold protects every object the account owns.
-  profileHeld Boolean @default(false) @map("profile_held")
-  /// Storage paths of a profile's documents an active hold protects.
-  heldDocumentPaths String[] @default([]) @map("held_document_paths")
-
-  /// SHA-256 of the single-use deletion authorization. The raw token is shown
-  /// to the client once at issue; this hash is all that is ever stored.
-  authTokenHash     String?   @unique @map("auth_token_hash")
-  authTokenExpiresAt DateTime? @map("auth_token_expires_at")
-  authTokenConsumedAt DateTime? @map("auth_token_consumed_at")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  profileHeld         Boolean               @default(false) @map("profile_held")
+  /// The customer surface this run tombstoned, when the run touches it.
+  ///
+  /// Frozen at acceptance so a retry of PURGE_DB always targets the *original*
+  /// row, never a profile the same identity re-registered in between. `null`
+  /// for PRO_PROFILE runs and for rows created before this was tracked.
+  customerProfileId   String?               @unique @map("customer_profile_id") @db.Uuid
+  customerProfile     CustomerProfile?      @relation(fields: [customerProfileId], references: [id], onDelete: Restrict)
+  profile             Profile               @relation(fields: [profileId], references: [id])
 
   @@index([status])
   @@map("account_deletions")
+}
+
+/// Retention cleanup audit log - records automated cleanup operations.
+/// No PII is stored; errors are sanitized.
+model CleanupAuditLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  category      String
+  action        String
+  affectedCount Int       @default(0) @map("affected_count")
+  executionMode String    @map("execution_mode")
+  startedAt     DateTime  @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+  success       Boolean
+  error         String?
+  metadata      Json?
+  jobId         String?   @map("job_id")
+
+  @@index([category, startedAt])
+  @@map("cleanup_audit_logs")
+}
+
+/// Legal hold to prevent deletion of records
+model LegalHold {
+  id           String              @id @default(uuid()) @db.Uuid
+  holderType   LegalHoldHolderType @map("holder_type")
+  holderId     String              @map("holder_id")
+  reason       String
+  authorizedBy String              @map("authorized_by")
+  notes        String?
+  active       Boolean             @default(true)
+  releasedAt   DateTime?           @map("released_at")
+  releasedBy   String?             @map("released_by")
+  expiresAt    DateTime?           @map("expires_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@index([holderType, holderId, active])
+  @@index([active, expiresAt])
+  @@map("legal_holds")
+}
+
+/// Promotional banners displayed on the customer home screen.
+model Banner {
+  id               String   @id @default(uuid()) @db.Uuid
+  /// Stable identifier used by the client to track banners.
+  key              String   @unique
+  heading          String
+  subtitle         String
+  ctaLabel         String   @map("cta_label")
+  /// Optional service slug to promote. Null opens the search screen.
+  serviceSlug      String?  @map("service_slug")
+  /// Image URL or storage path for the banner illustration.
+  image            String
+  imageDescription String   @map("image_description")
+  sortOrder        Int      @default(0) @map("sort_order")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("banners")
+}
+
+/// Skills promoted on the customer home screen ("Popular right now").
+model PopularSkill {
+  id        String   @id @default(uuid()) @db.Uuid
+  skillId   String   @unique @map("skill_id") @db.Uuid
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  isTopPick Boolean  @default(false) @map("is_top_pick")
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([isActive, sortOrder])
+  @@map("popular_skills")
+}
+
+/// Live tracking state for an active job.
+model JobTracking {
+  id              String    @id @default(uuid()) @db.Uuid
+  jobId           String    @unique @map("job_id") @db.Uuid
+  /// Professional's latest reported location
+  latitude        Float?
+  longitude       Float?
+  accuracy        Float?
+  heading         Float?
+  speed           Float?
+  /// Sequence number for ordering/deduplication
+  sequence        Int       @default(0)
+  /// Last location update timestamp from device
+  lastLocationAt  DateTime? @map("last_location_at")
+  /// Server timestamp of last update
+  lastUpdatedAt   DateTime  @default(now()) @updatedAt @map("last_updated_at")
+  /// Tracking availability status
+  isAvailable     Boolean   @default(true) @map("is_available")
+  lastError       String?   @map("last_error")
+  /// Heartbeat tracking
+  lastHeartbeatAt DateTime? @map("last_heartbeat_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  job             Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("job_tracking")
+}
+
+model NotificationCampaign {
+  id              String                          @id @default(uuid()) @db.Uuid
+  name            String
+  title           String
+  body            String
+  imageUrl        String?                         @map("image_url")
+  type            NotificationTargetType
+  audience        AudienceType
+  audienceFilters Json?                           @map("audience_filters")
+  deepLink        String?                         @map("deep_link")
+  status          CampaignStatus                  @default(DRAFT)
+  sendNow         Boolean                         @default(false) @map("send_now")
+  scheduledAt     DateTime?                       @map("scheduled_at")
+  timezone        String                          @default("Asia/Kolkata")
+  recipientCount  Int                             @default(0) @map("recipient_count")
+  successfulCount Int                             @default(0) @map("successful_count")
+  failedCount     Int                             @default(0) @map("failed_count")
+  openedCount     Int                             @default(0) @map("opened_count")
+  conversionCount Int                             @default(0) @map("conversion_count")
+  createdById     String?                         @map("created_by_id") @db.Uuid
+  sentAt          DateTime?                       @map("sent_at")
+  completedAt     DateTime?                       @map("completed_at")
+  createdAt       DateTime                        @default(now()) @map("created_at")
+  updatedAt       DateTime                        @updatedAt @map("updated_at")
+  recipients      NotificationCampaignRecipient[]
+  createdBy       AdminUser?                      @relation(fields: [createdById], references: [id])
+  events          NotificationEvent[]
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdAt])
+  @@map("notification_campaigns")
+}
+
+model NotificationCampaignRecipient {
+  id           String               @id @default(uuid()) @db.Uuid
+  campaignId   String               @map("campaign_id") @db.Uuid
+  customerId   String?              @map("customer_id") @db.Uuid
+  proId        String?              @map("pro_id") @db.Uuid
+  userId       String?              @map("user_id") @db.Uuid
+  pushToken    String?              @map("push_token")
+  status       RecipientStatus      @default(PENDING)
+  sentAt       DateTime?            @map("sent_at")
+  deliveredAt  DateTime?            @map("delivered_at")
+  failedAt     DateTime?            @map("failed_at")
+  errorMessage String?              @map("error_message")
+  providerRef  String?              @map("provider_ref")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  campaign     NotificationCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer     CustomerProfile?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  pro          ProProfile?          @relation(fields: [proId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, customerId])
+  @@unique([campaignId, proId])
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([proId])
+  @@index([status])
+  @@map("notification_campaign_recipients")
+}
+
+model NotificationAutomation {
+  id              String         @id @default(uuid()) @db.Uuid
+  name            String
+  type            AutomationType
+  enabled         Boolean        @default(false)
+  triggerConfig   Json           @map("trigger_config")
+  template        Json
+  cooldownHours   Int            @default(24) @map("cooldown_hours")
+  maxPerDay       Int            @default(1) @map("max_per_day")
+  quietHoursStart Int?           @map("quiet_hours_start")
+  quietHoursEnd   Int?           @map("quiet_hours_end")
+  audienceFilters Json?          @map("audience_filters")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@index([enabled, type])
+  @@map("notification_automations")
+}
+
+model NotificationEvent {
+  id         String                @id @default(uuid()) @db.Uuid
+  campaignId String?               @map("campaign_id") @db.Uuid
+  eventType  String                @map("event_type")
+  userId     String?               @map("user_id") @db.Uuid
+  metadata   Json?
+  createdAt  DateTime              @default(now()) @map("created_at")
+  campaign   NotificationCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([eventType])
+  @@map("notification_events")
+}
+
+model NotificationPreferences {
+  id                      String   @id @default(uuid()) @db.Uuid
+  userId                  String   @unique @map("user_id") @db.Uuid
+  promotionalEnabled      Boolean  @default(true) @map("promotional_enabled")
+  bookingRemindersEnabled Boolean  @default(true) @map("booking_reminders_enabled")
+  proEngagementEnabled    Boolean  @default(true) @map("pro_engagement_enabled")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  profile                 Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model ServiceWorkGroup {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serviceId String   @map("service_id") @db.Uuid
+  name      String
+  slug      String
+  /// Stable app asset reference (e.g. `asset://service-work-groups/fan`).
+  imageUrl  String?  @map("image_url")
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  skills    Skill[]
+
+  @@unique([serviceId, slug])
+  @@index([serviceId])
+  @@map("service_work_groups")
+}
+
+/// Admin role levels.
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATIONS_ADMIN
+  FINANCE_ADMIN
+  SUPPORT_ADMIN
 }
 
 /// How much of the account a deletion removes.
@@ -905,8 +1021,8 @@ model AccountDeletion {
 /// a live profile) and the surface the caller is on, never from the client.
 enum AccountDeletionScope {
   PRO_PROFILE
-  CUSTOMER_PROFILE
   FULL_ACCOUNT
+  CUSTOMER_PROFILE
 }
 
 /// The lifecycle of an account-deletion workflow.
@@ -939,13 +1055,6 @@ enum JobOfferOutcome {
   ACCEPTED
   REJECTED
   EXPIRED
-}
-
-/// Mirrored by `PlaceType` in `@samona/types` — keep the two in sync.
-enum PlaceType {
-  RESIDENCE
-  OFFICE
-  OTHER
 }
 
 /// Mirrored by `JobStatus` in `@samona/types` — keep the two in sync.
@@ -1044,9 +1153,6 @@ enum SenderRole {
   PRO
 }
 
-/// The kind of push a professional may receive. Mirrors `NotificationKind` in
-/// `@samona/types` — keep the two in sync.
-
 /// Legal hold holder types
 enum LegalHoldHolderType {
   PROFILE
@@ -1063,121 +1169,6 @@ enum NotificationKind {
   PAYMENT
   SYSTEM
 }
-
-
-/// Retention cleanup audit log - records automated cleanup operations.
-/// No PII is stored; errors are sanitized.
-model CleanupAuditLog {
-  id            String    @id @default(uuid()) @db.Uuid
-  category      String
-  action        String
-  affectedCount Int       @default(0) @map("affected_count")
-  executionMode String    @map("execution_mode") // DRY_RUN or ACTUAL
-  startedAt     DateTime  @map("started_at")
-  finishedAt    DateTime? @map("finished_at")
-  success       Boolean
-  error         String?
-  metadata      Json?     @db.JsonB
-  jobId         String?   @map("job_id")
-
-  @@index([category, startedAt])
-  @@map("cleanup_audit_logs")
-}
-
-/// Legal hold to prevent deletion of records
-model LegalHold {
-  id            String              @id @default(uuid()) @db.Uuid
-  holderType    LegalHoldHolderType @map("holder_type")
-  holderId      String              @map("holder_id")
-  reason        String
-  authorizedBy  String              @map("authorized_by")
-  notes         String?
-  active        Boolean             @default(true)
-  releasedAt    DateTime?           @map("released_at")
-  releasedBy    String?             @map("released_by")
-  expiresAt     DateTime?           @map("expires_at")
-  createdAt     DateTime            @default(now()) @map("created_at")
-  updatedAt     DateTime            @updatedAt @map("updated_at")
-
-  @@index([holderType, holderId, active])
-  @@index([active, expiresAt])
-  @@map("legal_holds")
-}
-
-/// Promotional banners displayed on the customer home screen.
-model Banner {
-  id               String   @id @default(uuid()) @db.Uuid
-  /// Stable identifier used by the client to track banners.
-  key              String   @unique
-  heading          String
-  subtitle         String
-  ctaLabel         String   @map("cta_label")
-  /// Optional service slug to promote. Null opens the search screen.
-  serviceSlug      String?  @map("service_slug")
-  /// Image URL or storage path for the banner illustration.
-  image            String
-  imageDescription String   @map("image_description")
-  sortOrder        Int      @default(0) @map("sort_order")
-  isActive         Boolean  @default(true) @map("is_active")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([isActive, sortOrder])
-  @@map("banners")
-}
-
-/// Skills promoted on the customer home screen ("Popular right now").
-model PopularSkill {
-  id          String  @id @default(uuid()) @db.Uuid
-  skillId     String  @unique @map("skill_id") @db.Uuid
-  sortOrder   Int     @default(0) @map("sort_order")
-  isActive    Boolean @default(true) @map("is_active")
-  isTopPick   Boolean @default(false) @map("is_top_pick")
-
-  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([isActive, sortOrder])
-  @@map("popular_skills")
-}
-
-/// Live tracking state for an active job.
-model JobTracking {
-  id       String @id @default(uuid()) @db.Uuid
-  jobId    String @unique @map("job_id") @db.Uuid
-  job      Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  /// Professional's latest reported location
-  latitude  Float?
-  longitude Float?
-  accuracy  Float?
-  heading   Float?
-  speed     Float?
-  /// Sequence number for ordering/deduplication
-  sequence  Int       @default(0)
-  /// Last location update timestamp from device
-  lastLocationAt DateTime? @map("last_location_at")
-  /// Server timestamp of last update
-  lastUpdatedAt DateTime   @default(now()) @updatedAt @map("last_updated_at")
-
-  /// Tracking availability status
-  isAvailable Boolean @default(true) @map("is_available")
-  lastError   String? @map("last_error")
-
-  /// Heartbeat tracking
-  lastHeartbeatAt DateTime? @map("last_heartbeat_at")
-
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@index([jobId])
-  @@map("job_tracking")
-}
-
-
-// ==================== Notification Management System ====================
 
 enum CampaignStatus {
   DRAFT
@@ -1229,142 +1220,4 @@ enum RecipientStatus {
   SENT
   FAILED
   SKIPPED
-}
-
-model NotificationCampaign {
-  id String @id @default(uuid()) @db.Uuid
-
-  name        String
-  title       String
-  body        String
-  imageUrl    String? @map("image_url")
-  type        NotificationTargetType
-  audience    AudienceType
-  audienceFilters Json? @map("audience_filters") // For complex filters like city, etc.
-  deepLink    String? @map("deep_link")
-
-  status      CampaignStatus @default(DRAFT)
-  
-  // Scheduling
-  sendNow     Boolean  @default(false) @map("send_now")
-  scheduledAt DateTime? @map("scheduled_at")
-  timezone    String   @default("Asia/Kolkata")
-  
-  // Delivery stats
-  recipientCount      Int @default(0) @map("recipient_count")
-  successfulCount     Int @default(0) @map("successful_count")
-  failedCount         Int @default(0) @map("failed_count")
-  openedCount         Int @default(0) @map("opened_count")
-  conversionCount     Int @default(0) @map("conversion_count")
-  
-  // Metadata
-  createdById String? @map("created_by_id") @db.Uuid
-  createdBy   AdminUser? @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  
-  sentAt      DateTime? @map("sent_at")
-  completedAt DateTime? @map("completed_at")
-  
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  recipients NotificationCampaignRecipient[]
-  events     NotificationEvent[]
-  
-  @@index([status])
-  @@index([scheduledAt])
-  @@index([createdAt])
-  @@map("notification_campaigns")
-}
-
-model NotificationCampaignRecipient {
-  id String @id @default(uuid()) @db.Uuid
-  
-  campaignId String @map("campaign_id") @db.Uuid
-  campaign   NotificationCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  // Can be customer or pro
-  customerId String? @map("customer_id") @db.Uuid
-  customer   CustomerProfile? @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
-  proId String? @map("pro_id") @db.Uuid
-  pro   ProProfile? @relation(fields: [proId], references: [id], onDelete: Cascade)
-  
-  userId String? @map("user_id") @db.Uuid // For quick lookup
-  
-  pushToken String? @map("push_token")
-  status     RecipientStatus @default(PENDING)
-  
-  sentAt        DateTime? @map("sent_at")
-  deliveredAt   DateTime? @map("delivered_at")
-  failedAt      DateTime? @map("failed_at")
-  errorMessage  String?   @map("error_message")
-  providerRef   String?   @map("provider_ref") // FCM message ID
-  
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  @@index([campaignId])
-  @@index([customerId])
-  @@index([proId])
-  @@index([status])
-  @@unique([campaignId, customerId])
-  @@unique([campaignId, proId])
-  @@map("notification_campaign_recipients")
-}
-
-model NotificationAutomation {
-  id String @id @default(uuid()) @db.Uuid
-  
-  name        String
-  type        AutomationType
-  enabled     Boolean @default(false)
-  
-  // Configuration
-  triggerConfig Json @map("trigger_config") // hours offline, etc.
-  template      Json // title, body template
-  cooldownHours Int  @default(24) @map("cooldown_hours")
-  maxPerDay     Int  @default(1) @map("max_per_day")
-  quietHoursStart Int? @map("quiet_hours_start") // 0-23
-  quietHoursEnd   Int? @map("quiet_hours_end")
-  
-  audienceFilters Json? @map("audience_filters")
-  
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  @@index([enabled, type])
-  @@map("notification_automations")
-}
-
-model NotificationEvent {
-  id String @id @default(uuid()) @db.Uuid
-  
-  campaignId String? @map("campaign_id") @db.Uuid
-  campaign   NotificationCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  eventType String @map("event_type") // opened, clicked, converted
-  userId    String? @map("user_id") @db.Uuid
-  metadata  Json?
-  
-  createdAt DateTime @default(now()) @map("created_at")
-  
-  @@index([campaignId])
-  @@index([eventType])
-  @@map("notification_events")
-}
-
-model NotificationPreferences {
-  id String @id @default(uuid()) @db.Uuid
-  
-  userId String @unique @map("user_id") @db.Uuid
-  profile Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  promotionalEnabled Boolean @default(true) @map("promotional_enabled")
-  bookingRemindersEnabled Boolean @default(true) @map("booking_reminders_enabled")
-  proEngagementEnabled Boolean @default(true) @map("pro_engagement_enabled")
-  
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  @@map("notification_preferences")
 }

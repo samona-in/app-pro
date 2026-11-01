@@ -93,7 +93,7 @@ export default function BookingDetails() {
 
   return (
     <BookingStep
-      step={3}
+      step={2}
       title="Tell us about the work"
       subtitle="Describe the problem or job clearly — reference photos help nearby professionals scope it accurately."
       primaryDisabled={!canContinue}

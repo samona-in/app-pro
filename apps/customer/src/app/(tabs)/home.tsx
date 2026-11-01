@@ -62,11 +62,11 @@ export default function Home() {
   function handleSelectService(service: ServiceOption) {
     setActiveSlug(service.slug);
     bookingDraft.start(service);
-    router.push(`/booking/new/${service.slug}/place`);
+    router.push(`/booking/new/${service.slug}/skill`);
   }
 
   // A popular skill opens the same booking flow with that skill already
-  // chosen, so the customer only has to say where the work is needed.
+  // chosen, so the customer can confirm it or pick another.
   function handleSelectPopularSkill(skill: PopularSkill) {
     const service: ServiceOption = {
       id: skill.service.id,
@@ -78,7 +78,7 @@ export default function Home() {
     bookingDraft.start(service);
     // draft.start resets the skill, so setSkill has to come after it.
     bookingDraft.setSkill(skill);
-    router.push(`/booking/new/${skill.service.slug}/place`);
+    router.push(`/booking/new/${skill.service.slug}/skill`);
   }
 
   // A banner either promotes one service — and starts the booking flow for
@@ -95,7 +95,7 @@ export default function Home() {
 
     setActiveSlug(service.slug);
     bookingDraft.start(service);
-    router.push(`/booking/new/${service.slug}/place`);
+    router.push(`/booking/new/${service.slug}/skill`);
   }
 
   // Pull-to-refresh re-reads everything the home renders: the service

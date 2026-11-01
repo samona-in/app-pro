@@ -203,8 +203,6 @@ export interface AdminJobDetailPro {
 export interface AdminJobDetail extends Omit<AdminJobListItem, 'customer' | 'pro'> {
   updatedAt: string;
   customSkill: string | null;
-  placeType: string;
-  placeDescription: string | null;
   description: string;
   imageUrls: string[];
   latitude: number | null;

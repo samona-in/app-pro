@@ -16,8 +16,13 @@ const BASE_PAY_HELP =
 export default function BookingPay() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const draft = useBookingDraft();
+  const suggestedBasePayPaise = draft.skill?.basePricePaise ?? 0;
   const [amount, setAmount] = useState(
-    draft.basePayPaise > 0 ? String(draft.basePayPaise / 100) : '',
+    draft.basePayPaise > 0
+      ? String(draft.basePayPaise / 100)
+      : suggestedBasePayPaise > 0
+        ? String(suggestedBasePayPaise / 100)
+        : '',
   );
 
   const rupees = Number(amount);
@@ -33,9 +38,13 @@ export default function BookingPay() {
 
   return (
     <BookingStep
-      step={4}
+      step={3}
       title="What should we quote as base pay?"
-      subtitle={BASE_PAY_HELP}
+      subtitle={
+        suggestedBasePayPaise > 0
+          ? `Suggested base pay: ${formatRupees(suggestedBasePayPaise)}. You can adjust it. ${BASE_PAY_HELP}`
+          : BASE_PAY_HELP
+      }
       primaryDisabled={!valid}
       onPrimary={() => void onContinue()}
     >

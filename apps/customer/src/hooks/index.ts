@@ -33,6 +33,7 @@ export {
   useRequestDeletionAuthorization,
 } from './use-account-deletion';
 export { useServiceCategories } from './use-service-categories';
+export { useServiceWorkGroups } from './use-service-work-groups';
 export { usePopularSkills } from './use-popular-skills';
 export { useSubmitGuard } from './use-submit-guard';
 export { useMessages } from './use-messages';

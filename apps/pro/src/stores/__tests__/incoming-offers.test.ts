@@ -87,8 +87,6 @@ describe('toPendingOfferFromAvailableJob', () => {
     skill: { id: 'skill-1', slug: 'fan-installation', name: 'Fan installation' },
     customSkill: null,
     status: JobStatus.REQUESTED,
-    placeType: 'RESIDENCE',
-    placeDescription: null,
     locationLabel: '1 Main Road',
     latitude: 12.97,
     longitude: 77.6,

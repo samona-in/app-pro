@@ -5,7 +5,9 @@ describe('createServicesService', () => {
     const prisma = {
       service: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
       },
+      serviceWorkGroup: { findMany: jest.fn() },
       skill: {
         findMany: jest.fn(),
       },
@@ -39,12 +41,21 @@ describe('createServicesService', () => {
   it('listSkillsForService returns only active skills in display order', async () => {
     const { service, prisma } = buildService();
     const rows = [
-      { id: 'sk1', slug: 'fan-installation', name: 'Fan installation', icon: 'flash-outline' },
+      {
+        id: 'sk1',
+        slug: 'fan-installation',
+        name: 'Fan installation',
+        icon: 'flash-outline',
+        groupId: null,
+        basePricePaise: 75000,
+      },
       {
         id: 'sk2',
         slug: 'light-fixture-installation',
         name: 'Light fixture installation',
         icon: 'flash-outline',
+        groupId: null,
+        basePricePaise: null,
       },
     ];
     prisma.skill.findMany.mockResolvedValue(rows);
@@ -55,8 +66,120 @@ describe('createServicesService', () => {
     expect(prisma.skill.findMany).toHaveBeenCalledWith({
       where: { service: { slug: 'electrical' }, isActive: true },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, serviceId: true, slug: true, name: true, icon: true },
+      select: {
+        id: true,
+        serviceId: true,
+        slug: true,
+        name: true,
+        icon: true,
+        groupId: true,
+        basePricePaise: true,
+      },
     });
+  });
+
+  it('returns active groups with active works in configured order', async () => {
+    const { service, prisma } = buildService();
+    const serviceRow = { id: 'service-1', slug: 'electrician', name: 'Electrician', icon: null };
+    prisma.service.findFirst.mockResolvedValue(serviceRow);
+    prisma.serviceWorkGroup.findMany.mockResolvedValue([
+      {
+        id: 'group-fans',
+        serviceId: 'service-1',
+        name: 'Fans',
+        slug: 'fans',
+        imageUrl: 'asset://service-work-groups/fans',
+        sortOrder: 1,
+        isActive: true,
+        skills: [
+          {
+            id: 'skill-1',
+            serviceId: 'service-1',
+            slug: 'fan-repair',
+            name: 'Fan repair',
+            icon: null,
+            groupId: 'group-fans',
+            basePricePaise: 125000,
+          },
+        ],
+      },
+      {
+        id: 'group-empty',
+        serviceId: 'service-1',
+        name: 'Empty group',
+        slug: 'empty-group',
+        imageUrl: null,
+        sortOrder: 2,
+        isActive: true,
+        skills: [],
+      },
+    ]);
+
+    const result = await service.listSkillGroupsForService('electrician');
+
+    expect(result).toEqual({
+      service: serviceRow,
+      groups: [
+        {
+          id: 'group-fans',
+          serviceId: 'service-1',
+          name: 'Fans',
+          slug: 'fans',
+          imageUrl: 'asset://service-work-groups/fans',
+          sortOrder: 1,
+          isActive: true,
+          works: [
+            {
+              id: 'skill-1',
+              serviceId: 'service-1',
+              slug: 'fan-repair',
+              name: 'Fan repair',
+              icon: null,
+              groupId: 'group-fans',
+              basePricePaise: 125000,
+            },
+          ],
+        },
+      ],
+    });
+    expect(prisma.serviceWorkGroup.findMany).toHaveBeenCalledWith({
+      where: {
+        serviceId: 'service-1',
+        isActive: true,
+        skills: { some: { serviceId: 'service-1', isActive: true } },
+      },
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        id: true,
+        serviceId: true,
+        name: true,
+        slug: true,
+        imageUrl: true,
+        sortOrder: true,
+        isActive: true,
+        skills: {
+          where: { serviceId: 'service-1', isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            serviceId: true,
+            slug: true,
+            name: true,
+            icon: true,
+            groupId: true,
+            basePricePaise: true,
+          },
+        },
+      },
+    });
+  });
+
+  it('returns null when the service does not exist or is inactive', async () => {
+    const { service, prisma } = buildService();
+    prisma.service.findFirst.mockResolvedValue(null);
+
+    await expect(service.listSkillGroupsForService('missing')).resolves.toBeNull();
+    expect(prisma.serviceWorkGroup.findMany).not.toHaveBeenCalled();
   });
 
   describe('listPopularSkills', () => {
@@ -68,6 +191,7 @@ describe('createServicesService', () => {
           slug: 'leak-repair',
           name: 'Plumbing leak repair',
           icon: 'https://example.test/leak.png',
+          basePricePaise: 90000,
           service: { id: 's1', slug: 'plumbing', name: 'Plumbing', icon: null },
         },
       },
@@ -78,6 +202,7 @@ describe('createServicesService', () => {
           slug: 'fan-installation',
           name: 'Fan installation',
           icon: null,
+          basePricePaise: null,
           service: { id: 's2', slug: 'electrician', name: 'Electrician', icon: null },
         },
       },
@@ -97,6 +222,7 @@ describe('createServicesService', () => {
         },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         select: {
+          isTopPick: true,
           skill: {
             select: {
               id: true,
@@ -104,6 +230,7 @@ describe('createServicesService', () => {
               slug: true,
               name: true,
               icon: true,
+              basePricePaise: true,
               service: { select: { id: true, slug: true, name: true, icon: true } },
             },
           },

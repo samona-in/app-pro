@@ -1,5 +1,11 @@
 import type { PrismaClient } from '../database/prisma';
-import type { PopularSkill, ServiceOption, ServiceSearchResult, SkillOption } from '@samona/types';
+import type {
+  PopularSkill,
+  ServiceOption,
+  ServiceSearchResult,
+  ServiceWithWorkGroups,
+  SkillOption,
+} from '@samona/types';
 
 export interface ServicesServiceDeps {
   prisma: PrismaClient;
@@ -39,10 +45,67 @@ export function createServicesService(deps: ServicesServiceDeps) {
     const skills = await deps.prisma.skill.findMany({
       where: { isActive: true, service: { slug } },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, serviceId: true, slug: true, name: true, icon: true },
+      select: {
+        id: true,
+        serviceId: true,
+        slug: true,
+        name: true,
+        icon: true,
+        groupId: true,
+        basePricePaise: true,
+      },
     });
 
     return skills;
+  }
+
+  /**
+   * The active job categories grouped for one service, in display order.
+   * Used by the customer app to render category navigation + grouped works.
+   */
+  async function listSkillGroupsForService(slug: string): Promise<ServiceWithWorkGroups | null> {
+    const service = await deps.prisma.service.findFirst({
+      where: { slug, isActive: true },
+      select: { id: true, slug: true, name: true, icon: true },
+    });
+    if (!service) return null;
+
+    const groups = await deps.prisma.serviceWorkGroup.findMany({
+      where: {
+        serviceId: service.id,
+        isActive: true,
+        skills: { some: { serviceId: service.id, isActive: true } },
+      },
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        id: true,
+        serviceId: true,
+        name: true,
+        slug: true,
+        imageUrl: true,
+        sortOrder: true,
+        isActive: true,
+        skills: {
+          where: { serviceId: service.id, isActive: true },
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            id: true,
+            serviceId: true,
+            slug: true,
+            name: true,
+            icon: true,
+            groupId: true,
+            basePricePaise: true,
+          },
+        },
+      },
+    });
+
+    const mappedGroups = groups
+      .filter((group) => group.skills.length > 0)
+      .map(({ skills: works, ...group }) => ({ ...group, works }));
+
+    return { service, groups: mappedGroups };
   }
 
   /**
@@ -72,6 +135,7 @@ export function createServicesService(deps: ServicesServiceDeps) {
           slug: true,
           name: true,
           icon: true,
+          basePricePaise: true,
           service: { select: { id: true, slug: true, name: true, icon: true } },
         },
       }),
@@ -101,6 +165,7 @@ export function createServicesService(deps: ServicesServiceDeps) {
             slug: true,
             name: true,
             icon: true,
+            basePricePaise: true,
             service: { select: { id: true, slug: true, name: true, icon: true } },
           },
         },
@@ -110,7 +175,13 @@ export function createServicesService(deps: ServicesServiceDeps) {
     return entries.map((entry) => ({ ...entry.skill, isTopPick: entry.isTopPick }));
   }
 
-  return { listActive, listSkillsForService, listPopularSkills, searchServices };
+  return {
+    listActive,
+    listSkillsForService,
+    listSkillGroupsForService,
+    listPopularSkills,
+    searchServices,
+  };
 }
 
 export type ServicesService = ReturnType<typeof createServicesService>;
