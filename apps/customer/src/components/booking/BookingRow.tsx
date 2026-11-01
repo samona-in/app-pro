@@ -98,7 +98,7 @@ export function BookingRow({ job, className, ...rest }: BookingRowProps) {
       </View>
 
       <View className="flex-1">
-        <Text variant="bodyLg" numberOfLines={1}>
+        <Text variant="bodyLg" numberOfLines={1} className="font-semibold">
           {title}
         </Text>
         <Text variant="footnote" className="mt-0.5 text-text-secondary" numberOfLines={1}>

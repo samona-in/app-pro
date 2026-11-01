@@ -7,9 +7,11 @@ const mockUseServiceSkills = jest.fn();
 const mockUseServiceWorkGroups = jest.fn();
 const mockSetSkill = jest.fn();
 const mockSetDescription = jest.fn();
+const mockSetBasePay = jest.fn();
 const mockStartBooking = jest.fn();
 const mockDetailsSheetProps: {
   skillName?: string;
+  basePricePaise?: number | null;
   onContinue?: (description: string) => void;
 } = {};
 let mockDraftService: ServiceOption | null = null;
@@ -17,9 +19,11 @@ let mockDraftService: ServiceOption | null = null;
 jest.mock('@/components/booking/BookingDetailsSheet', () => ({
   BookingDetailsSheet: (props: {
     skillName: string;
+    basePricePaise?: number | null;
     onContinue: (description: string) => void;
   }) => {
     mockDetailsSheetProps.skillName = props.skillName;
+    mockDetailsSheetProps.basePricePaise = props.basePricePaise;
     mockDetailsSheetProps.onContinue = props.onContinue;
     return null;
   },
@@ -39,6 +43,7 @@ jest.mock('@/stores/booking', () => ({
     start: mockStartBooking,
     setSkill: mockSetSkill,
     setDescription: mockSetDescription,
+    setBasePay: mockSetBasePay,
   }),
 }));
 
@@ -65,6 +70,7 @@ const fanRepair: SkillOption = {
   name: 'Fan repair',
   icon: null,
   groupId: 'group-fans',
+  basePricePaise: 50_000,
 };
 
 const fanInstallation: SkillOption = {
@@ -74,6 +80,7 @@ const fanInstallation: SkillOption = {
   name: 'Fan installation',
   icon: null,
   groupId: 'group-fans',
+  basePricePaise: 75_000,
 };
 
 const groupedCatalogue: ServiceWithWorkGroups = {
@@ -114,6 +121,7 @@ describe('customer service work groups screen', () => {
     jest.clearAllMocks();
     mockDraftService = null;
     delete mockDetailsSheetProps.skillName;
+    delete mockDetailsSheetProps.basePricePaise;
     delete mockDetailsSheetProps.onContinue;
     useDefaultCatalogue();
   });
@@ -149,9 +157,10 @@ describe('customer service work groups screen', () => {
     expect(mockSetSkill).toHaveBeenCalledWith(fanRepair);
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockDetailsSheetProps.skillName).toBe('Fan repair');
+    expect(mockDetailsSheetProps.basePricePaise).toBe(50_000);
   });
 
-  it('continues from the details sheet to the pay step with the description', () => {
+  it('continues from the details sheet to the order preview with the quoted base pay', () => {
     const { getByLabelText } = render(<BookingSkill />);
 
     fireEvent.press(getByLabelText('Fan repair'));
@@ -160,7 +169,8 @@ describe('customer service work groups screen', () => {
     });
 
     expect(mockSetDescription).toHaveBeenCalledWith('A leaking tap under the sink.');
-    expect(mockRouterPush).toHaveBeenCalledWith('/booking/new/electrician/pay');
+    expect(mockSetBasePay).toHaveBeenCalledWith(50_000);
+    expect(mockRouterPush).toHaveBeenCalledWith('/booking/new/electrician/review');
   });
 
   it('falls back to the existing flat work list when the groups API is unavailable', () => {

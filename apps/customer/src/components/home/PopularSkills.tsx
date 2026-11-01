@@ -30,8 +30,8 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
   if (skills.length === 0) return null;
 
   return (
-    <View className={cn('pb-2', className)}>
-      <View className="flex-row items-center justify-between px-4">
+    <View testID="popular-right-now" className={cn('pb-2 pl-4', className)}>
+      <View className="flex-row items-center justify-between px-2">
         <View className="flex-row items-center gap-1.5">
           <Text variant="bodyLg" className="font-semibold text-text-primary">
             Popular right now
@@ -53,16 +53,17 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
         ) : null}
       </View>
 
-      {/* The rail bleeds to the screen edge on the right, but the first skill
-          keeps the same 16px inset as the heading above it — a negative
-          margin here would push the first artwork off the left of the screen.
-          The top padding is room for the top-pick badge, which sits over the
-          artwork's corner and would be clipped by the rail without it. */}
+      {/* The section is inset on the left only — a 16px gutter so the rail sits
+          clear of the screen edge — and runs full-bleed to the right, so the
+          next skill peeks in from the edge as the rail scrolls. Inside that
+          gutter the heading and the first skill both land at 24px, and the 8px
+          start padding leaves room for the top-pick badge, which overhangs the
+          artwork's corner and would otherwise be clipped by the rail. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         className="mt-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 4 }}
+        contentContainerStyle={{ paddingLeft: 8, paddingTop: 12, gap: 4 }}
       >
         {skills.map((skill) => (
           <Pressable
@@ -75,7 +76,7 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
             <View>
               <ServiceImage
                 uri={skill.icon ?? skill.service.icon}
-                className="h-16 w-16 rounded-xl"
+                className="h-16 w-16 rounded-lg"
               />
               {'isTopPick' in skill && skill.isTopPick ? (
                 <View

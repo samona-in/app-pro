@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import type { AddressSuggestion, SavedAddress, SelectedAddress } from '@samona/types';
@@ -33,6 +33,9 @@ import { fallbackLocationLabel, suggestionToSelected } from '@/utils/address';
  */
 export default function AddressSearch() {
   const insets = useSafeAreaInsets();
+  // `booking` means the search was opened from the order preview; confirming a
+  // new address returns to that preview instead of tearing the flow down.
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const [query, setQuery] = useState('');
   const [locating, setLocating] = useState(false);
   const [locatingError, setLocatingError] = useState<string | null>(null);
@@ -50,7 +53,11 @@ export default function AddressSearch() {
 
   function openConfirm(selected: SelectedAddress) {
     setPending(selected);
-    router.push('/address-confirm');
+    if (mode === 'booking') {
+      router.push({ pathname: '/address-confirm', params: { mode: 'booking' } });
+    } else {
+      router.push('/address-confirm');
+    }
   }
 
   /** Applies an already-known address to the profile and returns home. */
@@ -213,7 +220,7 @@ export default function AddressSearch() {
                   }
                 />
               ))}
-              {savedItems.length < (saved?.length ?? 0) ? (
+              {savedItems.length < (saved?.length ?? 0) && mode !== 'booking' ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="See all saved addresses"
@@ -230,9 +237,7 @@ export default function AddressSearch() {
 
           {recents.length > 0 ? (
             <>
-              {savedItems.length > 0 ? (
-                <View className="my-1 h-px bg-border" />
-              ) : null}
+              {savedItems.length > 0 ? <View className="my-1 h-px bg-border" /> : null}
               <View className="px-5">
                 <Text variant="labelStrong" className="mb-1 mt-2">
                   Recent
@@ -253,8 +258,7 @@ export default function AddressSearch() {
           {!savedPending && savedItems.length === 0 && recents.length === 0 ? (
             <View className="px-5 py-6">
               <Text variant="body" className="text-text-secondary">
-                Search for an area, or use your current location, to set where
-                you'd like to book.
+                Search for an area, or use your current location, to set where you'd like to book.
               </Text>
             </View>
           ) : null}
@@ -304,8 +308,8 @@ export default function AddressSearch() {
 }
 
 function recentSecondary(recent: SelectedAddress): string | null {
-  const line = [recent.locality, recent.city, recent.state].filter(
-    (part): part is string => Boolean(part),
+  const line = [recent.locality, recent.city, recent.state].filter((part): part is string =>
+    Boolean(part),
   );
   return line.join(', ') || null;
 }
