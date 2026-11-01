@@ -19,7 +19,6 @@ import BottomSheet, {
   type BottomSheetBackgroundProps,
   type BottomSheetFooterProps,
 } from '@gorhom/bottom-sheet';
-import { JOB_DESCRIPTION_MIN } from '@samona/types';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { Button, Text } from '@/components/ui';
 import {
@@ -296,11 +295,11 @@ export default function BookingReview() {
   const locationCaption = locationLabel && locationLabel !== locationTitle ? locationLabel : null;
   const amountLabel = draft.basePayPaise > 0 ? formatRupees(draft.basePayPaise) : '—';
   const referencePhotos = draft.images.filter((image) => Boolean(image.uri));
+  const hasDescription = draft.description.trim().length > 0;
 
   const onSubmit = useCallback(async () => {
     if (create.isPending) return;
     if (!draft.service || !draft.skill) return;
-    if (draft.description.trim().length < JOB_DESCRIPTION_MIN) return;
 
     let job;
     try {
@@ -488,21 +487,23 @@ export default function BookingReview() {
               caption={locationCaption}
             />
 
-            <View className="mt-3 flex-row items-start">
-              <Ionicons
-                name="reader-outline"
-                size={16}
-                color={color['text-muted']}
-                style={{ marginTop: 2 }}
-              />
-              <Text
-                variant="footnote"
-                numberOfLines={2}
-                className="ml-2 flex-1 text-text-secondary"
-              >
-                {draft.description}
-              </Text>
-            </View>
+            {hasDescription ? (
+              <View className="mt-3 flex-row items-start">
+                <Ionicons
+                  name="reader-outline"
+                  size={16}
+                  color={color['text-muted']}
+                  style={{ marginTop: 2 }}
+                />
+                <Text
+                  variant="footnote"
+                  numberOfLines={2}
+                  className="ml-2 flex-1 text-text-secondary"
+                >
+                  {draft.description}
+                </Text>
+              </View>
+            ) : null}
 
             {/* Trust line stays above the photos so it is visible at rest. */}
             <View className="mt-3 flex-row items-center">

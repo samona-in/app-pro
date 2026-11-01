@@ -4,7 +4,11 @@ import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { Ionicons } from '@expo/vector-icons';
 import { JobStatus } from '@samona/types';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { BookingStatusHero, ProfessionalCard, ProfessionalTrackingMap } from '@/components/booking/detail';
+import {
+  BookingStatusHero,
+  ProfessionalCard,
+  ProfessionalTrackingMap,
+} from '@/components/booking/detail';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { Button, Screen, Text } from '@/components/ui';
 import { useBooking, useCancelBooking, useSubmitGuard } from '@/hooks';
@@ -101,16 +105,22 @@ export default function BookingDetail() {
   }
 
   const isTerminal = ([JobStatus.CANCELLED, JobStatus.EXPIRED] as JobStatus[]).includes(job.status);
-  const showMap =
-    job.status === JobStatus.ACCEPTED || job.status === JobStatus.TRAVELLING;
+  const showMap = job.status === JobStatus.ACCEPTED || job.status === JobStatus.TRAVELLING;
   const showProCard = job.pro !== null || job.status !== JobStatus.REQUESTED;
   const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
 
-  const serviceTitle = job.skill?.name && job.skill.name !== job.service.name ? job.skill.name : job.service.name;
+  const serviceTitle =
+    job.skill?.name && job.skill.name !== job.service.name ? job.skill.name : job.service.name;
   const hasLocation = typeof job.latitude === 'number' && typeof job.longitude === 'number';
 
   return (
-    <Screen scrollable edges={['top', 'bottom']} onRefresh={handleRefresh} refreshing={refreshing} padded={false}>
+    <Screen
+      scrollable
+      edges={['top', 'bottom']}
+      onRefresh={handleRefresh}
+      refreshing={refreshing}
+      padded={false}
+    >
       <Stack.Screen
         options={{
           headerTitle: () => (
@@ -166,7 +176,11 @@ export default function BookingDetail() {
 
       {showMap ? <ProfessionalTrackingMap job={job} /> : null}
 
-      {showProCard && job.status !== JobStatus.REQUESTED && job.status !== JobStatus.OFFERED && job.status !== JobStatus.CANCELLED && job.status !== JobStatus.EXPIRED ? (
+      {showProCard &&
+      job.status !== JobStatus.REQUESTED &&
+      job.status !== JobStatus.OFFERED &&
+      job.status !== JobStatus.CANCELLED &&
+      job.status !== JobStatus.EXPIRED ? (
         <ProfessionalCard job={job} />
       ) : null}
 
@@ -223,16 +237,19 @@ export default function BookingDetail() {
             </View>
           ) : null}
         </View>
-        <View className="h-px bg-border w-full" />
-
-        <View className="px-3 py-4">
-          <Text variant="bodyStrong" className="text-text-primary">
-            What's needed
-          </Text>
-          <Text variant="body" className="mt-1 text-text-muted">
-            {job.description}
-          </Text>
-        </View>
+        {job.description ? (
+          <>
+            <View className="h-px bg-border w-full" />
+            <View className="px-3 py-4">
+              <Text variant="bodyStrong" className="text-text-primary">
+                What's needed
+              </Text>
+              <Text variant="body" className="mt-1 text-text-muted">
+                {job.description}
+              </Text>
+            </View>
+          </>
+        ) : null}
 
         {job.imageUrls.length > 0 ? (
           <>

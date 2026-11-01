@@ -19,7 +19,7 @@
     "android": {
       "package": "in.samona.customer",
       "newArchEnabled": true,
-      "versionCode": 11,
+      "versionCode": 12,
        "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#054DFF",

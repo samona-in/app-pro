@@ -83,8 +83,11 @@ export function isChatClosed(status: JobStatus): boolean {
 /** Maximum reference photos a customer may attach to a job request. */
 export const JOB_IMAGE_LIMIT = 5;
 
-/** Minimum length of the free-text job description, shared with validation. */
+/** Minimum length of the free-text job description, kept for older clients. */
 export const JOB_DESCRIPTION_MIN = 10;
+
+/** Maximum length of the free-text job description, shared with validation. */
+export const JOB_DESCRIPTION_MAX = 120;
 
 /**
  * The service-level sentinel skill for "Other".

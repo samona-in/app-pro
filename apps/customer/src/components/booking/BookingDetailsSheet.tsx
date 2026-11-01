@@ -1,27 +1,111 @@
-import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, TextInput, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { JOB_DESCRIPTION_MIN, JOB_IMAGE_LIMIT } from '@samona/types';
-import { BookingStep } from '@/components/booking';
-import { Text } from '@/components/ui';
+import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetFooter,
+  BottomSheetScrollView,
+  BottomSheetTextInput,
+  useBottomSheetSpringConfigs,
+  type BottomSheetBackgroundProps,
+  type BottomSheetFooterProps,
+} from '@gorhom/bottom-sheet';
+import { JOB_DESCRIPTION_MAX, JOB_IMAGE_LIMIT } from '@samona/types';
+import { ServiceImage, isImageUrl } from '@/components/home/ServiceImage';
+import { Button, Text } from '@/components/ui';
 import { uploadJobImage } from '@/services/job-images';
 import type { DraftImage } from '@/stores/booking';
 import { useBookingDraft } from '@/stores/booking';
 import { color } from '@/theme';
 
-export default function BookingDetails() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+/** Top radius of the sheet, matching the rest of the app's surfaces. */
+const TOP_RADIUS = 24;
+/** Height of the grab handle; the sheet content starts below it. */
+const HANDLE_HEIGHT = 20;
+/**
+ * The sheet opens near full height, leaving a hint of the catalogue behind it.
+ * A percentage keeps the sheet sized to its container rather than the window,
+ * which avoids rounding drift on devices with unusual safe areas.
+ */
+const SNAP_POINTS = ['92%'];
+/** The counter turns red once the description is this close to the limit. */
+const DESCRIPTION_WARN_AT = 100;
+
+const styles = StyleSheet.create({
+  background: {
+    backgroundColor: color.surface,
+    borderTopLeftRadius: TOP_RADIUS,
+    borderTopRightRadius: TOP_RADIUS,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.border,
+  },
+  /** The description reads as a ruled field, not a boxed input. */
+  input: {
+    minHeight: 80,
+    paddingTop: 6,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color['border-strong'],
+  },
+});
+
+function SheetBackground({ style }: BottomSheetBackgroundProps) {
+  return <View pointerEvents="none" style={[style, styles.background]} />;
+}
+
+function SheetHandle() {
+  return (
+    <View className="items-center justify-center" style={{ height: HANDLE_HEIGHT }}>
+      <View className="h-1.5 w-10 rounded-full bg-border-strong" />
+    </View>
+  );
+}
+
+export interface BookingDetailsSheetProps {
+  /** The work the customer picked, shown so they can confirm the context. */
+  skillName: string;
+  /** Artwork for the selected work, when the catalogue provides one. */
+  skillIcon?: string | null;
+  /** Called once the sheet has closed after a swipe or a backdrop press. */
+  onClose: () => void;
+  /** Called with the trimmed description when the customer continues. */
+  onContinue: (description: string) => void;
+}
+
+/**
+ * The "Tell us about the work" step, shown as a bottom sheet over the catalogue
+ * instead of a separate screen. The customer describes the job and attaches
+ * reference photos; the draft (and any in-flight uploads) lives in the booking
+ * store so closing the sheet never loses work.
+ */
+export function BookingDetailsSheet({
+  skillName,
+  skillIcon,
+  onClose,
+  onContinue,
+}: BookingDetailsSheetProps) {
   const draft = useBookingDraft();
+  const insets = useSafeAreaInsets();
+
   const [description, setDescription] = useState(draft.description);
   const [cameraDenied, setCameraDenied] = useState(false);
 
   const images = draft.images;
-  const wordCount = description.trim().length;
+  const hasImage = isImageUrl(skillIcon ?? null);
+  const characterCount = description.length;
   const hasUploading = images.some((image) => image.uploading);
   const hasFailed = images.some((image) => image.failed);
-  const canContinue = wordCount >= JOB_DESCRIPTION_MIN && !hasUploading && !hasFailed;
+  const canContinue = !hasUploading && !hasFailed;
+
+  const springConfig = useBottomSheetSpringConfigs({
+    damping: 22,
+    stiffness: 240,
+    mass: 0.9,
+    overshootClamping: true,
+  });
 
   async function pickPhotos() {
     const remaining = JOB_IMAGE_LIMIT - images.length;
@@ -85,40 +169,108 @@ export default function BookingDetails() {
     draft.setImages((prev) => prev.filter((image) => image.uri !== uri));
   }
 
-  function onContinue() {
+  const handleContinue = useCallback(() => {
     if (!canContinue) return;
-    draft.setDescription(description.trim());
-    router.push(`/booking/new/${slug}/pay`);
-  }
+    onContinue(description.trim());
+  }, [canContinue, description, onContinue]);
+
+  const renderFooter = useCallback(
+    (props: BottomSheetFooterProps) => (
+      <BottomSheetFooter {...props} bottomInset={0}>
+        <View
+          className="border-t border-border bg-surface px-5 pt-3"
+          style={{ paddingBottom: insets.bottom + 12 }}
+        >
+          <Button
+            label="Continue"
+            size="lg"
+            disabled={!canContinue}
+            onPress={handleContinue}
+            haptic={canContinue}
+          />
+        </View>
+      </BottomSheetFooter>
+    ),
+    [insets.bottom, canContinue, handleContinue],
+  );
 
   return (
-    <BookingStep
-      step={2}
-      title="Tell us about the work"
-      subtitle="Describe the problem or job clearly — reference photos help nearby professionals scope it accurately."
-      primaryDisabled={!canContinue}
-      onPrimary={() => void onContinue()}
+    <BottomSheet
+      index={0}
+      snapPoints={SNAP_POINTS}
+      enableOverDrag={false}
+      enablePanDownToClose
+      enableDynamicSizing={false}
+      animationConfigs={springConfig}
+      backgroundComponent={SheetBackground}
+      handleComponent={SheetHandle}
+      footerComponent={renderFooter}
+      backdropComponent={(props) => (
+        <BottomSheetBackdrop
+          {...props}
+          appearsOnIndex={0}
+          disappearsOnIndex={-1}
+          pressBehavior="close"
+          opacity={0.4}
+        />
+      )}
+      onClose={onClose}
+      onChange={(index) => {
+        if (index === 0) {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        }
+      }}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
     >
-      <View>
+      <BottomSheetScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        enableFooterMarginAdjustment
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 16 }}
+      >
+        <View className="-mx-5 pb-6">
+          {hasImage ? (
+            <ServiceImage uri={skillIcon} accessibilityLabel={skillName} className="h-56 w-full" />
+          ) : (
+            <View className="h-56 w-full items-center justify-center bg-surface-muted">
+              <Ionicons name="pricetag-outline" size={40} color={color['text-secondary']} />
+            </View>
+          )}
+          <Text variant="titleLg" numberOfLines={2} className="mt-4 px-5">
+            {skillName}
+          </Text>
+        </View>
+
         <View>
-          <Text variant="label">Describe the work</Text>
-          <TextInput
+          <Text variant="label">
+            Describe the work{' '}
+            <Text variant="caption" className="normal-case tracking-normal">
+              (optional)
+            </Text>
+          </Text>
+          <BottomSheetTextInput
             value={description}
             onChangeText={setDescription}
             multiline
+            maxLength={JOB_DESCRIPTION_MAX}
             placeholder="e.g. One of the kitchen switches sizzles and cuts off power when we plug in the microwave."
             placeholderTextColor={color['text-muted']}
             textAlignVertical="top"
             accessibilityLabel="Describe the work"
-            className="mt-1.5 min-h-[140px] w-full rounded-lg border border-border bg-surface p-4 text-body text-text-primary"
+            className="mt-1 w-full text-body text-text-primary"
+            style={styles.input}
           />
           <Text
-            variant="footnote"
-            className={wordCount >= JOB_DESCRIPTION_MIN ? 'mt-1.5' : 'mt-1.5 text-warning'}
+            variant="caption"
+            className={
+              characterCount > DESCRIPTION_WARN_AT
+                ? 'mt-1 text-right text-danger'
+                : 'mt-1 text-right'
+            }
           >
-            {wordCount >= JOB_DESCRIPTION_MIN
-              ? `${wordCount} characters`
-              : `Describe at least ${JOB_DESCRIPTION_MIN} characters (${wordCount}/${JOB_DESCRIPTION_MIN})`}
+            {characterCount}/{JOB_DESCRIPTION_MAX}
           </Text>
         </View>
 
@@ -208,7 +360,7 @@ export default function BookingDetails() {
             </Text>
           ) : null}
         </View>
-      </View>
-    </BookingStep>
+      </BottomSheetScrollView>
+    </BottomSheet>
   );
 }

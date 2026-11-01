@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, View, type LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import type { ServiceWorkGroupWithWorks } from '@samona/types';
@@ -64,10 +64,8 @@ function WorkGroupArtwork({
       accessible
       accessibilityRole="image"
       accessibilityLabel={`${name} illustration`}
-      className="h-[62px] w-[62px] items-center justify-center overflow-hidden rounded-2xl bg-brand-soft"
+      className="aspect-square w-full items-center justify-center overflow-hidden bg-surface"
     >
-      <View className="absolute -right-3 -top-3 h-10 w-10 rounded-full bg-white/75" />
-      <View className="absolute -bottom-3 -left-2 h-9 w-9 rounded-full bg-[#DDEAF7]" />
       {remoteImage ? (
         <Image
           source={{ uri: imageUrl! }}
@@ -78,12 +76,7 @@ function WorkGroupArtwork({
           onError={onImageError}
         />
       ) : (
-        <>
-          <View className="h-10 w-10 items-center justify-center rounded-2xl bg-white/80">
-            <Ionicons name={icon} size={28} color={color.brand} />
-          </View>
-          <View className="absolute bottom-2 right-2 h-2 w-2 rounded-full bg-[#E5A36E]" />
-        </>
+        <Ionicons name={icon} size={28} color={color['text-secondary']} />
       )}
     </View>
   );
@@ -96,7 +89,7 @@ export interface WorkGroupNavigationProps {
   onLayout?: (event: LayoutChangeEvent) => void;
 }
 
-/** Horizontally scrollable, sticky group bar for the customer work catalogue. */
+/** Work categories displayed in a 4-column grid. */
 export function WorkGroupNavigation({
   groups,
   activeGroupId,
@@ -106,54 +99,38 @@ export function WorkGroupNavigation({
   const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(() => new Set());
 
   return (
-    <View onLayout={onLayout} className="border-b border-border bg-surface py-2">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerClassName="gap-2 pr-5"
-        accessibilityLabel="Work categories"
-      >
+    <View onLayout={onLayout} className="bg-surface">
+      <View className="-mx-1 flex-row flex-wrap">
         {groups.map((group) => {
           const selected = group.id === activeGroupId;
-          const workLabel = `${group.works.length} ${group.works.length === 1 ? 'work' : 'works'}`;
 
           return (
             <Pressable
               key={group.id}
               accessibilityRole="button"
-              accessibilityLabel={`${group.name}, ${workLabel}`}
-              accessibilityHint="Scroll to this work category"
-              accessibilityState={{ selected }}
+              accessibilityLabel={group.name}
               onPress={() => onSelectGroup(group.id)}
-              className={cn(
-                'w-[88px] items-center rounded-2xl border px-2 py-2 active:opacity-70',
-                selected ? 'border-brand bg-brand-soft' : 'border-border bg-surface',
-              )}
+              className={cn('w-1/4 px-1 pb-4 active:opacity-70')}
             >
-              <WorkGroupArtwork
-                name={group.name}
-                imageUrl={group.imageUrl}
-                failedImageUrls={failedImageUrls}
-                onImageError={() => {
-                  const imageUrl = group.imageUrl;
-                  if (!imageUrl) return;
-                  setFailedImageUrls((current) => new Set(current).add(imageUrl));
-                }}
-              />
-              <Text
-                variant="footnote"
-                numberOfLines={2}
-                className={cn('mt-1 min-h-9 text-center', selected && 'font-semibold text-brand')}
-              >
+              <View className="aspect-square w-full overflow-hidden rounded-md border border-border">
+                <WorkGroupArtwork
+                  name={group.name}
+                  imageUrl={group.imageUrl}
+                  failedImageUrls={failedImageUrls}
+                  onImageError={() => {
+                    const imageUrl = group.imageUrl;
+                    if (!imageUrl) return;
+                    setFailedImageUrls((current) => new Set(current).add(imageUrl));
+                  }}
+                />
+              </View>
+              <Text variant="footnote" numberOfLines={2} className="mt-2 text-center">
                 {group.name}
-              </Text>
-              <Text variant="caption" className="text-center">
-                {workLabel}
               </Text>
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }

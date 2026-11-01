@@ -1,5 +1,10 @@
 import { z } from 'zod';
-/** Free-text description of the requested work. */
+/**
+ * Free-text description of the requested work.
+ *
+ * Optional: many customers prefer to explain the job in person, so an empty
+ * description is valid. When provided it is capped at {@link JOB_DESCRIPTION_MAX}.
+ */
 export declare const jobDescriptionSchema: z.ZodString;
 /** New-image price the customer commits to, in paise. At least ₹1. */
 export declare const basePayPaiseSchema: z.ZodNumber;
@@ -29,7 +34,7 @@ export declare const createJobSchema: z.ZodObject<{
     locationLabel: z.ZodOptional<z.ZodString>;
     latitude: z.ZodOptional<z.ZodNumber>;
     longitude: z.ZodOptional<z.ZodNumber>;
-    description: z.ZodString;
+    description: z.ZodDefault<z.ZodString>;
     imagePaths: z.ZodDefault<z.ZodArray<z.ZodString>>;
     basePayPaise: z.ZodNumber;
 }, z.core.$strip>;
