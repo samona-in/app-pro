@@ -113,7 +113,7 @@ COPY packages/types packages/types
 COPY packages/config packages/config
 COPY packages/validation packages/validation
 COPY server/package.json server/
-RUN node -e 'const fs=require("fs");for(const p of ["packages/types","packages/config","packages/validation","server"]){const f=p+"/package.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));j.scripts=Object.fromEntries(Object.entries(j.scripts||{}).filter(([k])=>k!=="prepare"&&k!=="postinstall"));fs.writeFileSync(f,JSON.stringify(j,null,2)+"\n");}' \
+RUN node -e 'const fs=require("fs");for(const p of [".","packages/types","packages/config","packages/validation","server"]){const f=p+"/package.json";const j=JSON.parse(fs.readFileSync(f,"utf8"));j.scripts=Object.fromEntries(Object.entries(j.scripts||{}).filter(([k])=>k!=="prepare"&&k!=="postinstall"));fs.writeFileSync(f,JSON.stringify(j,null,2)+"\n");}' \
  && npm ci --omit=dev \
       --workspace=@samona/types \
       --workspace=@samona/config \

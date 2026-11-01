@@ -65,9 +65,11 @@ export function JobPoolCard({
         </Text>
       ) : null}
 
-      <Text variant="body" className="mt-1 text-text-muted" numberOfLines={2}>
-        {job.description}
-      </Text>
+      {job.description ? (
+        <Text variant="body" className="mt-1 text-text-muted" numberOfLines={2}>
+          {job.description}
+        </Text>
+      ) : null}
 
       {error ? (
         <Text variant="caption" className="mt-3 text-danger">

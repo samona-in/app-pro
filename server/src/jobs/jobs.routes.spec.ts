@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express from 'express';
-import { ApiErrorCode, JobStatus } from '@samona/types';
+import { ApiErrorCode, JOB_DESCRIPTION_MAX, JobStatus } from '@samona/types';
 import type { Services } from '../context';
 import { errorHandler } from '../common/middleware/error-handler';
 import { createJobsRouter } from './jobs.routes';
@@ -100,6 +100,39 @@ describe('jobs routes', () => {
 
     expect(response.body).toMatchObject({ id: 'job-1', status: 'REQUESTED' });
     expect(services.jobs.createForCustomer).toHaveBeenCalledWith('user-1', validBody);
+  });
+
+  it('POST /jobs accepts an omitted description', async () => {
+    const services = buildServices();
+    const body = {
+      serviceSlug: validBody.serviceSlug,
+      skillSlug: validBody.skillSlug,
+      imagePaths: validBody.imagePaths,
+      basePayPaise: validBody.basePayPaise,
+    };
+
+    await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send(body)
+      .expect(201);
+
+    expect(services.jobs.createForCustomer).toHaveBeenCalledWith('user-1', {
+      ...body,
+      description: '',
+    });
+  });
+
+  it('POST /jobs rejects a description longer than the limit', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send({ ...validBody, description: 'x'.repeat(JOB_DESCRIPTION_MAX + 1) })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
   });
 
   it('POST /jobs rejects an invalid body', async () => {
@@ -255,7 +288,9 @@ describe('jobs routes', () => {
     const proUser = { ...activeUser, appType: 'pro' as const };
     const services = buildServices({
       auth: { syncUser: jest.fn().mockResolvedValue(proUser) },
-      jobs: jobsService({ collectCashForPro: jest.fn().mockResolvedValue({ ...job, status: 'PAID' }) }),
+      jobs: jobsService({
+        collectCashForPro: jest.fn().mockResolvedValue({ ...job, status: 'PAID' }),
+      }),
     });
 
     const response = await request(appWith(services))

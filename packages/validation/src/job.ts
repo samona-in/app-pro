@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   JOB_CUSTOM_SKILL_MAX,
   JOB_CUSTOM_SKILL_MIN,
-  JOB_DESCRIPTION_MIN,
+  JOB_DESCRIPTION_MAX,
   JOB_IMAGE_LIMIT,
   JOB_STATUSES,
   OTHER_SKILL_SLUG,
@@ -20,12 +20,16 @@ import {
 /** Every valid lifecycle status, for filtering a caller's own job lists. */
 const jobStatusOptions = JOB_STATUSES as [JobStatus, ...JobStatus[]];
 
-/** Free-text description of the requested work. */
+/**
+ * Free-text description of the requested work.
+ *
+ * Optional: many customers prefer to explain the job in person, so an empty
+ * description is valid. When provided it is capped at {@link JOB_DESCRIPTION_MAX}.
+ */
 export const jobDescriptionSchema = z
   .string()
   .trim()
-  .min(JOB_DESCRIPTION_MIN, `Tell us a little more — at least ${JOB_DESCRIPTION_MIN} characters.`)
-  .max(2000, 'Keep the description under 2000 characters.');
+  .max(JOB_DESCRIPTION_MAX, `Keep the description under ${JOB_DESCRIPTION_MAX} characters.`);
 
 /** New-image price the customer commits to, in paise. At least ₹1. */
 export const basePayPaiseSchema = z
@@ -78,7 +82,7 @@ export const createJobSchema = z
     locationLabel: jobLocationLabelSchema.optional(),
     latitude: latitudeSchema.optional(),
     longitude: longitudeSchema.optional(),
-    description: jobDescriptionSchema,
+    description: jobDescriptionSchema.default(''),
     imagePaths: z.array(jobImagePathSchema).max(JOB_IMAGE_LIMIT).default([]),
     basePayPaise: basePayPaiseSchema,
   })

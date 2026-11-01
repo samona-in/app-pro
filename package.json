@@ -29,7 +29,8 @@
     "clean": "rimraf \"packages/*/dist\" \"packages/*/*.tsbuildinfo\" server/dist server/*.tsbuildinfo apps/pro/.expo apps/pro/dist apps/customer/.expo apps/customer/dist",
     "dev:tunnel": "npm run dev:server & ngrok http 4000",
     "build:apk:pro": "npm run build:packages && eas build --local --platform android --profile preview --cwd apps/pro",
-    "build:apk:customer": "npm run build:packages && eas build --local --platform android --profile preview --cwd apps/customer"
+    "build:apk:customer": "npm run build:packages && eas build --local --platform android --profile preview --cwd apps/customer",
+    "postinstall": "patch-package"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -37,6 +38,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.0.0",
+    "patch-package": "^8.0.1",
     "prettier": "^3.9.6",
     "rimraf": "^6.0.1",
     "typescript": "~6.0.3",

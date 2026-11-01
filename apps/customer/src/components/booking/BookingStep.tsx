@@ -1,31 +1,11 @@
 import type { ReactNode, RefObject } from 'react';
 import { View, type ScrollView, type ScrollViewProps, type ViewProps } from 'react-native';
 import { router } from 'expo-router';
-import { ServiceImage, isImageUrl } from '@/components/home/ServiceImage';
 import { Button, IconButton, Screen, Text } from '@/components/ui';
 import { cn } from '@/utils/cn';
 
-const TOTAL_STEPS = 4;
-
 /** Which of the four booking questions this step answers (1-indexed). */
 export type BookingStepNumber = 1 | 2 | 3 | 4;
-
-function StepProgress({ step }: { step: BookingStepNumber }) {
-  return (
-    <View
-      accessibilityRole="progressbar"
-      accessibilityValue={{ min: 1, max: TOTAL_STEPS, now: step }}
-      className="mt-2 flex-row gap-1"
-    >
-      {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-        <View
-          key={i}
-          className={cn('h-1 flex-1 rounded-full', i < step ? 'bg-brand' : 'bg-border')}
-        />
-      ))}
-    </View>
-  );
-}
 
 export interface BookingStepProps {
   step: BookingStepNumber;
@@ -33,10 +13,10 @@ export interface BookingStepProps {
   title?: string;
   subtitle?: string;
   /**
-   * The service being booked. When set, the top bar shows it instead of the
-   * plain step counter (which moves to the right).
+   * The service being booked.
    */
   service?: { name: string; icon?: string | null };
+  headerExtra?: ReactNode;
   children: ReactNode;
   /** Content placed directly in the scroll view so it can remain sticky. */
   stickyContent?: ReactNode;
@@ -54,16 +34,17 @@ export interface BookingStepProps {
 /**
  * Shared chrome for the booking questions.
  *
- * Each question lives on its own stacked route (skill → details → pay)
- * so back gestures behave, while this layout keeps the header, step progress,
- * footer and error treatment identical across them. The final review step is a
- * full-screen map with its own bottom sheet instead.
+ * Each question lives on its own stacked route (skill → pay → review) so back
+ * gestures behave, while this layout keeps the header, footer and error
+ * treatment identical across them. The "tell us about the work" step opens as a
+ * bottom sheet over the catalogue instead of a separate screen. The final
+ * review step is a full-screen map with its own bottom sheet instead.
  */
 export function BookingStep({
-  step,
   title,
   subtitle,
   service,
+  headerExtra,
   children,
   stickyContent,
   scrollRef,
@@ -80,43 +61,32 @@ export function BookingStep({
       edges={['top', 'bottom']}
       scrollable
       className="bg-surface"
-      stickyHeaderIndices={stickyContent ? [2] : undefined}
+      padded={false}
+      stickyHeaderIndices={[0, stickyContent ? 1 : -1].filter((i) => i >= 0)}
       scrollRef={scrollRef}
       onScroll={onScroll}
       scrollEventThrottle={onScroll ? 16 : undefined}
+      contentClassName="px-2"
     >
-      <View className="flex-row items-center justify-between">
-        <IconButton name="arrow-back" accessibilityLabel="Go back" onPress={() => router.back()} />
-
-        {service ? (
-          <View className="flex-1 flex-row items-center justify-center gap-2 px-2">
-            {isImageUrl(service.icon ?? null) ? (
-              <ServiceImage uri={service.icon} className="h-6 w-6 rounded-md" />
-            ) : null}
-            <Text variant="bodyStrong" numberOfLines={1} className="shrink">
+      <View className="z-30 bg-surface">
+        <View className="flex-row items-center">
+          <IconButton
+            name="arrow-back"
+            accessibilityLabel="Go back"
+            onPress={() => router.back()}
+          />
+          {service ? (
+            <Text variant="bodyStrong" numberOfLines={1} className="ml-1 flex-1 pr-2">
               {service.name}
             </Text>
-          </View>
-        ) : (
-          <Text variant="caption" className="font-medium">
-            {step} of {TOTAL_STEPS}
-          </Text>
-        )}
-
-        {service ? (
-          <Text variant="caption" className="font-medium">
-            {step} of {TOTAL_STEPS}
-          </Text>
-        ) : (
-          <View className="h-11 w-11" />
-        )}
+          ) : null}
+          {headerExtra}
+        </View>
       </View>
-
-      <StepProgress step={step} />
 
       {stickyContent ? <View className="z-20 bg-surface">{stickyContent}</View> : null}
 
-      <View onLayout={onContentLayout} className={cn('flex-1', title ? 'pt-6' : 'pt-4')}>
+      <View onLayout={onContentLayout} className={cn('flex-1 px-2', title ? 'pt-6' : 'pt-4')}>
         {title ? <Text variant="titleLg">{title}</Text> : null}
         {subtitle ? (
           <Text variant="body" className="mt-2 text-text-secondary">
@@ -128,7 +98,7 @@ export function BookingStep({
       </View>
 
       {error || onPrimary ? (
-        <View className="gap-3 pb-4 pt-6">
+        <View className="gap-3 px-2 pb-4 pt-6">
           {error ? (
             <Text variant="footnote" className="text-center text-danger">
               {error}

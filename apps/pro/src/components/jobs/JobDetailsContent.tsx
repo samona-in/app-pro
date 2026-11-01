@@ -82,16 +82,18 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
           </View>
         </Card>
 
-        {/* Card 2 — job description. */}
-        <Card className="mt-4 bg-surface-muted">
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="document-text-outline" size={18} color={color['text-secondary']} />
-            <Text variant="label">{t('jobDetails.jobDescription')}</Text>
-          </View>
-          <Text variant="body" className="mt-1 ml-[26px]">
-            {job.description}
-          </Text>
-        </Card>
+        {/* Card 2 — job description. Hidden when the customer skipped it. */}
+        {job.description ? (
+          <Card className="mt-4 bg-surface-muted">
+            <View className="flex-row items-center gap-2">
+              <Ionicons name="document-text-outline" size={18} color={color['text-secondary']} />
+              <Text variant="label">{t('jobDetails.jobDescription')}</Text>
+            </View>
+            <Text variant="body" className="mt-1 ml-[26px]">
+              {job.description}
+            </Text>
+          </Card>
+        ) : null}
 
         {/* Card 3 — customer's reference photos. */}
         {job.imageUrls.length > 0 ? (
@@ -99,7 +101,9 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
             <View className="flex-row items-center gap-2 px-4 pb-3 pt-4">
               <Ionicons name="images-outline" size={18} color={color['text-secondary']} />
               <Text variant="label">{t('jobDetails.customerPhotos')}</Text>
-              <Text variant="caption">{t('jobDetails.photoCount', { count: job.imageUrls.length })}</Text>
+              <Text variant="caption">
+                {t('jobDetails.photoCount', { count: job.imageUrls.length })}
+              </Text>
             </View>
             <ScrollView
               horizontal

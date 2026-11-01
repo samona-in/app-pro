@@ -220,14 +220,17 @@ function jobAlertMessage(info: JobAlertInfo): {
     messageBodyKey: 'notifications.newJob.body',
     params: {
       service: info.customSkill ?? info.serviceName,
-      description: info.description,
+      // Descriptions are optional; fall back to the category so the alert never
+      // reads " — ₹500. Tap to see and accept."
+      description: info.description || info.serviceCategory,
       pay: formatPay(info.basePayPaise),
     },
   };
 }
 
 function jobAlertBody(info: JobAlertInfo): string {
-  return `${info.description} — ${formatPay(info.basePayPaise)}. Tap to see and accept.`;
+  const description = info.description || info.serviceCategory;
+  return `${description} — ${formatPay(info.basePayPaise)}. Tap to see and accept.`;
 }
 
 /** FCM `data` mandates string values; the native side stringifies on read. */

@@ -6,12 +6,16 @@ const types_1 = require("@samona/types");
 const primitives_1 = require("./primitives");
 /** Every valid lifecycle status, for filtering a caller's own job lists. */
 const jobStatusOptions = types_1.JOB_STATUSES;
-/** Free-text description of the requested work. */
+/**
+ * Free-text description of the requested work.
+ *
+ * Optional: many customers prefer to explain the job in person, so an empty
+ * description is valid. When provided it is capped at {@link JOB_DESCRIPTION_MAX}.
+ */
 exports.jobDescriptionSchema = zod_1.z
     .string()
     .trim()
-    .min(types_1.JOB_DESCRIPTION_MIN, `Tell us a little more — at least ${types_1.JOB_DESCRIPTION_MIN} characters.`)
-    .max(2000, 'Keep the description under 2000 characters.');
+    .max(types_1.JOB_DESCRIPTION_MAX, `Keep the description under ${types_1.JOB_DESCRIPTION_MAX} characters.`);
 /** New-image price the customer commits to, in paise. At least ₹1. */
 exports.basePayPaiseSchema = zod_1.z
     .number()
@@ -59,7 +63,7 @@ exports.createJobSchema = zod_1.z
     locationLabel: exports.jobLocationLabelSchema.optional(),
     latitude: primitives_1.latitudeSchema.optional(),
     longitude: primitives_1.longitudeSchema.optional(),
-    description: exports.jobDescriptionSchema,
+    description: exports.jobDescriptionSchema.default(''),
     imagePaths: zod_1.z.array(exports.jobImagePathSchema).max(types_1.JOB_IMAGE_LIMIT).default([]),
     basePayPaise: exports.basePayPaiseSchema,
 })

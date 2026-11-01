@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ServiceOption, ServiceWithWorkGroups, SkillOption } from '@samona/types';
 import BookingSkill from '../booking/new/[slug]/skill';
 
@@ -6,8 +6,24 @@ const mockUseServiceCategories = jest.fn();
 const mockUseServiceSkills = jest.fn();
 const mockUseServiceWorkGroups = jest.fn();
 const mockSetSkill = jest.fn();
+const mockSetDescription = jest.fn();
 const mockStartBooking = jest.fn();
+const mockDetailsSheetProps: {
+  skillName?: string;
+  onContinue?: (description: string) => void;
+} = {};
 let mockDraftService: ServiceOption | null = null;
+
+jest.mock('@/components/booking/BookingDetailsSheet', () => ({
+  BookingDetailsSheet: (props: {
+    skillName: string;
+    onContinue: (description: string) => void;
+  }) => {
+    mockDetailsSheetProps.skillName = props.skillName;
+    mockDetailsSheetProps.onContinue = props.onContinue;
+    return null;
+  },
+}));
 
 jest.mock('@/hooks', () => ({
   useServiceCategories: (...args: unknown[]) => mockUseServiceCategories(...args),
@@ -22,6 +38,7 @@ jest.mock('@/stores/booking', () => ({
     customSkill: '',
     start: mockStartBooking,
     setSkill: mockSetSkill,
+    setDescription: mockSetDescription,
   }),
 }));
 
@@ -96,6 +113,8 @@ describe('customer service work groups screen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockDraftService = null;
+    delete mockDetailsSheetProps.skillName;
+    delete mockDetailsSheetProps.onContinue;
     useDefaultCatalogue();
   });
 
@@ -118,7 +137,7 @@ describe('customer service work groups screen', () => {
     expect(mockStartBooking).toHaveBeenCalledWith(service);
   });
 
-  it('renders group headings and each work once, then preserves the booking flow', () => {
+  it('renders group headings and each work once, then opens the details sheet', () => {
     const { getByLabelText, getAllByText } = render(<BookingSkill />);
 
     expect(getAllByText('Fans')).toHaveLength(2); // category card and section heading
@@ -128,7 +147,20 @@ describe('customer service work groups screen', () => {
     fireEvent.press(getByLabelText('Fan repair'));
 
     expect(mockSetSkill).toHaveBeenCalledWith(fanRepair);
-    expect(mockRouterPush).toHaveBeenCalledWith('/booking/new/electrician/details');
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockDetailsSheetProps.skillName).toBe('Fan repair');
+  });
+
+  it('continues from the details sheet to the pay step with the description', () => {
+    const { getByLabelText } = render(<BookingSkill />);
+
+    fireEvent.press(getByLabelText('Fan repair'));
+    act(() => {
+      mockDetailsSheetProps.onContinue?.('A leaking tap under the sink.');
+    });
+
+    expect(mockSetDescription).toHaveBeenCalledWith('A leaking tap under the sink.');
+    expect(mockRouterPush).toHaveBeenCalledWith('/booking/new/electrician/pay');
   });
 
   it('falls back to the existing flat work list when the groups API is unavailable', () => {

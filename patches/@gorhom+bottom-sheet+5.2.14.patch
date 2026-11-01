@@ -1,0 +1,152 @@
+diff --git a/node_modules/@gorhom/bottom-sheet/lib/commonjs/components/bottomSheet/BottomSheetContent.js b/node_modules/@gorhom/bottom-sheet/lib/commonjs/components/bottomSheet/BottomSheetContent.js
+index 36be0a6..98559c3 100644
+--- a/node_modules/@gorhom/bottom-sheet/lib/commonjs/components/bottomSheet/BottomSheetContent.js
++++ b/node_modules/@gorhom/bottom-sheet/lib/commonjs/components/bottomSheet/BottomSheetContent.js
+@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", {
+ exports.BottomSheetContent = void 0;
+ var _react = _interopRequireWildcard(require("react"));
+ var _reactNativeReanimated = _interopRequireWildcard(require("react-native-reanimated"));
++var _reactNativeGestureHandler = require("react-native-gesture-handler");
+ var _constants = require("../../constants");
+ var _hooks = require("../../hooks");
+ var _utilities = require("../../utilities");
+@@ -34,7 +35,9 @@ function BottomSheetContentComponent({
+     animatedDetentsState,
+     animatedSheetHeight,
+     animatedKeyboardState,
+-    isInTemporaryPosition
++    isInTemporaryPosition,
++    animatedContentGestureState,
++    animatedHandleGestureState
+   } = (0, _hooks.useBottomSheetInternal)();
+   //#endregion
+ 
+@@ -156,6 +159,13 @@ function BottomSheetContentComponent({
+     }
+     const paddingBottom = detached ? 0 : animatedPaddingBottom.get();
+     const height = animatedContentHeightMax.get() + paddingBottom;
++    const hasActiveGesture = animatedContentGestureState.get() === _reactNativeGestureHandler.State.ACTIVE || animatedContentGestureState.get() === _reactNativeGestureHandler.State.BEGAN || animatedHandleGestureState.get() === _reactNativeGestureHandler.State.ACTIVE || animatedHandleGestureState.get() === _reactNativeGestureHandler.State.BEGAN;
++    if (hasActiveGesture) {
++      return {
++        paddingBottom,
++        height
++      };
++    }
+     return {
+       paddingBottom: (0, _utilities.animate)({
+         point: paddingBottom,
+@@ -168,7 +178,7 @@ function BottomSheetContentComponent({
+         overrideReduceMotion
+       })
+     };
+-  }, [overDragResistanceFactor, enableDynamicSizing, detached, animationConfigs, overrideReduceMotion, animatedLayoutState, animatedContentHeightMax, animatedLayoutState]);
++  }, [overDragResistanceFactor, enableDynamicSizing, detached, animationConfigs, overrideReduceMotion, animatedLayoutState, animatedContentHeightMax, animatedContentGestureState, animatedHandleGestureState]);
+   const contentContainerStyle = (0, _react.useMemo)(() => [detached ? {
+     overflow: 'visible'
+   } : {
+diff --git a/node_modules/@gorhom/bottom-sheet/lib/module/components/bottomSheet/BottomSheetContent.js b/node_modules/@gorhom/bottom-sheet/lib/module/components/bottomSheet/BottomSheetContent.js
+index e4696b2..01f39cf 100644
+--- a/node_modules/@gorhom/bottom-sheet/lib/module/components/bottomSheet/BottomSheetContent.js
++++ b/node_modules/@gorhom/bottom-sheet/lib/module/components/bottomSheet/BottomSheetContent.js
+@@ -1,6 +1,7 @@
+ "use strict";
+ 
+ import React, { memo, useMemo } from 'react';
++import { State } from 'react-native-gesture-handler';
+ import Animated, { useAnimatedStyle, useDerivedValue } from 'react-native-reanimated';
+ import { INITIAL_LAYOUT_VALUE, KEYBOARD_BEHAVIOR, KEYBOARD_STATUS } from '../../constants';
+ import { useBottomSheetInternal } from '../../hooks';
+@@ -28,7 +29,9 @@ function BottomSheetContentComponent({
+     animatedDetentsState,
+     animatedSheetHeight,
+     animatedKeyboardState,
+-    isInTemporaryPosition
++    isInTemporaryPosition,
++    animatedContentGestureState,
++    animatedHandleGestureState
+   } = useBottomSheetInternal();
+   //#endregion
+ 
+@@ -150,6 +153,13 @@ function BottomSheetContentComponent({
+     }
+     const paddingBottom = detached ? 0 : animatedPaddingBottom.get();
+     const height = animatedContentHeightMax.get() + paddingBottom;
++    const hasActiveGesture = animatedContentGestureState.get() === State.ACTIVE || animatedContentGestureState.get() === State.BEGAN || animatedHandleGestureState.get() === State.ACTIVE || animatedHandleGestureState.get() === State.BEGAN;
++    if (hasActiveGesture) {
++      return {
++        paddingBottom,
++        height
++      };
++    }
+     return {
+       paddingBottom: animate({
+         point: paddingBottom,
+@@ -162,7 +172,7 @@ function BottomSheetContentComponent({
+         overrideReduceMotion
+       })
+     };
+-  }, [overDragResistanceFactor, enableDynamicSizing, detached, animationConfigs, overrideReduceMotion, animatedLayoutState, animatedContentHeightMax, animatedLayoutState]);
++  }, [overDragResistanceFactor, enableDynamicSizing, detached, animationConfigs, overrideReduceMotion, animatedLayoutState, animatedContentHeightMax, animatedContentGestureState, animatedHandleGestureState]);
+   const contentContainerStyle = useMemo(() => [detached ? {
+     overflow: 'visible'
+   } : {
+diff --git a/node_modules/@gorhom/bottom-sheet/src/components/bottomSheet/BottomSheetContent.tsx b/node_modules/@gorhom/bottom-sheet/src/components/bottomSheet/BottomSheetContent.tsx
+index 4a69a68..9777d20 100644
+--- a/node_modules/@gorhom/bottom-sheet/src/components/bottomSheet/BottomSheetContent.tsx
++++ b/node_modules/@gorhom/bottom-sheet/src/components/bottomSheet/BottomSheetContent.tsx
+@@ -1,5 +1,6 @@
+ import React, { memo, useMemo } from 'react';
+ import type { ViewProps, ViewStyle } from 'react-native';
++import { State } from 'react-native-gesture-handler';
+ import Animated, {
+   type AnimatedStyle,
+   useAnimatedStyle,
+@@ -51,6 +52,8 @@ function BottomSheetContentComponent({
+     animatedSheetHeight,
+     animatedKeyboardState,
+     isInTemporaryPosition,
++    animatedContentGestureState,
++    animatedHandleGestureState,
+   } = useBottomSheetInternal();
+   //#endregion
+ 
+@@ -199,6 +202,29 @@ function BottomSheetContentComponent({
+     const paddingBottom = detached ? 0 : animatedPaddingBottom.get();
+     const height = animatedContentHeightMax.get() + paddingBottom;
+ 
++    /**
++     * Bypass the height animation while the user is actively panning the
++     * sheet. With Reanimated 4 + Fabric the animated layout update can be
++     * committed late, which collapses the content clip mask mid-drag and
++     * lets the screen behind show through. Applying the already calculated
++     * values directly keeps the mask in sync with the finger.
++     *
++     * @see https://github.com/gorhom/react-native-bottom-sheet/issues/2702
++     * @see https://github.com/gorhom/react-native-bottom-sheet/issues/2716
++     */
++    const hasActiveGesture =
++      animatedContentGestureState.get() === State.ACTIVE ||
++      animatedContentGestureState.get() === State.BEGAN ||
++      animatedHandleGestureState.get() === State.ACTIVE ||
++      animatedHandleGestureState.get() === State.BEGAN;
++
++    if (hasActiveGesture) {
++      return {
++        paddingBottom,
++        height,
++      };
++    }
++
+     return {
+       paddingBottom: animate({
+         point: paddingBottom,
+@@ -219,7 +245,8 @@ function BottomSheetContentComponent({
+     overrideReduceMotion,
+     animatedLayoutState,
+     animatedContentHeightMax,
+-    animatedLayoutState,
++    animatedContentGestureState,
++    animatedHandleGestureState,
+   ]);
+   const contentContainerStyle = useMemo(
+     () => [
