@@ -10,6 +10,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import type { SavedAddress } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import BottomSheet, {
@@ -19,22 +20,22 @@ import BottomSheet, {
   type BottomSheetBackgroundProps,
   type BottomSheetFooterProps,
 } from '@gorhom/bottom-sheet';
+import { AddressPickerSheet } from '@/components/address/AddressPickerSheet';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { Button, Text } from '@/components/ui';
 import {
   useActiveSavedAddress,
   useCreateBooking,
   useResolvedLocationLabel,
+  useResolvedPlace,
   useSession,
 } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
 import { color, elevation } from '@/theme';
+import { savedAddressSecondary } from '@/utils/address';
 import { formatRupees } from '@/utils/format';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
-/** The review step is the last of the four booking questions. */
-const TOTAL_STEPS = 4;
 
 /**
  * The sheet rests at exactly the height its content needs, so nothing hides
@@ -118,31 +119,6 @@ function ServiceMarker({ label, icon }: { label: string; icon: IoniconName }) {
   );
 }
 
-/** The four-step progress, shown as a compact floating pill over the map. */
-function StepPill({ step }: { step: number }) {
-  return (
-    <View
-      accessibilityRole="progressbar"
-      accessibilityValue={{ min: 1, max: TOTAL_STEPS, now: step }}
-      accessibilityLabel={`Step ${step} of ${TOTAL_STEPS}`}
-      className="flex-row items-center rounded-full bg-surface px-3 py-2"
-      style={elevation.md}
-    >
-      <View className="flex-row gap-1">
-        {Array.from({ length: TOTAL_STEPS }, (_, index) => (
-          <View
-            key={index}
-            className={`h-1.5 w-4 rounded-full ${index < step ? 'bg-brand' : 'bg-border'}`}
-          />
-        ))}
-      </View>
-      <Text variant="caption" className="ml-2 font-semibold text-text-secondary">
-        {step}/{TOTAL_STEPS}
-      </Text>
-    </View>
-  );
-}
-
 /** A single compact row in the sheet: an icon tile, a title and a caption. */
 function DetailRow({
   icon,
@@ -150,15 +126,20 @@ function DetailRow({
   iconColor,
   title,
   caption,
+  onPress,
+  actionLabel,
 }: {
   icon: IoniconName;
   iconClassName: string;
   iconColor: string;
   title: string;
   caption: string | null;
+  /** When provided, the row becomes tappable and shows an edit affordance. */
+  onPress?: () => void;
+  actionLabel?: string;
 }) {
-  return (
-    <View className="flex-row items-center">
+  const content = (
+    <>
       <View className={`h-9 w-9 items-center justify-center rounded-full ${iconClassName}`}>
         <Ionicons name={icon} size={17} color={iconColor} />
       </View>
@@ -172,7 +153,27 @@ function DetailRow({
           </Text>
         ) : null}
       </View>
-    </View>
+      {onPress ? (
+        <View className="ml-2 h-8 w-8 items-center justify-center rounded-full bg-surface-muted">
+          <Ionicons name="create-outline" size={17} color={color['text-secondary']} />
+        </View>
+      ) : null}
+    </>
+  );
+
+  if (!onPress) {
+    return <View className="flex-row items-center">{content}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={actionLabel ?? title}
+      onPress={onPress}
+      className="flex-row items-center active:opacity-70"
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -189,12 +190,33 @@ export default function BookingReview() {
   const mapRef = useRef<MapView | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
+  /** A saved address chosen for this booking, overriding the profile default. */
+  const [pickedAddress, setPickedAddress] = useState<SavedAddress | null>(null);
+  const [addressPickerOpen, setAddressPickerOpen] = useState(false);
+
   /** Natural heights, measured so the resting sheet fits its content exactly. */
   const [detailsHeight, setDetailsHeight] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
 
-  const serviceLat = customerProfile?.latitude ?? activeSavedAddress?.latitude ?? null;
-  const serviceLng = customerProfile?.longitude ?? activeSavedAddress?.longitude ?? null;
+  /**
+   * The address the request will be placed at. A pick from the sheet wins;
+   * otherwise this follows the profile's active location, which is what the
+   * rest of the app treats as "where I book".
+   */
+  const activeAddress = pickedAddress ?? activeSavedAddress;
+  const { data: activePlace } = useResolvedPlace(activeAddress?.placeId);
+  const addressLine =
+    activePlace?.formattedAddress ??
+    (activeAddress
+      ? [activeAddress.addressLine1, savedAddressSecondary(activeAddress)]
+          .filter((part): part is string => Boolean(part))
+          .join(', ')
+      : locationLabel);
+
+  const serviceLat =
+    activeAddress?.latitude ?? customerProfile?.latitude ?? activeSavedAddress?.latitude ?? null;
+  const serviceLng =
+    activeAddress?.longitude ?? customerProfile?.longitude ?? activeSavedAddress?.longitude ?? null;
   const hasServiceLocation = serviceLat !== null && serviceLng !== null;
 
   /**
@@ -264,8 +286,11 @@ export default function BookingReview() {
 
   useEffect(() => {
     if (!mapReady) return;
-    // Glide the pin up into the unobstructed map on first paint.
-    focusServiceLocation(true);
+    // Glide the pin up into the unobstructed map on first paint and whenever
+    // the service location changes. The fit is deferred a frame so the new
+    // marker coordinate has reached the native map first.
+    const frame = requestAnimationFrame(() => focusServiceLocation(true));
+    return () => cancelAnimationFrame(frame);
   }, [mapReady, focusServiceLocation]);
 
   const handleSheetChange = useCallback(
@@ -290,9 +315,8 @@ export default function BookingReview() {
   }, []);
 
   const skillLabel = draft.customSkill || draft.skill?.name || '—';
-  const addressCaption = activeSavedAddress?.name ?? null;
-  const locationTitle = addressCaption ?? 'Service location';
-  const locationCaption = locationLabel && locationLabel !== locationTitle ? locationLabel : null;
+  const locationTitle = activeAddress?.name.trim() || 'Service location';
+  const locationCaption = addressLine && addressLine !== locationTitle ? addressLine : null;
   const amountLabel = draft.basePayPaise > 0 ? formatRupees(draft.basePayPaise) : '—';
   const referencePhotos = draft.images.filter((image) => Boolean(image.uri));
   const hasDescription = draft.description.trim().length > 0;
@@ -300,6 +324,15 @@ export default function BookingReview() {
   const onSubmit = useCallback(async () => {
     if (create.isPending) return;
     if (!draft.service || !draft.skill) return;
+
+    // Snapshot the chosen location onto the job. Sending it explicitly means a
+    // booking-specific address does not depend on (or overwrite) the profile's
+    // active location. The label is capped at the validator's 160 characters.
+    const trimmedAddress = addressLine?.trim();
+    const locationInput =
+      trimmedAddress && trimmedAddress.length >= 2
+        ? { locationLabel: trimmedAddress.slice(0, 160) }
+        : {};
 
     let job;
     try {
@@ -312,6 +345,10 @@ export default function BookingReview() {
           .map((image) => image.path)
           .filter((path): path is string => Boolean(path)),
         basePayPaise: draft.basePayPaise,
+        ...locationInput,
+        ...(serviceLat !== null && serviceLng !== null
+          ? { latitude: serviceLat, longitude: serviceLng }
+          : {}),
       });
     } catch {
       // The sheet surfaces `create.isError`; a failed request must not be
@@ -322,7 +359,7 @@ export default function BookingReview() {
     if (job) {
       const bookingId = job.id;
       // Land straight on the live booking, with no confirmation detour. The
-      // finished four-step flow is dismissed first so back from the booking
+      // finished three-step flow is dismissed first so back from the booking
       // lands on the tabs, not on a step the customer already completed.
       router.dismissAll();
       router.push({ pathname: '/booking/[id]', params: { id: bookingId } });
@@ -330,7 +367,23 @@ export default function BookingReview() {
       // this screen with empty content while the navigator is tearing it down.
       setTimeout(() => draft.reset(), 0);
     }
-  }, [create, draft]);
+  }, [create, draft, addressLine, serviceLat, serviceLng]);
+
+  const handleSelectAddress = useCallback((address: SavedAddress) => {
+    setPickedAddress(address);
+    setAddressPickerOpen(false);
+  }, []);
+
+  /**
+   * Opens the existing add-address flow. It makes the new place the profile's
+   * active location, so clearing the local pick lets the preview follow it when
+   * the customer comes back.
+   */
+  const handleAddAddress = useCallback(() => {
+    setAddressPickerOpen(false);
+    setPickedAddress(null);
+    router.push({ pathname: '/address-search', params: { mode: 'booking' } });
+  }, []);
 
   /**
    * The action is rendered through `footerComponent`, not as the last child of
@@ -387,6 +440,11 @@ export default function BookingReview() {
           rotateEnabled={false}
         >
           <Marker
+            // `react-native-maps` snapshots a marker's custom view on Android.
+            // Updating the coordinate or label in place can leave a stale,
+            // blank snapshot — the pin vanishes after switching addresses — so
+            // the marker is remounted whenever the service location changes.
+            key={`service-${serviceLat}-${serviceLng}-${locationTitle}`}
             coordinate={{ latitude: serviceLat, longitude: serviceLng }}
             anchor={{ x: 0.5, y: 0.92 }}
           >
@@ -402,7 +460,7 @@ export default function BookingReview() {
         </View>
       )}
 
-      {/* Floating chrome: back, step progress, and a recenter control. */}
+      {/* Floating chrome: back and the recenter control. */}
       <View
         pointerEvents="box-none"
         className="absolute inset-x-0 flex-row items-center justify-between px-4"
@@ -418,8 +476,6 @@ export default function BookingReview() {
         >
           <Ionicons name="arrow-back" size={22} color={color['text-primary']} />
         </Pressable>
-
-        <StepPill step={4} />
       </View>
 
       {hasServiceLocation ? (
@@ -485,6 +541,8 @@ export default function BookingReview() {
               iconColor={color.brand}
               title={locationTitle}
               caption={locationCaption}
+              onPress={() => setAddressPickerOpen(true)}
+              actionLabel="Change service address"
             />
 
             {hasDescription ? (
@@ -535,6 +593,14 @@ export default function BookingReview() {
           </View>
         </BottomSheetScrollView>
       </BottomSheet>
+
+      <AddressPickerSheet
+        visible={addressPickerOpen}
+        selectedId={activeAddress?.id ?? null}
+        onClose={() => setAddressPickerOpen(false)}
+        onSelect={handleSelectAddress}
+        onAddNew={handleAddAddress}
+      />
     </View>
   );
 }

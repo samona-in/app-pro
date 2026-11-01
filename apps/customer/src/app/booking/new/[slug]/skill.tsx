@@ -201,8 +201,9 @@ export default function BookingSkill() {
 
   function onDetailsContinue(description: string) {
     draft.setDescription(description);
+    draft.setBasePay(detailsSkill?.basePricePaise ?? 0);
     setDetailsSkill(null);
-    router.push(`/booking/new/${slug}/pay`);
+    router.push(`/booking/new/${slug}/review`);
   }
 
   function handleGroupLayout(event: LayoutChangeEvent, groupId: string) {
@@ -412,7 +413,7 @@ export default function BookingSkill() {
                             : undefined
                         }
                         selected={work.id === skillId}
-                        basePricePaise={(work as any).basePricePaise}
+                        basePricePaise={work.basePricePaise}
                         onToggle={() =>
                           work.slug === OTHER_SKILL_SLUG
                             ? selectOther(work)
@@ -496,6 +497,7 @@ export default function BookingSkill() {
         <BookingDetailsSheet
           skillName={detailsSkill.slug === OTHER_SKILL_SLUG ? customText.trim() : detailsSkill.name}
           skillIcon={detailsSkill.slug === OTHER_SKILL_SLUG ? null : detailsSkill.icon}
+          basePricePaise={detailsSkill.basePricePaise ?? null}
           onClose={() => setDetailsSkill(null)}
           onContinue={onDetailsContinue}
         />

@@ -4,8 +4,8 @@ import { router } from 'expo-router';
 import { Button, IconButton, Screen, Text } from '@/components/ui';
 import { cn } from '@/utils/cn';
 
-/** Which of the four booking questions this step answers (1-indexed). */
-export type BookingStepNumber = 1 | 2 | 3 | 4;
+/** Which of the three booking questions this step answers (1-indexed). */
+export type BookingStepNumber = 1 | 2 | 3;
 
 export interface BookingStepProps {
   step: BookingStepNumber;
@@ -34,7 +34,7 @@ export interface BookingStepProps {
 /**
  * Shared chrome for the booking questions.
  *
- * Each question lives on its own stacked route (skill → pay → review) so back
+ * Each question lives on its own stacked route (skill → review) so back
  * gestures behave, while this layout keeps the header, footer and error
  * treatment identical across them. The "tell us about the work" step opens as a
  * bottom sheet over the catalogue instead of a separate screen. The final

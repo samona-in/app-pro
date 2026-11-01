@@ -35,7 +35,7 @@ function skill(overrides: Partial<PopularSkill> = {}): PopularSkill {
 }
 
 const skills: PopularSkill[] = [
-  skill(),
+  skill({ isTopPick: true }),
   skill({
     id: 'sk2',
     slug: 'fan-installation',
@@ -126,10 +126,20 @@ describe('PopularSkills', () => {
 
     const rail = screen.UNSAFE_getByType(ScrollView);
 
+    // The section carries a left gutter only, so the rail stops clear of the
+    // left edge but still runs full-bleed to the right.
+    const sectionClass = screen.getByTestId('popular-right-now').props.className;
+    expect(sectionClass).toMatch(/(^|\s)pl-4(\s|$)/);
+    expect(sectionClass).not.toMatch(/(^|\s)pr-/);
+
     // A negative margin on the rail would pull the first skill past the left
-    // edge of the screen; the content padding is what insets it instead.
+    // edge of the screen; the section's gutter plus this content padding is
+    // what insets it instead.
     expect(rail.props.className ?? '').not.toMatch(/-m[lr]-/);
-    expect(rail.props.contentContainerStyle.paddingHorizontal).toBe(16);
+    expect(rail.props.contentContainerStyle.paddingLeft).toBeGreaterThanOrEqual(8);
+
+    // Nothing pads the right side, so the rail bleeds to the screen edge.
+    expect(rail.props.contentContainerStyle.paddingRight ?? 0).toBe(0);
 
     // The top-pick badge sits over the artwork's corner and reaches above it.
     // The rail clips its content, so it needs that room or the badge loses its

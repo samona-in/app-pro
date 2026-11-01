@@ -50,7 +50,7 @@ export function HomeHeader({
   return (
     <View
       style={{ paddingTop: safeAreaTop ? insets.top + 8 : 8 }}
-      className={cn('-mx-2 px-4', isBlue ? 'bg-brand' : 'bg-surface-muted', className)}
+      className={cn('px-4', isBlue ? 'bg-brand' : 'bg-surface-muted', className)}
     >
       <View className="flex-row items-center justify-between">
         <Pressable

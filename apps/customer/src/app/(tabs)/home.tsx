@@ -141,7 +141,7 @@ export default function Home() {
         {/* The sticky search bar must be a direct child of the scroll
             container. The location row above and the banner below scroll
             underneath it while the search stays pinned. */}
-        <View className="bg-brand px-2 pb-2 pt-2">
+        <View className="bg-brand px-4 pb-2 pt-2">
           <SearchBar onPress={() => router.navigate('/search')} />
         </View>
 

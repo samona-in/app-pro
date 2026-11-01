@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { KeyboardAvoidingView, useKeyboardState } from 'react-native-keyboard-controller';
 import type { AddressLabel, AddressSuggestion, SelectedAddress } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,18 +11,11 @@ import {
 } from '@/components/location';
 import { SaveAsLabelPicker } from '@/components/address/SaveAsLabelPicker';
 import { Button, Input, Text } from '@/components/ui';
-import {
-  useCreateSavedAddress,
-  useSaveOnboardingStep,
-} from '@/hooks';
+import { useCreateSavedAddress, useSaveOnboardingStep } from '@/hooks';
 import { geocodingApi } from '@/services/geocoding';
 import { useAddressStore } from '@/stores/addresses';
 import { color } from '@/theme';
-import {
-  fallbackLocationLabel,
-  selectedToSuggestion,
-  suggestionToSelected,
-} from '@/utils/address';
+import { fallbackLocationLabel, selectedToSuggestion, suggestionToSelected } from '@/utils/address';
 
 /**
  * Confirms the address the customer just searched for.
@@ -36,6 +29,9 @@ import {
 export default function AddressConfirm() {
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardState((state) => state.isVisible);
+  // Confirmed from the order preview: return there (popping this screen and the
+  // search list behind it) instead of dismissing the whole booking flow.
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const pending = useAddressStore((state) => state.pending);
   const addRecent = useAddressStore((state) => state.addRecent);
   const save = useSaveOnboardingStep();
@@ -66,7 +62,8 @@ export default function AddressConfirm() {
   }
 
   const busy = save.isPending || createSaved.isPending;
-  const displayedLabel = place?.formattedAddress ??
+  const displayedLabel =
+    place?.formattedAddress ??
     (coords ? fallbackLocationLabel(coords.latitude, coords.longitude) : '');
 
   async function onConfirm() {
@@ -102,28 +99,35 @@ export default function AddressConfirm() {
       });
 
       // Record the recent, then tear the navigator down on the next tick.
-      // Updating the list in the same tick as `dismissAll()` makes React insert
+      // Updating the list in the same tick as the navigation makes React insert
       // the new row while Android is removing the address screens, which
       // crashes Fabric with "addViewAt: failed to insert view into parent at
       // index N".
       addRecent(selected);
-      setTimeout(() => router.dismissAll(), 0);
+      if (mode === 'booking') {
+        // Pop this screen and the search list to reveal the order preview.
+        setTimeout(() => router.dismiss(2), 0);
+      } else {
+        setTimeout(() => router.dismissAll(), 0);
+      }
 
       // Best-effort: save to the address book. The location is already set above,
       // so a failure here is silent — the user can add the address manually later.
-      createSaved.mutateAsync({
-        name: trimmedName,
-        label,
-        addressLine1: selected.formattedAddress,
-        addressLine2: undefined,
-        landmark: undefined,
-        locality: selected.locality ?? undefined,
-        city: selected.city ?? undefined,
-        state: selected.state ?? undefined,
-        postalCode: selected.postalCode ?? undefined,
-        coordinates: { latitude: selected.latitude, longitude: selected.longitude },
-        placeId: selected.placeId,
-      }).catch(() => {});
+      createSaved
+        .mutateAsync({
+          name: trimmedName,
+          label,
+          addressLine1: selected.formattedAddress,
+          addressLine2: undefined,
+          landmark: undefined,
+          locality: selected.locality ?? undefined,
+          city: selected.city ?? undefined,
+          state: selected.state ?? undefined,
+          postalCode: selected.postalCode ?? undefined,
+          coordinates: { latitude: selected.latitude, longitude: selected.longitude },
+          placeId: selected.placeId,
+        })
+        .catch(() => {});
     } catch {
       setError('Could not update your location. Please try again.');
     }
@@ -149,11 +153,7 @@ export default function AddressConfirm() {
             <Text variant="body" className="text-center text-text-secondary">
               Nothing to confirm yet.
             </Text>
-            <Button
-              label="Choose an address"
-              className="mt-5"
-              onPress={() => router.back()}
-            />
+            <Button label="Choose an address" className="mt-5" onPress={() => router.back()} />
           </View>
         ) : (
           <View className="flex-1">
@@ -216,11 +216,7 @@ export default function AddressConfirm() {
                 className="px-5 pt-2"
                 style={{ paddingBottom: keyboardVisible ? 12 : insets.bottom + 16 }}
               >
-                <Button
-                  label="Confirm address"
-                  loading={busy}
-                  onPress={() => void onConfirm()}
-                />
+                <Button label="Confirm address" loading={busy} onPress={() => void onConfirm()} />
               </View>
             </View>
           </View>

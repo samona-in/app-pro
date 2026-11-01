@@ -40,14 +40,18 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="onboarding" />
+            {/*
+              The booking detail is a `@gorhom/bottom-sheet` that draws its own
+              header, so the screen itself is a transparent modal over whatever
+              opened it (the bookings list or the just-placed order).
+            */}
             <Stack.Screen
               name="booking/[id]"
               options={{
-                headerShown: true,
-                title: 'Booking',
-                headerBackTitle: 'Back',
-                headerTintColor: color['text-primary'],
-                headerStyle: { backgroundColor: color.surface },
+                headerShown: false,
+                presentation: 'transparentModal',
+                animation: 'fade',
+                contentStyle: { backgroundColor: 'transparent' },
               }}
             />
             <Stack.Screen

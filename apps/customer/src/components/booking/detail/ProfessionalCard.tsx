@@ -50,7 +50,7 @@ export function ProfessionalCard({ job }: Props) {
   return (
     <View>
       <View className="h-px bg-border w-full" />
-      <View className="flex-row items-center py-3 px-3">
+      <View className="flex-row items-center px-5 py-3">
         <Avatar name={proDisplayName(pro)} uri={pro.photoUrl} size="md" />
         <View className="ml-3 flex-1">
           <Text variant="bodyStrong" numberOfLines={1}>

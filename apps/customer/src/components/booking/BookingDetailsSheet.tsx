@@ -20,6 +20,7 @@ import { uploadJobImage } from '@/services/job-images';
 import type { DraftImage } from '@/stores/booking';
 import { useBookingDraft } from '@/stores/booking';
 import { color } from '@/theme';
+import { formatRupees } from '@/utils/format';
 
 /** Top radius of the sheet, matching the rest of the app's surfaces. */
 const TOP_RADIUS = 24;
@@ -69,6 +70,8 @@ export interface BookingDetailsSheetProps {
   skillName: string;
   /** Artwork for the selected work, when the catalogue provides one. */
   skillIcon?: string | null;
+  /** Admin-configured base pay for the selected work, in paise. */
+  basePricePaise?: number | null;
   /** Called once the sheet has closed after a swipe or a backdrop press. */
   onClose: () => void;
   /** Called with the trimmed description when the customer continues. */
@@ -84,6 +87,7 @@ export interface BookingDetailsSheetProps {
 export function BookingDetailsSheet({
   skillName,
   skillIcon,
+  basePricePaise,
   onClose,
   onContinue,
 }: BookingDetailsSheetProps) {
@@ -98,7 +102,8 @@ export function BookingDetailsSheet({
   const characterCount = description.length;
   const hasUploading = images.some((image) => image.uploading);
   const hasFailed = images.some((image) => image.failed);
-  const canContinue = !hasUploading && !hasFailed;
+  const hasBasePrice = typeof basePricePaise === 'number' && basePricePaise > 0;
+  const canContinue = !hasUploading && !hasFailed && hasBasePrice;
 
   const springConfig = useBottomSheetSpringConfigs({
     damping: 22,
@@ -238,9 +243,23 @@ export function BookingDetailsSheet({
               <Ionicons name="pricetag-outline" size={40} color={color['text-secondary']} />
             </View>
           )}
-          <Text variant="titleLg" numberOfLines={2} className="mt-4 px-5">
-            {skillName}
-          </Text>
+          <View className="mt-4 flex-row items-start justify-between px-5">
+            <Text variant="titleLg" numberOfLines={2} className="flex-1 pr-4">
+              {skillName}
+            </Text>
+            <View className="items-end">
+              <Text variant="caption">Base pay</Text>
+              {hasBasePrice ? (
+                <Text variant="title" className="mt-0.5">
+                  {formatRupees(basePricePaise)}
+                </Text>
+              ) : (
+                <Text variant="footnote" className="mt-0.5 text-danger">
+                  Unavailable
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
 
         <View>
