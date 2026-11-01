@@ -33,6 +33,8 @@ export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> 
   fullWidth?: boolean;
   leading?: React.ReactNode;
   haptic?: boolean;
+  /** Overrides the variant's fill, e.g. to match a screen's hero background. */
+  backgroundColor?: string;
   className?: string;
 }
 
@@ -46,6 +48,7 @@ export function Button({
   haptic = true,
   disabled,
   onPress,
+  backgroundColor,
   className,
   ...rest
 }: ButtonProps) {
@@ -67,6 +70,9 @@ export function Button({
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
       onPress={handlePress}
+      // Inline fill: a colour class appended here would race the variant's own
+      // `bg-*` class in the generated stylesheet.
+      style={backgroundColor ? { backgroundColor } : undefined}
       className={cn(
         'flex-row items-center justify-center rounded-lg active:opacity-80',
         styles.container,

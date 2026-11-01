@@ -3,12 +3,20 @@ import { Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { OTP_LENGTH } from '@samona/config';
 import { Button, OtpInput, Screen, Text } from '@/components/ui';
-import { useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
+import { useCountdown, useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
+
+/** A code was just sent on the previous screen, so resend waits a full window. */
+const RESEND_COOLDOWN_MS = 30_000;
 
 export default function VerifyScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const { verifyCode, sendCode, isBusy, error, clearError } = usePhoneAuth();
   const [code, setCode] = useState('');
+  const {
+    remainingSeconds,
+    isActive: isResendLocked,
+    restart: restartResendWindow,
+  } = useCountdown(RESEND_COOLDOWN_MS);
 
   const { otp } = useOtpAutoFill({ length: OTP_LENGTH });
 
@@ -33,10 +41,10 @@ export default function VerifyScreen() {
   }
 
   async function onResend() {
-    if (!phone) return;
+    if (!phone || isResendLocked) return;
     clearError();
     setCode('');
-    await sendCode(phone);
+    if (await sendCode(phone)) restartResendWindow();
   }
 
   return (
@@ -73,9 +81,9 @@ export default function VerifyScreen() {
           onPress={() => void onVerify()}
         />
         <Button
-          label="Resend code"
+          label={isResendLocked ? `Resend code in ${remainingSeconds}s` : 'Resend code'}
           variant="ghost"
-          disabled={isBusy}
+          disabled={isBusy || isResendLocked}
           onPress={() => void onResend()}
         />
       </View>
