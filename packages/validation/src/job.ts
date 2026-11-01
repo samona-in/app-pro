@@ -6,7 +6,6 @@ import {
   JOB_IMAGE_LIMIT,
   JOB_STATUSES,
   OTHER_SKILL_SLUG,
-  PLACE_TYPES,
   type JobStatus,
 } from '@samona/types';
 import {
@@ -20,19 +19,6 @@ import {
 
 /** Every valid lifecycle status, for filtering a caller's own job lists. */
 const jobStatusOptions = JOB_STATUSES as [JobStatus, ...JobStatus[]];
-
-/** Where the work happens. Mirrors the `PlaceType` enum in @samona/types. */
-const placeTypeOptions = PLACE_TYPES.map((option) => option.value) as [
-  (typeof PLACE_TYPES)[number]['value'],
-  ...(typeof PLACE_TYPES)[number]['value'][],
-];
-
-/** Use this when `placeType` is OTHER to name the place. */
-export const placeDescriptionSchema = z
-  .string()
-  .trim()
-  .min(2, 'Describe the place briefly.')
-  .max(120, 'Keep the place description under 120 characters.');
 
 /** Free-text description of the requested work. */
 export const jobDescriptionSchema = z
@@ -86,8 +72,6 @@ export const createJobSchema = z
     serviceSlug: slugSchema,
     skillSlug: slugSchema,
     customSkill: customSkillSchema.optional(),
-    placeType: z.enum(placeTypeOptions),
-    placeDescription: placeDescriptionSchema.optional(),
     // The work location, snapshotted onto the job at creation (CLAUDE "jobs"
     // location snapshot). Coordinates come as a pair; the server falls back to
     // the customer profile's saved location when none is submitted.
@@ -99,14 +83,6 @@ export const createJobSchema = z
     basePayPaise: basePayPaiseSchema,
   })
   .superRefine((value, ctx) => {
-    if (value.placeType === 'OTHER' && !value.placeDescription) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Tell us what kind of place it is.',
-        path: ['placeDescription'],
-      });
-    }
-
     if (value.skillSlug === OTHER_SKILL_SLUG && !value.customSkill) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

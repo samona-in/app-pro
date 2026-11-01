@@ -24,8 +24,6 @@ const job = {
   skill: { id: 'skill-1', slug: 'fan-installation', name: 'Fan installation' },
   customSkill: null,
   status: JobStatus.REQUESTED,
-  placeType: 'RESIDENCE',
-  placeDescription: null,
   description: 'Fix the switch near the door.',
   imageUrls: ['https://cdn/jobs/user-1/abc.jpg'],
   basePayPaise: 15_000,
@@ -86,7 +84,6 @@ function appWith(services: Services) {
 const validBody = {
   serviceSlug: 'electrical',
   skillSlug: 'fan-installation',
-  placeType: 'RESIDENCE',
   description: 'Fix the switch near the door.',
   imagePaths: ['jobs/user-1/abc.jpg'],
   basePayPaise: 15_000,

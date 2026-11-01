@@ -1,19 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rejectJobOfferSchema = exports.acceptJobOfferSchema = exports.deviceIdSchema = exports.jobOfferTokenSchema = exports.adminJobListQuerySchema = exports.adminLiveQuerySchema = exports.ADMIN_LIVE_SORTS = exports.jobListQuerySchema = exports.cancelJobSchema = exports.verifyStartSchema = exports.transitionJobSchema = exports.JOB_ACTIONS = exports.createJobSchema = exports.customSkillSchema = exports.jobImagePathSchema = exports.jobLocationLabelSchema = exports.basePayPaiseSchema = exports.jobDescriptionSchema = exports.placeDescriptionSchema = void 0;
+exports.rejectJobOfferSchema = exports.acceptJobOfferSchema = exports.deviceIdSchema = exports.jobOfferTokenSchema = exports.adminJobListQuerySchema = exports.adminLiveQuerySchema = exports.ADMIN_LIVE_SORTS = exports.jobListQuerySchema = exports.cancelJobSchema = exports.verifyStartSchema = exports.transitionJobSchema = exports.JOB_ACTIONS = exports.createJobSchema = exports.customSkillSchema = exports.jobImagePathSchema = exports.jobLocationLabelSchema = exports.basePayPaiseSchema = exports.jobDescriptionSchema = void 0;
 const zod_1 = require("zod");
 const types_1 = require("@samona/types");
 const primitives_1 = require("./primitives");
 /** Every valid lifecycle status, for filtering a caller's own job lists. */
 const jobStatusOptions = types_1.JOB_STATUSES;
-/** Where the work happens. Mirrors the `PlaceType` enum in @samona/types. */
-const placeTypeOptions = types_1.PLACE_TYPES.map((option) => option.value);
-/** Use this when `placeType` is OTHER to name the place. */
-exports.placeDescriptionSchema = zod_1.z
-    .string()
-    .trim()
-    .min(2, 'Describe the place briefly.')
-    .max(120, 'Keep the place description under 120 characters.');
 /** Free-text description of the requested work. */
 exports.jobDescriptionSchema = zod_1.z
     .string()
@@ -61,8 +53,6 @@ exports.createJobSchema = zod_1.z
     serviceSlug: primitives_1.slugSchema,
     skillSlug: primitives_1.slugSchema,
     customSkill: exports.customSkillSchema.optional(),
-    placeType: zod_1.z.enum(placeTypeOptions),
-    placeDescription: exports.placeDescriptionSchema.optional(),
     // The work location, snapshotted onto the job at creation (CLAUDE "jobs"
     // location snapshot). Coordinates come as a pair; the server falls back to
     // the customer profile's saved location when none is submitted.
@@ -74,13 +64,6 @@ exports.createJobSchema = zod_1.z
     basePayPaise: exports.basePayPaiseSchema,
 })
     .superRefine((value, ctx) => {
-    if (value.placeType === 'OTHER' && !value.placeDescription) {
-        ctx.addIssue({
-            code: zod_1.z.ZodIssueCode.custom,
-            message: 'Tell us what kind of place it is.',
-            path: ['placeDescription'],
-        });
-    }
     if (value.skillSlug === types_1.OTHER_SKILL_SLUG && !value.customSkill) {
         ctx.addIssue({
             code: zod_1.z.ZodIssueCode.custom,

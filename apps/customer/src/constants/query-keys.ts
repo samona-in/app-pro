@@ -11,6 +11,7 @@ export const queryKeys = {
   catalogue: ['catalogue'] as const,
   services: ['services'] as const,
   serviceSkills: (serviceSlug: string) => ['services', 'skills', serviceSlug] as const,
+  serviceWorkGroups: (serviceSlug: string) => ['services', 'groups', serviceSlug] as const,
   /** The curated skills promoted on the home screen. */
   popularSkills: ['services', 'popular-skills'] as const,
   bookings: {

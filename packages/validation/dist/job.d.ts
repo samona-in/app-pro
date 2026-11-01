@@ -1,6 +1,4 @@
 import { z } from 'zod';
-/** Use this when `placeType` is OTHER to name the place. */
-export declare const placeDescriptionSchema: z.ZodString;
 /** Free-text description of the requested work. */
 export declare const jobDescriptionSchema: z.ZodString;
 /** New-image price the customer commits to, in paise. At least ₹1. */
@@ -28,12 +26,6 @@ export declare const createJobSchema: z.ZodObject<{
     serviceSlug: z.ZodString;
     skillSlug: z.ZodString;
     customSkill: z.ZodOptional<z.ZodString>;
-    placeType: z.ZodEnum<{
-        OTHER: "OTHER";
-        RESIDENCE: "RESIDENCE";
-        OFFICE: "OFFICE";
-    }>;
-    placeDescription: z.ZodOptional<z.ZodString>;
     locationLabel: z.ZodOptional<z.ZodString>;
     latitude: z.ZodOptional<z.ZodNumber>;
     longitude: z.ZodOptional<z.ZodNumber>;

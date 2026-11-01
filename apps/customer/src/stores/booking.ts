@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { PlaceType, ServiceOption, SkillOption } from '@samona/types';
+import type { ServiceOption, SkillOption } from '@samona/types';
 
 /**
  * A reference photo attached to a booking draft.
@@ -20,15 +20,12 @@ interface BookingDraftState {
   skill: SkillOption | null;
   /** Free-text category when the `other` sentinel skill is chosen. */
   customSkill: string;
-  placeType: PlaceType | null;
-  placeDescription: string;
   description: string;
   images: DraftImage[];
   basePayPaise: number;
 
   start: (service: ServiceOption) => void;
   setSkill: (skill: SkillOption, customSkill?: string) => void;
-  setPlace: (placeType: PlaceType, placeDescription?: string) => void;
   setDescription: (description: string) => void;
   setImages: (images: DraftImage[] | ((prev: DraftImage[]) => DraftImage[])) => void;
   setBasePay: (basePayPaise: number) => void;
@@ -37,18 +34,10 @@ interface BookingDraftState {
 
 const blank: Pick<
   BookingDraftState,
-  | 'skill'
-  | 'customSkill'
-  | 'placeType'
-  | 'placeDescription'
-  | 'description'
-  | 'images'
-  | 'basePayPaise'
+  'skill' | 'customSkill' | 'description' | 'images' | 'basePayPaise'
 > = {
   skill: null,
   customSkill: '',
-  placeType: null,
-  placeDescription: '',
   description: '',
   images: [],
   basePayPaise: 0,
@@ -67,7 +56,6 @@ export const useBookingDraft = create<BookingDraftState>((set) => ({
 
   start: (service) => set({ service, ...blank }),
   setSkill: (skill, customSkill = '') => set({ skill, customSkill }),
-  setPlace: (placeType, placeDescription = '') => set({ placeType, placeDescription }),
   setDescription: (description) => set({ description }),
   setImages: (imagesOrUpdater) =>
     set((state) => ({

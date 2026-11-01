@@ -8,8 +8,6 @@ const jobRow = {
   customerId: 'cust-1',
   proId: null,
   status: JobStatus.REQUESTED,
-  placeType: 'RESIDENCE' as const,
-  placeDescription: null,
   locationLabel: null,
   latitude: null,
   longitude: null,
@@ -83,7 +81,6 @@ function buildJobs() {
 const baseInput = {
   serviceSlug: 'electrical',
   skillSlug: 'electrical-socket-switch-installation',
-  placeType: 'RESIDENCE' as const,
   description: 'Fix the switch near the door.',
   imagePaths: ['jobs/user-1/abc.jpg'],
   basePayPaise: 15_000,
@@ -248,21 +245,6 @@ describe('createJobsService.createForCustomer', () => {
         imagePaths: ['jobs/user-1/missing.jpg'],
       }),
     ).rejects.toMatchObject({ name: 'HttpError', status: 400 });
-  });
-
-  it('records the place description only when OTHER was chosen', async () => {
-    const ctx = buildJobs();
-    await ctx.jobs.createForCustomer('user-1', {
-      ...baseInput,
-      placeType: 'OTHER',
-      placeDescription: 'Community hall basement',
-    });
-
-    expect(ctx.txJobCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ placeDescription: 'Community hall basement' }),
-      }),
-    );
   });
 
   it('stores the free-text category when the Other skill is chosen', async () => {

@@ -80,27 +80,6 @@ export function isChatClosed(status: JobStatus): boolean {
   return (CHAT_CLOSED_STATUSES as readonly JobStatus[]).includes(status);
 }
 
-/**
- * Where the customer needs the work done.
- *
- * Mirrors `PlaceType` in the Prisma schema. OTHER records a free-text
- * `placeDescription` on the job instead of choosing a bucket.
- */
-export const PlaceType = {
-  RESIDENCE: 'RESIDENCE',
-  OFFICE: 'OFFICE',
-  OTHER: 'OTHER',
-} as const;
-
-export type PlaceType = (typeof PlaceType)[keyof typeof PlaceType];
-
-/** Display choices for the booking flow's "where" step, in order. */
-export const PLACE_TYPES: { value: PlaceType; label: string; icon: string }[] = [
-  { value: PlaceType.RESIDENCE, label: 'Residence', icon: 'home-outline' },
-  { value: PlaceType.OFFICE, label: 'Office', icon: 'business-outline' },
-  { value: PlaceType.OTHER, label: 'Other', icon: 'ellipsis-horizontal-circle-outline' },
-];
-
 /** Maximum reference photos a customer may attach to a job request. */
 export const JOB_IMAGE_LIMIT = 5;
 
@@ -112,7 +91,7 @@ export const JOB_DESCRIPTION_MIN = 10;
  *
  * Every service carries a skill row with this slug so the customer can type a
  * custom category (`Job.customSkill`) while the job still references a real
- * skill through its foreign key — the same pattern as `PlaceType.OTHER`.
+ * skill through its foreign key.
  */
 export const OTHER_SKILL_SLUG = 'other';
 
@@ -138,8 +117,6 @@ export interface Job {
   /** The free-text category when `skill.slug` is `other`; null otherwise. */
   customSkill: string | null;
   status: JobStatus;
-  placeType: PlaceType;
-  placeDescription: string | null;
   /** Display label for the work location, snapshotted at creation. */
   locationLabel: string | null;
   /** Work-location coordinates, snapshotted at creation. Null until known. */

@@ -19,7 +19,7 @@ import BottomSheet, {
   type BottomSheetBackgroundProps,
   type BottomSheetFooterProps,
 } from '@gorhom/bottom-sheet';
-import { JOB_DESCRIPTION_MIN, PLACE_TYPES, PlaceType } from '@samona/types';
+import { JOB_DESCRIPTION_MIN } from '@samona/types';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { Button, Text } from '@/components/ui';
 import {
@@ -34,8 +34,8 @@ import { formatRupees } from '@/utils/format';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-/** The review step is the last of the five booking questions. */
-const TOTAL_STEPS = 5;
+/** The review step is the last of the four booking questions. */
+const TOTAL_STEPS = 4;
 
 /**
  * The sheet rests at exactly the height its content needs, so nothing hides
@@ -100,7 +100,7 @@ function SheetHandle() {
   );
 }
 
-/** The service location: a small place label above a branded pin. */
+/** The service location: the address label above a branded pin. */
 function ServiceMarker({ label, icon }: { label: string; icon: IoniconName }) {
   return (
     <View className="items-center">
@@ -119,7 +119,7 @@ function ServiceMarker({ label, icon }: { label: string; icon: IoniconName }) {
   );
 }
 
-/** The five-step progress, shown as a compact floating pill over the map. */
+/** The four-step progress, shown as a compact floating pill over the map. */
 function StepPill({ step }: { step: number }) {
   return (
     <View
@@ -290,20 +290,16 @@ export default function BookingReview() {
     setFooterHeight(event.nativeEvent.layout.height);
   }, []);
 
-  const place = PLACE_TYPES.find((option) => option.value === draft.placeType);
-  const placeLabel =
-    draft.placeType === PlaceType.OTHER ? draft.placeDescription || 'Other' : (place?.label ?? '—');
-  const placeIcon = (place?.icon ?? 'location') as IoniconName;
-
   const skillLabel = draft.customSkill || draft.skill?.name || '—';
   const addressCaption = activeSavedAddress?.name ?? null;
-  const fullAddress = locationLabel ?? addressCaption ?? null;
+  const locationTitle = addressCaption ?? 'Service location';
+  const locationCaption = locationLabel && locationLabel !== locationTitle ? locationLabel : null;
   const amountLabel = draft.basePayPaise > 0 ? formatRupees(draft.basePayPaise) : '—';
   const referencePhotos = draft.images.filter((image) => Boolean(image.uri));
 
   const onSubmit = useCallback(async () => {
     if (create.isPending) return;
-    if (!draft.service || !draft.skill || !draft.placeType) return;
+    if (!draft.service || !draft.skill) return;
     if (draft.description.trim().length < JOB_DESCRIPTION_MIN) return;
 
     let job;
@@ -312,9 +308,6 @@ export default function BookingReview() {
         serviceSlug: draft.service.slug,
         skillSlug: draft.skill.slug,
         customSkill: draft.customSkill.trim() || undefined,
-        placeType: draft.placeType,
-        placeDescription:
-          draft.placeType === PlaceType.OTHER ? draft.placeDescription || undefined : undefined,
         description: draft.description.trim(),
         imagePaths: draft.images
           .map((image) => image.path)
@@ -330,7 +323,7 @@ export default function BookingReview() {
     if (job) {
       const bookingId = job.id;
       // Land straight on the live booking, with no confirmation detour. The
-      // finished five-step flow is dismissed first so back from the booking
+      // finished four-step flow is dismissed first so back from the booking
       // lands on the tabs, not on a step the customer already completed.
       router.dismissAll();
       router.push({ pathname: '/booking/[id]', params: { id: bookingId } });
@@ -398,7 +391,7 @@ export default function BookingReview() {
             coordinate={{ latitude: serviceLat, longitude: serviceLng }}
             anchor={{ x: 0.5, y: 0.92 }}
           >
-            <ServiceMarker label={addressCaption ?? placeLabel} icon={placeIcon} />
+            <ServiceMarker label={locationTitle} icon="location" />
           </Marker>
         </MapView>
       ) : (
@@ -427,7 +420,7 @@ export default function BookingReview() {
           <Ionicons name="arrow-back" size={22} color={color['text-primary']} />
         </Pressable>
 
-        <StepPill step={5} />
+        <StepPill step={4} />
       </View>
 
       {hasServiceLocation ? (
@@ -491,8 +484,8 @@ export default function BookingReview() {
               icon="location"
               iconClassName="bg-brand-soft"
               iconColor={color.brand}
-              title={placeLabel}
-              caption={fullAddress}
+              title={locationTitle}
+              caption={locationCaption}
             />
 
             <View className="mt-3 flex-row items-start">

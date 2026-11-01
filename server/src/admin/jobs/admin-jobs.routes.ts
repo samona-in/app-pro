@@ -110,8 +110,6 @@ export function createAdminJobsRouter({ prisma: client, storage }: AdminJobsDeps
 
 const detailSelect = {
   ...jobBaseSelect,
-  placeType: true,
-  placeDescription: true,
   description: true,
   imagePaths: true,
   latitude: true,
@@ -182,8 +180,6 @@ function toDetailDto(job: DetailJob, storage: StorageService) {
     ...toJobListDto(job),
     updatedAt: job.updatedAt.toISOString(),
     customSkill: job.customSkill,
-    placeType: job.placeType,
-    placeDescription: job.placeDescription,
     description: job.description,
     imageUrls: job.imagePaths.map((path) => storage.jobImagePublicUrl(path)),
     latitude: job.latitude,

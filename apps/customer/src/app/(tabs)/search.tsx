@@ -45,7 +45,7 @@ export default function Search() {
   function handleSelectService(service: ServiceOption) {
     addRecent({ type: 'service', service });
     draft.start(service);
-    router.push(`/booking/new/${service.slug}/place`);
+    router.push(`/booking/new/${service.slug}/skill`);
   }
 
   function handleSelectSkill(skill: SkillWithService) {
@@ -66,7 +66,7 @@ export default function Search() {
       name: skill.name,
       icon: skill.icon,
     });
-    router.push(`/booking/new/${skill.service.slug}/place`);
+    router.push(`/booking/new/${skill.service.slug}/skill`);
   }
 
   return (

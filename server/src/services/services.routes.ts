@@ -60,6 +60,24 @@ export function createServicesRouter(services: Services): Router {
   });
 
   /**
+   * Grouped works for a service (category navigation + grouped sections).
+   * Registered before `/:slug/skills` for backwards compatibility if needed.
+   */
+  router.get('/:slug/groups', requireAuth, async (req, res, next) => {
+    try {
+      const slug = req.params.slug;
+      if (typeof slug !== 'string') {
+        res.json({ service: null, groups: [] });
+        return;
+      }
+      const result = await services.services.listSkillGroupsForService(slug);
+      res.json(result ?? { service: null, groups: [] });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
    * The exact-need categories for one service (the booking flow's "what
    * exactly" step). An unknown slug simply returns an empty list rather than
    * leaking catalogue ids.

@@ -71,8 +71,6 @@ function job(id: string, longitude: number): Job {
     skill: { id: 'skill', slug: 'fan-installation', name: 'Fan installation' },
     customSkill: null,
     status: JobStatus.REQUESTED,
-    placeType: 'RESIDENCE',
-    placeDescription: null,
     locationLabel: 'Main Road',
     latitude: 0,
     longitude,

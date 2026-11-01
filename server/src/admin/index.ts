@@ -7,6 +7,7 @@ import { createAdminAuthRouter } from './auth/admin-auth.routes';
 import { createAdminJobsRouter } from './jobs/admin-jobs.routes';
 import { createAdminLiveRouter } from './live/admin-live.routes';
 import { createAdminNotificationsRouter } from './notifications/admin-notifications.routes';
+import { createAdminServiceWorkGroupsRouter } from './catalogue/admin-service-work-groups.routes';
 import { createRequireAdmin, requirePermission } from './middleware/require-admin';
 import { createBannerSchema, updateBannerSchema } from '@samona/validation';
 import { validate } from '../common';
@@ -51,6 +52,7 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
 
   const requireAdmin = createRequireAdmin(adminAuth);
   router.use(requireAdmin);
+  router.use(createAdminServiceWorkGroupsRouter(deps.prisma));
 
   // Dashboard
   router.get('/dashboard/overview', async (_req, res, next) => {
@@ -364,7 +366,13 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
       }
 
       const services = await prisma.service.findMany({
-        include: { skills: true },
+        include: {
+          skills: { orderBy: { sortOrder: 'asc' } },
+          workGroups: {
+            orderBy: { sortOrder: 'asc' },
+            include: { skills: { orderBy: { sortOrder: 'asc' } } },
+          },
+        },
         orderBy: { sortOrder: 'asc' },
       });
       res.json({ data: services });
@@ -430,72 +438,6 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
       }
 
       await prisma.service.delete({
-        where: { id: req.params.id },
-      });
-      res.json({ success: true });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  router.post('/services/:serviceId/skills', async (req, res, next) => {
-    try {
-      if (!prisma) {
-        res.status(503).json({ error: { message: 'Database unavailable' } });
-        return;
-      }
-
-      const { name, slug, icon, sortOrder, isActive } = req.body;
-
-      const skill = await prisma.skill.create({
-        data: {
-          serviceId: req.params.serviceId,
-          name,
-          slug,
-          icon,
-          sortOrder: sortOrder ? Number(sortOrder) : 0,
-          isActive: isActive !== undefined ? Boolean(isActive) : true,
-        },
-      });
-      res.json({ data: skill });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  router.patch('/skills/:id', async (req, res, next) => {
-    try {
-      if (!prisma) {
-        res.status(503).json({ error: { message: 'Database unavailable' } });
-        return;
-      }
-
-      const { name, slug, icon, sortOrder, isActive } = req.body;
-
-      const skill = await prisma.skill.update({
-        where: { id: req.params.id },
-        data: {
-          ...(name !== undefined && { name }),
-          ...(slug !== undefined && { slug }),
-          ...(icon !== undefined && { icon }),
-          ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
-          ...(isActive !== undefined && { isActive: Boolean(isActive) }),
-        },
-      });
-      res.json({ data: skill });
-    } catch (error) {
-      next(error);
-    }
-  });
-
-  router.delete('/skills/:id', async (req, res, next) => {
-    try {
-      if (!prisma) {
-        res.status(503).json({ error: { message: 'Database unavailable' } });
-        return;
-      }
-
-      await prisma.skill.delete({
         where: { id: req.params.id },
       });
       res.json({ success: true });

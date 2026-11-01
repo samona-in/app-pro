@@ -53,8 +53,6 @@ function detailRow(overrides: Record<string, unknown> = {}) {
     ...listRow(),
     updatedAt: new Date('2026-01-02T05:00:00.000Z'),
     customSkill: null,
-    placeType: 'RESIDENCE',
-    placeDescription: null,
     description: 'Fix the switch near the door.',
     imagePaths: ['jobs/abc.jpg'],
     latitude: 19.1197,

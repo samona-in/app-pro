@@ -20,6 +20,7 @@ export default defineConfig({
   schema: path.join('prisma', 'schema.prisma'),
   migrations: {
     path: path.join('prisma', 'migrations'),
+    seed: 'tsx prisma/seed-service-work-groups.ts',
   },
   // Used by migrate/introspect only. The running app connects through the
   // driver adapter in `src/database/prisma.ts`.

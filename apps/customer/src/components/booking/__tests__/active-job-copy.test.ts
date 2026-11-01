@@ -15,8 +15,6 @@ function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     skill: { id: 'skill-1', slug: 'other', name: 'Wiring' },
     customSkill: null,
     status: JobStatus.REQUESTED,
-    placeType: 'RESIDENCE',
-    placeDescription: null,
     locationLabel: 'Benz Circle, Vijayawada',
     latitude: 16.51,
     longitude: 80.61,

@@ -1,303 +1,463 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import Image from 'next/image';
+import { Edit, Layers, Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { api } from '@/lib/api';
+import { api, errorMessage } from '@/lib/api';
+import {
+  GroupEditorDialog,
+  ServiceEditorDialog,
+  WorkEditorDialog,
+} from '@/components/services/catalogue-editors';
+import {
+  confirmDeleteGroup,
+  confirmDeleteWork,
+  UngroupedWorksSection,
+  WorkGroupCard,
+} from '@/components/services/work-group-section';
+import {
+  emptyGroupForm,
+  emptyServiceForm,
+  emptyWorkForm,
+  nextSortOrder,
+  type GroupForm,
+  type Service,
+  type ServiceForm,
+  type Work,
+  type WorkForm,
+  type WorkGroup,
+} from '@/components/services/types';
+
+type WorkFields = Omit<WorkForm, 'basePriceRupees'>;
+type NewWorkPayload = WorkFields & { basePricePaise: number; serviceId: string };
+type UpdatedWorkPayload = WorkFields & { basePricePaise?: number; id: string };
 
 export default function ServicesPage() {
   const queryClient = useQueryClient();
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
-  const [editingService, setEditingService] = useState<any>(null);
-  const [serviceForm, setServiceForm] = useState({ name: '', slug: '', icon: '', sortOrder: 0, isActive: true });
-  
-  const [skillDialogOpen, setSkillDialogOpen] = useState(false);
-  const [editingSkill, setEditingSkill] = useState<any>(null);
-  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
-  const [skillForm, setSkillForm] = useState({ name: '', slug: '', icon: '', sortOrder: 0, isActive: true });
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [serviceForm, setServiceForm] = useState<ServiceForm>(emptyServiceForm);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<WorkGroup | null>(null);
+  const [groupServiceId, setGroupServiceId] = useState('');
+  const [groupForm, setGroupForm] = useState<GroupForm>(emptyGroupForm);
+  const [workDialogOpen, setWorkDialogOpen] = useState(false);
+  const [editingWork, setEditingWork] = useState<Work | null>(null);
+  const [workServiceId, setWorkServiceId] = useState('');
+  const [workForm, setWorkForm] = useState<WorkForm>(emptyWorkForm);
 
-  const { data, isLoading } = useQuery({
+  const servicesQuery = useQuery({
     queryKey: ['admin-services'],
     queryFn: async () => {
-      const res = await api.get('/admin/services');
-      return res.data;
+      const response = await api.get<{ data: Service[] }>('/admin/services');
+      return response.data.data;
     },
   });
-
-  const services = data?.data || [];
+  const services = servicesQuery.data ?? [];
+  const refreshServices = () => queryClient.invalidateQueries({ queryKey: ['admin-services'] });
 
   const createServiceMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await api.post('/admin/services', data);
-      return res.data;
-    },
+    mutationFn: async (form: ServiceForm) => (await api.post('/admin/services', form)).data,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-services'] });
+      void refreshServices();
       setServiceDialogOpen(false);
-      setServiceForm({ name: '', slug: '', icon: '', sortOrder: 0, isActive: true });
+      setServiceForm(emptyServiceForm);
+      toast.success('Service created.');
     },
+    onError: (error) => toast.error(errorMessage(error, 'Could not create the service.')),
   });
 
   const updateServiceMutation = useMutation({
-    mutationFn: async ({ id, ...data }: any) => {
-      const res = await api.patch(`/admin/services/${id}`, data);
-      return res.data;
-    },
+    mutationFn: async ({ id, ...form }: ServiceForm & { id: string }) =>
+      (await api.patch(`/admin/services/${id}`, form)).data,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-services'] });
-      setEditingService(null);
+      void refreshServices();
       setServiceDialogOpen(false);
-      setServiceForm({ name: '', slug: '', icon: '', sortOrder: 0, isActive: true });
+      setEditingService(null);
+      toast.success('Service saved.');
     },
+    onError: (error) => toast.error(errorMessage(error, 'Could not save the service.')),
   });
 
   const deleteServiceMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await api.delete(`/admin/services/${id}`);
-      return res.data;
-    },
+    mutationFn: async (id: string) => (await api.delete(`/admin/services/${id}`)).data,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-services'] });
+      void refreshServices();
+      toast.success('Service deleted.');
     },
+    onError: (error) => toast.error(errorMessage(error, 'Could not delete the service.')),
   });
 
-  const createSkillMutation = useMutation({
-    mutationFn: async ({ serviceId, ...data }: any) => {
-      const res = await api.post(`/admin/services/${serviceId}/skills`, data);
-      return res.data;
-    },
+  const createGroupMutation = useMutation({
+    mutationFn: async ({ serviceId, ...form }: GroupForm & { serviceId: string }) =>
+      (await api.post(`/admin/services/${serviceId}/groups`, form)).data,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-services'] });
-      setSkillDialogOpen(false);
-      setSkillForm({ name: '', slug: '', icon: '', sortOrder: 0, isActive: true });
+      void refreshServices();
+      setGroupDialogOpen(false);
+      setEditingGroup(null);
+      toast.success('Work group created.');
     },
+    onError: (error) => toast.error(errorMessage(error, 'Could not create the work group.')),
   });
 
-  const updateSkillMutation = useMutation({
-    mutationFn: async ({ id, ...data }: any) => {
-      const res = await api.patch(`/admin/skills/${id}`, data);
-      return res.data;
-    },
+  const updateGroupMutation = useMutation({
+    mutationFn: async ({ id, ...form }: GroupForm & { id: string }) =>
+      (await api.patch(`/admin/service-work-groups/${id}`, form)).data,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-services'] });
-      setEditingSkill(null);
-      setSkillDialogOpen(false);
-      setSkillForm({ name: '', slug: '', icon: '', sortOrder: 0, isActive: true });
+      void refreshServices();
+      setGroupDialogOpen(false);
+      setEditingGroup(null);
+      toast.success('Work group saved.');
     },
+    onError: (error) => toast.error(errorMessage(error, 'Could not save the work group.')),
   });
 
-  const deleteSkillMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await api.delete(`/admin/skills/${id}`);
-      return res.data;
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (id: string) =>
+      (
+        await api.delete<{ success: boolean; ungroupedWorks: number }>(
+          `/admin/service-work-groups/${id}`,
+        )
+      ).data,
+    onSuccess: (result) => {
+      void refreshServices();
+      toast.success(
+        result.ungroupedWorks === 0
+          ? 'Work group deleted.'
+          : `Work group deleted. ${result.ungroupedWorks} works remain in the service as ungrouped.`,
+      );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-services'] });
-    },
+    onError: (error) => toast.error(errorMessage(error, 'Could not delete the work group.')),
   });
 
-  const handleServiceSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingService) {
-      updateServiceMutation.mutate({ id: editingService.id, ...serviceForm });
-    } else {
-      createServiceMutation.mutate(serviceForm);
-    }
-  };
+  const createWorkMutation = useMutation({
+    mutationFn: async ({ serviceId, ...form }: NewWorkPayload) =>
+      (
+        await api.post(`/admin/services/${serviceId}/skills`, {
+          ...form,
+          groupId: form.groupId || null,
+          icon: form.icon || null,
+        })
+      ).data,
+    onSuccess: () => {
+      void refreshServices();
+      setWorkDialogOpen(false);
+      setWorkForm(emptyWorkForm);
+      toast.success('Work added.');
+    },
+    onError: (error) => toast.error(errorMessage(error, 'Could not add the work.')),
+  });
 
-  const handleSkillSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingSkill) {
-      updateSkillMutation.mutate({ id: editingSkill.id, ...skillForm });
-    } else {
-      createSkillMutation.mutate({ serviceId: selectedServiceId, ...skillForm });
-    }
-  };
+  const updateWorkMutation = useMutation({
+    mutationFn: async ({ id, ...form }: UpdatedWorkPayload) =>
+      (
+        await api.patch(`/admin/skills/${id}`, {
+          ...form,
+          groupId: form.groupId || null,
+          icon: form.icon || null,
+        })
+      ).data,
+    onSuccess: () => {
+      void refreshServices();
+      setWorkDialogOpen(false);
+      setEditingWork(null);
+      toast.success('Work saved.');
+    },
+    onError: (error) => toast.error(errorMessage(error, 'Could not save the work.')),
+  });
 
-  const openAddService = () => {
+  const deleteWorkMutation = useMutation({
+    mutationFn: async (id: string) =>
+      (await api.delete<{ success: boolean; archived: boolean }>(`/admin/skills/${id}`)).data,
+    onSuccess: (result) => {
+      void refreshServices();
+      toast.success(result.archived ? 'Work archived to preserve past bookings.' : 'Work deleted.');
+    },
+    onError: (error) => toast.error(errorMessage(error, 'Could not delete the work.')),
+  });
+
+  function submitService(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = { ...serviceForm, icon: serviceForm.icon.trim() || '' };
+    if (editingService) updateServiceMutation.mutate({ id: editingService.id, ...form });
+    else createServiceMutation.mutate(form);
+  }
+
+  function openAddService() {
     setEditingService(null);
-    setServiceForm({ name: '', slug: '', icon: '', sortOrder: 0, isActive: true });
+    setServiceForm(emptyServiceForm);
     setServiceDialogOpen(true);
-  };
+  }
 
-  const openEditService = (service: any) => {
+  function openEditService(service: Service) {
     setEditingService(service);
     setServiceForm({
       name: service.name,
       slug: service.slug,
-      icon: service.icon || '',
+      icon: service.icon ?? '',
       sortOrder: service.sortOrder,
       isActive: service.isActive,
     });
     setServiceDialogOpen(true);
-  };
+  }
 
-  const openAddSkill = (serviceId: string) => {
-    setEditingSkill(null);
-    setSkillForm({ name: '', slug: '', icon: '', sortOrder: 0, isActive: true });
-    setSelectedServiceId(serviceId);
-    setSkillDialogOpen(true);
-  };
-
-  const openEditSkill = (skill: any) => {
-    setEditingSkill(skill);
-    setSkillForm({
-      name: skill.name,
-      slug: skill.slug,
-      icon: skill.icon || '',
-      sortOrder: skill.sortOrder,
-      isActive: skill.isActive,
+  function openAddGroup(service: Service) {
+    setGroupServiceId(service.id);
+    setEditingGroup(null);
+    setGroupForm({
+      ...emptyGroupForm,
+      sortOrder: nextSortOrder(service.workGroups),
     });
-    setSkillDialogOpen(true);
-  };
+    setGroupDialogOpen(true);
+  }
 
-  if (isLoading) return <div>Loading...</div>;
+  function openEditGroup(group: WorkGroup) {
+    setGroupServiceId(group.serviceId);
+    setEditingGroup(group);
+    setGroupForm({
+      name: group.name,
+      slug: group.slug,
+      imageUrl: group.imageUrl ?? '',
+      sortOrder: group.sortOrder,
+      isActive: group.isActive,
+    });
+    setGroupDialogOpen(true);
+  }
+
+  function submitGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = { ...groupForm, imageUrl: groupForm.imageUrl.trim() };
+    if (editingGroup) updateGroupMutation.mutate({ id: editingGroup.id, ...form });
+    else createGroupMutation.mutate({ serviceId: groupServiceId, ...form });
+  }
+
+  function openAddWork(service: Service, group: WorkGroup) {
+    setWorkServiceId(service.id);
+    setEditingWork(null);
+    setWorkForm({
+      ...emptyWorkForm,
+      groupId: group.id,
+      sortOrder: nextSortOrder(group.skills),
+    });
+    setWorkDialogOpen(true);
+  }
+
+  function openEditWork(service: Service, work: Work) {
+    setWorkServiceId(service.id);
+    setEditingWork(work);
+    setWorkForm({
+      name: work.name,
+      slug: work.slug,
+      icon: work.icon ?? '',
+      groupId: work.groupId ?? '',
+      basePriceRupees: work.basePricePaise == null ? '' : String(work.basePricePaise / 100),
+      sortOrder: work.sortOrder,
+      isActive: work.isActive,
+    });
+    setWorkDialogOpen(true);
+  }
+
+  function submitWork(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const { basePriceRupees, ...workFields } = workForm;
+    const basePricePaise = basePriceRupees.trim() ? Number(basePriceRupees) * 100 : undefined;
+    if (
+      basePricePaise !== undefined &&
+      (!Number.isSafeInteger(basePricePaise) ||
+        basePricePaise < 100 ||
+        basePricePaise > 100_000_000)
+    ) {
+      toast.error('Enter a whole-rupee base price between ₹1 and ₹10,00,000.');
+      return;
+    }
+    if (!editingWork && basePricePaise === undefined) {
+      toast.error('Enter a base price for this work.');
+      return;
+    }
+
+    const form = { ...workFields, name: workFields.name.trim(), slug: workFields.slug.trim() };
+    if (editingWork) {
+      updateWorkMutation.mutate({
+        id: editingWork.id,
+        ...form,
+        ...(basePricePaise !== undefined && { basePricePaise }),
+      });
+    } else {
+      if (basePricePaise === undefined) return;
+      createWorkMutation.mutate({ serviceId: workServiceId, ...form, basePricePaise });
+    }
+  }
+
+  if (servicesQuery.isPending) {
+    return (
+      <div className="py-12 text-center text-sm text-muted-foreground">
+        Loading services and work groups…
+      </div>
+    );
+  }
+
+  if (servicesQuery.isError) {
+    return (
+      <div
+        role="alert"
+        className="flex items-center justify-between gap-4 rounded-lg border border-destructive/30 p-4 text-sm"
+      >
+        <span>{errorMessage(servicesQuery.error, 'Could not load services and work groups.')}</span>
+        <Button variant="outline" onClick={() => void servicesQuery.refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Services & Skills</h1>
-          <p className="text-gray-500">Manage service categories and skills</p>
+          <h1 className="text-3xl font-bold">Services & Works</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Organize customer work types into service groups.
+          </p>
         </div>
         <Button onClick={openAddService}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Service
+          <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+          Add service
         </Button>
       </div>
 
-      <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingService ? 'Edit Service' : 'Add Service'}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleServiceSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={serviceForm.name} onChange={(e) => setServiceForm({ ...serviceForm, name: e.target.value })} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="slug">Slug</Label>
-              <Input id="slug" value={serviceForm.slug} onChange={(e) => setServiceForm({ ...serviceForm, slug: e.target.value })} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="icon">Image URL</Label>
-              <Input id="icon" value={serviceForm.icon} onChange={(e) => setServiceForm({ ...serviceForm, icon: e.target.value })} placeholder="https://..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sortOrder">Sort Order</Label>
-              <Input id="sortOrder" type="number" value={serviceForm.sortOrder} onChange={(e) => setServiceForm({ ...serviceForm, sortOrder: Number(e.target.value) })} />
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="isActive" checked={serviceForm.isActive} onChange={(e) => setServiceForm({ ...serviceForm, isActive: e.target.checked })} />
-              <Label htmlFor="isActive">Active</Label>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setServiceDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={createServiceMutation.isPending || updateServiceMutation.isPending}>
-                {editingService ? 'Update' : 'Create'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ServiceEditorDialog
+        open={serviceDialogOpen}
+        onOpenChange={setServiceDialogOpen}
+        editing={Boolean(editingService)}
+        form={serviceForm}
+        setForm={setServiceForm}
+        onSubmit={submitService}
+        isSaving={createServiceMutation.isPending || updateServiceMutation.isPending}
+      />
+      <GroupEditorDialog
+        open={groupDialogOpen}
+        onOpenChange={setGroupDialogOpen}
+        editing={Boolean(editingGroup)}
+        form={groupForm}
+        setForm={setGroupForm}
+        onSubmit={submitGroup}
+        isSaving={createGroupMutation.isPending || updateGroupMutation.isPending}
+      />
+      <WorkEditorDialog
+        open={workDialogOpen}
+        onOpenChange={setWorkDialogOpen}
+        editing={Boolean(editingWork)}
+        form={workForm}
+        setForm={setWorkForm}
+        onSubmit={submitWork}
+        isSaving={createWorkMutation.isPending || updateWorkMutation.isPending}
+        groups={services.find((service) => service.id === workServiceId)?.workGroups ?? []}
+      />
 
-      <Dialog open={skillDialogOpen} onOpenChange={setSkillDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingSkill ? 'Edit Skill' : 'Add Skill'}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSkillSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="skillName">Name</Label>
-              <Input id="skillName" value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="skillSlug">Slug</Label>
-              <Input id="skillSlug" value={skillForm.slug} onChange={(e) => setSkillForm({ ...skillForm, slug: e.target.value })} required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="skillIcon">Image URL</Label>
-              <Input id="skillIcon" value={skillForm.icon} onChange={(e) => setSkillForm({ ...skillForm, icon: e.target.value })} placeholder="https://..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="skillSortOrder">Sort Order</Label>
-              <Input id="skillSortOrder" type="number" value={skillForm.sortOrder} onChange={(e) => setSkillForm({ ...skillForm, sortOrder: Number(e.target.value) })} />
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="skillActive" checked={skillForm.isActive} onChange={(e) => setSkillForm({ ...skillForm, isActive: e.target.checked })} />
-              <Label htmlFor="skillActive">Active</Label>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setSkillDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={createSkillMutation.isPending || updateSkillMutation.isPending}>
-                {editingSkill ? 'Update' : 'Create'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Accordion className="w-full space-y-2">
-        {services.map((service: any) => (
-          <AccordionItem key={service.id} value={service.id}>
-            <AccordionTrigger className="px-4 hover:no-underline">
-              <div className="flex items-center gap-3 flex-1">
-                {service.icon && <img src={service.icon} alt={service.name} className="h-10 w-10 rounded object-cover" />}
-                <div className="text-left">
-                  <div className="font-semibold">{service.name}</div>
-                  <div className="text-sm text-gray-500">/{service.slug} • Order: {service.sortOrder} • {service.isActive ? 'Active' : 'Inactive'} • {service.skills?.length || 0} skills</div>
+      <Accordion className="w-full space-y-3">
+        {services.map((service) => {
+          const ungroupedWorks = service.skills.filter((work) => !work.groupId);
+          const worksCount = service.skills.length;
+          return (
+            <AccordionItem key={service.id} value={service.id} className="overflow-hidden bg-card">
+              <AccordionTrigger className="px-4 hover:no-underline sm:px-5">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  {service.icon ? (
+                    <Image
+                      src={service.icon}
+                      alt=""
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="h-10 w-10 shrink-0 rounded-md object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <Layers className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                  )}
+                  <div className="min-w-0 text-left">
+                    <p className="truncate font-semibold">{service.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      /{service.slug} · {service.workGroups.length} groups · {worksCount} works ·{' '}
+                      {service.isActive ? 'Active' : 'Inactive'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              <div className="flex gap-2 mb-4">
-                <Button size="sm" variant="outline" onClick={() => openEditService(service)}>
-                  <Edit className="h-4 w-4 mr-1" />
-                  Edit Service
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => { if (confirm('Delete this service?')) deleteServiceMutation.mutate(service.id); }}>
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete
-                </Button>
-                <Button size="sm" onClick={() => openAddSkill(service.id)}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Skill
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {service.skills?.length === 0 ? (
-                  <p className="text-sm text-gray-500">No skills added yet</p>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 sm:px-5">
+                <div className="mb-5 flex flex-wrap gap-2 border-b pb-4">
+                  <Button size="sm" variant="outline" onClick={() => openEditService(service)}>
+                    <Edit className="mr-1 h-4 w-4" aria-hidden="true" />
+                    Edit service
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (window.confirm(`Delete ${service.name}?`))
+                        deleteServiceMutation.mutate(service.id);
+                    }}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" aria-hidden="true" />
+                    Delete service
+                  </Button>
+                  <Button size="sm" onClick={() => openAddGroup(service)}>
+                    <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+                    Add group
+                  </Button>
+                </div>
+
+                {service.workGroups.length === 0 ? (
+                  <div className="mb-5 rounded-lg border border-dashed p-5 text-center">
+                    <p className="font-medium">No work groups yet</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Create a group before adding customer-facing works.
+                    </p>
+                  </div>
                 ) : (
-                  service.skills?.map((skill: any) => (
-                    <div key={skill.id} className="flex items-center justify-between p-3 border rounded bg-gray-50">
-                      <div className="flex items-center gap-3">
-                        {skill.icon && <img src={skill.icon} alt={skill.name} className="h-8 w-8 rounded object-cover" />}
-                        <div>
-                          <p className="font-medium">{skill.name}</p>
-                          <p className="text-sm text-gray-500">/{skill.slug} • Order: {skill.sortOrder} • {skill.isActive ? 'Active' : 'Inactive'}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => openEditSkill(skill)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { if (confirm('Delete this skill?')) deleteSkillMutation.mutate(skill.id); }}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
+                  <Accordion multiple className="space-y-3">
+                    {service.workGroups.map((group) => (
+                      <WorkGroupCard
+                        key={group.id}
+                        value={group.id}
+                        group={group}
+                        onAddWork={() => openAddWork(service, group)}
+                        onEditGroup={() => openEditGroup(group)}
+                        onDeleteGroup={() => {
+                          if (confirmDeleteGroup(group, service)) {
+                            deleteGroupMutation.mutate(group.id);
+                          }
+                        }}
+                        onEditWork={(work) => openEditWork(service, work)}
+                        onDeleteWork={(work) => {
+                          if (confirmDeleteWork(work)) deleteWorkMutation.mutate(work.id);
+                        }}
+                      />
+                    ))}
+                  </Accordion>
                 )}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
+
+                <UngroupedWorksSection
+                  works={ungroupedWorks}
+                  onEditWork={(work) => openEditWork(service, work)}
+                  onDeleteWork={(work) => {
+                    if (confirmDeleteWork(work)) deleteWorkMutation.mutate(work.id);
+                  }}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
       </Accordion>
     </div>
   );

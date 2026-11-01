@@ -12,8 +12,6 @@ function job(overrides: Partial<JobDetail>): JobDetail {
     skill: { id: 'skill', slug: 'tap', name: 'Tap repair' },
     customSkill: null,
     status: JobStatus.PAID,
-    placeType: 'RESIDENCE',
-    placeDescription: null,
     locationLabel: null,
     latitude: null,
     longitude: null,
