@@ -32,7 +32,7 @@ export interface CustomerSessionResponse {
   user: PublicUser;
   customerProfile: CustomerProfile;
   onboardingStatus: OnboardingStatus;
-  nextStep: CustomerOnboardingStep;
+  nextStep: CustomerOnboardingStep | null;
 }
 
 /** Shapes a local user for the wire. Never exposes internal columns. */

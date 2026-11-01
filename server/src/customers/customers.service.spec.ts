@@ -37,10 +37,6 @@ describe('isCustomerProfileComplete', () => {
     expect(isCustomerProfileComplete({ ...base, displayName: 'A' })).toBe(false);
   });
 
-  it('rejects a profile with no gender', () => {
-    expect(isCustomerProfileComplete({ ...base, gender: null })).toBe(false);
-  });
-
   it('rejects a whitespace-only name', () => {
     expect(isCustomerProfileComplete({ ...base, displayName: '   ' })).toBe(false);
   });
@@ -55,23 +51,20 @@ describe('nextIncompleteCustomerStep', () => {
     expect(nextIncompleteCustomerStep({ ...base, displayName: null })).toBe('name');
   });
 
-  it('sends a finished profile to review', () => {
-    expect(nextIncompleteCustomerStep(base)).toBe('review');
+  it('returns null once there is nothing left to ask', () => {
+    expect(nextIncompleteCustomerStep(base)).toBeNull();
   });
 
   it('walks the whole flow in order', () => {
     const empty: CustomerProfile = { ...base, displayName: null, gender: null };
 
     expect(nextIncompleteCustomerStep(empty)).toBe('name');
-    expect(nextIncompleteCustomerStep({ ...empty, displayName: 'Priya' })).toBe('gender');
-    expect(nextIncompleteCustomerStep({ ...empty, displayName: 'Priya', gender: 'FEMALE' })).toBe(
-      'review',
-    );
+    expect(nextIncompleteCustomerStep({ ...empty, displayName: 'Priya' })).toBeNull();
   });
 
   it('keeps the customer step list finite and correct', () => {
-    expect(CUSTOMER_ONBOARDING_STEPS).toEqual(['intro', 'name', 'gender', 'address', 'review']);
-    expect(CUSTOMER_ONBOARDING_STEPS[CUSTOMER_ONBOARDING_STEPS.length - 1]).toBe('review');
+    expect(CUSTOMER_ONBOARDING_STEPS).toEqual(['intro', 'name', 'address']);
+    expect(CUSTOMER_ONBOARDING_STEPS[CUSTOMER_ONBOARDING_STEPS.length - 1]).toBe('address');
   });
 });
 

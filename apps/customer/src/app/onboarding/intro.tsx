@@ -13,7 +13,6 @@ const PROMISES = [
 export default function OnboardingIntro() {
   return (
     <OnboardingStepLayout
-      step="intro"
       title="Welcome to SAMONA"
       subtitle="Get things done, effortlessly."
       primaryLabel="Get started"

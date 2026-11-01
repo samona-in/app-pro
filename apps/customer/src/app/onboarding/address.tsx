@@ -5,9 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StepProgress } from '@/components/onboarding';
+import BottomSheet, {
+  BottomSheetView,
+  type BottomSheetBackgroundProps,
+} from '@gorhom/bottom-sheet';
 import { Button, Text } from '@/components/ui';
-import { useCustomerProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
+import { useCustomerProfile, useSaveOnboardingStep, useSeededState, useSession } from '@/hooks';
 import { readPreciseLocation } from '@/services/location';
 import { color, elevation } from '@/theme';
 import { CITY_ZOOM, STREET_ZOOM, regionFor } from '@/utils/map';
@@ -25,6 +28,11 @@ const ADDRESS_LINE_HEIGHT = 44;
 /** The selection marker: a 44 px disc with an 8 px needle whose tip is the pick. */
 const MARKER_SIZE = 44;
 const MARKER_NEEDLE = 8;
+
+/** Top radius of the sheet, matching the rest of the app's surfaces. */
+const TOP_RADIUS = 24;
+/** Height of the grab handle; the sheet content starts below it. */
+const HANDLE_HEIGHT = 20;
 
 const styles = StyleSheet.create({
   marker: {
@@ -50,7 +58,27 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
     borderTopColor: color.brand,
   },
+  sheetBackground: {
+    ...elevation.lg,
+    backgroundColor: color.surface,
+    borderTopLeftRadius: TOP_RADIUS,
+    borderTopRightRadius: TOP_RADIUS,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.border,
+  },
 });
+
+function SheetBackground({ style }: BottomSheetBackgroundProps) {
+  return <View pointerEvents="none" style={[style, styles.sheetBackground]} />;
+}
+
+function SheetHandle() {
+  return (
+    <View className="items-center justify-center" style={{ height: HANDLE_HEIGHT }}>
+      <View className="h-1.5 w-10 rounded-full bg-border-strong" />
+    </View>
+  );
+}
 
 /** Composes a short human-readable area label; null when the platform yields nothing usable. */
 function formatAreaLabel(place: Location.LocationGeocodedAddress): string | null {
@@ -77,6 +105,7 @@ function formatAreaLabel(place: Location.LocationGeocodedAddress): string | null
 export default function OnboardingAddress() {
   const insets = useSafeAreaInsets();
   const { data: profile } = useCustomerProfile();
+  const { refetch } = useSession();
   const save = useSaveOnboardingStep();
 
   const [coords, setCoords] = useSeededState<Coordinates | null>(
@@ -238,7 +267,10 @@ export default function OnboardingAddress() {
         return;
       }
     }
-    router.push('/onboarding/review');
+    // Address is the last onboarding question; refresh the session so home
+    // doesn't route back into onboarding on stale data.
+    await refetch();
+    router.replace('/home');
   }
 
   const addressText =
@@ -303,60 +335,69 @@ export default function OnboardingAddress() {
           className="rounded-2xl border border-border bg-surface px-4 pb-4 pt-3"
           style={elevation.md}
         >
-          <StepProgress step="address" />
-          <Text variant="title" className="mt-3">
-            Where do you live?
-          </Text>
+          <Text variant="title">Where do you live?</Text>
           <Text variant="footnote" className="mt-1">
             Drag the map so the pin sits on your home.
           </Text>
         </View>
       </View>
 
-      {/* The address and the actions, floating over the map's lower edge. */}
-      <View
-        className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-border bg-surface px-5 pt-4"
-        style={[{ paddingBottom: insets.bottom + 16 }, elevation.lg]}
-        onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}
+      {/* The address and the actions, presented as a sheet over the map. No
+          backdrop: the map stays draggable while the customer settles the pin. */}
+      <BottomSheet
+        index={0}
+        enableDynamicSizing
+        enableOverDrag={false}
+        enablePanDownToClose={false}
+        enableHandlePanningGesture={false}
+        backgroundComponent={SheetBackground}
+        handleComponent={SheetHandle}
       >
-        <Text variant="label">Your location</Text>
-        <Text
-          variant="body"
-          className="mt-1"
-          numberOfLines={2}
-          style={{ minHeight: ADDRESS_LINE_HEIGHT }}
+        <BottomSheetView
+          onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height + HANDLE_HEIGHT)}
+          style={{ paddingBottom: insets.bottom + 16 }}
         >
-          {addressText}
-        </Text>
+          <View className="px-5 pt-4">
+            <Text variant="label">Your location</Text>
+            <Text
+              variant="body"
+              className="mt-1"
+              numberOfLines={2}
+              style={{ minHeight: ADDRESS_LINE_HEIGHT }}
+            >
+              {addressText}
+            </Text>
 
-        {locationError ? (
-          <Text variant="footnote" className="text-warning">
-            {locationError}
-          </Text>
-        ) : null}
+            {locationError ? (
+              <Text variant="footnote" className="text-warning">
+                {locationError}
+              </Text>
+            ) : null}
 
-        <Button
-          label="Use my current location"
-          variant="secondary"
-          className="mt-3"
-          leading={<Ionicons name="locate" size={18} color={color.brand} />}
-          loading={isLocating}
-          onPress={() => void detectCurrentLocation()}
-        />
-        <Button
-          label="Continue"
-          size="lg"
-          className="mt-2.5"
-          loading={save.isPending}
-          onPress={() => void onContinue()}
-        />
+            <Button
+              label="Use my current location"
+              variant="secondary"
+              className="mt-3"
+              leading={<Ionicons name="locate" size={18} color={color.brand} />}
+              loading={isLocating}
+              onPress={() => void detectCurrentLocation()}
+            />
+            <Button
+              label="Go to home"
+              size="lg"
+              className="mt-2.5"
+              loading={save.isPending}
+              onPress={() => void onContinue()}
+            />
 
-        {save.isError ? (
-          <Text variant="footnote" className="mt-2 text-center text-danger">
-            Could not save your location. Please try again.
-          </Text>
-        ) : null}
-      </View>
+            {save.isError ? (
+              <Text variant="footnote" className="mt-2 text-center text-danger">
+                Could not save your location. Please try again.
+              </Text>
+            ) : null}
+          </View>
+        </BottomSheetView>
+      </BottomSheet>
     </View>
   );
 }
