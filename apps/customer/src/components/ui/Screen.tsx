@@ -15,6 +15,8 @@ export interface ScreenProps extends ViewProps {
   scrollable?: boolean;
   padded?: boolean;
   edges?: readonly Edge[];
+  /** Decorative layer painted full-bleed behind the safe area and the content. */
+  background?: ReactNode;
   /** Indexes of scrollable children that stay pinned to the top while scrolling. */
   stickyHeaderIndices?: number[];
   /** Ref for screens that scroll to measured child sections. */
@@ -34,6 +36,7 @@ export function Screen({
   scrollable = false,
   padded = true,
   edges = ['top'],
+  background,
   stickyHeaderIndices,
   scrollRef,
   onScroll,
@@ -47,33 +50,41 @@ export function Screen({
   const contentClasses = cn(padded && 'px-5', contentClassName);
 
   return (
-    <SafeAreaView edges={edges} className={cn('flex-1 bg-surface', className)} {...rest}>
-      {scrollable ? (
-        <ScrollView
-          ref={scrollRef}
-          contentContainerClassName={cn('grow pb-8', contentClasses)}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          stickyHeaderIndices={stickyHeaderIndices}
-          onScroll={onScroll}
-          scrollEventThrottle={scrollEventThrottle}
-          refreshControl={
-            onRefresh ? (
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={color.brand}
-                colors={[color.brand]}
-                progressBackgroundColor={color.surface}
-              />
-            ) : undefined
-          }
-        >
-          {children}
-        </ScrollView>
-      ) : (
-        <View className={cn('flex-1', contentClasses)}>{children}</View>
-      )}
-    </SafeAreaView>
+    <View className={cn('flex-1 bg-surface', className)}>
+      {background ? (
+        <View pointerEvents="none" className="absolute inset-0">
+          {background}
+        </View>
+      ) : null}
+
+      <SafeAreaView edges={edges} className="flex-1" {...rest}>
+        {scrollable ? (
+          <ScrollView
+            ref={scrollRef}
+            contentContainerClassName={cn('grow pb-8', contentClasses)}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            stickyHeaderIndices={stickyHeaderIndices}
+            onScroll={onScroll}
+            scrollEventThrottle={scrollEventThrottle}
+            refreshControl={
+              onRefresh ? (
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={color.brand}
+                  colors={[color.brand]}
+                  progressBackgroundColor={color.surface}
+                />
+              ) : undefined
+            }
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View className={cn('flex-1', contentClasses)}>{children}</View>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }

@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import { AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase';
 import { i18nInstance } from '@/i18n';
 
@@ -13,16 +12,49 @@ import { i18nInstance } from '@/i18n';
  * Supabase performs the verification and owns the OTP entirely — no code or
  * credential is ever sent to the SAMONA API.
  */
-function friendlyMessage(error: unknown, fallback: string): string {
-  if (error instanceof AuthError) {
-    // Supabase messages are user-facing, but the rate-limit one is worth
-    // rewording: the raw text mentions internals a pro should not see.
-    if (error.status === 429) {
-      return i18nInstance.t('phone.tooManyAttempts');
-    }
-    return error.message || fallback;
+
+/**
+ * Supabase reports a wrong, reused or stale OTP as "Token has expired or is
+ * invalid". That is internal wording a professional cannot act on, so it is
+ * never echoed — a code problem is always shown as a code problem.
+ *
+ * Matching the message (not only `instanceof AuthError`) also covers errors
+ * that arrive as a plain object, where a duplicated Supabase client in a
+ * monorepo can make an `instanceof` check fail and leak the raw text.
+ */
+const INTERNAL_COPY_PATTERN = /token|otp|jwt|expired|supabase/i;
+
+function statusOf(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  const status = (error as { status?: unknown }).status;
+  return typeof status === 'number' ? status : undefined;
+}
+
+function messageOf(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
   }
-  return fallback;
+  return '';
+}
+
+function isRateLimited(error: unknown): boolean {
+  return statusOf(error) === 429 || /rate limit|too many/i.test(messageOf(error));
+}
+
+function friendlyMessage(error: unknown, fallback: string): string {
+  if (isRateLimited(error)) return i18nInstance.t('phone.tooManyAttempts');
+
+  const message = messageOf(error);
+  return message && !INTERNAL_COPY_PATTERN.test(message) ? message : fallback;
+}
+
+/** Verification only ever reports a wrong code (or a rate limit). */
+function verifyMessage(error: unknown): string {
+  return isRateLimited(error)
+    ? i18nInstance.t('phone.tooManyAttempts')
+    : i18nInstance.t('phone.wrongCode');
 }
 
 export function usePhoneAuth() {
@@ -73,7 +105,7 @@ export function usePhoneAuth() {
       });
 
       if (verifyError) {
-        setError(friendlyMessage(verifyError, i18nInstance.t('phone.wrongCode')));
+        setError(verifyMessage(verifyError));
         return false;
       }
       if (!data.session) {
@@ -82,7 +114,7 @@ export function usePhoneAuth() {
       }
       return true;
     } catch (unexpected) {
-      setError(friendlyMessage(unexpected, i18nInstance.t('phone.wrongCode')));
+      setError(verifyMessage(unexpected));
       return false;
     } finally {
       setIsBusy(false);

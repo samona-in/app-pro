@@ -12,6 +12,10 @@ export interface WordmarkProps {
 /**
  * Customer-side brand treatment.
  * Shows "SAMONA" with a "CUSTOMER" lockup using type alone.
+ *
+ * Colours are set with inline styles on purpose: every text variant already
+ * carries its own colour class, and `cn` only joins class names, so a second
+ * colour class would be resolved by stylesheet order rather than by intent.
  */
 export function Wordmark({ size = 'md', inverse = false, className }: WordmarkProps) {
   const wordSize = size === 'lg' ? 'display' : size === 'md' ? 'titleLg' : 'title';
@@ -24,11 +28,15 @@ export function Wordmark({ size = 'md', inverse = false, className }: WordmarkPr
     >
       <Text
         variant={wordSize}
-        className={cn('tracking-tight', inverse ? 'text-text-inverse' : 'text-text-primary')}
+        className="tracking-tight"
+        style={{ color: inverse ? color['text-inverse'] : color['text-primary'] }}
       >
         SAMONA
       </Text>
-      <View className={cn('ml-2 rounded-md px-2 py-0.5', inverse ? 'bg-text-inverse' : 'bg-brand')}>
+      <View
+        className="ml-2 rounded-md px-2 py-0.5"
+        style={{ backgroundColor: inverse ? color['text-inverse'] : color.brand }}
+      >
         <Text
           variant="caption"
           className="font-bold tracking-widest"

@@ -25,6 +25,7 @@ export {
 export { getAppHash, extractOtpCode, useOtpAutoFill } from './use-otp-autofill';
 export { usePhoneAuth } from './use-phone-auth';
 export { PHONE_HINT_DELAY_MS, usePhoneHint } from './use-phone-hint';
+export { useCountdown, type Countdown } from './use-countdown';
 export { useSeededState } from './use-seeded-state';
 export { useSession, type SessionResponse } from './use-session';
 export {
