@@ -66,10 +66,11 @@ export function HomeBannerCarousel({
           onPress={onPressBanner}
           height={height}
           variant={variant === 'light' ? 'hero' : 'default'}
+          spotlight={!reduceMotion && isFocused}
         />
       </View>
     ),
-    [onPressBanner, width, height, variant],
+    [onPressBanner, width, height, variant, reduceMotion, isFocused],
   );
 
   return (

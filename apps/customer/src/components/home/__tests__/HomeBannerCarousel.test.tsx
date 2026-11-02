@@ -3,8 +3,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo, Dimensions } from 'react-native';
 import { Carousel } from 'react-native-reanimated-carousel';
 import { HOME_BANNERS } from '../home-banners';
+import { HomeBannerCard } from '../HomeBannerCard';
 import { HomeBannerCarousel, BANNER_AUTOSCROLL_MS } from '../HomeBannerCarousel';
-import { color } from '@/theme';
 
 jest.mock('react-native-reanimated', () => jest.requireActual('react-native-reanimated/mock'));
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
@@ -96,6 +96,43 @@ describe('HomeBannerCarousel', () => {
     await settle();
 
     expect(carousel().props.autoplay).toBe(false);
+  });
+
+  it('sweeps the banner spotlight while the screen is focused', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false as never);
+
+    render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
+    await settle();
+
+    for (const card of screen.UNSAFE_getAllByType(HomeBannerCard)) {
+      expect(card.props.spotlight).toBe(true);
+    }
+  });
+
+  it('stops the banner spotlight when the screen is in the background', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false as never);
+
+    render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
+    await settle();
+
+    act(() => {
+      mockFocusCleanups[0]?.();
+    });
+
+    for (const card of screen.UNSAFE_getAllByType(HomeBannerCard)) {
+      expect(card.props.spotlight).toBe(false);
+    }
+  });
+
+  it('stops the banner spotlight under reduced motion', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true as never);
+
+    render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
+    await settle();
+
+    for (const card of screen.UNSAFE_getAllByType(HomeBannerCard)) {
+      expect(card.props.spotlight).toBe(false);
+    }
   });
 
   it('updates the settled index when the carousel snaps', async () => {

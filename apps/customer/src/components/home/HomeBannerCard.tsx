@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '@/components/ui';
 import { color } from '@/theme';
+import { BannerSpotlight } from './BannerSpotlight';
 import type { HomeBanner as HomeBannerData } from './home-banners';
 
 /** Height of a banner card, in points. */
@@ -15,6 +16,8 @@ export interface HomeBannerCardProps {
   height?: number;
   /** Use the hero styling inside a brand-blue band. */
   variant?: 'default' | 'hero';
+  /** Whether the illustration's diagonal glint should animate. */
+  spotlight?: boolean;
 }
 
 /**
@@ -24,7 +27,12 @@ export interface HomeBannerCardProps {
  * half of the brand-blue card. The columns never overlap, so the headline
  * stays legible on every screen width.
  */
-export function HomeBannerCard({ banner, onPress, height = BANNER_HEIGHT }: HomeBannerCardProps) {
+export function HomeBannerCard({
+  banner,
+  onPress,
+  height = BANNER_HEIGHT,
+  spotlight = true,
+}: HomeBannerCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -55,13 +63,16 @@ export function HomeBannerCard({ banner, onPress, height = BANNER_HEIGHT }: Home
         </Pressable>
       </View>
 
-      <Image
-        source={banner.image}
-        style={[styles.art, { height }]}
-        contentFit="contain"
-        transition={0}
-        accessibilityLabel={banner.imageDescription}
-      />
+      <View style={[styles.art, { height }]}>
+        <Image
+          source={banner.image}
+          style={styles.artImage}
+          contentFit="contain"
+          transition={0}
+          accessibilityLabel={banner.imageDescription}
+        />
+        <BannerSpotlight image={banner.image} active={spotlight} />
+      </View>
     </Pressable>
   );
 }
@@ -104,5 +115,10 @@ const styles = StyleSheet.create({
   art: {
     width: '36%',
     height: BANNER_HEIGHT,
+    overflow: 'hidden',
+  },
+  artImage: {
+    width: '100%',
+    height: '100%',
   },
 });
