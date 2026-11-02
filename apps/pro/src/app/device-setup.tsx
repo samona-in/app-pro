@@ -156,7 +156,7 @@ export default function DeviceSetup() {
     readiness === null ? total : missingReadinessCount(readiness) + (overlayMissing ? 1 : 0);
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable edges={['bottom']} className="bg-surface">
       <View className="pt-2">
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('deviceSetup.subtitle')}

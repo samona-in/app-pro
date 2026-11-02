@@ -54,7 +54,7 @@ export default function Profile() {
   ];
 
   return (
-    <Screen scrollable>
+    <Screen scrollable className="bg-surface">
       <View className="pt-2">
         <Text variant="titleLg">{t('tabs.profile')}</Text>
       </View>

@@ -47,7 +47,7 @@ export default function ManageServicesScreen() {
 
   if (isPending) {
     return (
-      <Screen>
+      <Screen className="bg-surface">
         <LoadingState message={t('manageServices.loading')} />
       </Screen>
     );
@@ -55,14 +55,14 @@ export default function ManageServicesScreen() {
 
   if (isError) {
     return (
-      <Screen>
+      <Screen className="bg-surface">
         <ErrorState onRetry={() => void refetch()} />
       </Screen>
     );
   }
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable edges={['bottom']} className="bg-surface">
       <View className="pt-2">
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('manageServices.subtitle')}

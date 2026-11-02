@@ -21,7 +21,7 @@ export default function LanguageScreen() {
   }
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable edges={['bottom']} className="bg-surface">
       <View className="pt-2">
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('language.subtitle')}

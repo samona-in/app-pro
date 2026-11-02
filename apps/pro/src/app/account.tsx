@@ -78,7 +78,7 @@ export default function AccountDeletionScreen() {
 
   if (statusQuery.isPending) {
     return (
-      <Screen edges={['bottom']}>
+      <Screen edges={['bottom']} className="bg-surface">
         <LoadingState message={t('common.loading')} />
       </Screen>
     );
@@ -86,7 +86,7 @@ export default function AccountDeletionScreen() {
 
   if (statusQuery.isError) {
     return (
-      <Screen edges={['bottom']}>
+      <Screen edges={['bottom']} className="bg-surface">
         <ErrorState onRetry={() => void statusQuery.refetch()} />
       </Screen>
     );
@@ -149,7 +149,7 @@ export default function AccountDeletionScreen() {
   }
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable edges={['bottom']} className="bg-surface">
       <View className="pt-2">
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('accountDeletion.subtitle')}
@@ -265,7 +265,7 @@ function TerminalState({
   onAction?: () => void;
 }) {
   return (
-    <Screen edges={['bottom']}>
+    <Screen edges={['bottom']} className="bg-surface">
       <View className="flex-1 items-center justify-center px-6 py-10">
         <Ionicons name={icon} size={48} color={toneIcon} />
         <Text variant="titleLg" className="mt-4 text-center">

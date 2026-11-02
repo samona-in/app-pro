@@ -57,7 +57,7 @@ export default function ConfirmDeletionScreen() {
 
   if (accepted) {
     return (
-      <Screen edges={['bottom']}>
+      <Screen edges={['bottom']} className="bg-surface">
         <View className="flex-1 items-center justify-center px-6 py-10">
           <Ionicons name="checkmark-done-outline" size={48} color={color.brand} />
           <Text variant="titleLg" className="mt-4 text-center">
@@ -80,7 +80,7 @@ export default function ConfirmDeletionScreen() {
   }
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable edges={['bottom']} className="bg-surface">
       <View className="pt-2">
         <Text variant="footnote" className="mt-1 text-text-secondary">
           {t('accountDeletion.confirmBody')}
