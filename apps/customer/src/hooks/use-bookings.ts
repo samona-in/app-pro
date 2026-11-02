@@ -48,6 +48,17 @@ export function useCreateBooking() {
       // Seed the detail so the booking screen the flow lands on renders the
       // real job immediately instead of flashing a loading state.
       queryClient.setQueryData(queryKeys.bookings.detail(job.id), job);
+
+      // Optimistically insert the created job into the bookings list so the
+      // active-job hint can render immediately without waiting for a refetch.
+      queryClient.setQueryData<JobDetail[]>(queryKeys.bookings.list(), (previous) => {
+        if (!previous) return [job];
+        if (previous.some((existing) => existing.id === job.id)) {
+          return previous.map((existing) => (existing.id === job.id ? job : existing));
+        }
+        return [job, ...previous];
+      });
+
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
     },
   });
