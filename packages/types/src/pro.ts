@@ -49,6 +49,16 @@ export interface ProServiceVerification {
   rejectionReason: string | null;
 }
 
+/** A specialty listed under its service on the Manage Services screen. */
+export interface ProServiceSkill {
+  id: string;
+  name: string;
+  /** The skill's own image URL, or a legacy Ionicon name. */
+  icon: string | null;
+  /** Admin-configured base price in paise; null when it has not been set. */
+  basePricePaise: number | null;
+}
+
 /**
  * One row of the Manage Services screen: every active catalogue service with
  * the caller's verification status.
@@ -64,6 +74,8 @@ export interface ProServiceListItem {
   icon: string | null;
   status: ProServiceStatus | null;
   rejectionReason: string | null;
+  /** Every active specialty of this service, in display order. */
+  skills: ProServiceSkill[];
 }
 
 /**

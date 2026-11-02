@@ -29,6 +29,7 @@ const entry = {
   icon: 'wrench-outline',
   status: ProServiceStatus.PENDING as string | null,
   rejectionReason: null as string | null,
+  skills: [],
 };
 
 function buildServices(overrides: Partial<Services> = {}) {
@@ -162,9 +163,7 @@ describe('PATCH /pros/me/service-radius', () => {
     (services.auth.syncUser as jest.Mock).mockResolvedValue({ ...proUser, appType: 'customer' });
 
     const response = await authed(
-      request(appWith(services))
-        .patch('/pros/me/service-radius')
-        .set('x-app-type', 'pro'),
+      request(appWith(services)).patch('/pros/me/service-radius').set('x-app-type', 'pro'),
     ).expect(403);
 
     expect(response.body.error.code).toBe(ApiErrorCode.FORBIDDEN);
