@@ -16,18 +16,30 @@ import {
  * here as push history; recurring job alerts collapse to a single row that
  * reports how many times it re-paged the Pro.
  *
- * Opening the inbox advances the local "seen" watermark the Home bell uses, so
- * the badge clears only after the Pro has actually looked at the list.
+ * Opening the inbox is the acknowledgement: it advances the local "seen"
+ * watermark the Home bell reads, so the unread badge resets as soon as the Pro
+ * views the list. The page is refreshed first so the watermark also covers the
+ * newest row, even when the cached page was stale.
  */
 export default function Notifications() {
   const { t } = useTranslation();
-  const { data: notifications, isPending } = useNotifications();
+  const { data: notifications, isPending, refetch } = useNotifications();
 
   useFocusEffect(
     useCallback(() => {
-      if (!notifications) return;
-      void markNotificationsSeen(latestNotificationAt(notifications));
-    }, [notifications]),
+      // Clear the bell immediately; the page may still be cached or empty, and
+      // waiting for a fetch would leave the badge up while the Pro is reading.
+      void markNotificationsSeen(new Date().toISOString());
+
+      // Then refresh and fold in the freshest row. Its server timestamp can be
+      // ahead of this device's clock, so the watermark must move to it as well.
+      void refetch()
+        .then((result) => {
+          const latest = latestNotificationAt(result.data ?? []);
+          if (latest) void markNotificationsSeen(latest);
+        })
+        .catch(() => undefined);
+    }, [refetch]),
   );
 
   return (

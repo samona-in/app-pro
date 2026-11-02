@@ -11,6 +11,8 @@ export interface ComingSoonProps {
   icon: IoniconName;
   /** Feature-specific copy explaining what is on the way. */
   description: string;
+  /** Extra root-screen classes; screens pass `bg-surface` for a white page. */
+  className?: string;
 }
 
 /**
@@ -19,11 +21,11 @@ export interface ComingSoonProps {
  * description — so a future feature wires up in one screen without duplicating
  * this layout.
  */
-export function ComingSoon({ icon, description }: ComingSoonProps) {
+export function ComingSoon({ icon, description, className }: ComingSoonProps) {
   const { t } = useTranslation();
 
   return (
-    <Screen edges={['top']}>
+    <Screen edges={['top']} className={className}>
       <View className="flex-1 items-center justify-center px-6">
         <View className="mb-6 h-24 w-24 items-center justify-center rounded-full bg-brand-soft">
           <Ionicons name={icon} size={44} color={color.brand} />

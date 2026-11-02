@@ -70,7 +70,7 @@ export default function HelpSupport() {
   }
 
   return (
-    <Screen scrollable edges={['bottom']}>
+    <Screen scrollable edges={['bottom']} className="bg-surface">
       <SectionHeading>{t('helpSupport.sections.contactUs')}</SectionHeading>
       <View className="mt-1">
         <ListRow

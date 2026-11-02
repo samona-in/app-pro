@@ -7,5 +7,11 @@ import { ComingSoon } from '@/components/feedback';
  */
 export default function Earnings() {
   const { t } = useTranslation();
-  return <ComingSoon icon="wallet-outline" description={t('comingSoon.earnings')} />;
+  return (
+    <ComingSoon
+      icon="wallet-outline"
+      description={t('comingSoon.earnings')}
+      className="bg-surface"
+    />
+  );
 }
