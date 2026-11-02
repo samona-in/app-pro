@@ -8,7 +8,20 @@ import type { StorageService } from '../files/storage.service';
  * onboarding re-save that must not clobber an admin's verdict.
  */
 
-const serviceRow = { id: 'svc-1', slug: 'plumbing', name: 'Plumbing', icon: 'wrench-outline' };
+const skillRow = {
+  id: 'skl-1',
+  name: 'Leak repair',
+  icon: 'https://cdn.test/skills/leak.png',
+  basePricePaise: 24_900,
+};
+
+const serviceRow = {
+  id: 'svc-1',
+  slug: 'plumbing',
+  name: 'Plumbing',
+  icon: 'wrench-outline',
+  skills: [skillRow],
+};
 
 const profileRow = {
   id: 'pro-1',
@@ -138,6 +151,7 @@ describe('listProServices', () => {
         icon: 'wrench-outline',
         status: ProServiceStatus.ACCEPTED,
         rejectionReason: null,
+        skills: [skillRow],
       },
       {
         id: 'svc-2',
@@ -146,8 +160,27 @@ describe('listProServices', () => {
         icon: 'wrench-outline',
         status: null,
         rejectionReason: null,
+        skills: [skillRow],
       },
     ]);
+  });
+
+  it('nests each service’s active specialties, in display order', async () => {
+    const prisma = buildPrisma();
+    const { service } = buildService(prisma);
+
+    await service.listProServices('user-1');
+
+    expect(prisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          skills: expect.objectContaining({
+            where: { isActive: true },
+            orderBy: { sortOrder: 'asc' },
+          }),
+        }),
+      }),
+    );
   });
 
   it('scopes the rows to the caller and reads inactive services out of the catalogue', async () => {

@@ -6,6 +6,7 @@ import {
   type Gender,
   type ProProfile,
   type ProServiceListItem,
+  type ProServiceSkill,
 } from '@samona/types';
 import type { OnboardingPatchInput, AvailabilityPatchInput } from '@samona/validation';
 import type { PrismaClient } from '../database/prisma';
@@ -58,6 +59,16 @@ type ProServiceRow = {
   rejectionReason: string | null;
   service: { slug: string; name: string; icon: string | null };
 };
+
+/**
+ * The specialties shown beneath a service on Manage Services — the same rule
+ * as the onboarding catalogue: active rows only, in curated order.
+ */
+const proServiceSkillsSelect = {
+  where: { isActive: true },
+  orderBy: { sortOrder: 'asc' },
+  select: { id: true, name: true, icon: true, basePricePaise: true },
+} as const;
 
 type ProProfileRow = {
   services: ProServiceRow[];
@@ -309,7 +320,7 @@ export function createProsService(deps: ProsServiceDeps) {
       deps.prisma.service.findMany({
         where: { isActive: true },
         orderBy: { sortOrder: 'asc' },
-        select: { id: true, slug: true, name: true, icon: true },
+        select: { id: true, slug: true, name: true, icon: true, skills: proServiceSkillsSelect },
       }),
       deps.prisma.proService.findMany({
         where: { proProfileId: profile.id },
@@ -328,6 +339,7 @@ export function createProsService(deps: ProsServiceDeps) {
         icon: service.icon,
         status: row?.status ?? null,
         rejectionReason: row?.rejectionReason ?? null,
+        skills: service.skills,
       };
     });
   }
@@ -338,6 +350,7 @@ export function createProsService(deps: ProsServiceDeps) {
     slug: string;
     name: string;
     icon: string | null;
+    skills: ProServiceSkill[];
   }): ProServiceListItem {
     return {
       id: service.id,
@@ -346,6 +359,7 @@ export function createProsService(deps: ProsServiceDeps) {
       icon: service.icon,
       status: null,
       rejectionReason: null,
+      skills: service.skills,
     };
   }
 
@@ -376,7 +390,7 @@ export function createProsService(deps: ProsServiceDeps) {
 
     const service = await deps.prisma.service.findFirst({
       where: { id: serviceId, isActive: true },
-      select: { id: true, slug: true, name: true, icon: true },
+      select: { id: true, slug: true, name: true, icon: true, skills: proServiceSkillsSelect },
     });
     if (!service) throw notFound('That service is not available.');
 
@@ -467,9 +481,7 @@ export function createProsService(deps: ProsServiceDeps) {
           ? { latitude: patch.coordinates.latitude, longitude: patch.coordinates.longitude }
           : {}),
         ...(patch.locationLabel !== undefined ? { locationLabel: patch.locationLabel } : {}),
-        ...(patch.locationPlaceId !== undefined
-          ? { locationPlaceId: patch.locationPlaceId }
-          : {}),
+        ...(patch.locationPlaceId !== undefined ? { locationPlaceId: patch.locationPlaceId } : {}),
       },
       select: proProfileSelect,
     });

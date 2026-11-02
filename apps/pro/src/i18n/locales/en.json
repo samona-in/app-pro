@@ -737,6 +737,9 @@
       "request": "Request",
       "requestAgain": "Request again"
     },
+    "skills": {
+      "empty": "No specialties are listed for this service yet."
+    },
     "errors": {
       "onboarding": "Complete your onboarding first.",
       "unavailable": "That service is not available.",
@@ -746,6 +749,7 @@
     },
     "a11y": {
       "row": "{{service}}, {{status}}",
+      "skill": "{{skill}}, base price {{price}}",
       "viewRejectionReason": "View rejection reason for {{service}}"
     }
   },
