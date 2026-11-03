@@ -1,11 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { AlertCircle, Edit, Layers, Plus, Trash2, Wrench } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { formatPaise } from '@/lib/jobs';
 import type { Service, Work, WorkGroup } from './types';
+
+/** True when a stored `imageUrl` is an image the browser can render, not an `asset://` reference. */
+function isRenderableImageUrl(value: string): boolean {
+  return (
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('data:') ||
+    value.startsWith('/')
+  );
+}
 
 function WorkRow({
   work,
@@ -73,15 +84,32 @@ export function WorkGroupCard({
   onEditWork: (work: Work) => void;
   onDeleteWork: (work: Work) => void;
 }) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const imageUrl = group.imageUrl;
+  const showImage =
+    imageUrl !== null && isRenderableImageUrl(imageUrl) && imageUrl !== failedImageUrl;
+
   return (
     <AccordionItem value={value} className="overflow-hidden bg-background">
       <div className="flex items-start gap-2 px-4 py-3">
         <div className="min-w-0 flex-1">
           <AccordionTrigger className="w-full px-0 py-1 hover:no-underline">
             <div className="flex min-w-0 items-start gap-3 text-left">
-              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <Layers className="h-4 w-4" aria-hidden="true" />
-              </span>
+              {showImage ? (
+                <Image
+                  src={imageUrl}
+                  alt={`${group.name} image`}
+                  width={36}
+                  height={36}
+                  unoptimized
+                  onError={() => setFailedImageUrl(imageUrl)}
+                  className="mt-0.5 h-9 w-9 shrink-0 rounded-md object-cover"
+                />
+              ) : (
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Layers className="h-4 w-4" aria-hidden="true" />
+                </span>
+              )}
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold">{group.name}</span>
@@ -95,11 +123,6 @@ export function WorkGroupCard({
                   /{group.slug} · Order {group.sortOrder} ·{' '}
                   {group.skills.filter((work) => work.isActive).length} active works
                 </span>
-                {group.imageUrl ? (
-                  <span className="mt-1 block truncate text-xs font-normal text-muted-foreground">
-                    Image: {group.imageUrl}
-                  </span>
-                ) : null}
               </div>
             </div>
           </AccordionTrigger>
