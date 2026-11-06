@@ -78,8 +78,16 @@ export type JobAlertInfoInput = {
   customSkill: string | null;
   /** Short description of the requested work. */
   description: string;
-  /** Guaranteed amount, in paise. */
+  /** Guaranteed amount, in paise (the server-calculated total). */
   basePayPaise: number;
+  /** How the booking was priced; lets the pro read the amount correctly. */
+  pricingModel?: string | null;
+  /** Work units booked (PER_UNIT); 1 otherwise. */
+  quantity?: number | null;
+  /** Unit name — "hinge", "fan" (PER_UNIT only). */
+  unitLabel?: string | null;
+  /** Booked duration in minutes (PER_HOUR only). */
+  durationMinutes?: number | null;
   /** Display label of the work location (never the customer's name). */
   address: string | null;
   /** ISO instant the job stops being actionable. Null when the sweep will own it. */
@@ -269,6 +277,10 @@ function jobAlertData(info: JobAlertInfo, config: AppConfig): Record<string, unk
         ? Math.round(info.distanceKm * 1000)
         : null,
     amountPaise: info.basePayPaise,
+    pricingModel: info.pricingModel ?? null,
+    quantity: info.quantity ?? null,
+    unitLabel: info.unitLabel ?? null,
+    durationMinutes: info.durationMinutes ?? null,
     expiresAt: info.expiresAt ?? new Date(Date.now() + config.jobExpireTtlMs).toISOString(),
   };
 }

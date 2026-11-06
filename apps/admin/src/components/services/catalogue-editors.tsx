@@ -292,9 +292,124 @@ export function WorkEditorDialog({
               required={!editing}
             />
             <p className="text-xs text-muted-foreground">
-              Used as the suggested starting base pay in customer booking.
+              {form.pricingModel === 'PER_UNIT'
+                ? 'Price charged for one unit (one hinge, one fan, one switch).'
+                : form.pricingModel === 'PER_HOUR'
+                  ? 'Price charged per hour of work.'
+                  : 'Fixed price for the whole visit, regardless of scope.'}
             </p>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="work-pricing-model">Pricing model</Label>
+            <select
+              id="work-pricing-model"
+              className="flex h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              value={form.pricingModel}
+              onChange={(event) =>
+                setForm({ ...form, pricingModel: event.target.value as WorkForm['pricingModel'] })
+              }
+            >
+              <option value="PER_BOOKING">Per booking (fixed price)</option>
+              <option value="PER_UNIT">Per unit (price × quantity)</option>
+              <option value="PER_HOUR">Per hour (price × duration)</option>
+            </select>
+          </div>
+          {form.pricingModel === 'PER_UNIT' ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="work-unit-label">Unit name</Label>
+                <Input
+                  id="work-unit-label"
+                  value={form.unitLabel}
+                  onChange={(event) => setForm({ ...form, unitLabel: event.target.value })}
+                  placeholder="hinge"
+                  maxLength={50}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shown to customers, e.g. “2 hinges”.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="work-min-quantity">Minimum quantity</Label>
+                  <Input
+                    id="work-min-quantity"
+                    type="number"
+                    min={1}
+                    max={1_000}
+                    step={1}
+                    value={form.minQuantity}
+                    onChange={(event) => setForm({ ...form, minQuantity: event.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="work-max-quantity">Maximum quantity</Label>
+                  <Input
+                    id="work-max-quantity"
+                    type="number"
+                    min={1}
+                    max={1_000}
+                    step={1}
+                    value={form.maxQuantity}
+                    onChange={(event) => setForm({ ...form, maxQuantity: event.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          ) : null}
+          {form.pricingModel === 'PER_HOUR' ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="work-min-duration">Minimum hours</Label>
+                  <Input
+                    id="work-min-duration"
+                    type="number"
+                    min={0.25}
+                    max={24}
+                    step={0.25}
+                    value={form.minDurationHours}
+                    onChange={(event) => setForm({ ...form, minDurationHours: event.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="work-max-duration">Maximum hours</Label>
+                  <Input
+                    id="work-max-duration"
+                    type="number"
+                    min={0.25}
+                    max={24}
+                    step={0.25}
+                    value={form.maxDurationHours}
+                    onChange={(event) => setForm({ ...form, maxDurationHours: event.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="work-duration-step">Duration step (minutes)</Label>
+                <Input
+                  id="work-duration-step"
+                  type="number"
+                  min={5}
+                  max={1_440}
+                  step={5}
+                  value={form.durationStepMinutes}
+                  onChange={(event) =>
+                    setForm({ ...form, durationStepMinutes: event.target.value })
+                  }
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Customers can pick in these increments, e.g. 30 for half-hours.
+                </p>
+              </div>
+            </>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="work-icon">Work image URL (optional)</Label>
             <Input

@@ -9,7 +9,7 @@ import { CallMessageButton, CollectCashSheet } from '@/components/jobs';
 import { Divider, Screen, SwipeToConfirm, Text } from '@/components/ui';
 import { useCollectCash, useProJobs, useUnreadMessages } from '@/hooks';
 import { color } from '@/theme';
-import { formatInr } from '@/utils/format';
+import { formatInr, formatJobQuantity } from '@/utils/format';
 
 /**
  * Cash settlement — the pro's resting screen once the work is done and until
@@ -70,6 +70,7 @@ export default function CollectCashScreen() {
   }
 
   const amountPaise = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
+  const quantityLabel = formatJobQuantity(job);
   const customerName = job.customer?.displayName ?? t('common.customer');
 
   function onSwipeCollectCash() {
@@ -118,6 +119,11 @@ export default function CollectCashScreen() {
             <Text variant="display" className="mt-1 text-text-primary">
               {formatInr(amountPaise)}
             </Text>
+            {quantityLabel ? (
+              <Text variant="footnote" className="mt-1 text-text-muted">
+                {quantityLabel}
+              </Text>
+            ) : null}
             <Text variant="footnote" className="mt-2 text-center">
               {t('pay.collectInstruction', { customerName })}
             </Text>

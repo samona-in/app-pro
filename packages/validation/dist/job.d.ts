@@ -8,6 +8,19 @@ import { z } from 'zod';
 export declare const jobDescriptionSchema: z.ZodString;
 /** New-image price the customer commits to, in paise. At least ₹1. */
 export declare const basePayPaiseSchema: z.ZodNumber;
+/**
+ * How many countable work units the customer is booking (`PER_UNIT`).
+ *
+ * The skill's own `minQuantity`/`maxQuantity` are enforced by the server; this
+ * only rejects impossible values before the request reaches the catalogue.
+ */
+export declare const jobQuantitySchema: z.ZodNumber;
+/**
+ * How long the customer wants the work (`PER_HOUR`), in minutes.
+ *
+ * The skill's configured minimum, maximum and step are enforced by the server.
+ */
+export declare const jobDurationMinutesSchema: z.ZodNumber;
 /** Optional display label for the place the work happens. */
 export declare const jobLocationLabelSchema: z.ZodString;
 /** A submitted storage path for one attached photo (0–5). */
@@ -26,6 +39,11 @@ export declare const customSkillSchema: z.ZodString;
  *
  * Choosing the `other` sentinel skill requires `customSkill` — the free-text
  * category; any other skill must leave it empty.
+ *
+ * Pricing is never trusted from the client: `quantity` and `durationMinutes`
+ * describe *what* the customer wants, and the server derives the total from the
+ * skill's current configuration. `basePayPaise` is accepted only so older app
+ * builds keep working; the value is ignored.
  */
 export declare const createJobSchema: z.ZodObject<{
     serviceSlug: z.ZodString;
@@ -36,7 +54,9 @@ export declare const createJobSchema: z.ZodObject<{
     longitude: z.ZodOptional<z.ZodNumber>;
     description: z.ZodDefault<z.ZodString>;
     imagePaths: z.ZodDefault<z.ZodArray<z.ZodString>>;
-    basePayPaise: z.ZodNumber;
+    quantity: z.ZodDefault<z.ZodNumber>;
+    durationMinutes: z.ZodOptional<z.ZodNumber>;
+    basePayPaise: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 /** The on-site stages an assigned pro drives a confirmed job through. */

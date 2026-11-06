@@ -14,6 +14,11 @@ const jobRow = {
   description: 'Fix the switch near the door.',
   imagePaths: ['jobs/user-1/abc.jpg'],
   basePayPaise: 15_000,
+  pricingModel: 'PER_BOOKING',
+  unitPricePaise: 15_000,
+  quantity: 1,
+  unitLabel: null,
+  durationMinutes: null,
   agreedPayPaise: null,
   finalPayPaise: null,
   createdAt: new Date('2026-08-28T00:00:00Z'),
@@ -57,7 +62,20 @@ function buildJobs() {
       }),
     },
     service: { findFirst: jest.fn().mockResolvedValue({ id: 'svc-1' }) },
-    skill: { findFirst: jest.fn().mockResolvedValue({ id: 'skill-1' }) },
+    skill: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: 'skill-1',
+        name: 'Electrical socket and switch installation',
+        basePricePaise: 15_000,
+        pricingModel: 'PER_BOOKING',
+        unitLabel: null,
+        minQuantity: 1,
+        maxQuantity: 1,
+        minDurationMinutes: null,
+        maxDurationMinutes: null,
+        durationStepMinutes: null,
+      }),
+    },
     $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) => {
       const tx = {
         job: { create: txJobCreate },
@@ -83,6 +101,7 @@ const baseInput = {
   skillSlug: 'electrical-socket-switch-installation',
   description: 'Fix the switch near the door.',
   imagePaths: ['jobs/user-1/abc.jpg'],
+  quantity: 1,
   basePayPaise: 15_000,
 };
 
@@ -100,6 +119,80 @@ describe('createJobsService.createForCustomer', () => {
       service: { slug: 'electrical' },
     });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('prices a PER_UNIT booking from the catalogue and ignores the client total', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.skill.findFirst.mockResolvedValue({
+      id: 'skill-1',
+      name: 'Hinge repair',
+      basePricePaise: 19_900,
+      pricingModel: 'PER_UNIT',
+      unitLabel: 'hinge',
+      minQuantity: 1,
+      maxQuantity: 20,
+      minDurationMinutes: null,
+      maxDurationMinutes: null,
+      durationStepMinutes: null,
+    });
+
+    await ctx.jobs.createForCustomer('user-1', { ...baseInput, quantity: 3, basePayPaise: 100 });
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          basePayPaise: 59_700,
+          pricingModel: 'PER_UNIT',
+          unitPricePaise: 19_900,
+          quantity: 3,
+          unitLabel: 'hinge',
+          durationMinutes: null,
+        }),
+      }),
+    );
+  });
+
+  it('prices a PER_HOUR booking by duration', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.skill.findFirst.mockResolvedValue({
+      id: 'skill-1',
+      name: 'Deep cleaning',
+      basePricePaise: 20_000,
+      pricingModel: 'PER_HOUR',
+      unitLabel: null,
+      minQuantity: 1,
+      maxQuantity: 1,
+      minDurationMinutes: 60,
+      maxDurationMinutes: 480,
+      durationStepMinutes: 30,
+    });
+
+    await ctx.jobs.createForCustomer('user-1', {
+      ...baseInput,
+      durationMinutes: 90,
+      basePayPaise: 1,
+    });
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          basePayPaise: 30_000,
+          pricingModel: 'PER_HOUR',
+          unitPricePaise: 20_000,
+          quantity: 1,
+          durationMinutes: 90,
+        }),
+      }),
+    );
+  });
+
+  it('rejects a PER_BOOKING request for more than one unit', async () => {
+    const ctx = buildJobs();
+
+    await expect(
+      ctx.jobs.createForCustomer('user-1', { ...baseInput, quantity: 2 }),
+    ).rejects.toMatchObject({ name: 'HttpError', status: 400 });
+    expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('refuses to create a booking once deletion is pending', async () => {

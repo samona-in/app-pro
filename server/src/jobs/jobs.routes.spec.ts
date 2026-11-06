@@ -99,7 +99,10 @@ describe('jobs routes', () => {
       .expect(201);
 
     expect(response.body).toMatchObject({ id: 'job-1', status: 'REQUESTED' });
-    expect(services.jobs.createForCustomer).toHaveBeenCalledWith('user-1', validBody);
+    expect(services.jobs.createForCustomer).toHaveBeenCalledWith('user-1', {
+      ...validBody,
+      quantity: 1,
+    });
   });
 
   it('POST /jobs accepts an omitted description', async () => {
@@ -120,6 +123,7 @@ describe('jobs routes', () => {
     expect(services.jobs.createForCustomer).toHaveBeenCalledWith('user-1', {
       ...body,
       description: '',
+      quantity: 1,
     });
   });
 

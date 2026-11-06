@@ -7,11 +7,11 @@ const mockUseServiceSkills = jest.fn();
 const mockUseServiceWorkGroups = jest.fn();
 const mockSetSkill = jest.fn();
 const mockSetDescription = jest.fn();
-const mockSetBasePay = jest.fn();
+const mockSetPricing = jest.fn();
 const mockStartBooking = jest.fn();
 const mockDetailsSheetProps: {
   skillName?: string;
-  basePricePaise?: number | null;
+  pricing?: SkillOption | null;
   onContinue?: (description: string) => void;
 } = {};
 let mockDraftService: ServiceOption | null = null;
@@ -19,11 +19,11 @@ let mockDraftService: ServiceOption | null = null;
 jest.mock('@/components/booking/BookingDetailsSheet', () => ({
   BookingDetailsSheet: (props: {
     skillName: string;
-    basePricePaise?: number | null;
+    pricing?: SkillOption | null;
     onContinue: (description: string) => void;
   }) => {
     mockDetailsSheetProps.skillName = props.skillName;
-    mockDetailsSheetProps.basePricePaise = props.basePricePaise;
+    mockDetailsSheetProps.pricing = props.pricing;
     mockDetailsSheetProps.onContinue = props.onContinue;
     return null;
   },
@@ -43,7 +43,7 @@ jest.mock('@/stores/booking', () => ({
     start: mockStartBooking,
     setSkill: mockSetSkill,
     setDescription: mockSetDescription,
-    setBasePay: mockSetBasePay,
+    setPricing: mockSetPricing,
   }),
 }));
 
@@ -121,7 +121,7 @@ describe('customer service work groups screen', () => {
     jest.clearAllMocks();
     mockDraftService = null;
     delete mockDetailsSheetProps.skillName;
-    delete mockDetailsSheetProps.basePricePaise;
+    delete mockDetailsSheetProps.pricing;
     delete mockDetailsSheetProps.onContinue;
     useDefaultCatalogue();
   });
@@ -157,10 +157,10 @@ describe('customer service work groups screen', () => {
     expect(mockSetSkill).toHaveBeenCalledWith(fanRepair);
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockDetailsSheetProps.skillName).toBe('Fan repair');
-    expect(mockDetailsSheetProps.basePricePaise).toBe(50_000);
+    expect(mockDetailsSheetProps.pricing).toEqual(fanRepair);
   });
 
-  it('continues from the details sheet to the order preview with the quoted base pay', () => {
+  it('continues from the details sheet to the order preview', () => {
     const { getByLabelText } = render(<BookingSkill />);
 
     fireEvent.press(getByLabelText('Fan repair'));
@@ -169,7 +169,6 @@ describe('customer service work groups screen', () => {
     });
 
     expect(mockSetDescription).toHaveBeenCalledWith('A leaking tap under the sink.');
-    expect(mockSetBasePay).toHaveBeenCalledWith(50_000);
     expect(mockRouterPush).toHaveBeenCalledWith('/booking/new/electrician/review');
   });
 

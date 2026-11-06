@@ -227,7 +227,7 @@ export const SERVICE_WORK_GROUP_DEFINITIONS: readonly ServiceWorkGroupDefinition
     name: 'Doors & Windows',
     imageKey: 'door',
     sortOrder: 2,
-    workSlugs: ['door-window', 'doors-instalation'],
+    workSlugs: ['door-window', 'doors-instalation', 'window-hinge-repair'],
   },
   {
     serviceSlugs: ['carpeting', 'carpentry'],

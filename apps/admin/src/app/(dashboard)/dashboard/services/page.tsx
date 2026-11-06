@@ -35,11 +35,26 @@ import {
   type Work,
   type WorkForm,
   type WorkGroup,
+  type PricingModel,
 } from '@/components/services/types';
 
-type WorkFields = Omit<WorkForm, 'basePriceRupees'>;
-type NewWorkPayload = WorkFields & { basePricePaise: number; serviceId: string };
-type UpdatedWorkPayload = WorkFields & { basePricePaise?: number; id: string };
+type WorkPayload = {
+  name: string;
+  slug: string;
+  icon: string;
+  groupId: string;
+  sortOrder: number;
+  isActive: boolean;
+  pricingModel: PricingModel;
+  unitLabel?: string | null;
+  minQuantity?: number;
+  maxQuantity?: number;
+  minDurationMinutes?: number;
+  maxDurationMinutes?: number;
+  durationStepMinutes?: number;
+};
+type NewWorkPayload = WorkPayload & { basePricePaise: number; serviceId: string };
+type UpdatedWorkPayload = WorkPayload & { basePricePaise?: number; id: string };
 
 export default function ServicesPage() {
   const queryClient = useQueryClient();
@@ -260,6 +275,16 @@ export default function ServicesPage() {
       icon: work.icon ?? '',
       groupId: work.groupId ?? '',
       basePriceRupees: work.basePricePaise == null ? '' : String(work.basePricePaise / 100),
+      pricingModel: work.pricingModel,
+      unitLabel: work.unitLabel ?? '',
+      minQuantity: String(work.minQuantity),
+      maxQuantity: String(work.maxQuantity),
+      minDurationHours:
+        work.minDurationMinutes == null ? '1' : String(work.minDurationMinutes / 60),
+      maxDurationHours:
+        work.maxDurationMinutes == null ? '8' : String(work.maxDurationMinutes / 60),
+      durationStepMinutes:
+        work.durationStepMinutes == null ? '60' : String(work.durationStepMinutes),
       sortOrder: work.sortOrder,
       isActive: work.isActive,
     });
@@ -268,7 +293,17 @@ export default function ServicesPage() {
 
   function submitWork(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const { basePriceRupees, ...workFields } = workForm;
+    const {
+      basePriceRupees,
+      unitLabel,
+      minQuantity,
+      maxQuantity,
+      minDurationHours,
+      maxDurationHours,
+      durationStepMinutes,
+      pricingModel,
+      ...workFields
+    } = workForm;
     const basePricePaise = basePriceRupees.trim() ? Number(basePriceRupees) * 100 : undefined;
     if (
       basePricePaise !== undefined &&
@@ -284,7 +319,59 @@ export default function ServicesPage() {
       return;
     }
 
-    const form = { ...workFields, name: workFields.name.trim(), slug: workFields.slug.trim() };
+    let pricing: Pick<
+      WorkPayload,
+      | 'pricingModel'
+      | 'unitLabel'
+      | 'minQuantity'
+      | 'maxQuantity'
+      | 'minDurationMinutes'
+      | 'maxDurationMinutes'
+      | 'durationStepMinutes'
+    >;
+    if (pricingModel === 'PER_UNIT') {
+      const min = Number(minQuantity);
+      const max = Number(maxQuantity);
+      if (!unitLabel.trim()) {
+        toast.error('Name the unit customers are booking (e.g. hinge, fan).');
+        return;
+      }
+      if (!Number.isInteger(min) || !Number.isInteger(max) || min < 1 || max < min) {
+        toast.error('Enter a minimum and maximum quantity with the maximum at least the minimum.');
+        return;
+      }
+      pricing = { pricingModel, unitLabel: unitLabel.trim(), minQuantity: min, maxQuantity: max };
+    } else if (pricingModel === 'PER_HOUR') {
+      const min = Math.round(Number(minDurationHours) * 60);
+      const max = Math.round(Number(maxDurationHours) * 60);
+      const step = Number(durationStepMinutes);
+      if (
+        !Number.isInteger(min) ||
+        !Number.isInteger(max) ||
+        !Number.isInteger(step) ||
+        min < 15 ||
+        max < min ||
+        step < 5
+      ) {
+        toast.error('Enter valid minimum/maximum hours and a duration step in minutes.');
+        return;
+      }
+      pricing = {
+        pricingModel,
+        minDurationMinutes: min,
+        maxDurationMinutes: max,
+        durationStepMinutes: step,
+      };
+    } else {
+      pricing = { pricingModel: 'PER_BOOKING' };
+    }
+
+    const form: WorkPayload = {
+      ...workFields,
+      name: workFields.name.trim(),
+      slug: workFields.slug.trim(),
+      ...pricing,
+    };
     if (editingWork) {
       updateWorkMutation.mutate({
         id: editingWork.id,

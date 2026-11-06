@@ -53,11 +53,52 @@ export function formatChatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 }
 
+/** "45 min", "1 hr", "1.5 hrs" — durations are stored in minutes. */
+export function formatDurationMinutes(minutes: number | null | undefined): string | null {
+  if (minutes === null || minutes === undefined || !Number.isFinite(minutes)) return null;
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+  const hours = minutes / 60;
+  const rounded = Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
+  return `${rounded} ${hours === 1 ? 'hr' : 'hrs'}`;
+}
+
+/**
+ * The quantity/duration part of a priced job — "3 hinges", "2 hrs" — for the
+ * second line under an amount. Returns `null` for a fixed-price booking, which
+ * needs no qualifier. Unit labels come from the catalogue, so they are shown as
+ * the server stored them rather than through i18n.
+ */
+export function formatJobQuantity(input: {
+  pricingModel?: string | null;
+  quantity?: number | null;
+  unitLabel?: string | null;
+  durationMinutes?: number | null;
+}): string | null {
+  if (input.pricingModel === 'PER_UNIT') {
+    const count = input.quantity ?? 1;
+    return `${count} ${pluralizeUnit(input.unitLabel ?? 'unit', count)}`;
+  }
+  if (input.pricingModel === 'PER_HOUR') {
+    return formatDurationMinutes(input.durationMinutes);
+  }
+  return null;
+}
+
+/** "hinge" → "hinges", "switch" → "switches", "battery" → "batteries". */
+function pluralizeUnit(label: string, count: number): string {
+  if (count === 1) return label;
+  if (label.includes('/')) return label;
+  if (/(s|x|z|ch|sh)$/i.test(label)) return `${label}es`;
+  if (/[^aeiou]y$/i.test(label)) return `${label.slice(0, -1)}ies`;
+  return `${label}s`;
+}
+
 /** A file size in the smallest whole unit a person reads easily, e.g. "840 KB", "2.4 MB". */
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const kilobytes = bytes / 1024;
-  if (kilobytes < 1024) return `${kilobytes < 10 ? kilobytes.toFixed(1) : Math.round(kilobytes)} KB`;
+  if (kilobytes < 1024)
+    return `${kilobytes < 10 ? kilobytes.toFixed(1) : Math.round(kilobytes)} KB`;
   const megabytes = kilobytes / 1024;
   return `${megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)} MB`;
 }

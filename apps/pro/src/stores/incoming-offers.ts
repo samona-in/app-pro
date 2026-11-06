@@ -49,8 +49,16 @@ export interface PendingOffer {
   distanceMeters: number | null;
   /** Work coordinates, retained from the socket DTO; absent on legacy native/push offers. */
   coordinates?: Coordinates | null;
-  /** Guaranteed amount, in paise. */
+  /** Guaranteed amount, in paise (the server-calculated total). */
   amountPaise: number | null;
+  /** How the booking was priced; lets the pro read the amount correctly. */
+  pricingModel?: string | null;
+  /** Work units booked (PER_UNIT); 1 otherwise. */
+  quantity?: number | null;
+  /** Human name of one unit — "hinge", "fan" (PER_UNIT only). */
+  unitLabel?: string | null;
+  /** Booked duration in minutes (PER_HOUR only). */
+  durationMinutes?: number | null;
   /** Job-level expiry (ISO); never the offer countdown. */
   expiresAt: string | null;
   /** When this offer stops being actionable (ISO) — the one countdown deadline. */
@@ -72,6 +80,10 @@ function mergeOffer(existing: PendingOffer, incoming: PendingOffer): PendingOffe
     distanceMeters: incoming.distanceMeters ?? existing.distanceMeters,
     coordinates: incoming.coordinates ?? existing.coordinates,
     amountPaise: incoming.amountPaise ?? existing.amountPaise,
+    pricingModel: incoming.pricingModel ?? existing.pricingModel,
+    quantity: incoming.quantity ?? existing.quantity,
+    unitLabel: incoming.unitLabel ?? existing.unitLabel,
+    durationMinutes: incoming.durationMinutes ?? existing.durationMinutes,
     expiresAt: incoming.expiresAt ?? existing.expiresAt,
     offerExpiresAt: incoming.offerExpiresAt ?? existing.offerExpiresAt,
     jobOfferToken: incoming.jobOfferToken ?? existing.jobOfferToken,
@@ -113,6 +125,12 @@ export function toPendingOfferFromNative(native: PendingNativeJob): PendingOffer
     address: native.address,
     distanceMeters: parseDistance(native.distanceMeters),
     amountPaise: native.amountPaise ? Number(native.amountPaise) || null : null,
+    // The native AlertStore predates the pricing fields, so old persisted
+    // alerts render as a plain amount until the job's own DTO is fetched.
+    pricingModel: null,
+    quantity: null,
+    unitLabel: null,
+    durationMinutes: null,
     // The native store's `expiresAt` is the job-level expiry, so it never
     // becomes the offer window; `offerExpiresAt` is kept when a minted token
     // exists (ensureOfferDeadline fills the default window otherwise).
@@ -150,6 +168,10 @@ export function toPendingOfferFromAvailableJob(
         ? Math.round(job.distanceKm * 1000)
         : null,
     amountPaise: job.basePayPaise,
+    pricingModel: job.pricingModel,
+    quantity: job.quantity,
+    unitLabel: job.unitLabel,
+    durationMinutes: job.durationMinutes,
     expiresAt: null,
     offerExpiresAt: null,
     jobOfferToken: null,
@@ -165,6 +187,12 @@ export function toPendingOfferFromPushData(data: Record<string, unknown>): Pendi
     typeof data[key] === 'string' && data[key] !== '' ? (data[key] as string) : null;
   const dist = parseDistance(data.distanceMeters);
   const amount = str('amountPaise') ? Number(str('amountPaise')) || null : null;
+  const num = (key: string): number | null => {
+    const raw = str(key);
+    if (raw === null) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
   return {
     jobId,
     title: str('title') ?? '',
@@ -173,6 +201,10 @@ export function toPendingOfferFromPushData(data: Record<string, unknown>): Pendi
     address: str('address'),
     distanceMeters: dist,
     amountPaise: amount,
+    pricingModel: str('pricingModel'),
+    quantity: num('quantity'),
+    unitLabel: str('unitLabel'),
+    durationMinutes: num('durationMinutes'),
     // The push's `expiresAt` is the job-level expiry, not the offer window; the
     // store applies the default offer window from receipt when no minted token
     // is present (see ensureOfferDeadline).

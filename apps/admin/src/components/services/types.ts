@@ -1,3 +1,5 @@
+export type PricingModel = 'PER_UNIT' | 'PER_BOOKING' | 'PER_HOUR';
+
 export type Work = {
   id: string;
   serviceId: string;
@@ -8,6 +10,13 @@ export type Work = {
   sortOrder: number;
   isActive: boolean;
   basePricePaise: number | null;
+  pricingModel: PricingModel;
+  unitLabel: string | null;
+  minQuantity: number;
+  maxQuantity: number;
+  minDurationMinutes: number | null;
+  maxDurationMinutes: number | null;
+  durationStepMinutes: number | null;
 };
 
 export type WorkGroup = {
@@ -44,6 +53,13 @@ export type WorkForm = Pick<Work, 'name' | 'slug' | 'sortOrder' | 'isActive'> & 
   icon: string;
   groupId: string;
   basePriceRupees: string;
+  pricingModel: PricingModel;
+  unitLabel: string;
+  minQuantity: string;
+  maxQuantity: string;
+  minDurationHours: string;
+  maxDurationHours: string;
+  durationStepMinutes: string;
 };
 
 export const emptyServiceForm: ServiceForm = {
@@ -68,6 +84,13 @@ export const emptyWorkForm: WorkForm = {
   icon: '',
   groupId: '',
   basePriceRupees: '',
+  pricingModel: 'PER_BOOKING',
+  unitLabel: '',
+  minQuantity: '1',
+  maxQuantity: '10',
+  minDurationHours: '1',
+  maxDurationHours: '8',
+  durationStepMinutes: '60',
   sortOrder: 0,
   isActive: true,
 };

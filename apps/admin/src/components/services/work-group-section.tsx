@@ -18,6 +18,16 @@ function isRenderableImageUrl(value: string): boolean {
   );
 }
 
+/** "₹199 / hinge · 1–20" or "₹199 / hour" — the price as the customer sees it. */
+function pricingSummary(work: Work): string {
+  const price = formatPaise(work.basePricePaise);
+  if (work.pricingModel === 'PER_UNIT') {
+    return `${price} / ${work.unitLabel ?? 'unit'} · ${work.minQuantity}–${work.maxQuantity}`;
+  }
+  if (work.pricingModel === 'PER_HOUR') return `${price} / hour`;
+  return price;
+}
+
 function WorkRow({
   work,
   onEdit,
@@ -52,8 +62,8 @@ function WorkRow({
         </div>
       </div>
       <div className="min-w-28 text-left sm:text-right">
-        <p className="text-xs text-muted-foreground">Base price</p>
-        <p className="font-medium tabular-nums">{formatPaise(work.basePricePaise)}</p>
+        <p className="text-xs text-muted-foreground">Price</p>
+        <p className="font-medium tabular-nums">{pricingSummary(work)}</p>
       </div>
       <div className="flex shrink-0 gap-1">
         <Button size="icon" variant="ghost" aria-label={`Edit ${work.name}`} onClick={onEdit}>

@@ -34,6 +34,8 @@ function SkillRow({
   selected,
   onToggle,
   basePricePaise,
+  pricingModel,
+  unitLabel,
 }: {
   label: string;
   imageUri?: string | null;
@@ -41,10 +43,20 @@ function SkillRow({
   selected: boolean;
   onToggle: () => void;
   basePricePaise?: number | null;
+  pricingModel?: 'PER_UNIT' | 'PER_BOOKING' | 'PER_HOUR';
+  unitLabel?: string | null;
 }) {
   const hasImage = isImageUrl(imageUri ?? null);
   const height = Dimensions.get('window').height / 4;
-  const priceText = basePricePaise ? `Starts at ₹ ${Math.round(basePricePaise / 100)}` : null;
+  const priceText = basePricePaise
+    ? `₹${Math.round(basePricePaise / 100)}${
+        pricingModel === 'PER_UNIT'
+          ? ` / ${unitLabel ?? 'unit'}`
+          : pricingModel === 'PER_HOUR'
+            ? ' / hr'
+            : ''
+      }`
+    : null;
 
   return (
     <Pressable
@@ -201,7 +213,6 @@ export default function BookingSkill() {
 
   function onDetailsContinue(description: string) {
     draft.setDescription(description);
-    draft.setBasePay(detailsSkill?.basePricePaise ?? 0);
     setDetailsSkill(null);
     router.push(`/booking/new/${slug}/review`);
   }
@@ -414,6 +425,8 @@ export default function BookingSkill() {
                         }
                         selected={work.id === skillId}
                         basePricePaise={work.basePricePaise}
+                        pricingModel={work.pricingModel}
+                        unitLabel={work.unitLabel}
                         onToggle={() =>
                           work.slug === OTHER_SKILL_SLUG
                             ? selectOther(work)
@@ -497,7 +510,7 @@ export default function BookingSkill() {
         <BookingDetailsSheet
           skillName={detailsSkill.slug === OTHER_SKILL_SLUG ? customText.trim() : detailsSkill.name}
           skillIcon={detailsSkill.slug === OTHER_SKILL_SLUG ? null : detailsSkill.icon}
-          basePricePaise={detailsSkill.basePricePaise ?? null}
+          pricing={detailsSkill}
           onClose={() => setDetailsSkill(null)}
           onContinue={onDetailsContinue}
         />

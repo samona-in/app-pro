@@ -356,6 +356,17 @@ model Service {
   @@map("services")
 }
 
+/// How a skill's `basePricePaise` is interpreted when a customer books it.
+///
+/// - PER_UNIT: price per countable work unit (hinge, fan, switch).
+/// - PER_BOOKING: price for the whole visit; quantity is always 1.
+/// - PER_HOUR: price per hour of work; the customer picks a duration.
+enum PricingModel {
+  PER_UNIT
+  PER_BOOKING
+  PER_HOUR
+}
+
 model Skill {
   id                  String               @id @default(uuid()) @db.Uuid
   serviceId           String               @map("service_id") @db.Uuid
@@ -363,7 +374,27 @@ model Skill {
   name                String
   sortOrder           Int                  @default(0) @map("sort_order")
   isActive            Boolean              @default(true) @map("is_active")
+  /// The price for one booking/unit/hour, in paise. Its meaning is set by
+  /// `pricingModel`. One column serves all three models — there is no second
+  /// price field to keep in sync.
   basePricePaise      Int?                 @map("base_price_paise")
+  /// How this work is priced. Defaults to PER_BOOKING so every existing skill
+  /// keeps today's behaviour (one fixed-price booking) until an admin opts it
+  /// into quantity or hourly pricing.
+  pricingModel        PricingModel         @default(PER_BOOKING) @map("pricing_model")
+  /// Human name of one unit, shown next to the price — "hinge", "fan",
+  /// "switch". PER_UNIT only; null for the other models.
+  unitLabel           String?              @map("unit_label")
+  /// Smallest quantity a customer may book. PER_UNIT only.
+  minQuantity         Int                  @default(1) @map("min_quantity")
+  /// Largest quantity a customer may book. PER_UNIT only.
+  maxQuantity         Int                  @default(1) @map("max_quantity")
+  /// Shortest bookable duration, in minutes. PER_HOUR only.
+  minDurationMinutes  Int?                 @map("min_duration_minutes")
+  /// Longest bookable duration, in minutes. PER_HOUR only.
+  maxDurationMinutes  Int?                 @map("max_duration_minutes")
+  /// Step between bookable durations, in minutes (e.g. 30 for half-hours).
+  durationStepMinutes Int?                 @map("duration_step_minutes")
   /// Icon of the skill itself. Seeded from the parent service's icon, so a
   /// skill can be given an icon of its own later.
   icon                String?
@@ -472,7 +503,23 @@ model Job {
   /// The guaranteed amount, in paise, the customer commits to paying. It is
   /// what makes acceptance attractive; the professional may still agree a
   /// different final charge once they understand the scope.
+  ///
+  /// This is the server-calculated estimated total, frozen at booking time:
+  /// `unitPricePaise × quantity` (PER_UNIT), `unitPricePaise × durationMinutes
+  /// / 60` (PER_HOUR), or the fixed price (PER_BOOKING). Never taken from the
+  /// client, and never recomputed from a later catalogue change.
   basePayPaise          Int                    @map("base_pay_paise")
+  /// Pricing configuration snapshotted at booking time. These columns make a
+  /// placed booking self-describing even after an admin edits the skill.
+  pricingModel          PricingModel           @default(PER_BOOKING) @map("pricing_model")
+  /// The skill price at booking time (per unit / per booking / per hour).
+  unitPricePaise        Int                    @map("unit_price_paise")
+  /// Work units booked. Always 1 for PER_BOOKING and PER_HOUR.
+  quantity              Int                    @default(1)
+  /// Unit name at booking time — "hinge", "fan". Null for non-unit models.
+  unitLabel             String?                @map("unit_label")
+  /// Booked duration in minutes, PER_HOUR only. Null otherwise.
+  durationMinutes       Int?                   @map("duration_minutes")
   /// Amount agreed after the professional prices the actual scope.
   agreedPayPaise        Int?                   @map("agreed_pay_paise")
   /// Amount actually settled, after the final charge is agreed.

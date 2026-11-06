@@ -22,24 +22,43 @@ interface BookingDraftState {
   customSkill: string;
   description: string;
   images: DraftImage[];
+  /**
+   * The customer's pricing selection. The server validates these against the
+   * catalogue and recomputes the amount; `basePayPaise` is only the estimate
+   * shown in the review step.
+   */
+  quantity: number;
+  durationMinutes: number | null;
   basePayPaise: number;
 
   start: (service: ServiceOption) => void;
   setSkill: (skill: SkillOption, customSkill?: string) => void;
   setDescription: (description: string) => void;
   setImages: (images: DraftImage[] | ((prev: DraftImage[]) => DraftImage[])) => void;
-  setBasePay: (basePayPaise: number) => void;
+  setPricing: (selection: {
+    quantity: number;
+    durationMinutes: number | null;
+    totalPaise: number;
+  }) => void;
   reset: () => void;
 }
 
 const blank: Pick<
   BookingDraftState,
-  'skill' | 'customSkill' | 'description' | 'images' | 'basePayPaise'
+  | 'skill'
+  | 'customSkill'
+  | 'description'
+  | 'images'
+  | 'quantity'
+  | 'durationMinutes'
+  | 'basePayPaise'
 > = {
   skill: null,
   customSkill: '',
   description: '',
   images: [],
+  quantity: 1,
+  durationMinutes: null,
   basePayPaise: 0,
 };
 
@@ -64,6 +83,7 @@ export const useBookingDraft = create<BookingDraftState>((set) => ({
           ? (imagesOrUpdater as (prev: DraftImage[]) => DraftImage[])(state.images)
           : imagesOrUpdater,
     })),
-  setBasePay: (basePayPaise) => set({ basePayPaise }),
+  setPricing: ({ quantity, durationMinutes, totalPaise }) =>
+    set({ quantity, durationMinutes, basePayPaise: totalPaise }),
   reset: () => set({ service: null, ...blank }),
 }));

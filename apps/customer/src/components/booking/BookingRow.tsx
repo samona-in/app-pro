@@ -7,6 +7,7 @@ import { Text } from '@/components/ui';
 import { useUnreadMessages } from '@/hooks';
 import { cn } from '@/utils/cn';
 import { formatBookingDate, formatRupees } from '@/utils/format';
+import { describeJobQuantity } from '@/utils/pricing';
 
 const STATUS_PRESENTATION: Record<JobStatus, { label: string }> = {
   REQUESTED: { label: 'Requested' },
@@ -77,6 +78,7 @@ export function BookingRow({ job, className, ...rest }: BookingRowProps) {
   const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
   // The skill is the specific thing booked; "other" bookings carry free text.
   const title = job.customSkill?.trim() || job.skill.name;
+  const quantity = describeJobQuantity(job);
   const tone = STATUS_TONE[job.status] ?? 'muted';
 
   return (
@@ -103,6 +105,7 @@ export function BookingRow({ job, className, ...rest }: BookingRowProps) {
         </Text>
         <Text variant="footnote" className="mt-0.5 text-text-secondary" numberOfLines={1}>
           {job.service.name} · {formatBookingDate(job.createdAt)}
+          {quantity ? ` · ${quantity}` : ''}
         </Text>
       </View>
 
