@@ -68,7 +68,7 @@ function job(id: string, longitude: number): Job {
     customerId: 'customer',
     proId: null,
     service: { id: 'service', slug: 'electrical', name: 'Electrical', icon: 'flash-outline' },
-    skill: { id: 'skill', slug: 'fan-installation', name: 'Fan installation' },
+    skill: { id: 'skill', slug: 'fan-installation', name: 'Fan installation', icon: null },
     customSkill: null,
     status: JobStatus.REQUESTED,
     locationLabel: 'Main Road',

@@ -12,7 +12,7 @@ function makeJob(overrides: Partial<JobDetail> = {}): JobDetail {
     customerId: 'customer-1',
     proId: null,
     service: { id: 'svc-1', slug: 'electrician', name: 'Electrician', icon: null },
-    skill: { id: 'skill-1', slug: 'other', name: 'Wiring' },
+    skill: { id: 'skill-1', slug: 'other', name: 'Wiring', icon: null },
     customSkill: null,
     status: JobStatus.REQUESTED,
     locationLabel: 'Benz Circle, Vijayawada',

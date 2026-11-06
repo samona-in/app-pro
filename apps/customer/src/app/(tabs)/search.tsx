@@ -276,8 +276,8 @@ function SearchResults({ services, skills, onSelectService, onSelectSkill }: Sea
           {skills.map((skill) => (
             <ResultRow
               key={skill.id}
-              imageUri={skill.service.icon}
-              imageLabel={skill.service.name}
+              imageUri={skill.icon ?? skill.service.icon}
+              imageLabel={skill.name}
               title={skill.name}
               subtitle={skill.service.name}
               onPress={() => onSelectSkill(skill)}
@@ -308,7 +308,7 @@ function ResultRow({ imageUri, imageLabel, title, subtitle, onPress }: ResultRow
       <ServiceImage
         uri={imageUri}
         accessibilityLabel={imageLabel}
-        className="h-12 w-12 rounded-xl"
+        className="h-16 w-16 rounded-lg"
       />
       <View className="ml-3 flex-1">
         <Text variant="bodyStrong">{title}</Text>

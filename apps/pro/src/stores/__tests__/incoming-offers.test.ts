@@ -84,7 +84,7 @@ describe('toPendingOfferFromAvailableJob', () => {
     customerId: 'cust-1',
     proId: null,
     service: { id: 'svc-1', slug: 'electrical', name: 'Electrical', icon: 'flash-outline' },
-    skill: { id: 'skill-1', slug: 'fan-installation', name: 'Fan installation' },
+    skill: { id: 'skill-1', slug: 'fan-installation', name: 'Fan installation', icon: null },
     customSkill: null,
     status: JobStatus.REQUESTED,
     locationLabel: '1 Main Road',

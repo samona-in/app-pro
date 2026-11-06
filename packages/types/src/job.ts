@@ -116,7 +116,7 @@ export interface Job {
   /** The accepting professional's ProProfile id; null until accepted. */
   proId: string | null;
   service: Pick<ServiceOption, 'id' | 'slug' | 'name' | 'icon'>;
-  skill: Pick<SkillOption, 'id' | 'slug' | 'name'>;
+  skill: Pick<SkillOption, 'id' | 'slug' | 'name' | 'icon'>;
   /** The free-text category when `skill.slug` is `other`; null otherwise. */
   customSkill: string | null;
   status: JobStatus;

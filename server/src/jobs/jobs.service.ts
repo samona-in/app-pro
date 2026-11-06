@@ -50,7 +50,7 @@ function jobImageScope(customerUserId: string): string {
 /** The projection every job read shares, so a change appears on every screen. */
 const jobInclude = {
   service: { select: { id: true, slug: true, name: true, icon: true } },
-  skill: { select: { id: true, slug: true, name: true } },
+  skill: { select: { id: true, slug: true, name: true, icon: true } },
 } as const;
 
 /** Formats paise as a whole rupee string for customer-notice copy. */
