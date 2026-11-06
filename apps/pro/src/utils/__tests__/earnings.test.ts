@@ -9,7 +9,7 @@ function job(overrides: Partial<JobDetail>): JobDetail {
     customerId: 'customer',
     proId: 'pro',
     service: { id: 'service', slug: 'plumbing', name: 'Plumbing', icon: '' },
-    skill: { id: 'skill', slug: 'tap', name: 'Tap repair' },
+    skill: { id: 'skill', slug: 'tap', name: 'Tap repair', icon: null },
     customSkill: null,
     status: JobStatus.PAID,
     locationLabel: null,

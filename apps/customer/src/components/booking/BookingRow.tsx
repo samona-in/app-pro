@@ -80,6 +80,8 @@ export function BookingRow({ job, className, ...rest }: BookingRowProps) {
   const title = job.customSkill?.trim() || job.skill.name;
   const quantity = describeJobQuantity(job);
   const tone = STATUS_TONE[job.status] ?? 'muted';
+  // "Other" work has no image of its own, so it keeps the service artwork.
+  const artwork = job.skill.icon ?? job.service.icon;
 
   return (
     <Pressable
@@ -91,9 +93,9 @@ export function BookingRow({ job, className, ...rest }: BookingRowProps) {
     >
       <View className="relative">
         <ServiceImage
-          uri={job.service.icon}
-          accessibilityLabel={job.service.name}
-          className="h-12 w-12 rounded-lg"
+          uri={artwork}
+          accessibilityLabel={title}
+          className="h-16 w-16 rounded-lg"
         />
         {/* Unread-chat badge pinned to the thumbnail; the row opens the booking. */}
         <UnreadBadge count={unread.countFor(job.id)} className="absolute -right-2 -top-2" />
