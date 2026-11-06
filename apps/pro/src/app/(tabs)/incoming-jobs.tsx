@@ -22,7 +22,7 @@ import {
 import { queryKeys } from '@/constants';
 import { occupiedJobRoute } from '@/utils/job-routes';
 import { messageForAcceptError } from '@/utils/job-errors';
-import { formatDistanceMeters, formatInr } from '@/utils/format';
+import { formatDistanceMeters, formatInr, formatJobQuantity } from '@/utils/format';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import {
@@ -390,6 +390,7 @@ const FocusedJobCard = memo(function FocusedJobCard({
   }, [error]);
 
   const amountPaise = offer.amountPaise;
+  const quantityLabel = formatJobQuantity(offer);
   const distanceLabel =
     formatDistanceMeters(offer.distanceMeters) ??
     t(
@@ -418,9 +419,16 @@ const FocusedJobCard = memo(function FocusedJobCard({
               ) : null}
             </View>
             {amountPaise !== null ? (
-              <Text variant="metric" className="text-success">
-                {formatInr(amountPaise)}
-              </Text>
+              <View className="items-end">
+                <Text variant="metric" className="text-success">
+                  {formatInr(amountPaise)}
+                </Text>
+                {quantityLabel ? (
+                  <Text variant="caption" className="text-text-muted">
+                    {quantityLabel}
+                  </Text>
+                ) : null}
+              </View>
             ) : null}
           </View>
 

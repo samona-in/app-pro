@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rejectJobOfferSchema = exports.acceptJobOfferSchema = exports.deviceIdSchema = exports.jobOfferTokenSchema = exports.adminJobListQuerySchema = exports.adminLiveQuerySchema = exports.ADMIN_LIVE_SORTS = exports.jobListQuerySchema = exports.cancelJobSchema = exports.verifyStartSchema = exports.transitionJobSchema = exports.JOB_ACTIONS = exports.createJobSchema = exports.customSkillSchema = exports.jobImagePathSchema = exports.jobLocationLabelSchema = exports.basePayPaiseSchema = exports.jobDescriptionSchema = void 0;
+exports.rejectJobOfferSchema = exports.acceptJobOfferSchema = exports.deviceIdSchema = exports.jobOfferTokenSchema = exports.adminJobListQuerySchema = exports.adminLiveQuerySchema = exports.ADMIN_LIVE_SORTS = exports.jobListQuerySchema = exports.cancelJobSchema = exports.verifyStartSchema = exports.transitionJobSchema = exports.JOB_ACTIONS = exports.createJobSchema = exports.customSkillSchema = exports.jobImagePathSchema = exports.jobLocationLabelSchema = exports.jobDurationMinutesSchema = exports.jobQuantitySchema = exports.basePayPaiseSchema = exports.jobDescriptionSchema = void 0;
 const zod_1 = require("zod");
 const types_1 = require("@samona/types");
 const primitives_1 = require("./primitives");
@@ -22,6 +22,27 @@ exports.basePayPaiseSchema = zod_1.z
     .int('Amount must be a whole number.')
     .min(100, 'Base pay must be at least ₹1.')
     .max(100_000_000, 'That amount is too large.');
+/**
+ * How many countable work units the customer is booking (`PER_UNIT`).
+ *
+ * The skill's own `minQuantity`/`maxQuantity` are enforced by the server; this
+ * only rejects impossible values before the request reaches the catalogue.
+ */
+exports.jobQuantitySchema = zod_1.z
+    .number()
+    .int('Quantity must be a whole number.')
+    .min(1, 'Book at least one unit.')
+    .max(1_000, 'That quantity is too large.');
+/**
+ * How long the customer wants the work (`PER_HOUR`), in minutes.
+ *
+ * The skill's configured minimum, maximum and step are enforced by the server.
+ */
+exports.jobDurationMinutesSchema = zod_1.z
+    .number()
+    .int('Duration must be a whole number of minutes.')
+    .min(1, 'Book at least one minute.')
+    .max(24 * 60, 'That duration is too long.');
 /** Optional display label for the place the work happens. */
 exports.jobLocationLabelSchema = zod_1.z
     .string()
@@ -51,6 +72,11 @@ exports.customSkillSchema = zod_1.z
  *
  * Choosing the `other` sentinel skill requires `customSkill` — the free-text
  * category; any other skill must leave it empty.
+ *
+ * Pricing is never trusted from the client: `quantity` and `durationMinutes`
+ * describe *what* the customer wants, and the server derives the total from the
+ * skill's current configuration. `basePayPaise` is accepted only so older app
+ * builds keep working; the value is ignored.
  */
 exports.createJobSchema = zod_1.z
     .object({
@@ -65,7 +91,15 @@ exports.createJobSchema = zod_1.z
     longitude: primitives_1.longitudeSchema.optional(),
     description: exports.jobDescriptionSchema.default(''),
     imagePaths: zod_1.z.array(exports.jobImagePathSchema).max(types_1.JOB_IMAGE_LIMIT).default([]),
-    basePayPaise: exports.basePayPaiseSchema,
+    /** Work units for `PER_UNIT` skills; ignored for the other models. */
+    quantity: exports.jobQuantitySchema.default(1),
+    /** Duration in minutes for `PER_HOUR` skills; ignored otherwise. */
+    durationMinutes: exports.jobDurationMinutesSchema.optional(),
+    /**
+     * Legacy field. The server computes the total from the catalogue, so this
+     * is accepted (older clients still send it) but never written.
+     */
+    basePayPaise: exports.basePayPaiseSchema.optional(),
 })
     .superRefine((value, ctx) => {
     if (value.skillSlug === types_1.OTHER_SKILL_SLUG && !value.customSkill) {

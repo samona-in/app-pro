@@ -152,6 +152,27 @@ export interface ServiceOption {
   icon: string | null;
 }
 
+/**
+ * How a work is priced when a customer books it.
+ *
+ * Mirrors `PricingModel` in the Prisma schema — keep the two in sync.
+ *
+ * - `PER_UNIT` — the price is per countable work unit (hinge, fan, switch);
+ *   the customer picks a quantity and pays `price × quantity`.
+ * - `PER_BOOKING` — the price is for the whole visit; quantity is always 1.
+ * - `PER_HOUR` — the price is hourly; the customer picks a duration and pays
+ *   `price × duration`.
+ */
+export const PricingModel = {
+  PER_UNIT: 'PER_UNIT',
+  PER_BOOKING: 'PER_BOOKING',
+  PER_HOUR: 'PER_HOUR',
+} as const;
+
+export type PricingModel = (typeof PricingModel)[keyof typeof PricingModel];
+
+export const PRICING_MODELS = Object.values(PricingModel);
+
 export interface SkillOption {
   id: string;
   serviceId: string;
@@ -160,8 +181,25 @@ export interface SkillOption {
   /** The skill's own icon; copied from the parent service when seeded. */
   icon: string | null;
   groupId?: string | null;
-  /** Admin-configured suggested base price, stored in paise. */
+  /**
+   * Admin-configured price, stored in paise. Its meaning depends on
+   * `pricingModel`: per unit, per booking, or per hour.
+   */
   basePricePaise?: number | null;
+  /** How this work is priced. Defaults to `PER_BOOKING` for older rows. */
+  pricingModel?: PricingModel;
+  /** Human name of one unit — "hinge", "fan", "switch". `PER_UNIT` only. */
+  unitLabel?: string | null;
+  /** Smallest quantity a customer may book. `PER_UNIT` only. */
+  minQuantity?: number;
+  /** Largest quantity a customer may book. `PER_UNIT` only. */
+  maxQuantity?: number;
+  /** Shortest bookable duration, in minutes. `PER_HOUR` only. */
+  minDurationMinutes?: number | null;
+  /** Longest bookable duration, in minutes. `PER_HOUR` only. */
+  maxDurationMinutes?: number | null;
+  /** Step between bookable durations, in minutes. `PER_HOUR` only. */
+  durationStepMinutes?: number | null;
 }
 
 /** A skill with its parent service, returned by catalogue search. */

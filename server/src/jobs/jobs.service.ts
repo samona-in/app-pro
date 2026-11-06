@@ -2,6 +2,7 @@ import {
   JobStatus,
   NotificationKind,
   ProServiceStatus,
+  type PricingModel,
   ACTIVE_JOB_STATUSES,
   canTransition,
   type Job,
@@ -24,6 +25,7 @@ import { logger } from '../common/logger';
 import { safeEqual, type BruteForceGuard } from '../common';
 import type { NotificationsService } from '../notifications/notifications.service';
 import { hashJobOfferToken, verifyJobOffer } from './job-offers';
+import { priceJob } from './job-pricing';
 
 export interface JobsServiceDeps {
   prisma: PrismaClient;
@@ -158,6 +160,11 @@ type JobRow = {
   description: string;
   imagePaths: string[];
   basePayPaise: number;
+  pricingModel: PricingModel;
+  unitPricePaise: number;
+  quantity: number;
+  unitLabel: string | null;
+  durationMinutes: number | null;
   agreedPayPaise: number | null;
   finalPayPaise: number | null;
   acceptedAt: Date | null;
@@ -213,6 +220,11 @@ function toJobDto(row: JobRow, storage: StorageService, config: AppConfig): Job 
     description: row.description,
     imageUrls: row.imagePaths.map((path) => storage.jobImagePublicUrl(path)),
     basePayPaise: row.basePayPaise,
+    pricingModel: row.pricingModel,
+    unitPricePaise: row.unitPricePaise,
+    quantity: row.quantity,
+    unitLabel: row.unitLabel,
+    durationMinutes: row.durationMinutes,
     agreedPayPaise: row.agreedPayPaise,
     finalPayPaise: row.finalPayPaise,
     // The one deadline a client needs (offer window, countdown) and the sweep
@@ -360,7 +372,18 @@ export function createJobsService(deps: JobsServiceDeps) {
 
     const skill = await prisma.skill.findFirst({
       where: { slug: input.skillSlug, serviceId: service.id, isActive: true },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        basePricePaise: true,
+        pricingModel: true,
+        unitLabel: true,
+        minQuantity: true,
+        maxQuantity: true,
+        minDurationMinutes: true,
+        maxDurationMinutes: true,
+        durationStepMinutes: true,
+      },
     });
     if (!skill) {
       throw badRequest('That job category does not belong to the chosen service.');
@@ -373,6 +396,10 @@ export function createJobsService(deps: JobsServiceDeps) {
     if (input.skillSlug !== 'other' && customSkill) {
       throw badRequest('Only the "Other" category takes a custom skill.');
     }
+
+    // The catalogue is the only source of price. `input.basePayPaise` is
+    // deliberately ignored: a client cannot name its own total.
+    const pricing = priceJob(skill, input.quantity, input.durationMinutes);
 
     // Every submitted path must be scoped to this caller and must point at an
     // object that really reached storage. Without the scope check a customer
@@ -417,7 +444,14 @@ export function createJobsService(deps: JobsServiceDeps) {
           longitude: coords?.longitude ?? null,
           description: input.description,
           imagePaths: input.imagePaths,
-          basePayPaise: input.basePayPaise,
+          // Everything price-related is derived from the catalogue and frozen
+          // onto the job, so a later admin edit never rewrites this booking.
+          basePayPaise: pricing.totalPaise,
+          pricingModel: pricing.pricingModel,
+          unitPricePaise: pricing.unitPricePaise,
+          quantity: pricing.quantity,
+          unitLabel: pricing.unitLabel,
+          durationMinutes: pricing.durationMinutes,
         },
         include: jobDetailInclude,
       });
@@ -459,7 +493,11 @@ export function createJobsService(deps: JobsServiceDeps) {
             serviceCategory: customSkill ?? skill.name,
             customSkill,
             description: input.description,
-            basePayPaise: input.basePayPaise,
+            basePayPaise: pricing.totalPaise,
+            pricingModel: pricing.pricingModel,
+            quantity: pricing.quantity,
+            unitLabel: pricing.unitLabel,
+            durationMinutes: pricing.durationMinutes,
             address: locationLabel,
             expiresAt: new Date(created.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
           },
@@ -1831,6 +1869,10 @@ export function createJobsService(deps: JobsServiceDeps) {
         customSkill: job.customSkill,
         description: job.description,
         basePayPaise: job.basePayPaise,
+        pricingModel: job.pricingModel,
+        quantity: job.quantity,
+        unitLabel: job.unitLabel,
+        durationMinutes: job.durationMinutes,
         address: job.locationLabel,
         expiresAt: new Date(job.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
       });

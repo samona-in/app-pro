@@ -6,7 +6,7 @@ import type { JobDetail } from '@samona/types';
 import { Card, Divider, Text } from '@/components/ui';
 import { color } from '@/theme';
 import type { TranslationKey } from '@/i18n';
-import { formatInr } from '@/utils/format';
+import { formatInr, formatJobQuantity } from '@/utils/format';
 
 const CHECKLIST: TranslationKey[] = [
   'jobDetails.checklist.inspectIssue',
@@ -42,6 +42,7 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
   const address =
     job.locationLabel ?? job.customer?.locationLabel ?? t('common.locationSharedLater');
   const price = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
+  const quantityLabel = formatJobQuantity(job);
 
   return (
     <View className="flex-1">
@@ -64,9 +65,16 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
                 {job.customSkill ?? job.skill.name}
               </Text>
             </View>
-            <Text variant="title" className="text-brand">
-              {formatInr(price)}
-            </Text>
+            <View className="items-end">
+              <Text variant="title" className="text-brand">
+                {formatInr(price)}
+              </Text>
+              {quantityLabel ? (
+                <Text variant="footnote" className="text-text-muted">
+                  {quantityLabel}
+                </Text>
+              ) : null}
+            </View>
           </View>
 
           <Divider spaced />

@@ -1,4 +1,4 @@
-import type { ServiceOption, SkillOption } from './pro';
+import type { PricingModel, ServiceOption, SkillOption } from './pro';
 
 /**
  * The job lifecycle (CLAUDE.md "Job State Machine").
@@ -127,8 +127,25 @@ export interface Job {
   longitude: number | null;
   description: string;
   imageUrls: string[];
-  /** Guaranteed amount, in paise. */
+  /**
+   * The server-calculated estimated total, in paise.
+   *
+   * For `PER_UNIT` it is `unitPricePaise × quantity`, for `PER_HOUR`
+   * `unitPricePaise × durationMinutes / 60`, and for `PER_BOOKING` the fixed
+   * booking price. It is frozen at booking time; later catalogue price changes
+   * never touch existing bookings.
+   */
   basePayPaise: number;
+  /** How the booking was priced when it was placed. */
+  pricingModel: PricingModel;
+  /** The skill's price at booking time, in paise (unit/hour/booking price). */
+  unitPricePaise: number;
+  /** Work units booked. Always 1 for `PER_BOOKING` and `PER_HOUR`. */
+  quantity: number;
+  /** Human name of one unit at booking time — "hinge", "fan". */
+  unitLabel: string | null;
+  /** Booked duration in minutes. `PER_HOUR` only; null otherwise. */
+  durationMinutes: number | null;
   agreedPayPaise: number | null;
   finalPayPaise: number | null;
   /** When the request stops being actionable (ISO). Null until known. */

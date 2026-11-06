@@ -13,14 +13,27 @@ import BottomSheet, {
   type BottomSheetBackgroundProps,
   type BottomSheetFooterProps,
 } from '@gorhom/bottom-sheet';
-import { JOB_DESCRIPTION_MAX, JOB_IMAGE_LIMIT } from '@samona/types';
+import { JOB_DESCRIPTION_MAX, JOB_IMAGE_LIMIT, type SkillOption } from '@samona/types';
 import { ServiceImage, isImageUrl } from '@/components/home/ServiceImage';
-import { Button, Text } from '@/components/ui';
+import { Text } from '@/components/ui';
 import { uploadJobImage } from '@/services/job-images';
 import type { DraftImage } from '@/stores/booking';
 import { useBookingDraft } from '@/stores/booking';
-import { color } from '@/theme';
+import { color, elevation } from '@/theme';
 import { formatRupees } from '@/utils/format';
+import {
+  clampDuration,
+  clampQuantity,
+  durationStepMinutes,
+  estimatedTotalPaise,
+  formatDuration,
+  maxDurationMinutes,
+  maxQuantity,
+  minDurationMinutes,
+  minQuantity,
+  pricingModelOf,
+  unitPricePaise,
+} from '@/utils/pricing';
 
 /** Top radius of the sheet, matching the rest of the app's surfaces. */
 const TOP_RADIUS = 24;
@@ -65,13 +78,48 @@ function SheetHandle() {
   );
 }
 
+/** A round +/- control used by the quantity and duration selectors. */
+function StepperButton({
+  icon,
+  label,
+  disabled,
+  onPress,
+}: {
+  icon: 'add' | 'remove';
+  label: string;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      hitSlop={6}
+      className={
+        disabled
+          ? 'h-9 w-9 items-center justify-center rounded-full bg-surface-muted'
+          : 'h-9 w-9 items-center justify-center rounded-full bg-brand-soft active:opacity-70'
+      }
+    >
+      <Ionicons name={icon} size={18} color={disabled ? color['text-muted'] : color.brand} />
+    </Pressable>
+  );
+}
+
 export interface BookingDetailsSheetProps {
   /** The work the customer picked, shown so they can confirm the context. */
   skillName: string;
   /** Artwork for the selected work, when the catalogue provides one. */
   skillIcon?: string | null;
-  /** Admin-configured base pay for the selected work, in paise. */
-  basePricePaise?: number | null;
+  /**
+   * The selected work's pricing configuration. The sheet derives the quantity
+   * or duration control and the estimated total from it; the server remains the
+   * authority when the request is placed.
+   */
+  pricing?: SkillOption | null;
   /** Called once the sheet has closed after a swipe or a backdrop press. */
   onClose: () => void;
   /** Called with the trimmed description when the customer continues. */
@@ -87,22 +135,38 @@ export interface BookingDetailsSheetProps {
 export function BookingDetailsSheet({
   skillName,
   skillIcon,
-  basePricePaise,
+  pricing,
   onClose,
   onContinue,
 }: BookingDetailsSheetProps) {
   const draft = useBookingDraft();
   const insets = useSafeAreaInsets();
 
+  const model = pricingModelOf(pricing);
+  const pricePaise = unitPricePaise(pricing);
+  const hasBasePrice = typeof pricePaise === 'number' && pricePaise > 0;
   const [description, setDescription] = useState(draft.description);
   const [cameraDenied, setCameraDenied] = useState(false);
+  const [quantity, setQuantity] = useState(() =>
+    model === 'PER_UNIT' ? clampQuantity(pricing, draft.quantity) : 1,
+  );
+  const [duration, setDuration] = useState<number | null>(() => {
+    if (model !== 'PER_HOUR') return null;
+    const fallback = minDurationMinutes(pricing);
+    return clampDuration(pricing, draft.durationMinutes ?? fallback);
+  });
 
   const images = draft.images;
   const hasImage = isImageUrl(skillIcon ?? null);
   const characterCount = description.length;
   const hasUploading = images.some((image) => image.uploading);
   const hasFailed = images.some((image) => image.failed);
-  const hasBasePrice = typeof basePricePaise === 'number' && basePricePaise > 0;
+  const minQty = minQuantity(pricing);
+  const maxQty = maxQuantity(pricing);
+  const minDuration = minDurationMinutes(pricing);
+  const maxDuration = maxDurationMinutes(pricing);
+  const step = durationStepMinutes(pricing);
+  const estimatedTotal = estimatedTotalPaise(pricing, quantity, duration);
   const canContinue = !hasUploading && !hasFailed && hasBasePrice;
 
   const springConfig = useBottomSheetSpringConfigs({
@@ -176,27 +240,136 @@ export function BookingDetailsSheet({
 
   const handleContinue = useCallback(() => {
     if (!canContinue) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    draft.setPricing({
+      quantity,
+      durationMinutes: model === 'PER_HOUR' ? duration : null,
+      totalPaise: estimatedTotal,
+    });
     onContinue(description.trim());
-  }, [canContinue, description, onContinue]);
+  }, [canContinue, description, draft, duration, estimatedTotal, model, onContinue, quantity]);
 
   const renderFooter = useCallback(
     (props: BottomSheetFooterProps) => (
       <BottomSheetFooter {...props} bottomInset={0}>
-        <View
-          className="border-t border-border bg-surface px-5 pt-3"
-          style={{ paddingBottom: insets.bottom + 12 }}
-        >
-          <Button
-            label="Continue"
-            size="lg"
-            disabled={!canContinue}
-            onPress={handleContinue}
-            haptic={canContinue}
-          />
+        <View className="bg-surface px-3 pt-3" style={{ paddingBottom: insets.bottom + 12 }}>
+          {/* The continue bar doubles as the quantity/duration and total summary. */}
+          <View
+            className="min-h-[60px] flex-row items-center rounded-full bg-surface pl-3 pr-3"
+            style={elevation.md}
+          >
+            {model === 'PER_UNIT' ? (
+              <View className="flex-row shrink-0 items-center pl-2">
+                <StepperButton
+                  icon="remove"
+                  label="Reduce quantity"
+                  disabled={quantity <= minQty}
+                  onPress={() => setQuantity((current) => clampQuantity(pricing, current - 1))}
+                />
+                <Text
+                  variant="title"
+                  className="min-w-10 text-center text-brand"
+                  accessibilityLabel={`Quantity ${quantity}`}
+                >
+                  {quantity}
+                </Text>
+                <StepperButton
+                  icon="add"
+                  label="Increase quantity"
+                  disabled={quantity >= maxQty}
+                  onPress={() => setQuantity((current) => clampQuantity(pricing, current + 1))}
+                />
+              </View>
+            ) : model === 'PER_HOUR' ? (
+              <View className="flex-row shrink-0 items-center pl-2">
+                <StepperButton
+                  icon="remove"
+                  label="Reduce duration"
+                  disabled={(duration ?? minDuration) <= minDuration}
+                  onPress={() =>
+                    setDuration((current) =>
+                      clampDuration(pricing, (current ?? minDuration) - step),
+                    )
+                  }
+                />
+                <Text
+                  variant="bodyStrong"
+                  className="min-w-14 text-center text-brand"
+                  accessibilityLabel={`Duration ${formatDuration(duration ?? minDuration)}`}
+                >
+                  {formatDuration(duration ?? minDuration)}
+                </Text>
+                <StepperButton
+                  icon="add"
+                  label="Increase duration"
+                  disabled={(duration ?? minDuration) >= maxDuration}
+                  onPress={() =>
+                    setDuration((current) =>
+                      clampDuration(pricing, (current ?? minDuration) + step),
+                    )
+                  }
+                />
+              </View>
+            ) : null}
+
+            {model !== 'PER_BOOKING' ? (
+              <View className="mx-2 h-8 w-px shrink-0 bg-border" />
+            ) : null}
+
+            <Text
+              variant="titleLg"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              className={
+                model === 'PER_BOOKING'
+                  ? 'shrink pl-3 text-left text-brand'
+                  : 'ml-2 shrink text-right text-brand'
+              }
+            >
+              {hasBasePrice ? formatRupees(estimatedTotal) : ''}
+            </Text>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                hasBasePrice
+                  ? `Continue, estimated total ${formatRupees(estimatedTotal)}`
+                  : 'Continue'
+              }
+              accessibilityState={{ disabled: !canContinue }}
+              disabled={!canContinue}
+              onPress={handleContinue}
+              className={
+                canContinue
+                  ? 'ml-2 min-h-[46px] flex-1 items-center justify-center rounded-full bg-brand px-4 active:opacity-80'
+                  : 'ml-2 min-h-[46px] flex-1 items-center justify-center rounded-full bg-brand px-4 opacity-40'
+              }
+            >
+              <Text variant="bodyLg" className="font-semibold text-white">
+                Continue
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </BottomSheetFooter>
     ),
-    [insets.bottom, canContinue, handleContinue],
+    [
+      insets.bottom,
+      canContinue,
+      handleContinue,
+      model,
+      quantity,
+      minQty,
+      maxQty,
+      pricing,
+      duration,
+      minDuration,
+      maxDuration,
+      step,
+      hasBasePrice,
+      estimatedTotal,
+    ],
   );
 
   return (
@@ -248,10 +421,16 @@ export function BookingDetailsSheet({
               {skillName}
             </Text>
             <View className="items-end">
-              <Text variant="caption">Base pay</Text>
+              <Text variant="caption">
+                {model === 'PER_UNIT'
+                  ? `Per ${pricing?.unitLabel ?? 'unit'}`
+                  : model === 'PER_HOUR'
+                    ? 'Per hr'
+                    : 'Base fare'}
+              </Text>
               {hasBasePrice ? (
                 <Text variant="title" className="mt-0.5">
-                  {formatRupees(basePricePaise)}
+                  {formatRupees(pricePaise)}
                 </Text>
               ) : (
                 <Text variant="footnote" className="mt-0.5 text-danger">

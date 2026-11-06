@@ -34,6 +34,14 @@ import { useBookingDraft } from '@/stores/booking';
 import { color, elevation } from '@/theme';
 import { savedAddressSecondary } from '@/utils/address';
 import { formatRupees } from '@/utils/format';
+import {
+  formatDuration,
+  maxQuantity,
+  minQuantity,
+  pluralizeUnit,
+  pricingModelOf,
+  unitPricePaise,
+} from '@/utils/pricing';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -318,6 +326,18 @@ export default function BookingReview() {
   const locationTitle = activeAddress?.name.trim() || 'Service location';
   const locationCaption = addressLine && addressLine !== locationTitle ? addressLine : null;
   const amountLabel = draft.basePayPaise > 0 ? formatRupees(draft.basePayPaise) : '—';
+  const pricingModel = pricingModelOf(draft.skill);
+  const unitPrice = unitPricePaise(draft.skill);
+  const quantityLabel =
+    pricingModel === 'PER_UNIT'
+      ? `${draft.quantity} ${pluralizeUnit(draft.skill?.unitLabel ?? 'unit', draft.quantity)}${
+          unitPrice !== null ? ` × ${formatRupees(unitPrice)}` : ''
+        }`
+      : pricingModel === 'PER_HOUR'
+        ? `${formatDuration(draft.durationMinutes ?? 60)}${
+            unitPrice !== null ? ` × ${formatRupees(unitPrice)} / hr` : ''
+          }`
+        : 'Base fare for this work';
   const referencePhotos = draft.images.filter((image) => Boolean(image.uri));
   const hasDescription = draft.description.trim().length > 0;
 
@@ -344,7 +364,13 @@ export default function BookingReview() {
         imagePaths: draft.images
           .map((image) => image.path)
           .filter((path): path is string => Boolean(path)),
-        basePayPaise: draft.basePayPaise,
+        quantity: Math.min(
+          maxQuantity(draft.skill),
+          Math.max(minQuantity(draft.skill), draft.quantity),
+        ),
+        ...(pricingModelOf(draft.skill) === 'PER_HOUR' && draft.durationMinutes !== null
+          ? { durationMinutes: draft.durationMinutes }
+          : {}),
         ...locationInput,
         ...(serviceLat !== null && serviceLng !== null
           ? { latitude: serviceLat, longitude: serviceLng }
@@ -524,9 +550,14 @@ export default function BookingReview() {
                 <Text variant="caption" numberOfLines={1} className="mt-0.5">
                   {skillLabel}
                 </Text>
+                <Text variant="caption" numberOfLines={1} className="mt-0.5">
+                  {quantityLabel}
+                </Text>
               </View>
               <View className="items-end">
-                <Text variant="caption">Base pay</Text>
+                <Text variant="caption">
+                  {pricingModel === 'PER_BOOKING' ? 'Base pay' : 'Estimated total'}
+                </Text>
                 <Text variant="titleLg" className="mt-0.5">
                   {amountLabel}
                 </Text>

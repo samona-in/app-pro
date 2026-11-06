@@ -20,7 +20,7 @@ import type { TranslationKey } from '@/i18n';
 import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
-import { formatDistance, formatEta, formatInr } from '@/utils/format';
+import { formatDistance, formatEta, formatInr, formatJobQuantity } from '@/utils/format';
 import { regionFor } from '@/utils/map';
 import { startJobTracking, stopJobTracking } from '@/services/job-tracking';
 
@@ -350,6 +350,7 @@ export default function ActiveJobScreen() {
   const address =
     job.locationLabel ?? job.customer?.locationLabel ?? t('common.locationSharedLater');
   const price = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
+  const quantityLabel = formatJobQuantity(job);
   const swipeLabel = t(SWIPE_LABEL[job.status] ?? 'activeJob.swipe.onMyWay');
 
   /** Straight dashed connector between the pro's live pin and the work spot,
@@ -531,9 +532,16 @@ export default function ActiveJobScreen() {
                 {job.customSkill ?? job.skill.name}
               </Text>
             </View>
-            <Text variant="title" className="text-brand">
-              {formatInr(price)}
-            </Text>
+            <View className="items-end">
+              <Text variant="title" className="text-brand">
+                {formatInr(price)}
+              </Text>
+              {quantityLabel ? (
+                <Text variant="footnote" className="text-text-muted">
+                  {quantityLabel}
+                </Text>
+              ) : null}
+            </View>
           </View>
 
           <Divider spaced />

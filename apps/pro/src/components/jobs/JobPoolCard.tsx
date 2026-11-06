@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { AvailableJob } from '@samona/types';
 import { Badge, Button, Text } from '@/components/ui';
-import { formatDistance, formatEta, formatInr } from '@/utils/format';
+import { formatDistance, formatEta, formatInr, formatJobQuantity } from '@/utils/format';
 
 /**
  * One entry in the pro's job pool, matching the offer surface's rhythm: the
@@ -35,6 +35,7 @@ export function JobPoolCard({
   }, [error]);
 
   const category = job.customSkill ?? job.skill.name;
+  const quantityLabel = formatJobQuantity(job);
 
   return (
     <View className="py-4">
@@ -47,9 +48,16 @@ export function JobPoolCard({
             {category}
           </Text>
         </View>
-        <Text variant="metric" className="text-success">
-          {formatInr(job.basePayPaise)}
-        </Text>
+        <View className="items-end">
+          <Text variant="metric" className="text-success">
+            {formatInr(job.basePayPaise)}
+          </Text>
+          {quantityLabel ? (
+            <Text variant="caption" className="text-text-muted">
+              {quantityLabel}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
       <View className="mt-3 flex-row flex-wrap items-center gap-2">

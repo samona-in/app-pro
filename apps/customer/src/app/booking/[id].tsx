@@ -21,6 +21,7 @@ import { Button, Text } from '@/components/ui';
 import { useBooking, useCancelBooking, useSubmitGuard } from '@/hooks';
 import { color } from '@/theme';
 import { formatBookingDate, formatRupees } from '@/utils/format';
+import { describeJobQuantity } from '@/utils/pricing';
 
 const CANCELLABLE: JobStatus[] = [
   JobStatus.REQUESTED,
@@ -219,6 +220,7 @@ export default function BookingDetail() {
   const showMap = job.status === JobStatus.ACCEPTED || job.status === JobStatus.TRAVELLING;
   const showProCard = job.pro !== null || job.status !== JobStatus.REQUESTED;
   const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
+  const quantityLabel = describeJobQuantity(job);
 
   const serviceTitle =
     job.skill?.name && job.skill.name !== job.service.name ? job.skill.name : job.service.name;
@@ -275,16 +277,17 @@ export default function BookingDetail() {
           <View className="mt-2">
             <View className="flex-row items-center gap-3 px-5 py-3">
               <Ionicons name="cash-outline" size={20} color={color['text-primary']} />
-              <View className="flex-1 flex-row items-center justify-between">
-                <View>
+              <View className="min-w-0 flex-1 flex-row items-center justify-between gap-3">
+                <View className="min-w-0 flex-1">
                   <Text variant="bodyStrong" className="text-text-primary">
                     Total amount
                   </Text>
                   <Text variant="footnote" className="mt-0.5 text-text-muted">
                     The amount agreed with professional.
+                    {quantityLabel ? ` · ${quantityLabel}` : ''}
                   </Text>
                 </View>
-                <Text variant="title" className="text-text-primary">
+                <Text variant="title" numberOfLines={1} className="shrink-0 text-text-primary">
                   {formatRupees(amount)}
                 </Text>
               </View>
