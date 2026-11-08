@@ -1,35 +1,9 @@
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { ONBOARDING_STEPS, type OnboardingStep as StepName } from '@samona/types';
 import { Button, Screen, Text } from '@/components/ui';
-import { cn } from '@/utils/cn';
-
-/**
- * Progress bar. Steps are equal width, so position reads at a glance.
- * Blue fill on a light rail, pinned to the top of every step.
- */
-function StepProgress({ step }: { step: StepName }) {
-  const index = ONBOARDING_STEPS.indexOf(step);
-
-  return (
-    <View
-      accessibilityRole="progressbar"
-      accessibilityValue={{ min: 1, max: ONBOARDING_STEPS.length, now: index + 1 }}
-      className="mt-2 flex-row gap-1"
-    >
-      {ONBOARDING_STEPS.map((name, i) => (
-        <View
-          key={name}
-          className={cn('h-1 flex-1 rounded-full', i <= index ? 'bg-brand' : 'bg-border')}
-        />
-      ))}
-    </View>
-  );
-}
 
 export interface OnboardingStepProps {
-  step: StepName;
   title: string;
   subtitle?: string;
   children: ReactNode;
@@ -47,11 +21,9 @@ export interface OnboardingStepProps {
  *
  * Clean white surface, a bold near-black headline with lots of breathing
  * room, an optional muted subtitle, and a single full-width CTA in SAMONA
- * blue. The thin blue progress rail sits on top.
- * Each screen only declares its own question.
+ * blue. Each screen only declares its own question.
  */
 export function OnboardingStepLayout({
-  step,
   title,
   subtitle,
   children,
@@ -65,8 +37,6 @@ export function OnboardingStepLayout({
   const { t } = useTranslation();
   return (
     <Screen scrollable edges={['top', 'bottom']} className="bg-surface">
-      <StepProgress step={step} />
-
       <View className="flex-1 pt-8">
         <Text variant="titleLg">{title}</Text>
         {subtitle ? (

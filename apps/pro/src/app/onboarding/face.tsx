@@ -24,7 +24,7 @@ export default function OnboardingFace() {
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const { mutate, reset, isPending, isError, isSuccess } = useUploadSelfie();
 
-  // A completed navigation must never stack a second review screen.
+  // A completed navigation must never stack a second screen.
   const navigated = useRef(false);
 
   useEffect(() => {
@@ -50,7 +50,6 @@ export default function OnboardingFace() {
   if (stage === 'intro') {
     return (
       <OnboardingStepLayout
-        step="face"
         title={t('onboarding.face.title')}
         subtitle={t('onboarding.face.subtitle')}
         primaryLabel={t('onboarding.face.start')}

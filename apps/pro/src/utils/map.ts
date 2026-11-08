@@ -1,6 +1,20 @@
 import type { Region } from 'react-native-maps';
 
 /**
+ * City-wide: enough to recognise the neighbourhood when the app has no better
+ * anchor than the country default.
+ */
+export const CITY_ZOOM = 12.5;
+
+/**
+ * Street framing — roughly 200 m across, so building outlines and the
+ * surrounding area are legible. A spot picker uses this whenever it knows a
+ * real coordinate: the Pro must be able to confirm the pin sits on the right
+ * work area, not just somewhere in their city.
+ */
+export const STREET_ZOOM = 17.5;
+
+/**
  * Frames the camera the way the app thinks about it (a centre and a zoom),
  * translated into the Region react-native-maps expects.
  *

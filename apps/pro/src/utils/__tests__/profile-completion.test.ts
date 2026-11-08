@@ -31,6 +31,7 @@ const COMPLETE_PROFILE: ProProfile = {
   completedJobs: 0,
   hasSelfie: true,
   selfiePhotoUrl: null,
+  hasDocuments: true,
   serviceIds: ['service-1'],
   skillIds: ['skill-1'],
   proServices: [],

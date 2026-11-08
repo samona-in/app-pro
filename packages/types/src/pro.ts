@@ -270,6 +270,13 @@ export interface ProProfile {
   hasSelfie: boolean;
   /** Read URL for the stored selfie; null until one exists. */
   selfiePhotoUrl: string | null;
+  /**
+   * True once at least one submitted document is still usable — `PENDING`
+   * (awaiting review) or `APPROVED`. A document rejected by the review team no
+   * longer counts. Part of the onboarding gate: a Pro must submit one before
+   * onboarding can complete.
+   */
+  hasDocuments: boolean;
   serviceIds: string[];
   skillIds: string[];
   /**
@@ -288,11 +295,13 @@ export interface ProProfile {
  * app with an unusable profile. Both the API and the app import this, so they
  * cannot disagree.
  *
- * Documents are intentionally absent: they are collected after onboarding in
- * the profile's Documents section, reviewed by an admin, and never gate
- * completion — requiring them here would block a Pro who is otherwise ready
- * to work. The selfie is different: it is the one proof that the account
- * belongs to a real person, so it gates completion.
+ * Documents are part of the gate: a Pro must submit at least one document
+ * (pending or approved) before onboarding completes, because the review team
+ * cannot verify anyone from an empty file. The selfie is the other proof that
+ * the account belongs to a real person, so it gates completion too.
+ *
+ * Bio, languages and payout details remain optional — they are collected
+ * later and must never block an otherwise ready Pro.
  */
 export function isProProfileComplete(
   profile: Pick<
@@ -302,8 +311,8 @@ export function isProProfileComplete(
     | 'experienceLevel'
     | 'serviceRadiusKm'
     | 'serviceIds'
-    | 'skillIds'
     | 'hasSelfie'
+    | 'hasDocuments'
   > | null,
 ): boolean {
   if (!profile) return false;
@@ -315,8 +324,8 @@ export function isProProfileComplete(
     profile.experienceLevel !== null &&
     profile.serviceRadiusKm > 0 &&
     profile.serviceIds.length > 0 &&
-    profile.skillIds.length > 0 &&
-    profile.hasSelfie
+    profile.hasSelfie &&
+    profile.hasDocuments
   );
 }
 
@@ -324,13 +333,12 @@ export function isProProfileComplete(
 export const ONBOARDING_STEPS = [
   'intro',
   'name',
-  'gender',
   'services',
-  'skills',
   'experience',
   'location',
   'radius',
   'about',
+  'documents',
   'face',
   'review',
 ] as const;
@@ -341,18 +349,22 @@ export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
  * The first step still missing data.
  *
  * This is what makes onboarding resumable: a Pro who closed the app after
- * choosing services returns to specialties, not to the beginning.
+ * choosing services returns to that step, not to the beginning.
  */
 export function nextIncompleteStep(profile: ProProfile | null): OnboardingStep {
   if (!profile) return 'intro';
   if (!profile.displayName || profile.displayName.trim().length < 2) return 'name';
-  if (!profile.gender) return 'gender';
+  // Name and gender are asked together on the first question, so a missing
+  // gender resumes there rather than at a step of its own.
+  if (!profile.gender) return 'name';
   if (profile.serviceIds.length === 0) return 'services';
-  if (profile.skillIds.length === 0) return 'skills';
   if (!profile.experienceLevel) return 'experience';
   // Coordinates are optional, so the radius is the only persisted signal for
   // both work-area steps. Resuming at `location` keeps their natural order.
   if (!profile.serviceRadiusKm) return 'location';
+  // At least one document is mandatory. Documents are asked before the face
+  // check, which is the final question of the flow.
+  if (!profile.hasDocuments) return 'documents';
   if (!profile.hasSelfie) return 'face';
   return 'review';
 }

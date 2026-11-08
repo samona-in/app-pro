@@ -1,4 +1,5 @@
 import {
+  DocumentStatus,
   isProProfileComplete,
   OnboardingStatus,
   ProServiceStatus,
@@ -21,6 +22,16 @@ export interface ProsServiceDeps {
   /** Pages a returning pro the still-open requests they missed while offline. */
   jobs: JobsService;
 }
+
+/**
+ * Document statuses that satisfy the onboarding gate: submitted-for-review or
+ * approved. A rejected document was refused by the review team, so it no
+ * longer counts.
+ */
+const countableDocumentStatuses: DocumentStatus[] = [
+  DocumentStatus.PENDING,
+  DocumentStatus.APPROVED,
+];
 
 /** Prisma row plus its join rows, as every read here selects them. */
 const proProfileSelect = {
@@ -51,6 +62,14 @@ const proProfileSelect = {
     },
   },
   skills: { select: { skillId: true } },
+  // `hasDocuments` is derived from the documents relation. A rejected
+  // document no longer counts, so the where-filter mirrors the rule in
+  // `isProProfileComplete`: pending or approved is what satisfies the gate.
+  documents: {
+    where: { status: { in: countableDocumentStatuses } },
+    select: { id: true },
+    take: 1,
+  },
 } as const;
 
 type ProServiceRow = {
@@ -73,15 +92,21 @@ const proServiceSkillsSelect = {
 type ProProfileRow = {
   services: ProServiceRow[];
   skills: { skillId: string }[];
+  /** Optional only for partial test fixtures; the select always includes it. */
+  documents?: { id: string }[];
   selfiePhotoPath: string | null;
-} & Omit<ProProfile, 'serviceIds' | 'skillIds' | 'hasSelfie' | 'selfiePhotoUrl' | 'proServices'>;
+} & Omit<
+  ProProfile,
+  'serviceIds' | 'skillIds' | 'hasSelfie' | 'selfiePhotoUrl' | 'hasDocuments' | 'proServices'
+>;
 
 function toProProfile(row: ProProfileRow, storage: StorageService): ProProfile {
-  const { services, skills, selfiePhotoPath, ...rest } = row;
+  const { services, skills, documents, selfiePhotoPath, ...rest } = row;
   return {
     ...rest,
     hasSelfie: selfiePhotoPath !== null,
     selfiePhotoUrl: selfiePhotoPath ? storage.selfiePublicUrl(selfiePhotoPath) : null,
+    hasDocuments: (documents?.length ?? 0) > 0,
     serviceIds: services.map((s) => s.serviceId),
     skillIds: skills.map((s) => s.skillId),
     proServices: services.map((s) => ({
@@ -174,6 +199,17 @@ export function createProsService(deps: ProsServiceDeps) {
   }
 
   /**
+   * Re-derives onboarding status on demand.
+   *
+   * Documents live in their own table, so their upload handshake has to ask for
+   * a recompute once a row lands — otherwise a Pro who submitted their first
+   * document would stay IN_PROGRESS until their next profile edit.
+   */
+  async function recomputeOnboardingStatus(userId: string): Promise<ProProfile> {
+    return recomputeStatus(await ensureForUser(userId));
+  }
+
+  /**
    * Applies one onboarding step.
    *
    * Steps save as the Pro goes, so closing the app never loses answers already
@@ -263,9 +299,18 @@ export function createProsService(deps: ProsServiceDeps) {
     return recomputeStatus(updated);
   }
 
-  /** Derives and persists onboarding status from the profile's own data. */
+  /**
+   * Derives and persists onboarding status from the profile's own data.
+   *
+   * `COMPLETED` is sticky: once a Pro has finished onboarding they stay
+   * finished. That keeps Pros who predate the document requirement working,
+   * and means deleting a document later can never eject a Pro from the app.
+   * A new Pro still has to clear every gate — documents included — to reach
+   * COMPLETED for the first time.
+   */
   async function recomputeStatus(profile: ProProfile): Promise<ProProfile> {
-    const complete = isProProfileComplete(profile);
+    const complete =
+      profile.onboardingStatus === OnboardingStatus.COMPLETED || isProProfileComplete(profile);
     const hasAnyAnswer =
       Boolean(profile.displayName) ||
       Boolean(profile.gender) ||
@@ -531,6 +576,7 @@ export function createProsService(deps: ProsServiceDeps) {
     ensureForUser,
     applyOnboardingPatch,
     setSelfieUploaded,
+    recomputeOnboardingStatus,
     setAvailability,
     setServiceRadius,
     listProServices,

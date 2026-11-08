@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
-import { OnboardingStepLayout, SelectableCard } from '@/components/onboarding';
+import { OnboardingStepLayout, SelectableServiceTile } from '@/components/onboarding';
 import { Text } from '@/components/ui';
 import { useCatalogue, useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
 
@@ -23,7 +23,7 @@ export default function OnboardingServices() {
 
   async function onContinue() {
     await save.mutateAsync({ serviceIds: selected });
-    router.push('/onboarding/skills');
+    router.push('/onboarding/experience');
   }
 
   if (catalogue.isPending) {
@@ -35,7 +35,6 @@ export default function OnboardingServices() {
 
   return (
     <OnboardingStepLayout
-      step="services"
       title={t('onboarding.services.title')}
       subtitle={t('onboarding.services.subtitle')}
       onPrimary={() => void onContinue()}
@@ -49,14 +48,17 @@ export default function OnboardingServices() {
       }
     >
       {catalogue.data.services.length === 0 ? (
-        <EmptyState title={t('onboarding.services.emptyTitle')} message={t('onboarding.services.emptyMessage')} />
+        <EmptyState
+          title={t('onboarding.services.emptyTitle')}
+          message={t('onboarding.services.emptyMessage')}
+        />
       ) : (
-        <View className="gap-3">
+        <View className="flex-row flex-wrap gap-2">
           {catalogue.data.services.map((service) => (
-            <SelectableCard
+            <SelectableServiceTile
               key={service.id}
               label={service.name}
-              imageUri={service.icon}
+              icon={service.icon}
               selected={selected.includes(service.id)}
               onToggle={() => toggle(service.id)}
             />

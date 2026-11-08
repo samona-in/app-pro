@@ -2,11 +2,17 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { LOCATION_DEFAULTS } from '@samona/config';
-import { OnboardingStepLayout, SelectableCard } from '@/components/onboarding';
+import { OnboardingStepLayout } from '@/components/onboarding';
+import { ServiceRadiusSlider, Text } from '@/components/ui';
 import { useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
 
-const RADIUS_OPTIONS = [5, 10, 15, 20];
-
+/**
+ * "How far will you travel?", asked with the same slider as the profile's
+ * Service area screen so the control reads identically in both places.
+ *
+ * The slider owns the thumb while it is dragged; the chosen whole kilometre is
+ * saved when the Pro continues, keeping the step's save-on-Continue contract.
+ */
 export default function OnboardingRadius() {
   const { t } = useTranslation();
   const { data: profile } = useProProfile();
@@ -24,23 +30,39 @@ export default function OnboardingRadius() {
 
   return (
     <OnboardingStepLayout
-      step="radius"
       title={t('onboarding.radius.title')}
       subtitle={t('onboarding.radius.subtitle')}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
       error={save.isError ? t('onboarding.radius.saveError') : null}
     >
-      <View className="gap-3">
-        {RADIUS_OPTIONS.map((option) => (
-          <SelectableCard
-            key={option}
-            label={t('format.km', { value: option })}
-            single
-            selected={radius === option}
-            onToggle={() => setRadius(option)}
+      <View className="rounded-2xl border border-border bg-surface-muted px-5 pb-4 pt-5">
+        <View className="flex-row items-center">
+          <Text variant="body" className="flex-1 font-semibold">
+            {t('onboarding.radius.current')}
+          </Text>
+          <Text variant="titleLg">{t('format.km', { value: radius })}</Text>
+        </View>
+
+        <View className="mt-6">
+          <ServiceRadiusSlider
+            value={radius}
+            min={LOCATION_DEFAULTS.minServiceRadiusKm}
+            max={LOCATION_DEFAULTS.maxServiceRadiusKm}
+            disabled={save.isPending}
+            onValueChange={setRadius}
+            onRelease={setRadius}
+            accessibilityLabel={t('onboarding.radius.sliderA11y')}
           />
-        ))}
+          <View className="mt-1 flex-row justify-between px-5">
+            <Text variant="footnote" className="text-text-muted">
+              {t('format.km', { value: LOCATION_DEFAULTS.minServiceRadiusKm })}
+            </Text>
+            <Text variant="footnote" className="text-text-muted">
+              {t('format.km', { value: LOCATION_DEFAULTS.maxServiceRadiusKm })}
+            </Text>
+          </View>
+        </View>
       </View>
     </OnboardingStepLayout>
   );

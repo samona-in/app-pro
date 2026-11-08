@@ -50,6 +50,12 @@ export function useUploadDocument() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.documents });
+      // A submitted document can satisfy the onboarding gate, so the profile's
+      // `hasDocuments`/status and the session's routing decision are now stale.
+      // Refreshing both keeps Home's completion state current without waiting
+      // for the next focus.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.proProfile });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });
 }

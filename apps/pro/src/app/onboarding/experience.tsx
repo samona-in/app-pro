@@ -19,7 +19,6 @@ export default function OnboardingExperience() {
 
   return (
     <OnboardingStepLayout
-      step="experience"
       title={t('onboarding.experience.title')}
       subtitle={t('onboarding.experience.subtitle')}
       onPrimary={() => void onContinue()}

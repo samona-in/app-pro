@@ -11,6 +11,11 @@ export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 /** What the picker offers and what the server's allowlist accepts. */
 export const DOCUMENT_PICKER_TYPES: string[] = [...DOCUMENT_CONTENT_TYPES];
 
+/** Membership test against the shared allowlist (the schema source of truth). */
+export function isAllowedDocumentContentType(contentType: string): boolean {
+  return (DOCUMENT_CONTENT_TYPES as readonly string[]).includes(contentType);
+}
+
 /**
  * How one document row presents itself.
  *
