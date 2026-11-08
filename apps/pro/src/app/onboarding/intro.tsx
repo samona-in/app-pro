@@ -7,7 +7,10 @@ import { Text } from '@/components/ui';
 import type { TranslationKey } from '@/i18n';
 import { color } from '@/theme';
 
-const PROMISES: { icon: 'briefcase-outline' | 'map-outline' | 'wallet-outline'; tKey: TranslationKey }[] = [
+const PROMISES: {
+  icon: 'briefcase-outline' | 'map-outline' | 'wallet-outline';
+  tKey: TranslationKey;
+}[] = [
   { icon: 'briefcase-outline', tKey: 'onboarding.intro.promiseJobs' },
   { icon: 'map-outline', tKey: 'onboarding.intro.promiseArea' },
   { icon: 'wallet-outline', tKey: 'onboarding.intro.promisePay' },
@@ -17,7 +20,6 @@ export default function OnboardingIntro() {
   const { t } = useTranslation();
   return (
     <OnboardingStepLayout
-      step="intro"
       title={t('onboarding.intro.title')}
       subtitle={t('onboarding.intro.subtitle')}
       primaryLabel={t('onboarding.intro.getStarted')}

@@ -15,8 +15,8 @@ import { useCatalogue, useProProfile, useSession } from '@/hooks';
 
 /**
  * The review step reads as two clean lists — the pro's identity in a soft
- * band, then a plain divider-separated summary — with an unboxed "About you"
- * block beneath. No cards, mirroring the customer app's list language.
+ * band, then a plain divider-separated summary. No cards, mirroring the
+ * customer app's list language.
  */
 function SummaryList({ children }: { children: ReactNode }) {
   return <View>{children}</View>;
@@ -37,7 +37,6 @@ export default function OnboardingReview() {
     return {
       gender: GENDER_OPTIONS.find((option) => option.value === profile.gender)?.label ?? '—',
       services: names(profile.serviceIds, catalogue.data.services),
-      skills: names(profile.skillIds, catalogue.data.skills),
       experience:
         EXPERIENCE_LEVELS.find((level) => level.value === profile.experienceLevel)?.label ?? '—',
     };
@@ -52,7 +51,6 @@ export default function OnboardingReview() {
   const rows = [
     { label: t('onboarding.review.gender'), value: summary.gender },
     { label: t('onboarding.review.services'), value: summary.services.join(', ') || '—' },
-    { label: t('onboarding.review.specialties'), value: summary.skills.join(', ') || '—' },
     {
       label: t('onboarding.review.travelsUpTo', {
         distance: t('format.km', { value: profile.serviceRadiusKm }),
@@ -78,7 +76,6 @@ export default function OnboardingReview() {
 
   return (
     <OnboardingStepLayout
-      step="review"
       title={complete ? t('onboarding.review.readyTitle') : t('onboarding.review.almostThere')}
       subtitle={
         complete ? t('onboarding.review.readyMessage') : t('onboarding.review.incompleteMessage')
@@ -124,15 +121,6 @@ export default function OnboardingReview() {
           </View>
         ))}
       </SummaryList>
-
-      {profile.bio ? (
-        <View className="mt-6">
-          <Text variant="label">{t('onboarding.review.aboutYou')}</Text>
-          <Text variant="body" className="mt-2 text-text-secondary">
-            {profile.bio}
-          </Text>
-        </View>
-      ) : null}
 
       <Text variant="caption" className="mt-4 text-text-muted">
         {t('onboarding.review.footerNote')}

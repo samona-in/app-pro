@@ -34,17 +34,13 @@ export function createDocumentsRouter(services: Services): Router {
   router.use(requireAuth, requireRole('PRO', 'ADMIN'));
 
   /** Step 1: a one-time URL the app streams the document bytes to. */
-  router.post(
-    '/upload-url',
-    validate(documentUploadStartSchema),
-    async (req, res, next) => {
-      try {
-        res.json(await services.documents.startUpload(req.user!.id, req.body));
-      } catch (error) {
-        next(error);
-      }
-    },
-  );
+  router.post('/upload-url', validate(documentUploadStartSchema), async (req, res, next) => {
+    try {
+      res.json(await services.documents.startUpload(req.user!.id, req.body));
+    } catch (error) {
+      next(error);
+    }
+  });
 
   /**
    * Step 3: confirm the PUT finished and record the document as PENDING.
@@ -54,7 +50,12 @@ export function createDocumentsRouter(services: Services): Router {
    */
   router.post('/complete', validate(documentCompleteSchema), async (req, res, next) => {
     try {
-      res.status(201).json(await services.documents.completeUpload(req.user!.id, req.body));
+      const document = await services.documents.completeUpload(req.user!.id, req.body);
+      // The first document is the last gate on onboarding, so re-derive the
+      // profile's status once a row lands. Without this the Pro would stay
+      // IN_PROGRESS until their next profile edit.
+      await services.pros.recomputeOnboardingStatus(req.user!.id);
+      res.status(201).json(document);
     } catch (error) {
       next(error);
     }

@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, type LayoutChangeEvent } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -12,14 +12,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Text } from '@/components/ui';
 import { ServicesVerificationCard } from '@/components/services/ServicesVerificationCard';
-import { ProfileCompletionWidget } from '@/components/home/ProfileCompletionWidget';
-import { useProProfile } from '@/hooks';
+import { CompleteProfileCard } from '@/components/home/CompleteProfileCard';
+import { useProProfile, useProfileCompletion, useSession } from '@/hooks';
 import { color } from '@/theme';
 
 /**
- * Collapsed sheet height. It is chosen to fit the grab handle plus the whole
- * "Your Services" block, so the pro sees their services without dragging and
- * the sheet does not eat more map than it needs to.
+ * Collapsed sheet height. It is chosen to fit the grab handle plus whichever
+ * compact first section is showing — the services row, or the complete-profile
+ * prompt — so the pro sees the most relevant thing without dragging and the
+ * sheet does not eat more map than it needs to.
  */
 const COLLAPSED_HEIGHT = 172;
 const EXPANDED_RATIO = 0.82;
@@ -60,16 +61,66 @@ function SectionHeader({
 /**
  * The Home bottom sheet.
  *
- * The collapsed state already shows the pro's services — the thing they most
- * often need to check — while profile standing and the brand line appear when
- * the sheet is pulled up. The grab area is only the handle, so dragging it
- * never competes with map panning; the scroll body is disabled until the sheet
- * is fully expanded, so the same drag cannot fight a nested scroll either.
+ * The collapsed state already shows the thing the pro most often needs: their
+ * services once the profile is ready, or the prompt to finish it if it is not.
+ * "Ready" means onboarding is complete *and* the admin review has verified the
+ * profile — a Pro waiting on document/verification approval is not yet
+ * receiving requests, so the services block would be misleading. The profile
+ * standing and brand line appear when the sheet is pulled up. The grab area is
+ * only the handle, so dragging it never competes with map panning; the scroll
+ * body is disabled until the sheet is fully expanded, so the same drag cannot
+ * fight a nested scroll either.
  */
 export const HomeSheet = memo(function HomeSheet() {
   const { t } = useTranslation();
   const { data: profile } = useProProfile();
+  // The server's routing decision, not a local re-derivation: Home shows the
+  // services block only once onboarding is actually COMPLETED, and the same
+  // session `nextStep` resumes the flow while it is not.
+  const { isOnboardingComplete, nextStep: onboardingNextStep } = useSession();
+  const {
+    isVerified,
+    isPending: isCompletionLoading,
+    isError: isCompletionError,
+    nextStep,
+    refetch: refetchCompletion,
+  } = useProfileCompletion();
   const hasServices = (profile?.proServices ?? []).length > 0;
+
+  // Verification is the last milestone. Documents waiting on review are the
+  // same wait, because the ID proof cannot be approved until they are. While
+  // either is outstanding the Pro still sees the completion prompt, not the
+  // services they cannot yet be booked for. Completion data is skipped until
+  // it is trustworthy, so a verified Pro never flashes the prompt on load or
+  // loses their services to a failed documents request.
+  const isAwaitingVerification =
+    !isCompletionLoading &&
+    !isCompletionError &&
+    !isVerified &&
+    (nextStep?.key === 'verification' || nextStep?.key === 'documents');
+  const showCompletionPrompt = !isOnboardingComplete || isAwaitingVerification;
+
+  // Resume onboarding at the server's own step (the session already carries
+  // it). Once onboarding is done, the completion derivation owns the route:
+  // Documents while review is pending, or the read-only verification status.
+  const nextRoute = isAwaitingVerification
+    ? nextStep?.route
+    : `/onboarding/${onboardingNextStep ?? 'intro'}`;
+
+  // Refresh when Home regains focus (returning from Documents, Manage Services
+  // or another tab) so an admin verdict that landed while the Pro was away is
+  // reflected immediately. The first focus is skipped because the queries are
+  // already fetching on mount.
+  const hasFocused = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasFocused.current) {
+        hasFocused.current = true;
+        return;
+      }
+      void refetchCompletion();
+    }, [refetchCompletion]),
+  );
 
   const [height, setHeight] = useState(0);
   const [snapIndex, setSnapIndex] = useState(2);
@@ -186,7 +237,13 @@ export const HomeSheet = memo(function HomeSheet() {
               className="flex-1"
               contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 28, paddingTop: 4 }}
             >
-              {hasServices ? (
+              {showCompletionPrompt ? (
+                // The profile is either unfinished or still under review, so
+                // the CTA resumes at the derived next step (onboarding, a
+                // document re-upload, or the read-only verification status)
+                // and the services block is hidden, including its verdicts.
+                <CompleteProfileCard nextRoute={nextRoute} />
+              ) : hasServices ? (
                 // The shared card carries the verification status (accepted,
                 // pending, rejected) and the rejection reason, so Home keeps
                 // surfacing a service that still needs the pro's attention.
@@ -215,8 +272,6 @@ export const HomeSheet = memo(function HomeSheet() {
                   </View>
                 </View>
               )}
-
-              <ProfileCompletionWidget />
 
               <View className="mt-8 items-center">
                 <Text variant="caption" className="text-text-muted">

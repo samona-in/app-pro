@@ -36,6 +36,7 @@ const baseRow = {
     },
   ],
   skills: [{ skillId: 'skl-1' }],
+  documents: [{ id: 'doc-1' }],
 };
 
 const base: ProProfile = {
@@ -59,6 +60,7 @@ const base: ProProfile = {
   hasSelfie: true,
   selfiePhotoUrl:
     'https://project.supabase.co/storage/v1/object/public/pro-selfies/pros/user-1/selfie.jpg',
+  hasDocuments: true,
   serviceIds: ['svc-1'],
   skillIds: ['skl-1'],
   proServices: [
@@ -89,16 +91,16 @@ describe('isProProfileComplete', () => {
     ['no gender', { gender: null }],
     ['no experience', { experienceLevel: null }],
     ['no services', { serviceIds: [] }],
-    ['no specialties', { skillIds: [] }],
     ['no service radius', { serviceRadiusKm: 0 }],
     ['no face verification', { hasSelfie: false }],
+    ['no documents', { hasDocuments: false }],
   ])('rejects a profile with %s', (_label, patch) => {
     expect(isProProfileComplete({ ...base, ...patch } as ProProfile)).toBe(false);
   });
 
   it('does not require optional detail that is collected later', () => {
-    // Bio, languages, documents and payout details must never block a Pro who
-    // is otherwise ready to work. They are absent from the parameter type
+    // Bio, languages and payout details must never block a Pro who is
+    // otherwise ready to work. They are absent from the parameter type
     // entirely, so completeness cannot come to depend on them by accident.
     const withoutOptionalDetail: ProProfile = { ...base, bio: null, languages: [] };
 
@@ -112,13 +114,22 @@ describe('nextIncompleteStep', () => {
   });
 
   it('resumes at the first unanswered step', () => {
-    // The resume case: services chosen, specialties not.
-    expect(nextIncompleteStep({ ...base, skillIds: [], experienceLevel: null })).toBe('skills');
+    // The resume case: services chosen, experience not yet answered.
+    expect(nextIncompleteStep({ ...base, experienceLevel: null })).toBe('experience');
   });
 
   it('asks for the face verification after the answers are in', () => {
     // Everything else answered, selfie missing: the last question before review.
     expect(nextIncompleteStep({ ...base, hasSelfie: false })).toBe('face');
+  });
+
+  it('asks for a document before the face check', () => {
+    // At least one document is mandatory and is asked before the face check,
+    // which is the final question.
+    expect(nextIncompleteStep({ ...base, hasDocuments: false })).toBe('documents');
+    expect(nextIncompleteStep({ ...base, hasDocuments: false, hasSelfie: false })).toBe(
+      'documents',
+    );
   });
 
   it('asks for the name before anything else', () => {
@@ -140,7 +151,8 @@ describe('nextIncompleteStep', () => {
     };
 
     expect(nextIncompleteStep(empty)).toBe('name');
-    expect(nextIncompleteStep({ ...empty, displayName: 'Asha' })).toBe('gender');
+    // Name and gender share one screen, so a missing gender resumes there too.
+    expect(nextIncompleteStep({ ...empty, displayName: 'Asha' })).toBe('name');
     expect(nextIncompleteStep({ ...empty, displayName: 'Asha', gender: 'FEMALE' })).toBe(
       'services',
     );
@@ -151,35 +163,34 @@ describe('nextIncompleteStep', () => {
         gender: 'FEMALE',
         serviceIds: ['s'],
       }),
-    ).toBe('skills');
+    ).toBe('experience');
     expect(
       nextIncompleteStep({
         ...empty,
         displayName: 'Asha',
         gender: 'FEMALE',
         serviceIds: ['s'],
-        skillIds: ['k'],
+        experienceLevel: 'THREE_TO_FIVE',
       }),
-    ).toBe('experience');
+    ).toBe('review');
   });
 
-  it('keeps the face step between about and review in the shared step list', () => {
-    // The progress bar and resume routing both read this array; the face step
-    // must sit immediately before review so "almost there" stays accurate.
+  it('keeps the face step last in the shared step list', () => {
+    // Documents sit between about and face, and face is the final question
+    // before review.
     const steps = ONBOARDING_STEPS;
-    expect(steps.indexOf('gender')).toBe(steps.indexOf('name') + 1);
-    expect(steps.indexOf('face')).toBe(steps.indexOf('about') + 1);
+    expect(steps.indexOf('documents')).toBe(steps.indexOf('about') + 1);
+    expect(steps.indexOf('face')).toBe(steps.indexOf('documents') + 1);
     expect(steps[steps.length - 1]).toBe('review');
     expect(steps).toEqual([
       'intro',
       'name',
-      'gender',
       'services',
-      'skills',
       'experience',
       'location',
       'radius',
       'about',
+      'documents',
       'face',
       'review',
     ]);
@@ -238,6 +249,32 @@ describe('setSelfieUploaded', () => {
     expect(profile.selfiePhotoUrl).toBe('https://cdn.test/pros/user-1/selfie.jpg');
 
     // ...which flips an otherwise-finished profile to COMPLETED.
+    expect(profile.onboardingStatus).toBe(OnboardingStatus.COMPLETED);
+  });
+
+  it('keeps a profile IN_PROGRESS when no document exists', async () => {
+    const { service } = buildService({ ...baseRow, documents: [] });
+
+    const profile = await service.setSelfieUploaded('user-1');
+
+    expect(profile.hasDocuments).toBe(false);
+    expect(profile.onboardingStatus).toBe(OnboardingStatus.IN_PROGRESS);
+    expect(nextIncompleteStep(profile)).toBe('documents');
+  });
+
+  it('never downgrades a profile that already completed onboarding', async () => {
+    // Existing Pros predate the document requirement. A recompute must not
+    // eject them, even though they have no documents on file.
+    const completedRow = {
+      ...baseRow,
+      onboardingStatus: OnboardingStatus.COMPLETED,
+      documents: [],
+    };
+    const { service } = buildService(completedRow);
+
+    const profile = await service.recomputeOnboardingStatus('user-1');
+
+    expect(profile.hasDocuments).toBe(false);
     expect(profile.onboardingStatus).toBe(OnboardingStatus.COMPLETED);
   });
 });

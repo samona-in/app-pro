@@ -17,6 +17,8 @@ export interface ServiceImageProps {
   uri?: string | null;
   className?: string;
   accessibilityLabel?: string;
+  /** Drops the muted placeholder fill, e.g. on a tile that has no background. */
+  transparent?: boolean;
 }
 
 /**
@@ -28,11 +30,16 @@ export interface ServiceImageProps {
  * stored value is null or a leftover legacy Ionicons name the tile stays empty,
  * so nothing ever flashes a broken image.
  */
-export function ServiceImage({ uri, className, accessibilityLabel }: ServiceImageProps) {
+export function ServiceImage({
+  uri,
+  className,
+  accessibilityLabel,
+  transparent = false,
+}: ServiceImageProps) {
   const hasImage = uri != null && isImageUrl(uri);
 
   return (
-    <View className={cn('overflow-hidden bg-surface-muted', className)}>
+    <View className={cn('overflow-hidden', !transparent && 'bg-surface-muted', className)}>
       {hasImage ? (
         <Image
           source={uri}

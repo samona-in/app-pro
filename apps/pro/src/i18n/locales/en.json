@@ -99,11 +99,12 @@
       "promisePay": "Get paid for every completed job"
     },
     "name": {
-      "title": "What's your name?",
+      "title": "Tell us about yourself",
       "subtitle": "Customers see this when you accept their job.",
       "label": "Full name",
       "placeholder": "e.g. Asha Kumar",
-      "saveError": "Could not save your name. Please try again."
+      "genderLabel": "Gender",
+      "saveError": "Could not save your details. Please try again."
     },
     "gender": {
       "title": "What's your gender?",
@@ -125,17 +126,6 @@
       "nSelected_one": "{{count}} selected",
       "nSelected_other": "{{count}} selected"
     },
-    "skills": {
-      "loading": "Loading specialties",
-      "title": "What are your specialties?",
-      "subtitle": "Being specific helps us send you the right jobs.",
-      "saveError": "Could not save your specialties. Please try again.",
-      "chooseServiceTitle": "Choose a service first",
-      "chooseServiceMessage": "Go back a step and pick the services you provide.",
-      "backToServices": "Back to services",
-      "nSelected_one": "{{count}} selected",
-      "nSelected_other": "{{count}} selected"
-    },
     "experience": {
       "title": "How much experience do you have?",
       "subtitle": "Customers see this on your profile.",
@@ -151,8 +141,9 @@
     "location": {
       "permDeclined": "Permission declined — drag the map to your work area instead.",
       "readError": "Could not read your location. You can still continue.",
+      "preciseFixError": "Could not get a precise fix — drag the map to your work area instead.",
       "title": "Where do you work?",
-      "subtitle": "Drag the map so the pin sits on your work area, or use your current location.",
+      "subtitle": "Drag the map so the pin sits on your work area.",
       "saveError": "Could not save your location. Please try again.",
       "serviceAreaLabel": "Service area",
       "releaseToSet": "Release to set this spot",
@@ -164,15 +155,14 @@
     "radius": {
       "title": "How far will you travel?",
       "subtitle": "Customers outside this distance won't see your profile.",
+      "current": "Service area",
+      "sliderA11y": "How far you will travel",
       "saveError": "Could not save your service area. Please try again."
     },
     "about": {
-      "title": "Tell customers about yourself",
-      "subtitle": "Write a short introduction so customers know who you are. You can skip it.",
-      "saveError": "Could not save. Please try again.",
-      "aboutYou": "About you",
-      "bioPlaceholder": "e.g. 8 years repairing split and window ACs across Hyderabad.",
-      "languagesLabel": "Languages you speak"
+      "title": "Which languages do you speak?",
+      "subtitle": "Pick every language you can work in. Customers use this to find someone they can talk to.",
+      "saveError": "Could not save. Please try again."
     },
     "face": {
       "title": "Let's verify it's you",
@@ -187,6 +177,12 @@
       "usePhoto": "Use this photo",
       "retake": "Retake"
     },
+    "documents": {
+      "title": "Add your documents",
+      "subtitle": "Upload at least one document so our review team can verify you. You can add the rest later from your profile.",
+      "requiredHint": "Upload at least one document to continue.",
+      "ready": "Document received — tap Continue when you're ready."
+    },
     "review": {
       "readyTitle": "You're ready to receive jobs",
       "almostThere": "Almost there",
@@ -199,10 +195,8 @@
       "incomplete": "Incomplete",
       "gender": "Gender",
       "services": "Services",
-      "specialties": "Specialties",
       "travelsUpTo": "Travels up to {{distance}}",
       "languages": "Languages",
-      "aboutYou": "About you",
       "footerNote": "Documents, payout details and certifications can be added later from your profile."
     }
   },
@@ -276,6 +270,9 @@
       "requestsWithCount_other": "{{count}} requests",
       "yourProgress": "Your progress",
       "viewEarnings": "View earnings",
+      "completeProfileTitle": "Complete Your Profile",
+      "completeProfileBody": "Complete your profile to start receiving service requests.",
+      "completeProfileCta": "Complete Profile",
       "yourServices": "Your services",
       "manageServices": "Manage services",
       "noServices": "You haven't been approved for any services yet.",
