@@ -88,15 +88,11 @@ export function BookingRow({ job, className, ...rest }: BookingRowProps) {
       accessibilityRole="button"
       accessibilityLabel={`${title} booking, ${bookingStatusLabel(job.status)}`}
       onPress={() => router.push(`/booking/${job.id}`)}
-      className={cn('flex-row items-center gap-3 px-5 py-4 active:opacity-70', className)}
+      className={cn('flex-row items-center gap-3 px-4 py-4 active:opacity-70', className)}
       {...rest}
     >
       <View className="relative">
-        <ServiceImage
-          uri={artwork}
-          accessibilityLabel={title}
-          className="h-16 w-16 rounded-lg"
-        />
+        <ServiceImage uri={artwork} accessibilityLabel={title} className="h-16 w-16 rounded-lg" />
         {/* Unread-chat badge pinned to the thumbnail; the row opens the booking. */}
         <UnreadBadge count={unread.countFor(job.id)} className="absolute -right-2 -top-2" />
       </View>

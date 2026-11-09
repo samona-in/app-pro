@@ -12,10 +12,11 @@ export interface ServiceGridProps extends ViewProps {
 }
 
 /**
- * 3-column grid of service categories.
+ * 4-column grid of service categories.
  *
- * Renders a same-width tile per row with generous vertical spacing between
- * rows, wrapping the last row naturally.
+ * Each column takes exactly a quarter of the content width, so the centres —
+ * and the gutters between them — stay even on every screen size. Only vertical
+ * spacing is added inside the grid: the page owns the outer gutter.
  */
 export function ServiceGrid({
   services,
@@ -25,9 +26,9 @@ export function ServiceGrid({
   ...rest
 }: ServiceGridProps) {
   return (
-    <View className={cn('flex-row flex-wrap', className)} {...rest}>
+    <View className={cn('flex-row flex-wrap gap-y-5', className)} {...rest}>
       {services.map((service) => (
-        <View key={service.id} className="mb-7 w-1/3">
+        <View key={service.id} className="w-1/4">
           <ServiceCard
             service={service}
             active={service.slug === activeSlug}

@@ -1,25 +1,14 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import type { PopularSkill } from '@samona/types';
 import { PopularSkills } from '../PopularSkills';
+import { SectionHeader } from '../SectionHeader';
 
 /** Lets the icon font settle so the component stops updating. */
 async function settle() {
   await act(async () => {
     await Promise.resolve();
   });
-}
-
-/**
- * The pixel value of a `mt-*` or `h-*` class, or null when it is not set.
- * Both scales are 4px per unit; `mt-[2px]` and `h-[40px]` are read as written.
- */
-function pixels(className: string, prefix: 'mt' | 'h'): number | null {
-  const arbitrary = className.match(new RegExp(`${prefix}-\\[(\\d+(?:\\.\\d+)?)px\\]`));
-  if (arbitrary) return Number(arbitrary[1]);
-  const token = className.match(new RegExp(`(?:^|\\s)${prefix}-(\\d+(?:\\.\\d+)?)(?:\\s|$)`));
-  return token ? Number(token[1]) * 4 : null;
 }
 
 function skill(overrides: Partial<PopularSkill> = {}): PopularSkill {
@@ -62,16 +51,30 @@ describe('PopularSkills', () => {
     expect(screen.getByText('Electrician')).toBeTruthy();
   });
 
-  it('flags the first skill as the top pick', async () => {
+  it('flags the first skill with a black top-pick badge', async () => {
     render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
     await settle();
 
-    expect(screen.getByLabelText('Top pick')).toBeTruthy();
+    const badge = screen.getByLabelText('Top pick');
+    expect(badge.props.className).toMatch(/(^|\s)bg-black(\s|$)/);
 
-    // The badge is the trending-up glyph on its own — no flame, no word.
-    const icons = screen.UNSAFE_getAllByType(Ionicons);
-    expect(icons.some((icon) => icon.props.name === 'trending-up')).toBe(true);
-    expect(icons.some((icon) => icon.props.name === 'flame')).toBe(false);
+    const label = screen.getByText('Top pick');
+    expect(label.props.className).toMatch(/(^|\s)text-white(\s|$)/);
+    expect(label.props.className).toMatch(/font-semibold/);
+  });
+
+  it('wraps every skill in a bordered card with a fixed-name box', async () => {
+    render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
+    await settle();
+
+    const card = screen.getByLabelText('Plumbing leak repair');
+    expect(card.props.className).toMatch(/rounded-2xl/);
+    expect(card.props.className).toMatch(/border-border/);
+
+    // The two-line box keeps every card's label on the same baseline.
+    const name = screen.getByText('Plumbing leak repair');
+    expect(name.props.className).toMatch(/(^|\s)h-9(\s|$)/);
+    expect(name.props.className).toMatch(/text-text-primary/);
   });
 
   it('reports the tapped skill', async () => {
@@ -101,49 +104,21 @@ describe('PopularSkills', () => {
     expect(screen.queryByText('Popular right now')).toBeNull();
   });
 
-  it('sets the skill name in plain black, tight to the artwork', async () => {
+  it('lays the heading and the rail on the same 16px gutter', async () => {
     render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
     await settle();
 
-    const name = screen.getByText('Plumbing leak repair');
-
-    // The name leans on colour, not weight: regular weight, absolute black
-    // rather than one of the greys the footnote variant would give it.
-    expect(name.props.className).not.toMatch(/font-(bold|semibold|medium|extrabold)/);
-    expect(name.props.className).toMatch(/(^|\s)text-black(\s|$)/);
-
-    // Tight to the artwork...
-    expect(pixels(name.props.className, 'mt')).toBeLessThanOrEqual(4);
-
-    // ...and the fixed box is taller than the two lines of type it holds,
-    // which is what opens the gap down to the service name and keeps every
-    // service label in the rail on the same line.
-    expect(pixels(name.props.className, 'h')).toBeGreaterThan(36);
-  });
-
-  it('keeps the first skill clear of the screen edge', () => {
-    render(<PopularSkills skills={skills} onSelect={jest.fn()} />);
+    const section = screen.getByTestId('popular-right-now');
+    expect(section.props.className ?? '').not.toMatch(/-m[lr]-/);
 
     const rail = screen.UNSAFE_getByType(ScrollView);
+    expect(rail.props.contentContainerStyle).toEqual(
+      expect.objectContaining({ paddingHorizontal: 16, gap: 12 }),
+    );
 
-    // The section carries a left gutter only, so the rail stops clear of the
-    // left edge but still runs full-bleed to the right.
-    const sectionClass = screen.getByTestId('popular-right-now').props.className;
-    expect(sectionClass).toMatch(/(^|\s)pl-4(\s|$)/);
-    expect(sectionClass).not.toMatch(/(^|\s)pr-/);
-
-    // A negative margin on the rail would pull the first skill past the left
-    // edge of the screen; the section's gutter plus this content padding is
-    // what insets it instead.
-    expect(rail.props.className ?? '').not.toMatch(/-m[lr]-/);
-    expect(rail.props.contentContainerStyle.paddingLeft).toBeGreaterThanOrEqual(8);
-
-    // Nothing pads the right side, so the rail bleeds to the screen edge.
-    expect(rail.props.contentContainerStyle.paddingRight ?? 0).toBe(0);
-
-    // The top-pick badge sits over the artwork's corner and reaches above it.
-    // The rail clips its content, so it needs that room or the badge loses its
-    // top.
-    expect(rail.props.contentContainerStyle.paddingTop).toBeGreaterThanOrEqual(8);
+    // The heading carries the page gutter; the section itself does not add one
+    // on top of the rail's content padding.
+    const heading = screen.UNSAFE_getByType(SectionHeader);
+    expect(heading.props.className).toMatch(/(^|\s)px-4(\s|$)/);
   });
 });

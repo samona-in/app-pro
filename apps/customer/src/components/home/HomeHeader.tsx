@@ -7,7 +7,7 @@ import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 
 export interface HomeHeaderProps extends Omit<PressableProps, 'style' | 'children'> {
-  /** The customer's location label shown under the pin. */
+  /** The customer's location label shown under the caption. */
   locationLabel?: string;
   /**
    * The caption above the location label — "Your location" by default, or the
@@ -18,8 +18,6 @@ export interface HomeHeaderProps extends Omit<PressableProps, 'style' | 'childre
   /** Content rendered on the right of the location row (e.g. notifications). */
   trailing?: ReactNode;
   className?: string;
-  /** When true, render the header in the brand blue hero style (variant A). */
-  variant?: 'light' | 'blue';
   /**
    * When true the header pads itself for the status bar. Set false when the
    * parent already reserves that inset, as the sticky home layout does.
@@ -30,9 +28,10 @@ export interface HomeHeaderProps extends Omit<PressableProps, 'style' | 'childre
 /**
  * Location row for the customer home.
  *
- * Only the location row lives here. The search bar and banner are rendered as
- * separate scroll children of the home screen, so the search bar can be pinned
- * with `stickyHeaderIndices` while this header scrolls away.
+ * A quiet white header in the Zomato mould: a small pin-and-caption line over
+ * the current location, a chevron that signals the address picker, and the
+ * notification bell on the right. The search bar is a separate scroll child so
+ * it can pin beneath this row while everything else scrolls away.
  */
 export function HomeHeader({
   locationLabel = 'Set your location',
@@ -40,17 +39,15 @@ export function HomeHeader({
   onPress,
   trailing,
   className,
-  variant = 'light',
   safeAreaTop = true,
   ...rest
 }: HomeHeaderProps) {
   const insets = useSafeAreaInsets();
-  const isBlue = variant === 'blue';
 
   return (
     <View
-      style={{ paddingTop: safeAreaTop ? insets.top + 8 : 8 }}
-      className={cn('px-4', isBlue ? 'bg-brand' : 'bg-surface-muted', className)}
+      style={{ paddingTop: safeAreaTop ? insets.top + 8 : 12 }}
+      className={cn('bg-surface px-4 pb-1', className)}
     >
       <View className="flex-row items-center justify-between">
         <Pressable
@@ -60,29 +57,24 @@ export function HomeHeader({
           className="flex-1 flex-row items-center active:opacity-70"
           {...rest}
         >
-          <View
-            className={cn(
-              'h-10 w-10 items-center justify-center rounded-full',
-              isBlue ? 'bg-white' : 'bg-brand',
-            )}
-          >
-            <Ionicons
-              name="location"
-              size={20}
-              color={isBlue ? color.brand : color['brand-contrast']}
-            />
-          </View>
-          <View className="ml-3 flex-1">
-            <Text variant="caption" className={isBlue ? 'text-white/70' : 'text-brand-muted'}>
-              {locationCaption}
-            </Text>
-            <Text
-              numberOfLines={1}
-              variant="footnote"
-              className={cn('mt-0.5 font-semibold', isBlue ? 'text-white' : 'text-text-primary')}
-            >
-              {locationLabel}
-            </Text>
+          <View className="flex-1">
+            <View className="flex-row items-center">
+              <Ionicons name="location-sharp" size={12} color={color['text-muted']} />
+              <Text numberOfLines={1} variant="caption" className="ml-1 shrink">
+                {locationCaption}
+              </Text>
+            </View>
+
+            <View className="mt-0.5 flex-row items-center">
+              <Text
+                numberOfLines={1}
+                variant="bodyLg"
+                className="mr-1 shrink font-semibold text-text-primary"
+              >
+                {locationLabel}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color={color['text-primary']} />
+            </View>
           </View>
         </Pressable>
 

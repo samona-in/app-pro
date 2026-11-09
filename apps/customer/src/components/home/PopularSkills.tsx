@@ -1,10 +1,7 @@
-import { Pressable, ScrollView, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
 import type { PopularSkill } from '@samona/types';
 import { ServiceImage } from './ServiceImage';
-import { Text } from '@/components/ui';
-import { color } from '@/theme';
-import { cn } from '@/utils/cn';
+import { SectionHeader } from './SectionHeader';
 
 export interface PopularSkillsProps {
   /** The curated skills, in the order the server returned them. */
@@ -19,87 +16,74 @@ export interface PopularSkillsProps {
 /**
  * The "Popular right now" rail under the service grid on the customer home.
  *
- * Deliberately not a row of cards: the artwork and the type carry the section
- * on their own, with no box, border or shadow around a skill. The rail
- * scrolls sideways, so a skill past the third is one swipe away.
+ * Zomato-style cards: a bordered white card with the skill artwork on top, the
+ * name and its parent service beneath, and a black "Top pick" badge on the
+ * first card. The rail scrolls sideways, so a skill past the second is one
+ * swipe away. Every skill opens the booking flow with that skill already
+ * chosen.
  *
- * The first skill is flagged as the top pick, and every skill opens the
- * booking flow with that skill already chosen.
+ * The heading and the rail share the same 16px page gutter; the rail keeps
+ * that gutter at both ends so the first card lines up with the heading and the
+ * last card can scroll clear of the screen edge.
  */
 export function PopularSkills({ skills, onSelect, onSeeAll, className }: PopularSkillsProps) {
   if (skills.length === 0) return null;
 
   return (
-    <View testID="popular-right-now" className={cn('pb-2 pl-4', className)}>
-      <View className="flex-row items-center justify-between px-2">
-        <View className="flex-row items-center gap-1.5">
-          <Text variant="bodyLg" className="font-semibold text-text-primary">
-            Popular right now
-          </Text>
-        </View>
+    <View testID="popular-right-now" className={className}>
+      <SectionHeader
+        title="Popular right now"
+        className="px-4"
+        actionAccessibilityLabel="See all popular skills"
+        onPressAction={onSeeAll}
+      />
 
-        {onSeeAll ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="See all popular skills"
-            onPress={onSeeAll}
-            className="flex-row items-center active:opacity-70"
-          >
-            <Text variant="footnote" className="font-semibold text-brand">
-              See all
-            </Text>
-            <Ionicons name="chevron-forward" size={13} color={color.brand} />
-          </Pressable>
-        ) : null}
-      </View>
-
-      {/* The section is inset on the left only — a 16px gutter so the rail sits
-          clear of the screen edge — and runs full-bleed to the right, so the
-          next skill peeks in from the edge as the rail scrolls. Inside that
-          gutter the heading and the first skill both land at 24px, and the 8px
-          start padding leaves room for the top-pick badge, which overhangs the
-          artwork's corner and would otherwise be clipped by the rail. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        className="mt-1"
-        contentContainerStyle={{ paddingLeft: 8, paddingTop: 12, gap: 4 }}
+        className="mt-3"
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
       >
-        {skills.map((skill) => (
-          <Pressable
-            key={skill.id}
-            accessibilityRole="button"
-            accessibilityLabel={skill.name}
-            onPress={() => onSelect(skill)}
-            className="w-24"
-          >
-            <View>
-              <ServiceImage
-                uri={skill.icon ?? skill.service.icon}
-                className="h-16 w-16 rounded-lg"
-              />
-              {'isTopPick' in skill && skill.isTopPick ? (
-                <View
-                  accessibilityLabel="Top pick"
-                  className="absolute -left-2 -top-2 h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-warning-surface"
-                >
-                  <Ionicons name="trending-up" size={13} color={color.warning} />
-                </View>
-              ) : null}
-            </View>
+        {skills.map((skill) => {
+          const isTopPick = 'isTopPick' in skill && skill.isTopPick;
 
-            {/* The name carries the item, so it gets the strongest colour and
-                the type, not weight, to make it read: plain black on regular
-                weight. The two-line box keeps every service label in the rail
-                on the same baseline. */}
-            <Text numberOfLines={2} variant="footnote" className="mt-[2px] h-10 text-black">
-              {skill.name}
-            </Text>
-            <Text numberOfLines={1} variant="caption" className="text-text-muted">
-              {skill.service.name}
-            </Text>
-          </Pressable>
-        ))}
+          return (
+            <Pressable
+              key={skill.id}
+              accessibilityRole="button"
+              accessibilityLabel={skill.name}
+              onPress={() => onSelect(skill)}
+              className="w-40 overflow-hidden rounded-2xl border border-border bg-surface active:opacity-80"
+            >
+              <View className="h-28 w-full">
+                <ServiceImage uri={skill.icon ?? skill.service.icon} className="h-full w-full" />
+
+                {isTopPick ? (
+                  <View
+                    accessibilityLabel="Top pick"
+                    className="absolute left-2 top-2 rounded-full bg-black px-2 py-0.5"
+                  >
+                    {/* A raw label with one colour class: variants carry their
+                        own colour and would compete with the white. */}
+                    <RNText className="text-caption font-semibold text-white">Top pick</RNText>
+                  </View>
+                ) : null}
+              </View>
+
+              <View className="p-3">
+                <RNText
+                  numberOfLines={2}
+                  className="h-9 text-footnote font-semibold text-text-primary"
+                >
+                  {skill.name}
+                </RNText>
+                <RNText numberOfLines={1} className="mt-1 text-caption text-text-muted">
+                  {skill.service.name}
+                </RNText>
+              </View>
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );

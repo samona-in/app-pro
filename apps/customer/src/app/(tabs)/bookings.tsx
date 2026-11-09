@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { JobStatus, type Job } from '@samona/types';
 import { BookingRow } from '@/components/booking';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { Screen, SegmentedControl, Text } from '@/components/ui';
 import { useBookings } from '@/hooks';
+import { FLOATING_TAB_BAR_CLEARANCE } from '@/constants';
 import { color } from '@/theme';
 
 const FILTERS = ['All', 'Active', 'Upcoming', 'Past'] as const;
@@ -57,6 +59,7 @@ function matchesFilter(job: Job, filter: Filter): boolean {
 }
 
 export default function Bookings() {
+  const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<Filter>('All');
   const bookings = useBookings();
   const [refreshing, setRefreshing] = useState(false);
@@ -89,22 +92,25 @@ export default function Bookings() {
   return (
     <Screen padded={false}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <View className="px-5 pt-2">
-        <Text variant="display">Bookings</Text>
+      <View className="px-4 pt-4">
+        <Text variant="titleLg">Bookings</Text>
         <Text variant="footnote" className="mt-1">
           {summary}
         </Text>
       </View>
 
       {/* ── Segment filter ──────────────────────────────────────────────── */}
-      <View className="px-5 pt-4">
+      <View className="px-4 pt-4">
         <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} />
       </View>
 
       {/* ── Scrollable booking list ─────────────────────────────────────── */}
       <ScrollView
-        className="mt-2 flex-1"
-        contentContainerStyle={{ paddingBottom: 32 }}
+        className="mt-3 flex-1"
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingBottom: insets.bottom + FLOATING_TAB_BAR_CLEARANCE,
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -135,13 +141,15 @@ export default function Bookings() {
             message={EMPTY_COPY[filter].message}
           />
         ) : (
-          visible.map((job, index) => (
-            <View key={job.id}>
-              {/* Hairline separator, the full width of the screen. */}
-              {index > 0 ? <View className="h-px bg-border" /> : null}
-              <BookingRow job={job} />
-            </View>
-          ))
+          <View className="overflow-hidden rounded-2xl border border-border bg-surface">
+            {visible.map((job, index) => (
+              <View key={job.id}>
+                {/* Inset hairline, so each row reads as one grouped entry. */}
+                {index > 0 ? <View className="ml-24 mr-4 h-px bg-border" /> : null}
+                <BookingRow job={job} />
+              </View>
+            ))}
+          </View>
         )}
       </ScrollView>
     </Screen>

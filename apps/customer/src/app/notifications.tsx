@@ -70,9 +70,9 @@ export default function Notifications() {
   return (
     <Screen scrollable padded={false} edges={['top', 'bottom']}>
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <View className="px-5 pt-4">
+      <View className="px-4 pt-4">
         <View className="flex-row items-center justify-between">
-          <Text variant="display">Notifications</Text>
+          <Text variant="titleLg">Notifications</Text>
           <IconButton
             name="close"
             accessibilityLabel="Close notifications"
@@ -94,7 +94,9 @@ export default function Notifications() {
               onPress={handleMarkAllRead}
               className="py-1 active:opacity-60"
             >
-              <Text variant="action">Mark all read</Text>
+              <Text variant="footnote" className="font-semibold text-text-primary">
+                Mark all read
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -120,26 +122,27 @@ export default function Notifications() {
           />
         </View>
       ) : (
-        <View>
+        <View className="px-4 pt-1">
           {groups.map((group) => (
-            <View key={group.key}>
-              <View className="flex-row items-center gap-3 pr-0 pb-1.5 pt-6">
-                <View className="pl-5">
-                  <Text variant="caption" className="font-bold uppercase tracking-[0.12em]">
-                    {group.label}
-                  </Text>
-                </View>
+            <View key={group.key} className="mt-5">
+              <View className="mb-2 flex-row items-center gap-3">
+                <Text variant="caption" className="font-bold uppercase tracking-[0.12em]">
+                  {group.label}
+                </Text>
                 <View className="h-px flex-1 bg-border/60" />
               </View>
 
-              {group.items.map((notice, index) => (
-                <NotificationRow
-                  key={notice.id}
-                  notice={notice}
-                  unread={notice.readAt === null}
-                  showDivider={index > 0}
-                />
-              ))}
+              {/* One grouped card per day, like the rest of the app. */}
+              <View className="overflow-hidden rounded-2xl border border-border bg-surface">
+                {group.items.map((notice, index) => (
+                  <NotificationRow
+                    key={notice.id}
+                    notice={notice}
+                    unread={notice.readAt === null}
+                    showDivider={index > 0}
+                  />
+                ))}
+              </View>
             </View>
           ))}
         </View>

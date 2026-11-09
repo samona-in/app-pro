@@ -9,7 +9,6 @@ import {
 import { HomeBannerCard, BANNER_HEIGHT } from './HomeBannerCard';
 import type { HomeBanner as HomeBannerData } from './home-banners';
 import { useIsReduceMotionEnabled } from '@/hooks/use-reduce-motion';
-import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 
 /** How long a banner stays on screen before the carousel moves on. */
@@ -17,6 +16,9 @@ export const BANNER_AUTOSCROLL_MS = 5000;
 
 /** How long a slide takes to slide into place. */
 const BANNER_ANIMATION: CarouselAnimation = { type: 'timing', duration: 400 };
+
+/** The page gutter on either side of a banner card. */
+const BANNER_GUTTER = 16;
 
 export interface HomeBannerCarouselProps {
   banners: HomeBannerData[];
@@ -36,6 +38,9 @@ export interface HomeBannerCarouselProps {
  * loop forever. Auto-advance pauses while the customer is swiping and while
  * the screen is in the background, and stays off entirely when the system
  * "reduce motion" setting is on — swiping by hand keeps working either way.
+ *
+ * Each slide still fills the window so paging stays exact, but the card inside
+ * is inset by the page gutter. A centred row of dots below tracks the slide.
  */
 export function HomeBannerCarousel({
   banners,
@@ -46,7 +51,7 @@ export function HomeBannerCarousel({
 }: HomeBannerCarouselProps) {
   const { width } = useWindowDimensions();
   const reduceMotion = useIsReduceMotionEnabled();
-  const [, setIndex] = useState(0);
+  const [index, setIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(true);
 
   useFocusEffect(
@@ -56,11 +61,9 @@ export function HomeBannerCarousel({
     }, []),
   );
 
-  // One slide fills the screen so the card keeps its 20px margins on both
-  // sides while the carousel itself runs edge to edge.
   const renderItem = useCallback(
     ({ item }: CarouselRenderItemInfo<HomeBannerData>) => (
-      <View style={{ width }}>
+      <View style={{ width, paddingHorizontal: BANNER_GUTTER }}>
         <HomeBannerCard
           banner={item}
           onPress={onPressBanner}
@@ -74,7 +77,7 @@ export function HomeBannerCarousel({
   );
 
   return (
-    <View className={cn('-mx-2', className)}>
+    <View className={className}>
       <Carousel
         data={banners}
         keyExtractor={(item) => item.id}
@@ -88,6 +91,24 @@ export function HomeBannerCarousel({
         onSnapToItem={setIndex}
         style={[styles.carousel, { height }]}
       />
+
+      {banners.length > 1 ? (
+        <View
+          testID="banner-pagination"
+          pointerEvents="none"
+          className="mt-3 flex-row items-center justify-center gap-1.5"
+        >
+          {banners.map((banner, dotIndex) => (
+            <View
+              key={banner.id}
+              className={cn(
+                'h-1.5 rounded-full',
+                dotIndex === index ? 'w-4 bg-black' : 'w-1.5 bg-border-strong',
+              )}
+            />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -96,27 +117,5 @@ const styles = StyleSheet.create({
   carousel: {
     width: '100%',
     height: BANNER_HEIGHT,
-  },
-  dots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    gap: 6,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: color['border-strong'],
-  },
-  dotActive: {
-    backgroundColor: color.brand,
-  },
-  dotLight: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  dotActiveLight: {
-    backgroundColor: color['brand-contrast'],
   },
 });

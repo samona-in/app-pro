@@ -149,7 +149,7 @@ function HintHandle({ job, hasMore, extraCount }: HintHandleProps) {
             <ServiceImage
               uri={job.service.icon}
               accessibilityLabel={job.service.name}
-              className="h-11 w-11 rounded-xl"
+              className="h-11 w-11 rounded-lg"
             />
           )}
           <View className="ml-3 flex-1 pr-2">
@@ -225,7 +225,7 @@ function OrderRow({ job }: { job: JobDetail }) {
         <ServiceImage
           uri={job.service.icon}
           accessibilityLabel={job.service.name}
-          className="h-10 w-10 rounded-xl"
+          className="h-10 w-10 rounded-lg"
         />
       )}
       <View className="ml-3 flex-1 pr-2">
