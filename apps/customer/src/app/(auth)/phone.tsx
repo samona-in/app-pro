@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { OTP_LENGTH } from '@samona/config';
 import { phoneSchema } from '@samona/validation';
-import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Screen, Text } from '@/components/ui';
 import { usePhoneAuth, usePhoneHint } from '@/hooks';
 import { PRIVACY_URL, TERMS_URL } from '@/constants/support';
@@ -13,17 +13,75 @@ import { openExternalUrl } from '@/utils/open-url';
 
 const DEFAULT_DIAL_CODE = '+91';
 
-/** Local numbers never carry the dial code; maxLength keeps typos honest. */
-const MAX_LOCAL_DIGITS = 12;
+/** The market is fixed to +91, so a mobile number is always ten digits. */
+const LOCAL_NUMBER_DIGITS = 10;
+
+/** The reference form keeps the label italic, like a deliberate preference. */
+const REMEMBER_LABEL = 'Remember my login for faster sign-in';
 
 function digitsOf(value: string) {
   return value.replace(/\D/g, '');
 }
 
+/**
+ * India's tricolour, drawn from views rather than an emoji: flag emoji render
+ * as plain "IN" letters on several Android builds, which would leave the
+ * country box looking broken.
+ */
+function IndiaFlag() {
+  return (
+    <View
+      accessible={false}
+      style={{ width: 26, height: 18 }}
+      className="overflow-hidden rounded-[3px] border border-border"
+    >
+      <View style={{ flex: 1, backgroundColor: '#FF9933' }} />
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#FFFFFF',
+        }}
+      >
+        <View
+          style={{
+            height: 6,
+            width: 6,
+            borderRadius: 3,
+            borderWidth: 1,
+            borderColor: '#000080',
+          }}
+        />
+      </View>
+      <View style={{ flex: 1, backgroundColor: '#138808' }} />
+    </View>
+  );
+}
+
+/** A quiet legal link: dark label, dotted rule underneath, like the reference. */
+function LegalLink({ label, url }: { label: string; url: string }) {
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      onPress={() =>
+        openExternalUrl(url, 'Could not open page', 'Check your connection and try again.')
+      }
+      className="border-b border-dotted border-text-muted pb-0.5 active:opacity-60"
+    >
+      <Text variant="footnote" className="font-medium text-text-primary">
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function PhoneScreen() {
   const { sendCode, isBusy, error, clearError } = usePhoneAuth();
-  const [dialCode, setDialCode] = useState(DEFAULT_DIAL_CODE);
+  const dialCode = DEFAULT_DIAL_CODE;
   const [number, setNumber] = useState('');
+  const [remember, setRemember] = useState(true);
   const [localError, setLocalError] = useState<string | null>(null);
 
   // The hint arrives as a single E.164 string, so strip the dial code we already
@@ -32,37 +90,33 @@ export default function PhoneScreen() {
     (hint) => {
       const digits = digitsOf(hint);
       const code = digitsOf(dialCode);
-      if (digits.startsWith(code)) setNumber(digits.slice(code.length));
+      if (digits.startsWith(code))
+        setNumber(digits.slice(code.length, code.length + LOCAL_NUMBER_DIGITS));
     },
     number.length === 0 && dialCode === DEFAULT_DIAL_CODE,
   );
 
-  function onDialCodeChange(text: string) {
-    setDialCode(`+${digitsOf(text).slice(0, 3)}`);
-  }
-
   function onNumberChange(text: string) {
-    setNumber(digitsOf(text).slice(0, MAX_LOCAL_DIGITS));
+    setNumber(digitsOf(text).slice(0, LOCAL_NUMBER_DIGITS));
   }
 
   async function onContinue() {
     setLocalError(null);
     clearError();
 
-    const code = digitsOf(dialCode);
     const local = digitsOf(number);
-
-    if (!code) {
-      setLocalError('Enter your country code.');
-      return;
-    }
 
     if (!local) {
       setLocalError('Enter your phone number.');
       return;
     }
 
-    const parsed = phoneSchema.safeParse(`+${code}${local}`);
+    if (local.length !== LOCAL_NUMBER_DIGITS) {
+      setLocalError(`Enter a ${LOCAL_NUMBER_DIGITS}-digit phone number.`);
+      return;
+    }
+
+    const parsed = phoneSchema.safeParse(`${dialCode}${local}`);
     if (!parsed.success) {
       setLocalError(parsed.error.issues[0]?.message ?? 'Enter a valid phone number.');
       return;
@@ -73,95 +127,108 @@ export default function PhoneScreen() {
     }
   }
 
+  const hasError = Boolean(localError ?? error);
+
   return (
     <Screen edges={['top', 'bottom']} scrollable className="bg-surface">
       <View className="flex-1 justify-center py-10">
-        <Wordmark size="md" />
-
-        <Text variant="titleLg" className="mt-10">
-          Enter your phone number
+        <Text variant="titleLg" className="text-center">
+          Log in or sign up
         </Text>
-        <Text variant="body" className="mt-2 text-text-secondary">
+        <Text variant="footnote" className="mt-2 text-center">
           We&apos;ll text you a {OTP_LENGTH}-digit code to verify it&apos;s you.
         </Text>
 
-        <View className="mt-8">
-          {/* One field, two inputs: the dial code and the subscriber number share
-              a single outline, separated by a hairline instead of two borders. */}
+        {/* ── Phone row ─────────────────────────────────────────────────── */}
+        <View className="mt-8 flex-row gap-3">
+          {/* The market is fixed to India, so the country box is a label, not
+              a picker: the +91 prefix below can never drift from it. */}
+          <View
+            accessible
+            accessibilityLabel="India, plus 91"
+            className="h-14 w-16 items-center justify-center rounded-lg border border-border bg-surface"
+          >
+            <IndiaFlag />
+          </View>
+
           <View
             className={cn(
-              'flex-row items-stretch rounded-lg border bg-surface',
-              localError ?? error ? 'border-danger' : 'border-border',
+              'h-14 flex-1 flex-row items-center rounded-lg border bg-surface pl-4 pr-3',
+              hasError ? 'border-danger' : 'border-border',
             )}
           >
-            <TextInput
-              value={dialCode}
-              onChangeText={onDialCodeChange}
-              placeholder="+91"
-              placeholderTextColor={color['text-muted']}
-              accessibilityLabel="Country code"
-              keyboardType="phone-pad"
-              maxLength={4}
-              editable={!isBusy}
-              className="min-h-[52px] w-[76px] rounded-l-lg px-2 text-center text-body font-bold text-text-primary"
-            />
-            <View className="my-3 w-px bg-border" />
+            <Text
+              variant="bodyLg"
+              className="font-bold leading-6 text-text-primary"
+              style={{ includeFontPadding: false }}
+            >
+              {dialCode}
+            </Text>
             <TextInput
               value={number}
               onChangeText={onNumberChange}
-              placeholder="98765 43210"
+              placeholder="Enter Phone Number"
               placeholderTextColor={color['text-muted']}
               accessibilityLabel="Phone number"
               keyboardType="phone-pad"
               autoComplete="tel"
               textContentType="telephoneNumber"
-              maxLength={MAX_LOCAL_DIGITS}
+              textAlignVertical="center"
+              maxLength={LOCAL_NUMBER_DIGITS}
               autoFocus
               editable={!isBusy}
-              className="min-h-[52px] flex-1 rounded-r-lg px-4 text-body font-bold text-text-primary"
+              style={{ includeFontPadding: false, paddingVertical: 0 }}
+              className="ml-3 h-full min-w-0 flex-1 bg-transparent text-body-lg leading-6 text-text-primary"
             />
           </View>
-
-          {localError ?? error ? (
-            <Text variant="footnote" className="mt-1.5 text-danger">
-              {localError ?? error}
-            </Text>
-          ) : null}
         </View>
-      </View>
 
-      <View className="gap-3 pb-4">
-        <Button label="Send code" size="lg" loading={isBusy} onPress={() => void onContinue()} />
-        <Text variant="caption" className="text-center">
-          By continuing you agree to the SAMONA terms and privacy policy.
-        </Text>
-        <View className="flex-row justify-center gap-5">
-          <Text
-            variant="caption"
-            className="text-brand"
-            onPress={() =>
-              openExternalUrl(
-                TERMS_URL,
-                'Could not open page',
-                'Check your connection and try again.',
-              )
-            }
-          >
-            Terms of Service
+        {hasError ? (
+          <Text variant="footnote" className="mt-1.5 text-danger">
+            {localError ?? error}
           </Text>
-          <Text
-            variant="caption"
-            className="text-brand"
-            onPress={() =>
-              openExternalUrl(
-                PRIVACY_URL,
-                'Could not open page',
-                'Check your connection and try again.',
-              )
-            }
+        ) : null}
+
+        {/* ── Remember me ───────────────────────────────────────────────── */}
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel={REMEMBER_LABEL}
+          accessibilityState={{ checked: remember }}
+          onPress={() => setRemember((value) => !value)}
+          className="mt-4 flex-row items-center py-1 active:opacity-70"
+        >
+          <View
+            className={cn(
+              'h-[22px] w-[22px] items-center justify-center rounded-[6px] border-2',
+              remember ? 'border-brand bg-brand' : 'border-border-strong bg-surface',
+            )}
           >
-            Privacy Policy
+            {remember ? (
+              <Ionicons name="checkmark" size={14} color={color['brand-contrast']} />
+            ) : null}
+          </View>
+          <Text className="ml-3 flex-1 text-[15px] italic text-text-secondary">
+            {REMEMBER_LABEL}
           </Text>
+        </Pressable>
+
+        <Button
+          label="Continue"
+          size="lg"
+          className="mt-6"
+          loading={isBusy}
+          onPress={() => void onContinue()}
+        />
+
+        {/* ── Legal, tucked directly under the CTA ─────────────────────── */}
+        <View className="mt-5">
+          <Text variant="footnote" className="text-center text-text-secondary">
+            By continuing, you agree to our
+          </Text>
+          <View className="mt-2 flex-row flex-wrap justify-center gap-x-5 gap-y-2">
+            <LegalLink label="Terms of Service" url={TERMS_URL} />
+            <LegalLink label="Privacy Policy" url={PRIVACY_URL} />
+          </View>
         </View>
       </View>
     </Screen>

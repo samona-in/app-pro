@@ -7,11 +7,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PopularSkill, ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import {
+  BrandBanner,
   HOME_BANNERS,
   HomeBannerCarousel,
   HomeHeader,
   PopularSkills,
   SearchBar,
+  SectionHeader,
   ServiceGrid,
   type HomeBanner,
 } from '@/components/home';
@@ -27,6 +29,7 @@ import {
   useSession,
 } from '@/hooks';
 import { useBookingDraft } from '@/stores/booking';
+import { FLOATING_TAB_BAR_CLEARANCE } from '@/constants';
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -114,12 +117,12 @@ export default function Home() {
 
   return (
     <View className="flex-1 bg-surface">
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* Reserve the status-bar area above the scroller and paint it brand
-          blue. The sticky search bar then pins directly beneath it on both
-          iOS and Android instead of scrolling under the system UI. */}
-      <View style={{ height: insets.top }} className="bg-brand" />
+      {/* Reserve the status-bar area above the scroller and paint it white, so
+          the sticky search bar pins beneath a clean top edge on both iOS and
+          Android instead of running under the system UI. */}
+      <View style={{ height: insets.top }} className="bg-surface" />
 
       <Screen
         scrollable
@@ -130,30 +133,36 @@ export default function Home() {
         refreshing={refreshing}
       >
         <HomeHeader
-          variant="blue"
           safeAreaTop={false}
           locationLabel={locationLabel ?? undefined}
           locationCaption={activeSavedAddress?.name ?? 'Your location'}
           onPress={() => router.push('/address-search')}
-          trailing={<NotificationBell variant="white" />}
+          trailing={<NotificationBell />}
         />
 
         {/* The sticky search bar must be a direct child of the scroll
-            container. The location row above and the banner below scroll
-            underneath it while the search stays pinned. */}
-        <View className="bg-brand px-4 pb-2 pt-2">
+            container. The header above and the banner below scroll underneath
+            it while the search stays pinned. */}
+        <View className="bg-surface px-4 pb-3 pt-1">
           <SearchBar onPress={() => router.navigate('/search')} />
         </View>
 
-        <View className="bg-brand px-2 pb-3">
+        <View className="mt-2">
           <HomeBannerCarousel
             banners={bannersQuery.data?.length ? bannersQuery.data : HOME_BANNERS}
             onPressBanner={handlePressBanner}
-            variant="light"
           />
         </View>
 
-        <View className="mt-3 px-2">
+        <View className="mt-6 px-4">
+          <SectionHeader
+            title="What do you need?"
+            actionLabel="See all"
+            actionAccessibilityLabel="See all services"
+            onPressAction={() => router.navigate('/search')}
+            className="mb-4"
+          />
+
           {categories.isPending ? (
             <LoadingState message="Loading services" size="inline" />
           ) : categories.isError ? (
@@ -172,10 +181,17 @@ export default function Home() {
         </View>
 
         <PopularSkills
+          className="mt-6"
           skills={popular.data ?? []}
           onSelect={handleSelectPopularSkill}
           onSeeAll={() => router.navigate('/search')}
         />
+
+        {/* Closing brand image, full-bleed and last before the tab-bar clearance. */}
+        <BrandBanner className="mt-6" />
+
+        {/* Keep the last rail scrollable clear of the floating tab pill. */}
+        <View style={{ height: insets.bottom + FLOATING_TAB_BAR_CLEARANCE }} />
       </Screen>
     </View>
   );

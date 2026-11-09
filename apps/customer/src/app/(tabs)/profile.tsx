@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Badge, Button, Screen, Text } from '@/components/ui';
 import { useCustomerProfile, useSession, useUploadAvatar } from '@/hooks';
+import { FLOATING_TAB_BAR_CLEARANCE } from '@/constants';
 import { color } from '@/theme';
+import { cn } from '@/utils/cn';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -38,29 +41,57 @@ function memberSinceLabel(createdAt?: string | null): string {
   return `Member since ${joined.getDate()} ${MONTH_NAMES[joined.getMonth()]} ${joined.getFullYear()}`;
 }
 
-const SETTINGS_ROWS: { icon: IoniconName; label: string; onPress?: () => void }[] = [
+interface SettingsRowItem {
+  icon: IoniconName;
+  label: string;
+  onPress?: () => void;
+}
+
+const SETTINGS_GROUPS: { label: string; rows: SettingsRowItem[] }[] = [
   {
-    icon: 'location-outline',
-    label: 'Manage addresses',
-    onPress: () => router.push('/saved-addresses'),
+    label: 'Account',
+    rows: [
+      {
+        icon: 'location-outline',
+        label: 'Manage addresses',
+        onPress: () => router.push('/saved-addresses'),
+      },
+      {
+        icon: 'card-outline',
+        label: 'Payment methods',
+        onPress: () => router.push('/payment-methods'),
+      },
+    ],
   },
   {
-    icon: 'card-outline',
-    label: 'Payment methods',
-    onPress: () => router.push('/payment-methods'),
+    label: 'Preferences',
+    rows: [
+      {
+        icon: 'notifications-outline',
+        label: 'Notification settings',
+        onPress: () => void Linking.openSettings(),
+      },
+    ],
   },
   {
-    icon: 'notifications-outline',
-    label: 'Notification settings',
-    onPress: () => void Linking.openSettings(),
-  },
-  {
-    icon: 'help-circle-outline',
-    label: 'Help & support',
-    onPress: () => router.push('/help-support'),
+    label: 'More',
+    rows: [
+      {
+        icon: 'help-circle-outline',
+        label: 'Help & support',
+        onPress: () => router.push('/help-support'),
+      },
+    ],
   },
 ];
 
+/**
+ * One tappable row inside a settings card.
+ *
+ * The icon stays bare — no tile or background — so the row reads as a quiet
+ * label with a chevron, and the hairline between rows starts at the label, not
+ * under the icon.
+ */
 function SettingsRow({
   icon,
   label,
@@ -80,27 +111,57 @@ function SettingsRow({
       accessibilityLabel={label}
       disabled={!onPress}
       onPress={onPress}
-      className="bg-surface py-1.5 active:opacity-70"
+      className="active:bg-surface-muted"
     >
-      <View className="flex-row items-center">
-        <View className="h-9 w-9 items-center justify-center">
+      <View className="min-h-[52px] flex-row items-center px-4">
+        <View className="h-5 w-5 items-center justify-center">
           <Ionicons
             name={icon}
             size={18}
             color={destructive ? color.danger : color['text-secondary']}
           />
         </View>
-        <Text variant="body" className={`ml-3 flex-1${destructive ? ' text-danger' : ''}`}>
+        <Text variant="body" className={cn('ml-3 flex-1', destructive && 'text-danger')}>
           {label}
         </Text>
-        <Ionicons name="chevron-forward" size={18} color={color['text-muted']} />
+        <Ionicons name="chevron-forward" size={16} color={color['text-muted']} />
       </View>
-      {!last ? <View className="my-1.5 -mx-5 h-px bg-border" /> : null}
+
+      {!last ? <View className="ml-8 mr-4 h-px bg-border" /> : null}
     </Pressable>
   );
 }
 
+/**
+ * A labelled group of rows in one rounded card, the way settings are grouped
+ * on the Zomato profile: a small uppercase label above a white bordered card.
+ */
+function SettingsSection({
+  label,
+  className,
+  children,
+}: {
+  label?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <View className={className}>
+      {label ? (
+        <Text variant="label" className="mb-2">
+          {label}
+        </Text>
+      ) : null}
+
+      <View className="overflow-hidden rounded-2xl border border-border bg-surface">
+        {children}
+      </View>
+    </View>
+  );
+}
+
 export default function Profile() {
+  const insets = useSafeAreaInsets();
   const { user, signOut } = useSession();
   const { data: profile } = useCustomerProfile();
   const uploadAvatar = useUploadAvatar();
@@ -151,17 +212,17 @@ export default function Profile() {
   }
 
   return (
-    <Screen scrollable>
+    <Screen scrollable padded={false} contentClassName="px-4">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <View className="pt-2">
-        <Text variant="display">Profile</Text>
+      <View className="pt-4">
+        <Text variant="titleLg">Profile</Text>
         <Text variant="footnote" className="mt-1">
           {memberSinceLabel(user?.createdAt)}
         </Text>
       </View>
 
-      {/* ── Bio card ────────────────────────────────────────────────────── */}
-      <View className="mt-5 flex-row items-center">
+      {/* ── Identity card ───────────────────────────────────────────────── */}
+      <View className="mt-5 flex-row items-center rounded-2xl border border-border bg-surface p-4">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Change profile photo"
@@ -183,30 +244,33 @@ export default function Profile() {
             )}
           </View>
         </Pressable>
+
         <View className="ml-4 flex-1">
-          <Text variant="title">{displayName}</Text>
-          <Text variant="footnote" className="mt-0.5">
+          <Text variant="title" numberOfLines={1}>
+            {displayName}
+          </Text>
+          <Text variant="footnote" numberOfLines={1} className="mt-0.5">
             {user?.phone ?? 'Profile not set up yet'}
           </Text>
           <Badge label="Verified" tone="success-solid" className="mt-2" />
         </View>
       </View>
 
-      {/* Hairline separator, the full width of the screen. */}
-      <View className="-mx-5 mt-5 h-px bg-border" />
+      {SETTINGS_GROUPS.map((group) => (
+        <SettingsSection key={group.label} label={group.label} className="mt-6">
+          {group.rows.map((row, index) => (
+            <SettingsRow
+              key={row.label}
+              icon={row.icon}
+              label={row.label}
+              last={index === group.rows.length - 1}
+              onPress={row.onPress}
+            />
+          ))}
+        </SettingsSection>
+      ))}
 
-      <View className="mt-4">
-        {SETTINGS_ROWS.map((row) => (
-          <SettingsRow
-            key={row.label}
-            icon={row.icon}
-            label={row.label}
-            onPress={row.onPress}
-          />
-        ))}
-      </View>
-
-      <View>
+      <SettingsSection className="mt-6">
         <SettingsRow
           icon="trash-outline"
           label="Delete account"
@@ -214,14 +278,17 @@ export default function Profile() {
           last
           onPress={() => router.push('/account')}
         />
-      </View>
+      </SettingsSection>
 
       <Button
         label="Sign out"
         variant="secondary"
         onPress={() => void onSignOut()}
-        className="mt-6"
+        className="mt-8"
       />
+
+      {/* Keep the sign-out button scrollable clear of the floating tab pill. */}
+      <View style={{ height: insets.bottom + FLOATING_TAB_BAR_CLEARANCE }} />
     </Screen>
   );
 }

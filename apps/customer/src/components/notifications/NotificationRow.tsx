@@ -69,33 +69,29 @@ export function NotificationRow({
   }, [markRead, notice]);
 
   const handleDelete = useCallback(() => {
-    Alert.alert(
-      'Delete notification?',
-      'This removes it from your inbox. It can’t be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deleteNotification(notice.id, {
-              onError: () => {
-                Alert.alert('Unable to delete notification', 'Please try again.');
-              },
-            });
-          },
+    Alert.alert('Delete notification?', 'This removes it from your inbox. It can’t be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteNotification(notice.id, {
+            onError: () => {
+              Alert.alert('Unable to delete notification', 'Please try again.');
+            },
+          });
         },
-      ],
-    );
+      },
+    ]);
   }, [deleteNotification, notice.id]);
 
   return (
     <View className="relative bg-surface">
       {showDivider ? (
-        <View className="absolute left-[77px] right-0 top-0 h-px bg-border/60" />
+        <View className="absolute left-[73px] right-0 top-0 h-px bg-border/60" />
       ) : null}
 
-      <View className="flex-row items-start px-5 py-[13px]">
+      <View className="flex-row items-start px-4 py-[13px]">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${notice.title}. ${notice.body}. ${time}${unread ? '. Unread' : ''}`}

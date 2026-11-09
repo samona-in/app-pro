@@ -66,6 +66,14 @@ describe('HomeBannerCarousel', () => {
     expect(carousel().props.itemSize).toBe(WIDTH);
   });
 
+  it('renders a pagination dot for every banner', async () => {
+    render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);
+    await settle();
+
+    const pagination = screen.getByTestId('banner-pagination');
+    expect(pagination.props.children).toHaveLength(HOME_BANNERS.length);
+  });
+
   it('advances to the next banner every five seconds', async () => {
     const timeout = jest.spyOn(global, 'setTimeout');
     render(<HomeBannerCarousel banners={HOME_BANNERS} onPressBanner={jest.fn()} />);

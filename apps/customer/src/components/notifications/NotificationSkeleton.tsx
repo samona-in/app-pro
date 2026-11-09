@@ -16,12 +16,12 @@ export function NotificationSkeleton() {
   return (
     <View accessible accessibilityLabel="Loading notifications" className="pt-6">
       {/* A stand-in for the first day heading, so rows do not jump on load. */}
-      <View className="px-5 pb-3">
+      <View className="px-4 pb-3">
         <View className="h-2.5 w-16 rounded-full bg-surface-muted" />
       </View>
 
       {TITLE_WIDTHS.map((width, index) => (
-        <View key={index} className="flex-row items-start px-5 py-[13px]">
+        <View key={index} className="flex-row items-start px-4 py-[13px]">
           <View className="h-11 w-11 rounded-[14px] bg-surface-muted" />
           <View className="ml-[13px] flex-1">
             <View className={cn('h-3.5 rounded-full bg-surface-muted', width)} />

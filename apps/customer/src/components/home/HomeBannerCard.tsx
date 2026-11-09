@@ -7,7 +7,7 @@ import { BannerSpotlight } from './BannerSpotlight';
 import type { HomeBanner as HomeBannerData } from './home-banners';
 
 /** Height of a banner card, in points. */
-export const BANNER_HEIGHT = 150;
+export const BANNER_HEIGHT = 180;
 
 export interface HomeBannerCardProps {
   banner: HomeBannerData;
@@ -40,7 +40,7 @@ export function HomeBannerCard({
       accessibilityHint={banner.subtitle}
       onPress={() => onPress(banner)}
       style={[styles.card, { height }]}
-      className="overflow-hidden rounded-xl bg-brand"
+      className="overflow-hidden rounded-2xl bg-brand"
     >
       <View style={styles.copy}>
         <Text variant="title" numberOfLines={2} style={styles.heading}>
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   art: {
-    width: '36%',
+    width: '44%',
     height: BANNER_HEIGHT,
     overflow: 'hidden',
   },

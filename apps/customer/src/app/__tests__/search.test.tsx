@@ -14,9 +14,11 @@ jest.mock('expo-router', () => ({
 }));
 
 // The catalogue hooks would reach the API, which needs a configured env.
+let mockCategories: ServiceOption[] = [];
+
 jest.mock('@/hooks', () => ({
   useServiceSearch: () => ({ data: undefined, isPending: false, isError: false }),
-  useServiceCategories: () => ({ data: [] }),
+  useServiceCategories: () => ({ data: mockCategories }),
 }));
 
 // Secure storage needs a native module; the recents are seeded in the store.
@@ -90,12 +92,12 @@ describe('Search — the search field', () => {
 
     // The arrow and the text share one container, so the arrow costs the
     // field no width of its own.
-    const field = ancestorWith(back, /rounded-xl/);
+    const field = ancestorWith(back, /rounded-2xl/);
     expect(field).not.toBeNull();
-    expect(ancestorWith(input, /rounded-xl/)).toBe(field);
+    expect(ancestorWith(input, /rounded-2xl/)).toBe(field);
 
     // The field is the full width of the screen, minus the screen's margin.
-    expect(ancestorWith(field as ReactTestInstance, /px-5/)).not.toBeNull();
+    expect(ancestorWith(field as ReactTestInstance, /px-4/)).not.toBeNull();
     expect(input.props.className).toMatch(/flex-1/);
   });
 
@@ -125,7 +127,7 @@ describe('Search — recent items', () => {
 
   it('shows the recent searches as chips in a wrapping row', async () => {
     render(<Search />);
-    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Recent searches')).toBeTruthy());
 
     // One chip per recent, carrying the name.
     const serviceChip = screen.getByLabelText('Plumbing');
@@ -134,8 +136,8 @@ describe('Search — recent items', () => {
     expect(screen.getByText('Leak repair')).toBeTruthy();
 
     // A chip is a compact pill...
-    expect(serviceChip.props.className).toMatch(/rounded-lg/);
-    expect(skillChip.props.className).toMatch(/rounded-lg/);
+    expect(serviceChip.props.className).toMatch(/rounded-full/);
+    expect(skillChip.props.className).toMatch(/rounded-full/);
 
     // ...and the chips share one wrapping row rather than stacking as a list.
     const row = rowOf(serviceChip);
@@ -148,7 +150,7 @@ describe('Search — recent items', () => {
 
   it('opens the service a service chip is tapped from', async () => {
     render(<Search />);
-    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Recent searches')).toBeTruthy());
 
     fireEvent.press(screen.getByLabelText('Plumbing'));
 
@@ -157,11 +159,54 @@ describe('Search — recent items', () => {
 
   it('opens the parent service with the skill preselected from a skill chip', async () => {
     render(<Search />);
-    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Recent searches')).toBeTruthy());
 
     fireEvent.press(screen.getByLabelText('Leak repair'));
 
     expect(router.push).toHaveBeenCalledWith('/booking/new/plumbing/skill');
     expect(useBookingDraft.getState().skill?.name).toBe('Leak repair');
+  });
+});
+
+describe('Search — browsing the catalogue', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCategories = [plumbing];
+    useSearchStore.setState({ recents: [], hydrated: true });
+    useBookingDraft.getState().reset();
+  });
+
+  afterEach(() => {
+    mockCategories = [];
+  });
+
+  it('wraps the services into a grid instead of a horizontal strip', () => {
+    render(<Search />);
+
+    expect(screen.getByText('Browse services')).toBeTruthy();
+
+    // The tile shares the home screen's wrapping grid rather than scrolling
+    // sideways in a rail.
+    const tile = screen.getByLabelText('Plumbing');
+    expect(ancestorWith(tile, /flex-wrap/)).not.toBeNull();
+  });
+});
+
+describe('Search — clearing the field', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useSearchStore.setState({ recents: [], hydrated: true });
+    useBookingDraft.getState().reset();
+  });
+
+  it('empties the query from the clear button', () => {
+    render(<Search />);
+
+    const input = screen.getByLabelText('Search for a service or skill');
+    fireEvent.changeText(input, 'plumbing');
+    expect(input.props.value).toBe('plumbing');
+
+    fireEvent.press(screen.getByLabelText('Clear search'));
+    expect(input.props.value).toBe('');
   });
 });
