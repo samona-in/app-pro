@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { OTP_LENGTH } from '@samona/config';
+import { AuthHero } from '@/components/auth';
 import { Button, OtpInput, Screen, Text } from '@/components/ui';
 import { useCountdown, useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
 
@@ -48,8 +50,39 @@ export default function VerifyScreen() {
   }
 
   return (
-    <Screen edges={['top', 'bottom']} scrollable className="bg-surface">
-      <View className="flex-1 justify-center py-10">
+    /* No top safe-area edge: the hero's blue band runs edge-to-edge behind
+       the status bar, like the welcome screen's background. */
+    <Screen
+      edges={['bottom']}
+      scrollable
+      keyboardAware
+      className="bg-surface"
+      footer={
+        /* CTAs pinned below the scroll area: they ride above the keyboard
+           while the code is being entered. */
+        <View className="gap-3 pb-4 pt-6">
+          <Button
+            label="Verify"
+            size="lg"
+            loading={isBusy}
+            disabled={code.length < OTP_LENGTH}
+            onPress={() => void onVerify()}
+          />
+          <Button
+            label={isResendLocked ? `Resend code in ${remainingSeconds}s` : 'Resend code'}
+            variant="ghost"
+            disabled={isBusy || isResendLocked}
+            onPress={() => void onResend()}
+          />
+        </View>
+      }
+    >
+      <StatusBar style="light" />
+      <AuthHero />
+      {/* Top-aligned under the hero instead of vertically centered: the
+          boxes stay up near the hero, well clear of the pinned footer,
+          which rides above the keyboard while the code is entered. */}
+      <View className="flex-1 pt-6 pb-4">
         <Text variant="titleLg">Enter the code</Text>
         <Text variant="body" className="mt-2 text-text-secondary">
           Sent to {phone ?? 'your phone'}.{' '}
@@ -58,7 +91,9 @@ export default function VerifyScreen() {
           </Text>
         </Text>
 
-        <View className="mt-8">
+        {/* Breathing room below the boxes so the pinned CTA footer, which
+            rides above the keyboard, stays clear of the field. */}
+        <View className="mt-3">
           <OtpInput
             length={OTP_LENGTH}
             value={code}
@@ -70,22 +105,6 @@ export default function VerifyScreen() {
             error={error ?? undefined}
           />
         </View>
-      </View>
-
-      <View className="gap-3 pb-4">
-        <Button
-          label="Verify"
-          size="lg"
-          loading={isBusy}
-          disabled={code.length < OTP_LENGTH}
-          onPress={() => void onVerify()}
-        />
-        <Button
-          label={isResendLocked ? `Resend code in ${remainingSeconds}s` : 'Resend code'}
-          variant="ghost"
-          disabled={isBusy || isResendLocked}
-          onPress={() => void onResend()}
-        />
       </View>
     </Screen>
   );
