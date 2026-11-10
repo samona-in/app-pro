@@ -59,6 +59,9 @@ export function OtpInput({
 
   return (
     <View className="w-full">
+      {/* Each box takes an equal share of the full row width (`flex-1`), so
+          the group spans edge to edge; the hidden overlay TextInput sits on
+          top of the whole row for taps. */}
       <View className="relative flex-row gap-2" accessibilityLabel={accessibilityLabel}>
         {Array.from({ length }, (_, i) => {
           const active = i < chars.length || (i === value.length && focused);
@@ -66,14 +69,16 @@ export function OtpInput({
             <Pressable key={i} className="flex-1" onPress={() => inputRef.current?.focus()}>
               <View
                 className={cn(
-                  'h-[72px] items-center justify-center border-2 bg-surface',
+                  'h-[52px] items-center justify-center border-2 bg-surface',
                   active ? 'border-brand' : hasError ? 'border-danger' : 'border-border-strong',
                 )}
                 style={{ borderRadius: cornerRadius.lg }}
               >
                 <Text
                   variant="title"
-                  className={cn('text-text-primary', i >= chars.length && 'opacity-0')}
+                  /* `leading-none` drops the variant's 26px line-height so
+                     the digit fills the box without built-in vertical space. */
+                  className={cn('text-text-primary leading-none', i >= chars.length && 'opacity-0')}
                 >
                   {chars[i] ?? ' '}
                 </Text>

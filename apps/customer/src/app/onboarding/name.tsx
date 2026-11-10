@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { displayNameSchema } from '@samona/validation';
+import { AuthHero } from '@/components/auth';
 import { OnboardingStepLayout } from '@/components/onboarding';
 import { Input } from '@/components/ui';
 import { useCustomerProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
@@ -32,6 +33,7 @@ export default function OnboardingName() {
     <OnboardingStepLayout
       title="What's your name?"
       subtitle="Professionals will see this when they accept your request."
+      header={<AuthHero />}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
       primaryDisabled={name.trim().length < 2}
