@@ -32,6 +32,7 @@
     "@noma4i/vision-camera-face-detector": "^3.0.1",
     "@quidone/react-native-wheel-picker": "^1.7.3",
     "@samona/api-client": "*",
+    "@samona/app-updates": "*",
     "@samona/config": "*",
     "@samona/types": "*",
     "@samona/validation": "*",

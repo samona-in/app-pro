@@ -21,6 +21,7 @@
     "@expo/vector-icons": "^15.1.1",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@samona/api-client": "*",
+    "@samona/app-updates": "*",
     "@samona/config": "*",
     "@samona/types": "*",
     "@samona/validation": "*",
