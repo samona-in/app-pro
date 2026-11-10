@@ -35,8 +35,6 @@ export interface NotificationRowProps {
    * without re-deriving state.
    */
   unread?: boolean;
-  /** Draw the inset hairline above the row — every row but a group's first. */
-  showDivider?: boolean;
 }
 
 /**
@@ -44,19 +42,15 @@ export interface NotificationRowProps {
  *
  * The leading tile is the row's only colour: brand for booking news, green for
  * money, muted for system notices; it lights up while the notice is new and
- * settles to grey once read. The divider is inset to the text column rather
- * than run edge to edge, which is what makes the list read as type, not boxes.
+ * settles to grey once read. Each row closes with a hairline that runs the full
+ * width of the screen, which is what makes the list read as type, not boxes.
  *
  * Tapping marks the notice read (optimistically, via the list cache) and then
  * opens its route when the notice carries one. The trailing three-dot menu
  * offers the same "View" action, plus "Delete" (confirmed, then removed from
  * the list optimistically).
  */
-export function NotificationRow({
-  notice,
-  unread = notice.readAt === null,
-  showDivider = false,
-}: NotificationRowProps) {
+export function NotificationRow({ notice, unread = notice.readAt === null }: NotificationRowProps) {
   const markRead = useMarkNotificationRead();
   const { mutate: deleteNotification } = useDeleteNotification();
   const { icon, tint, tile } = KIND_ICON[notice.kind];
@@ -86,11 +80,7 @@ export function NotificationRow({
   }, [deleteNotification, notice.id]);
 
   return (
-    <View className="relative bg-surface">
-      {showDivider ? (
-        <View className="absolute left-[73px] right-0 top-0 h-px bg-border/60" />
-      ) : null}
-
+    <View>
       <View className="flex-row items-start px-4 py-[13px]">
         <Pressable
           accessibilityRole="button"
@@ -146,6 +136,9 @@ export function NotificationRow({
           />
         </View>
       </View>
+
+      {/* Hairline closing the row, the full width of the screen. */}
+      <View className="h-px bg-border" />
     </View>
   );
 }

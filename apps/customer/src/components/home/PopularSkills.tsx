@@ -53,7 +53,7 @@ export function PopularSkills({ skills, onSelect, onSeeAll, className }: Popular
               accessibilityRole="button"
               accessibilityLabel={skill.name}
               onPress={() => onSelect(skill)}
-              className="w-40 overflow-hidden rounded-2xl border border-border bg-surface active:opacity-80"
+              className="w-40 overflow-hidden rounded-sm border border-border bg-surface active:opacity-80"
             >
               <View className="h-28 w-full">
                 <ServiceImage uri={skill.icon ?? skill.service.icon} className="h-full w-full" />

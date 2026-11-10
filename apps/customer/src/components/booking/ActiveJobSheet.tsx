@@ -30,6 +30,12 @@ import { jobStatusHint, proDisplayName } from './active-job-copy';
 
 /** The collapsed hint strip. Compact: grab handle + one 44pt touch row. */
 const HINT_HEIGHT = 72;
+/**
+ * The hint's surface, matched to the floating tab bar's frosted glass: the same
+ * near-white frost with its cool tint wash composited in, so the hint reads as
+ * part of the same chrome rather than a plain white sheet.
+ */
+const HINT_SURFACE = 'rgba(246, 248, 250, 0.97)';
 /** How far the expanded sheet rises, as a share of the scene above the bar. */
 const EXPANDED_SCENE_RATIO = 0.62;
 /** Corner radius of the sheet's top edge, matching the theme's premium feel. */
@@ -67,23 +73,41 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
-    backgroundColor: color.surface,
+    backgroundColor: HINT_SURFACE,
     borderTopLeftRadius: TOP_RADIUS,
     borderTopRightRadius: TOP_RADIUS,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
   },
-  /** The collapsed hint card: solid white, shadow cast only above (no bottom bleed). */
+  /**
+   * Casts the hint's shadow. The sheet's hosting container clips everything it
+   * draws (`overflow: hidden`), so a shadow on the sheet itself never paints.
+   * This slab sits behind the sheet and mirrors its collapsed shape; only the
+   * part of the shadow above the hint's top edge is visible, and the expanded
+   * sheet covers the rest.
+   */
+  shadowCaster: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: HINT_HEIGHT,
+    backgroundColor: HINT_SURFACE,
+    borderTopLeftRadius: TOP_RADIUS,
+    borderTopRightRadius: TOP_RADIUS,
+    boxShadow: '0px -12px 20px rgba(15, 23, 42, 0.18)',
+  },
+  /** The collapsed hint card: solid frosted surface, so the shadow behind it
+   *  only shows above its top edge. */
   handle: {
     height: HINT_HEIGHT,
-    backgroundColor: color.surface,
+    backgroundColor: HINT_SURFACE,
     borderTopLeftRadius: TOP_RADIUS,
     borderTopRightRadius: TOP_RADIUS,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
-    boxShadow: '0px -16px 12px rgba(15, 23, 42, 0.12)',
   },
-  content: { backgroundColor: color.surface },
+  content: { backgroundColor: HINT_SURFACE },
 });
 
 function SheetBackground() {
@@ -149,7 +173,7 @@ function HintHandle({ job, hasMore, extraCount }: HintHandleProps) {
             <ServiceImage
               uri={job.service.icon}
               accessibilityLabel={job.service.name}
-              className="h-11 w-11 rounded-lg"
+              className="h-11 w-11"
             />
           )}
           <View className="ml-3 flex-1 pr-2">
@@ -225,7 +249,7 @@ function OrderRow({ job }: { job: JobDetail }) {
         <ServiceImage
           uri={job.service.icon}
           accessibilityLabel={job.service.name}
-          className="h-10 w-10 rounded-lg"
+          className="h-10 w-10"
         />
       )}
       <View className="ml-3 flex-1 pr-2">
@@ -264,6 +288,8 @@ export function ActiveJobHint({ bottomOffset }: { bottomOffset: number }) {
 
   return (
     <View pointerEvents="box-none" style={[styles.overlay, { bottom: bottomOffset }]}>
+      {/* Casts the shadow the sheet's own clipped container cannot. */}
+      <View pointerEvents="none" style={styles.shadowCaster} />
       <ActiveJobSheet orders={orders} bottomOffset={bottomOffset} />
     </View>
   );

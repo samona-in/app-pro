@@ -86,22 +86,20 @@ const SETTINGS_GROUPS: { label: string; rows: SettingsRowItem[] }[] = [
 ];
 
 /**
- * One tappable row inside a settings card.
+ * One tappable row in the settings list.
  *
  * The icon stays bare — no tile or background — so the row reads as a quiet
- * label with a chevron, and the hairline between rows starts at the label, not
- * under the icon.
+ * label with a chevron, and the hairline between rows runs the full width of
+ * the screen.
  */
 function SettingsRow({
   icon,
   label,
-  last,
   destructive,
   onPress,
 }: {
   icon: IoniconName;
   label: string;
-  last?: boolean;
   destructive?: boolean;
   onPress?: () => void;
 }) {
@@ -111,9 +109,8 @@ function SettingsRow({
       accessibilityLabel={label}
       disabled={!onPress}
       onPress={onPress}
-      className="active:bg-surface-muted"
     >
-      <View className="min-h-[52px] flex-row items-center px-4">
+      <View className="min-h-[52px] flex-row items-center">
         <View className="h-5 w-5 items-center justify-center">
           <Ionicons
             name={icon}
@@ -127,14 +124,14 @@ function SettingsRow({
         <Ionicons name="chevron-forward" size={16} color={color['text-muted']} />
       </View>
 
-      {!last ? <View className="ml-8 mr-4 h-px bg-border" /> : null}
+      <View className="-mx-4 h-px bg-border" />
     </Pressable>
   );
 }
 
 /**
- * A labelled group of rows in one rounded card, the way settings are grouped
- * on the Zomato profile: a small uppercase label above a white bordered card.
+ * A labelled group of settings rows: a small uppercase label above the rows,
+ * with each row separated by a full-width hairline instead of a bordered card.
  */
 function SettingsSection({
   label,
@@ -153,9 +150,7 @@ function SettingsSection({
         </Text>
       ) : null}
 
-      <View className="overflow-hidden rounded-2xl border border-border bg-surface">
-        {children}
-      </View>
+      {children}
     </View>
   );
 }
@@ -258,24 +253,19 @@ export default function Profile() {
 
       {SETTINGS_GROUPS.map((group) => (
         <SettingsSection key={group.label} label={group.label} className="mt-6">
-          {group.rows.map((row, index) => (
-            <SettingsRow
-              key={row.label}
-              icon={row.icon}
-              label={row.label}
-              last={index === group.rows.length - 1}
-              onPress={row.onPress}
-            />
+          {group.rows.map((row) => (
+            <SettingsRow key={row.label} icon={row.icon} label={row.label} onPress={row.onPress} />
           ))}
         </SettingsSection>
       ))}
 
-      <SettingsSection className="mt-6">
+      {/* A tighter gap than a labelled group: the row above already closes with
+          a hairline, so 24px read as dead space above the words. */}
+      <SettingsSection className="mt-3">
         <SettingsRow
           icon="trash-outline"
           label="Delete account"
           destructive
-          last
           onPress={() => router.push('/account')}
         />
       </SettingsSection>

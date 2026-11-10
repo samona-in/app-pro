@@ -112,7 +112,7 @@ export function WorkGroupNavigation({
               onPress={() => onSelectGroup(group.id)}
               className={cn('w-1/4 px-1 pb-4 active:opacity-70')}
             >
-              <View className="aspect-square w-full overflow-hidden rounded-md border border-border">
+              <View className="aspect-square w-full overflow-hidden rounded-sm border border-border">
                 <WorkGroupArtwork
                   name={group.name}
                   imageUrl={group.imageUrl}

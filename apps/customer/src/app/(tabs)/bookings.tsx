@@ -108,7 +108,6 @@ export default function Bookings() {
       <ScrollView
         className="mt-3 flex-1"
         contentContainerStyle={{
-          paddingHorizontal: 16,
           paddingBottom: insets.bottom + FLOATING_TAB_BAR_CLEARANCE,
         }}
         showsVerticalScrollIndicator={false}
@@ -141,15 +140,13 @@ export default function Bookings() {
             message={EMPTY_COPY[filter].message}
           />
         ) : (
-          <View className="overflow-hidden rounded-2xl border border-border bg-surface">
-            {visible.map((job, index) => (
-              <View key={job.id}>
-                {/* Inset hairline, so each row reads as one grouped entry. */}
-                {index > 0 ? <View className="ml-24 mr-4 h-px bg-border" /> : null}
-                <BookingRow job={job} />
-              </View>
-            ))}
-          </View>
+          visible.map((job, index) => (
+            <View key={job.id}>
+              {/* Hairline separator, the full width of the screen. */}
+              {index > 0 ? <View className="h-px bg-border" /> : null}
+              <BookingRow job={job} />
+            </View>
+          ))
         )}
       </ScrollView>
     </Screen>

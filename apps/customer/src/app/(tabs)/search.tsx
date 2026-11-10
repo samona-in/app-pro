@@ -14,6 +14,7 @@ import type { ServiceOption, SkillWithService } from '@samona/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '@/components/feedback';
 import { SectionHeader } from '@/components/home/SectionHeader';
+import { ServiceCard } from '@/components/home/ServiceCard';
 import { ServiceGrid } from '@/components/home/ServiceGrid';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { IconButton, Text } from '@/components/ui';
@@ -174,8 +175,8 @@ interface BrowseProps {
 }
 
 /**
- * What the screen shows before a query is typed: recents as wrapping chips and
- * every category as the same 4-up grid the home screen uses, so the customer
+ * What the screen shows before a query is typed: recents as the same tiles as
+ * the catalogue grid below, and every category in that grid, so the customer
  * can browse just as easily as searching.
  */
 function Browse({
@@ -193,9 +194,15 @@ function Browse({
         <View className="px-4">
           <SectionHeader title="Recent searches" className="mb-3" />
 
-          <View className="flex-row flex-wrap gap-2">
+          <View className="flex-row flex-wrap gap-y-5">
             {recents.map((item) => (
-              <RecentChip key={itemKey(item)} item={item} onPress={() => onSelectRecent(item)} />
+              <View key={itemKey(item)} className="w-1/3">
+                <ServiceCard
+                  service={asServiceOption(item)}
+                  imageClassName="rounded-sm"
+                  onPress={() => onSelectRecent(item)}
+                />
+              </View>
             ))}
           </View>
         </View>
@@ -214,7 +221,11 @@ function Browse({
               <ActivityIndicator size="small" color={color['text-secondary']} />
             </View>
           ) : (
-            <ServiceGrid services={allServices} onSelect={onSelectService} />
+            <ServiceGrid
+              services={allServices}
+              imageClassName="rounded-sm"
+              onSelect={onSelectService}
+            />
           )}
         </View>
       ) : null}
@@ -236,35 +247,20 @@ function Browse({
   );
 }
 
-interface RecentChipProps {
-  item: RecentSearchItem;
-  onPress: () => void;
-}
-
 /**
- * A recent search, as a chip: the artwork and the name, sized to sit in a
- * wrapping row. Chips wrap rather than scroll, so every recent stays one tap
- * away.
+ * A recent search, dressed as a catalogue tile. A skill borrows its own
+ * artwork (falling back to the parent service's), so the recents grid and the
+ * browse grid read as one continuous catalogue.
  */
-function RecentChip({ item, onPress }: RecentChipProps) {
-  const imageUri =
-    item.type === 'service' ? item.service.icon : (item.skill.icon ?? item.skill.service.icon);
-  const title = item.type === 'service' ? item.service.name : item.skill.name;
+function asServiceOption(item: RecentSearchItem): ServiceOption {
+  if (item.type === 'service') return item.service;
 
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      onPress={onPress}
-      className="max-w-full flex-row items-center gap-2 rounded-full border border-border bg-surface py-1.5 pl-1.5 pr-3 active:opacity-70"
-    >
-      <ServiceImage uri={imageUri} className="h-7 w-7 rounded-full" />
-      <Text variant="footnote" className="shrink text-text-primary">
-        {title}
-      </Text>
-      <Ionicons name="time-outline" size={14} color={color['text-muted']} />
-    </Pressable>
-  );
+  return {
+    id: item.skill.id,
+    slug: item.skill.slug,
+    name: item.skill.name,
+    icon: item.skill.icon ?? item.skill.service.icon,
+  };
 }
 
 interface SearchResultsProps {
@@ -351,11 +347,7 @@ function ResultRow({ imageUri, imageLabel, title, subtitle, onPress }: ResultRow
       onPress={onPress}
       className="flex-row items-center gap-3 px-3 py-3 active:bg-surface-muted"
     >
-      <ServiceImage
-        uri={imageUri}
-        accessibilityLabel={imageLabel}
-        className="h-14 w-14 rounded-lg"
-      />
+      <ServiceImage uri={imageUri} accessibilityLabel={imageLabel} className="h-14 w-14" />
       <View className="flex-1">
         <Text variant="bodyStrong" numberOfLines={1}>
           {title}

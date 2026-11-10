@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
   Dimensions,
   Pressable,
   View,
@@ -9,7 +10,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ServiceWorkGroupWithWorks, SkillOption } from '@samona/types';
 import { JOB_CUSTOM_SKILL_MAX, JOB_CUSTOM_SKILL_MIN, OTHER_SKILL_SLUG } from '@samona/types';
@@ -89,7 +90,7 @@ function SkillRow({
       <View style={{ position: 'relative', overflow: 'visible' }}>
         <View
           className={cn(
-            'aspect-square h-[112px] w-[112px] items-center justify-center overflow-hidden rounded-md border',
+            'aspect-square h-[112px] w-[112px] items-center justify-center overflow-hidden rounded-sm border',
             selected ? 'border-brand' : 'border-border',
           )}
         >
@@ -157,6 +158,20 @@ export default function BookingSkill() {
       draft.start(service);
     }
   }, [draft.service?.id, draft.start, service]);
+
+  // While the details sheet is open, a back press dismisses the sheet instead of
+  // leaving the catalogue screen. Without this, Android's back gesture popped
+  // the whole booking step and dropped the customer back on home.
+  useEffect(() => {
+    if (!detailsSkill) return;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setDetailsSkill(null);
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [detailsSkill]);
 
   const displayGroups = useMemo(() => {
     const configuredGroups = workGroups.data?.groups ?? [];
@@ -342,6 +357,14 @@ export default function BookingSkill() {
 
   return (
     <View className="flex-1">
+      {/*
+       * The iOS edge-swipe pops the screen natively, so it cannot be caught by
+       * a back listener. Disabling the gesture while the sheet is up keeps the
+       * customer on the catalogue: the sheet's own swipe-down and backdrop
+       * still close it.
+       */}
+      <Stack.Screen options={{ gestureEnabled: detailsSkill === null }} />
+
       <BookingStep
         step={1}
         service={undefined}

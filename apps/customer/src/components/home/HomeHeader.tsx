@@ -28,8 +28,8 @@ export interface HomeHeaderProps extends Omit<PressableProps, 'style' | 'childre
 /**
  * Location row for the customer home.
  *
- * A quiet white header in the Zomato mould: a small pin-and-caption line over
- * the current location, a chevron that signals the address picker, and the
+ * A quiet white header in the Zomato mould: a pin-and-caption line above the
+ * current location, a chevron that signals the address picker, and the
  * notification bell on the right. The search bar is a separate scroll child so
  * it can pin beneath this row while everything else scrolls away.
  */
@@ -59,21 +59,21 @@ export function HomeHeader({
         >
           <View className="flex-1">
             <View className="flex-row items-center">
-              <Ionicons name="location-sharp" size={12} color={color['text-muted']} />
-              <Text numberOfLines={1} variant="caption" className="ml-1 shrink">
+              <Ionicons name="location-sharp" size={18} color={color['text-primary']} />
+              <Text
+                numberOfLines={1}
+                variant="bodyLg"
+                className="ml-1 shrink font-semibold text-text-primary"
+              >
                 {locationCaption}
               </Text>
             </View>
 
             <View className="mt-0.5 flex-row items-center">
-              <Text
-                numberOfLines={1}
-                variant="bodyLg"
-                className="mr-1 shrink font-semibold text-text-primary"
-              >
+              <Text numberOfLines={1} variant="caption" className="mr-1 shrink text-text-muted">
                 {locationLabel}
               </Text>
-              <Ionicons name="chevron-down" size={16} color={color['text-primary']} />
+              <Ionicons name="chevron-down" size={16} color={color['text-muted']} />
             </View>
           </View>
         </Pressable>

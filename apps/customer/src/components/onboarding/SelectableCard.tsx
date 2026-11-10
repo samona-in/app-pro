@@ -35,7 +35,7 @@ export function SelectableCard({
       )}
     >
       {imageUri ? (
-        <ServiceImage uri={imageUri} accessibilityLabel={label} className="h-7 w-7 rounded" />
+        <ServiceImage uri={imageUri} accessibilityLabel={label} className="h-7 w-7" />
       ) : icon ? (
         <Ionicons name={icon} size={20} color={selected ? color.brand : color['text-secondary']} />
       ) : null}
