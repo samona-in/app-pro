@@ -8,10 +8,10 @@ export type RadiusSaveDecision =
   { shouldSave: true } | { shouldSave: false; reason: 'same-value' | 'in-flight' };
 
 /**
- * Whether releasing the slider should hit the network.
+ * Whether settling on a radius should hit the network.
  *
- * Releasing on the value already saved is a no-op by definition, and a request
- * already in flight means another release must not stack — the gesture is
+ * Settling on the value already saved is a no-op by definition, and a request
+ * already in flight means another commit must not stack — the control is
  * disabled while saving anyway, this guards the a11y path and races.
  */
 export function decideRadiusSave(

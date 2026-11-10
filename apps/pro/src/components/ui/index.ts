@@ -10,5 +10,6 @@ export { LanguagePicker, type LanguagePickerProps } from './LanguagePicker';
 export { OtpInput, type OtpInputProps } from './OtpInput';
 export { Screen, type ScreenProps } from './Screen';
 export { ServiceRadiusSlider, type ServiceRadiusSliderProps } from './ServiceRadiusSlider';
+export { ServiceRadiusWheel, type ServiceRadiusWheelProps } from './ServiceRadiusWheel';
 export { SwipeToConfirm, type SwipeToConfirmProps } from './SwipeToConfirm';
 export { Text, type TextProps } from './Text';

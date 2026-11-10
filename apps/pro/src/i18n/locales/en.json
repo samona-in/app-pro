@@ -166,8 +166,7 @@
     "radius": {
       "title": "How far will you travel?",
       "subtitle": "Customers outside this distance won't see your profile.",
-      "current": "Service area",
-      "sliderA11y": "How far you will travel",
+      "wheelA11y": "How far you will travel",
       "saveError": "Could not save your service area. Please try again."
     },
     "about": {
@@ -688,7 +687,7 @@
     "loading": "Loading your service area…",
     "saveErrorTitle": "Could not save your service area",
     "saveError": "Check your connection and try again.",
-    "sliderA11y": "Service radius"
+    "wheelA11y": "Service radius"
   },
   "jobStatus": {
     "requested": "New",
