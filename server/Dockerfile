@@ -66,6 +66,13 @@ COPY server/package.json server/
 # "postinstall": "prisma generate" and that hook runs during the install.
 # Regenerating in the build stage below keeps the final client authoritative.
 COPY server/prisma server/prisma
+# The root package declares `postinstall: node scripts/apply-patches.mjs`, which
+# npm runs during `npm ci` even though this image installs only the server
+# workspaces. The script itself is required here or the install aborts with
+# MODULE_NOT_FOUND. `patches/` is intentionally not copied: none of the patched
+# packages are installed in this image, and the script's contract is to skip a
+# patch whose target is absent.
+COPY scripts/apply-patches.mjs scripts/apply-patches.mjs
 RUN npm ci \
       --workspace=@samona/types \
       --workspace=@samona/config \
