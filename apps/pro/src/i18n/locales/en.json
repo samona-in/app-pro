@@ -840,6 +840,22 @@
     "title": "Choose your language",
     "subtitle": "Pick the language you'd like to use in SAMONA Pro. You can change it later in settings."
   },
+  "appUpdate": {
+    "optionalTitle": "A new update is available!",
+    "optionalDescription": "We've made improvements to give you a better experience. Update now to enjoy the latest version of SAMONA.",
+    "mandatoryTitle": "Update required",
+    "mandatoryDescription": "Please update SAMONA to continue using the app and enjoy a better, more reliable experience.",
+    "updateNow": "Update Now",
+    "maybeLater": "Maybe Later",
+    "readyTitle": "Update ready to install",
+    "readyDescription": "The latest version has been downloaded. Restart SAMONA to finish installing it.",
+    "restartNow": "Restart Now",
+    "errorTitle": "Could not update SAMONA",
+    "errorDescription": "Check your connection and try again, or update SAMONA from Google Play.",
+    "tryAgain": "Try Again",
+    "notNow": "Not now",
+    "closeA11y": "Close update prompt"
+  },
   "accountDeletion": {
     "title": "Delete account",
     "subtitle": "Removing your professional profile is permanent and cannot be undone.",

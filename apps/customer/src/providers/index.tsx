@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppUpdateGate } from '@samona/app-updates';
 import { AuthProvider } from './auth-provider';
 import { LiveLocationProvider } from './live-location-provider';
 import { QueryProvider } from './query-provider';
@@ -23,6 +24,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <AuthProvider>
           <QueryProvider>
             <LiveLocationProvider>{children}</LiveLocationProvider>
+            {/* Google Play in-app updates. Default English copy, SAMONA brand theme. */}
+            <AppUpdateGate />
           </QueryProvider>
         </AuthProvider>
       </SafeAreaProvider>

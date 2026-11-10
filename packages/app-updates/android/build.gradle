@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.samona.updates'
+version = '0.1.0'
+
+android {
+  namespace "com.samona.updates"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // Google Play In-App Updates. Gradle resolves this from the google() Maven
+  // repository declared by both apps' root build.gradle.
+  implementation 'com.google.android.play:app-update:2.1.0'
+}

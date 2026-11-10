@@ -20,6 +20,12 @@ const LIQUID_GLASS_SUPPORTED =
 
 const BAR_HEIGHT = FLOATING_TAB_BAR_HEIGHT;
 const BAR_RADIUS = BAR_HEIGHT / 2;
+/**
+ * Width of the outline, which is drawn *outside* the glass rather than on it.
+ * The ring view is inset by this amount, so its border ends up flush with the
+ * pill and extends one pixel past it.
+ */
+const RING_WIDTH = 1;
 /** Inset that keeps the selection lens and tab icons off the glass rim. */
 const BAR_PADDING = 6;
 const LENS_HEIGHT = BAR_HEIGHT - 16;
@@ -175,6 +181,10 @@ export function FloatingTabBar({ state, descriptors, navigation, onHeight }: Flo
       style={[styles.dock, { bottom: insets.bottom + FLOATING_TAB_BAR_BOTTOM_GAP }]}
       onLayout={(event) => onHeight?.(Math.round(event.nativeEvent.layout.height))}
     >
+      {/* The outline lives outside the glass: an inner hairline read as a stray
+          line drawn across the pill, so it now wraps the bar instead. */}
+      <View pointerEvents="none" style={styles.ring} />
+
       <BarSurface>
         {/* Decorative glass layers, painted beneath the tab row. */}
         <View pointerEvents="none" style={styles.tintWash} />
@@ -236,6 +246,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: FLOATING_TAB_BAR_MARGIN,
     right: FLOATING_TAB_BAR_MARGIN,
+  },
+  /**
+   * The bar's outline. It is inset by exactly the border width, so the stroke
+   * lands flush against the pill and extends `RING_WIDTH` past it — the border
+   * wraps the glass from the outside instead of being drawn on top of it.
+   */
+  ring: {
+    position: 'absolute',
+    top: -RING_WIDTH,
+    left: -RING_WIDTH,
+    right: -RING_WIDTH,
+    bottom: -RING_WIDTH,
+    borderRadius: BAR_RADIUS + RING_WIDTH,
+    borderWidth: RING_WIDTH,
+    borderColor: 'rgba(15, 23, 42, 0.10)',
   },
   shell: {
     height: BAR_HEIGHT,

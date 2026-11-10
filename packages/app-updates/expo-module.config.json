@@ -1,0 +1,7 @@
+{
+  "name": "app-updates",
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.samona.updates.AppUpdatesModule"]
+  }
+}

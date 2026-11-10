@@ -1,0 +1,33 @@
+{
+  "name": "@samona/app-updates",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Google Play in-app updates for the SAMONA Android apps (native Expo module + shared UI).",
+  "license": "UNLICENSED",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./policy": {
+      "types": "./src/policy.ts",
+      "default": "./src/policy.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@expo/ui": "*",
+    "expo-modules-core": "*",
+    "react": "*",
+    "react-native": "*",
+    "react-native-safe-area-context": "*"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3"
+  }
+}
