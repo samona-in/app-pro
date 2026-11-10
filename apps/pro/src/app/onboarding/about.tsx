@@ -22,8 +22,8 @@ export default function OnboardingAbout() {
   }
 
   async function onContinue() {
-    // Languages are optional: this step should never block a Pro who is
-    // otherwise ready to work.
+    // At least one language is required, so the button stays disabled until
+    // the Pro picks one (mirrors the services step's guard).
     await save.mutateAsync({ languages });
     // Documents and the face check follow this step, then review.
     router.push('/onboarding/documents');
@@ -35,6 +35,7 @@ export default function OnboardingAbout() {
       subtitle={t('onboarding.about.subtitle')}
       onPrimary={() => void onContinue()}
       isSaving={save.isPending}
+      primaryDisabled={languages.length === 0}
       error={save.isError ? t('onboarding.about.saveError') : null}
     >
       <View className="gap-3">

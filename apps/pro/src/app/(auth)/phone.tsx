@@ -1,14 +1,46 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { OTP_LENGTH } from '@samona/config';
 import { phoneSchema } from '@samona/validation';
-import { Wordmark } from '@/components/brand/Wordmark';
-import { Button, Input, Screen, Text } from '@/components/ui';
+import { AuthHero, CountryCodeButton, CountryPickerSheet } from '@/components/auth';
+import { Button, Screen, Text } from '@/components/ui';
 import { usePhoneAuth, usePhoneHint } from '@/hooks';
+import { DEFAULT_COUNTRY, type Country } from '@/constants/countries';
 import { PRIVACY_URL, TERMS_URL } from '@/constants/support';
+import { color } from '@/theme';
+import { cn } from '@/utils/cn';
 import { openExternalUrl } from '@/utils/open-url';
+
+function digitsOf(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+/** A quiet legal link: dark label, dotted rule underneath, like the reference. */
+function LegalLink({ label, url }: { label: string; url: string }) {
+  const { t } = useTranslation();
+
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      onPress={() =>
+        openExternalUrl(
+          url,
+          t('helpSupport.errors.pageFailedTitle'),
+          t('helpSupport.errors.pageFailedMessage'),
+        )
+      }
+      className="border-b border-dotted border-text-muted pb-0.5 active:opacity-60"
+    >
+      <Text variant="footnote" className="font-medium text-text-primary">
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 /**
  * Step 1 of phone authentication: collect the number.
@@ -19,20 +51,44 @@ import { openExternalUrl } from '@/utils/open-url';
 export default function PhoneScreen() {
   const { t } = useTranslation();
   const { sendCode, isBusy, error, clearError } = usePhoneAuth();
-  const [phone, setPhone] = useState('+91');
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const [number, setNumber] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // Android only: offer the SIM numbers as one-tap suggestions until the Pro
-  // starts typing their own.
-  usePhoneHint(setPhone, phone.trim() === '+91');
+  // The hint arrives as a single E.164 string, so strip the dial code we
+  // already show and keep only the subscriber number.
+  usePhoneHint((hint) => {
+    const digits = digitsOf(hint);
+    const code = digitsOf(country.dial);
+    if (digits.startsWith(code))
+      setNumber(digits.slice(code.length, code.length + country.maxLocalDigits));
+  }, number.length === 0);
+
+  function onNumberChange(text: string) {
+    setNumber(digitsOf(text).slice(0, country.maxLocalDigits));
+  }
+
+  function onCountryChange(next: Country) {
+    setCountry(next);
+    // A number typed for one country can be too long for the next.
+    setNumber((current) => digitsOf(current).slice(0, next.maxLocalDigits));
+  }
 
   async function onContinue() {
     setLocalError(null);
     clearError();
 
-    const parsed = phoneSchema.safeParse(phone);
+    const local = digitsOf(number);
+
+    if (!local) {
+      setLocalError(t('phone.enterNumber'));
+      return;
+    }
+
+    const parsed = phoneSchema.safeParse(`+${country.dial}${local}`);
     if (!parsed.success) {
-      setLocalError(parsed.error.issues[0]?.message ?? t('validation.phoneInvalid'));
+      setLocalError(t('phone.invalidForCountry', { country: country.name }));
       return;
     }
 
@@ -41,73 +97,105 @@ export default function PhoneScreen() {
     }
   }
 
+  const hasError = Boolean(localError ?? error);
+
   return (
-    <Screen edges={['top', 'bottom']} scrollable className="bg-surface">
-      <View className="flex-1 justify-center py-10">
-        <Wordmark size="md" />
-
-        <Text variant="titleLg" className="mt-10">
-          {t('phone.heading')}
-        </Text>
-        <Text variant="body" className="mt-2 text-text-secondary">
-          {t('phone.helper', { otpLength: OTP_LENGTH })}
-        </Text>
-
-        <Input
-          label={t('phone.label')}
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="+91 98765 43210"
-          keyboardType="phone-pad"
-          autoComplete="tel"
-          textContentType="telephoneNumber"
-          autoFocus
-          editable={!isBusy}
-          error={localError ?? error ?? undefined}
-          hint={t('phone.hint')}
-          containerClassName="mt-8"
-        />
-      </View>
-
-      <View className="gap-3 pb-4">
-        <Button
-          label={t('phone.sendCode')}
-          size="lg"
-          loading={isBusy}
-          onPress={() => void onContinue()}
-        />
-        <Text variant="caption" className="text-center">
-          {t('phone.legal')}
-        </Text>
-        <View className="flex-row justify-center gap-5">
-          <Text
-            variant="caption"
-            className="text-brand"
-            onPress={() =>
-              openExternalUrl(
-                TERMS_URL,
-                t('helpSupport.errors.pageFailedTitle'),
-                t('helpSupport.errors.pageFailedMessage'),
-              )
-            }
-          >
-            {t('helpSupport.rows.terms')}
+    /* The country sheet is a plain `BottomSheet` mounted beside the screen
+       tree rather than inside it, because the scroll view would otherwise
+       drag the sheet with its content. */
+    <View className="flex-1">
+      {/* No top safe-area edge: the hero's blue band runs edge-to-edge behind
+          the status bar, like the welcome screen's background. */}
+      <Screen
+        edges={['bottom']}
+        scrollable
+        keyboardAware
+        className="bg-surface"
+        footer={
+          /* CTA pinned below the scroll area: it rides above the keyboard
+             while the number field is being edited. */
+          <View className="gap-5 pb-4 pt-6">
+            <Button
+              label={t('common.continue')}
+              size="lg"
+              loading={isBusy}
+              onPress={() => void onContinue()}
+            />
+            <View>
+              <Text variant="footnote" className="text-center text-text-secondary">
+                {t('phone.legalPrefix')}
+              </Text>
+              <View className="mt-2 flex-row flex-wrap justify-center gap-x-5 gap-y-2">
+                <LegalLink label={t('helpSupport.rows.terms')} url={TERMS_URL} />
+                <LegalLink label={t('helpSupport.rows.privacy')} url={PRIVACY_URL} />
+              </View>
+            </View>
+          </View>
+        }
+      >
+        <StatusBar style="light" />
+        <AuthHero />
+        <View className="flex-1 justify-center py-10">
+          <Text variant="titleLg" className="text-center">
+            {t('phone.heading')}
           </Text>
-          <Text
-            variant="caption"
-            className="text-brand"
-            onPress={() =>
-              openExternalUrl(
-                PRIVACY_URL,
-                t('helpSupport.errors.pageFailedTitle'),
-                t('helpSupport.errors.pageFailedMessage'),
-              )
-            }
-          >
-            {t('helpSupport.rows.privacy')}
+          <Text variant="footnote" className="mt-2 text-center">
+            {t('phone.helper', { otpLength: OTP_LENGTH })}
           </Text>
+
+          {/* ── Phone row ─────────────────────────────────────────────────── */}
+          <View className="mt-8 flex-row gap-3">
+            {/* The flag + dial code box opens the country sheet; the number
+              field next to it carries the error border. */}
+            <CountryCodeButton
+              country={country}
+              expanded={pickerOpen}
+              disabled={isBusy}
+              onPress={() => setPickerOpen(true)}
+            />
+
+            <View
+              className={cn(
+                'h-14 flex-1 flex-row items-center rounded-lg border bg-surface pl-4 pr-3',
+                hasError ? 'border-danger' : 'border-border',
+              )}
+            >
+              <TextInput
+                value={number}
+                onChangeText={onNumberChange}
+                placeholder={t('phone.numberPlaceholder')}
+                placeholderTextColor={color['text-muted']}
+                accessibilityLabel={t('phone.label')}
+                keyboardType="phone-pad"
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+                textAlignVertical="center"
+                maxLength={country.maxLocalDigits}
+                autoFocus
+                editable={!isBusy}
+                style={{ includeFontPadding: false, paddingVertical: 0 }}
+                className="h-full min-w-0 flex-1 bg-transparent text-body-lg leading-6 text-text-primary"
+              />
+            </View>
+          </View>
+
+          {hasError ? (
+            <Text variant="footnote" className="mt-1.5 text-danger">
+              {localError ?? error}
+            </Text>
+          ) : null}
         </View>
-      </View>
-    </Screen>
+      </Screen>
+
+      <CountryPickerSheet
+        visible={pickerOpen}
+        selectedIso={country.iso}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(next) => {
+          onCountryChange(next);
+          setPickerOpen(false);
+        }}
+      />
+    </View>
   );
 }

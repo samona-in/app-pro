@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
-import { color } from '@/theme';
+import { color, cornerRadius } from '@/theme';
 import { cn } from '@/utils/cn';
 
 export interface OtpInputProps {
@@ -29,7 +29,7 @@ export interface OtpInputProps {
 }
 
 /**
- * Split one-time-code entry as a row of individual square boxes.
+ * Split one-time-code entry as a row of individual boxes.
  * A single hidden TextInput holds focus and drives the visible boxes, so
  * hardware keyboard, SMS auto-fill, paste and autofocus all just work.
  */
@@ -39,7 +39,7 @@ export function OtpInput({
   onChange,
   error,
   editable = true,
-  radius = 0,
+  radius = cornerRadius.lg,
   focusKey = 0,
 }: OtpInputProps) {
   const { t } = useTranslation();
@@ -62,29 +62,34 @@ export function OtpInput({
 
   return (
     <View className="w-full">
-      <View
-        className="relative flex-row justify-between"
-        accessibilityLabel={t('ui.otp.verificationCode')}
-      >
-        {Array.from({ length }, (_, i) => (
-          <Pressable key={i} onPress={() => inputRef.current?.focus()}>
-            <View
-              className={cn(
-                'h-[56px] w-[48px] items-center justify-center border-2 bg-surface',
-                i < chars.length || (i === value.length && focused)
-                  ? 'border-brand'
-                  : hasError
-                    ? 'border-danger'
-                    : 'border-border-strong',
-              )}
-              style={{ borderRadius: radius }}
-            >
-              <Text variant="title" className={cn('text-text-primary', i >= chars.length && 'opacity-0')}>
-                {chars[i] ?? ' '}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
+      {/* Each box takes an equal share of the full row width (`flex-1`), so
+          the group spans edge to edge; the hidden overlay TextInput sits on
+          top of the whole row for taps. */}
+      <View className="relative flex-row gap-2" accessibilityLabel={t('ui.otp.verificationCode')}>
+        {Array.from({ length }, (_, i) => {
+          const active = i < chars.length || (i === value.length && focused);
+
+          return (
+            <Pressable key={i} className="flex-1" onPress={() => inputRef.current?.focus()}>
+              <View
+                className={cn(
+                  'h-[52px] items-center justify-center border-2 bg-surface',
+                  active ? 'border-brand' : hasError ? 'border-danger' : 'border-border-strong',
+                )}
+                style={{ borderRadius: radius }}
+              >
+                <Text
+                  variant="title"
+                  /* `leading-none` drops the variant's 26px line-height so
+                     the digit fills the box without built-in vertical space. */
+                  className={cn('text-text-primary leading-none', i >= chars.length && 'opacity-0')}
+                >
+                  {chars[i] ?? ' '}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
 
         <TextInput
           ref={inputRef}
