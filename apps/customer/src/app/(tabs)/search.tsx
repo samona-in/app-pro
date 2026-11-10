@@ -271,9 +271,9 @@ interface SearchResultsProps {
 }
 
 /**
- * Search hits, grouped into the same two quiet cards: services first, then the
- * skills that live under them. A divider starts at the text column, so each
- * card reads as a single object rather than a stack of boxes.
+ * Search hits, grouped into two flat sections: services first, then the skills
+ * that live under them. A divider starts at the text column, so each row reads
+ * as part of one continuous list.
  */
 function SearchResults({ services, skills, onSelectService, onSelectSkill }: SearchResultsProps) {
   return (
@@ -286,10 +286,10 @@ function SearchResults({ services, skills, onSelectService, onSelectSkill }: Sea
             className="mb-3"
           />
 
-          <View className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <View>
             {services.map((service, index) => (
               <View key={service.id}>
-                {index > 0 ? <View className="ml-24 mr-3 h-px bg-border" /> : null}
+                {index > 0 ? <View className="ml-[68px] mr-3 h-px bg-border" /> : null}
                 <ResultRow
                   imageUri={service.icon}
                   imageLabel={service.name}
@@ -311,10 +311,10 @@ function SearchResults({ services, skills, onSelectService, onSelectSkill }: Sea
             className="mb-3"
           />
 
-          <View className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <View>
             {skills.map((skill, index) => (
               <View key={skill.id}>
-                {index > 0 ? <View className="ml-24 mr-3 h-px bg-border" /> : null}
+                {index > 0 ? <View className="ml-[68px] mr-3 h-px bg-border" /> : null}
                 <ResultRow
                   imageUri={skill.icon ?? skill.service.icon}
                   imageLabel={skill.name}
@@ -345,7 +345,7 @@ function ResultRow({ imageUri, imageLabel, title, subtitle, onPress }: ResultRow
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={onPress}
-      className="flex-row items-center gap-3 px-3 py-3 active:bg-surface-muted"
+      className="flex-row items-center gap-3 py-3"
     >
       <ServiceImage uri={imageUri} accessibilityLabel={imageLabel} className="h-14 w-14" />
       <View className="flex-1">
