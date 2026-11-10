@@ -2,16 +2,22 @@ import { Redirect, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LoadingState } from '@/components/feedback';
 import { Screen } from '@/components/ui';
+import { hasChosenLanguage } from '@/i18n';
 import { useAuth } from '@/providers';
 import { color } from '@/theme';
 
 /**
- * Auth stack, with the guard that sends a signed-in user into the app.
+ * Auth stack, with the two guards that own the signed-out experience.
  *
- * This is what moves the user on after a successful verification. Navigating
- * imperatively from the verify screen would only cover that one path; a guard
- * here also covers restoring a persisted session and deep links that land on an
- * auth route while already signed in.
+ * Signed in: this is what moves the user on after a successful verification.
+ * Navigating imperatively from the verify screen would only cover that one path;
+ * a guard here also covers restoring a persisted session and deep links that land
+ * on an auth route while already signed in.
+ *
+ * Signed out: language is the first mandatory step. The entry route already
+ * gates it, but a deep link can land straight on welcome/phone/verify, so the
+ * same check lives here — no one reaches the phone flow without having
+ * explicitly picked a language.
  */
 export default function AuthLayout() {
   const { t } = useTranslation();
@@ -31,6 +37,10 @@ export default function AuthLayout() {
   // than duplicated here.
   if (isSignedIn) {
     return <Redirect href="/" />;
+  }
+
+  if (!hasChosenLanguage()) {
+    return <Redirect href="/choose-language" />;
   }
 
   return (

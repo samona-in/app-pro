@@ -21,7 +21,7 @@ const baseRow = {
   latitude: null,
   longitude: null,
   locationLabel: null,
-  languages: [] as string[],
+  languages: ['English'] as string[],
   selfiePhotoPath: null as string | null,
   isOnline: false,
   isVerified: false,
@@ -52,7 +52,7 @@ const base: ProProfile = {
   longitude: null,
   locationLabel: null,
   locationPlaceId: null,
-  languages: [],
+  languages: ['English'],
   isOnline: false,
   isVerified: false,
   rating: null,
@@ -92,6 +92,7 @@ describe('isProProfileComplete', () => {
     ['no experience', { experienceLevel: null }],
     ['no services', { serviceIds: [] }],
     ['no service radius', { serviceRadiusKm: 0 }],
+    ['no spoken language', { languages: [] }],
     ['no face verification', { hasSelfie: false }],
     ['no documents', { hasDocuments: false }],
   ])('rejects a profile with %s', (_label, patch) => {
@@ -99,10 +100,10 @@ describe('isProProfileComplete', () => {
   });
 
   it('does not require optional detail that is collected later', () => {
-    // Bio, languages and payout details must never block a Pro who is
-    // otherwise ready to work. They are absent from the parameter type
-    // entirely, so completeness cannot come to depend on them by accident.
-    const withoutOptionalDetail: ProProfile = { ...base, bio: null, languages: [] };
+    // Bio and payout details must never block a Pro who is otherwise ready to
+    // work. They are absent from the parameter type entirely, so completeness
+    // cannot come to depend on them by accident.
+    const withoutOptionalDetail: ProProfile = { ...base, bio: null };
 
     expect(isProProfileComplete(withoutOptionalDetail)).toBe(true);
   });
@@ -132,6 +133,10 @@ describe('nextIncompleteStep', () => {
     );
   });
 
+  it('asks for at least one language before documents', () => {
+    expect(nextIncompleteStep({ ...base, languages: [] })).toBe('about');
+  });
+
   it('asks for the name before anything else', () => {
     expect(nextIncompleteStep({ ...base, displayName: null, serviceIds: [] })).toBe('name');
   });
@@ -148,6 +153,7 @@ describe('nextIncompleteStep', () => {
       serviceIds: [],
       skillIds: [],
       experienceLevel: null,
+      languages: [],
     };
 
     expect(nextIncompleteStep(empty)).toBe('name');
@@ -171,6 +177,16 @@ describe('nextIncompleteStep', () => {
         gender: 'FEMALE',
         serviceIds: ['s'],
         experienceLevel: 'THREE_TO_FIVE',
+      }),
+    ).toBe('about');
+    expect(
+      nextIncompleteStep({
+        ...empty,
+        displayName: 'Asha',
+        gender: 'FEMALE',
+        serviceIds: ['s'],
+        experienceLevel: 'THREE_TO_FIVE',
+        languages: ['English'],
       }),
     ).toBe('review');
   });

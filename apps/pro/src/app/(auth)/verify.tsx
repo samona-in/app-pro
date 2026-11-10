@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { OTP_LENGTH } from '@samona/config';
+import { AuthHero } from '@/components/auth';
 import { Button, OtpInput, Screen, Text } from '@/components/ui';
-import { useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
+import { useCountdown, useOtpAutoFill, usePhoneAuth, getAppHash } from '@/hooks';
+
+/** A code was just sent on the previous screen, so resend waits a full window. */
+const RESEND_COOLDOWN_MS = 30_000;
 
 /**
  * Step 2 of phone authentication: verify the code.
@@ -18,6 +23,11 @@ export default function VerifyScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const { verifyCode, sendCode, isBusy, error, clearError } = usePhoneAuth();
   const [code, setCode] = useState('');
+  const {
+    remainingSeconds,
+    isActive: isResendLocked,
+    restart: restartResendWindow,
+  } = useCountdown(RESEND_COOLDOWN_MS);
 
   // Android zero-tap fill via Google's SMS Retriever; iOS/web no-op.
   // The retriever only fires when the SMS ends with this build's hash,
@@ -48,15 +58,50 @@ export default function VerifyScreen() {
   }
 
   async function onResend() {
-    if (!phone) return;
+    if (!phone || isResendLocked) return;
     clearError();
     setCode('');
-    await sendCode(phone);
+    if (await sendCode(phone)) restartResendWindow();
   }
 
   return (
-    <Screen edges={['top', 'bottom']} scrollable className="bg-surface">
-      <View className="flex-1 justify-center py-10">
+    /* No top safe-area edge: the hero's blue band runs edge-to-edge behind
+       the status bar, like the welcome screen's background. */
+    <Screen
+      edges={['bottom']}
+      scrollable
+      keyboardAware
+      className="bg-surface"
+      footer={
+        /* CTAs pinned below the scroll area: they ride above the keyboard
+           while the code is being entered. */
+        <View className="gap-3 pb-4 pt-6">
+          <Button
+            label={t('verify.verify')}
+            size="lg"
+            loading={isBusy}
+            disabled={code.length < OTP_LENGTH}
+            onPress={() => void onVerify()}
+          />
+          <Button
+            label={
+              isResendLocked
+                ? t('verify.resendIn', { seconds: remainingSeconds })
+                : t('verify.resendCode')
+            }
+            variant="ghost"
+            disabled={isBusy || isResendLocked}
+            onPress={() => void onResend()}
+          />
+        </View>
+      }
+    >
+      <StatusBar style="light" />
+      <AuthHero />
+      {/* Top-aligned under the hero instead of vertically centered: the
+          boxes stay up near the hero, well clear of the pinned footer,
+          which rides above the keyboard while the code is entered. */}
+      <View className="flex-1 pb-4 pt-6">
         <Text variant="titleLg">{t('verify.heading')}</Text>
         <Text variant="body" className="mt-2 text-text-secondary">
           {t('verify.sentToPhone', { phone: phone ?? t('verify.yourPhone') })}{' '}
@@ -65,29 +110,20 @@ export default function VerifyScreen() {
           </Text>
         </Text>
 
-        <OtpInput
-          length={OTP_LENGTH}
-          value={code}
-          onChange={(next) => setCode(next)}
-          editable={!isBusy}
-          error={error ?? undefined}
-        />
-      </View>
-
-      <View className="gap-3 pb-4">
-        <Button
-          label={t('verify.verify')}
-          size="lg"
-          loading={isBusy}
-          disabled={code.length < OTP_LENGTH}
-          onPress={() => void onVerify()}
-        />
-        <Button
-          label={t('verify.resendCode')}
-          variant="ghost"
-          disabled={isBusy}
-          onPress={() => void onResend()}
-        />
+        {/* Breathing room below the boxes so the pinned CTA footer, which
+            rides above the keyboard, stays clear of the field. */}
+        <View className="mt-3">
+          <OtpInput
+            length={OTP_LENGTH}
+            value={code}
+            onChange={(next) => {
+              clearError();
+              setCode(next);
+            }}
+            editable={!isBusy}
+            error={error ?? undefined}
+          />
+        </View>
       </View>
     </Screen>
   );

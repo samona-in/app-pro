@@ -56,6 +56,7 @@
     "getStarted": "शुरू करें",
     "haveAccount": "मेरा खाता पहले से है",
     "otpVerify": "हम आपके फ़ोन नंबर को {{otpLength}} अंकों के कोड से सत्यापित करेंगे।",
+    "imageAlt": "ग्राहक के पास जाते एक SAMONA पेशेवर",
     "valueProps": {
       "jobRequests": "पास के ग्राहकों से काम के अनुरोध पाएं",
       "acceptWork": "वह काम स्वीकार करें जो आपके शेड्यूल के अनुकूल हो",
@@ -67,8 +68,17 @@
     "helper": "आपको सत्यापित करने के लिए हम {{otpLength}} अंकों का कोड SMS करेंगे।",
     "label": "फ़ोन नंबर",
     "hint": "अपना देश कोड शामिल करें।",
+    "numberPlaceholder": "फ़ोन नंबर दर्ज करें",
+    "enterNumber": "अपना फ़ोन नंबर दर्ज करें।",
+    "invalidForCountry": "{{country}} के लिए सही फ़ोन नंबर दर्ज करें।",
     "sendCode": "कोड भेजें",
     "legal": "जारी रखकर आप SAMONA Pro की शर्तों और गोपनीयता नीति से सहमत होते हैं।",
+    "legalPrefix": "जारी रखकर आप इनसे सहमत होते हैं:",
+    "countryTitle": "देश",
+    "countrySubtitle": "अपना देश या क्षेत्र चुनें",
+    "countryCode": "देश कोड: {{country}}, प्लस {{dial}}",
+    "countryOption": "{{country}}, प्लस {{dial}}",
+    "closeCountryPicker": "देश चयनकर्ता बंद करें",
     "tooManyAttempts": "बहुत अधिक प्रयास। दूसरा कोड मांगने से पहले एक मिनट प्रतीक्षा करें।",
     "couldNotSend": "कोड भेज नहीं सके। फिर से प्रयास करें।",
     "wrongCode": "वह कोड सही नहीं है। फिर से प्रयास करें।",
@@ -80,7 +90,8 @@
     "yourPhone": "आपका फ़ोन",
     "changeNumber": "नंबर बदलें",
     "verify": "सत्यापित करें",
-    "resendCode": "कोड फिर से भेजें"
+    "resendCode": "कोड फिर से भेजें",
+    "resendIn": "{{seconds}}सेकंड में कोड फिर से भेजें"
   },
   "validation": {
     "phoneInvalid": "एक मान्य फ़ोन नंबर दर्ज करें।",
@@ -195,7 +206,8 @@
       "incomplete": "अधूरा",
       "gender": "लिंग",
       "services": "सेवाएं",
-      "travelsUpTo": "{{distance}} तक की यात्रा करते हैं",
+      "experience": "अनुभव",
+      "serviceCoverageArea": "सेवा क्षेत्र",
       "languages": "भाषाएं",
       "footerNote": "दस्तावेज़, भुगतान विवरण और प्रमाणन बाद में आपकी प्रोफ़ाइल से जोड़े जा सकते हैं।"
     }

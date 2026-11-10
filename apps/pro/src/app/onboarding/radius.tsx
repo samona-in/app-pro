@@ -36,7 +36,7 @@ export default function OnboardingRadius() {
       isSaving={save.isPending}
       error={save.isError ? t('onboarding.radius.saveError') : null}
     >
-      <View className="rounded-2xl border border-border bg-surface-muted px-5 pb-4 pt-5">
+      <View>
         <View className="flex-row items-center">
           <Text variant="body" className="flex-1 font-semibold">
             {t('onboarding.radius.current')}
@@ -44,7 +44,7 @@ export default function OnboardingRadius() {
           <Text variant="titleLg">{t('format.km', { value: radius })}</Text>
         </View>
 
-        <View className="mt-6">
+        <View className="mt-4">
           <ServiceRadiusSlider
             value={radius}
             min={LOCATION_DEFAULTS.minServiceRadiusKm}
@@ -54,7 +54,7 @@ export default function OnboardingRadius() {
             onRelease={setRadius}
             accessibilityLabel={t('onboarding.radius.sliderA11y')}
           />
-          <View className="mt-1 flex-row justify-between px-5">
+          <View className="mt-2 flex-row justify-between px-5">
             <Text variant="footnote" className="text-text-muted">
               {t('format.km', { value: LOCATION_DEFAULTS.minServiceRadiusKm })}
             </Text>

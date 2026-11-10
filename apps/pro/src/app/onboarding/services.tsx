@@ -53,7 +53,7 @@ export default function OnboardingServices() {
           message={t('onboarding.services.emptyMessage')}
         />
       ) : (
-        <View className="flex-row flex-wrap gap-2">
+        <View className="flex-row flex-wrap gap-3">
           {catalogue.data.services.map((service) => (
             <SelectableServiceTile
               key={service.id}

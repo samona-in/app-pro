@@ -11,11 +11,12 @@ import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import { MAX_SERVICE_RADIUS_KM, MIN_SERVICE_RADIUS_KM } from '@/utils/service-radius';
 
-/** Height the library lays its track out in; the wrapper mirrors it. */
-const SLIDER_HEIGHT = 50;
+/** Height the wrapper lays the track out in; the library's own box is taller
+ *  but transparent, so the visible control only takes this much vertical space. */
+const SLIDER_HEIGHT = 36;
 /** Inset the library puts around the track (`HORIZONTAL_PADDING`). */
 const TRACK_INSET = 15;
-const THUMB_SIZE = 32;
+const THUMB_SIZE = 16;
 const TRACK_HEIGHT = 8;
 
 export interface ServiceRadiusSliderProps {
@@ -140,10 +141,12 @@ export function ServiceRadiusSlider({
             borderWidth: 1,
             borderColor: inactive ? color.border : color.brand,
             shadowColor: '#000',
-            shadowOpacity: 0.18,
-            shadowRadius: 6,
-            shadowOffset: { width: 0, height: 2 },
-            elevation: 4,
+            /* Kept tight: a wide shadow under a small thumb reads as a smudge
+               rather than depth. */
+            shadowOpacity: 0.16,
+            shadowRadius: 3,
+            shadowOffset: { width: 0, height: 1 },
+            elevation: 3,
           }}
           pressedThumbStyle={{ opacity: 0.9 }}
           onValuesChange={handleValuesChange}

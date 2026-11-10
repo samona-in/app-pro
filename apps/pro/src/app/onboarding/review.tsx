@@ -51,11 +51,10 @@ export default function OnboardingReview() {
   const rows = [
     { label: t('onboarding.review.gender'), value: summary.gender },
     { label: t('onboarding.review.services'), value: summary.services.join(', ') || '—' },
+    { label: t('onboarding.review.experience'), value: summary.experience },
     {
-      label: t('onboarding.review.travelsUpTo', {
-        distance: t('format.km', { value: profile.serviceRadiusKm }),
-      }),
-      value: '',
+      label: t('onboarding.review.serviceCoverageArea'),
+      value: t('format.km', { value: profile.serviceRadiusKm }),
     },
     { label: t('onboarding.review.languages'), value: profile.languages.join(', ') || '—' },
   ];

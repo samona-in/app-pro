@@ -300,8 +300,9 @@ export interface ProProfile {
  * cannot verify anyone from an empty file. The selfie is the other proof that
  * the account belongs to a real person, so it gates completion too.
  *
- * Bio, languages and payout details remain optional — they are collected
- * later and must never block an otherwise ready Pro.
+ * At least one spoken language is required as well: customers use it to find
+ * someone they can talk to. Bio and payout details remain optional — they are
+ * collected later and must never block an otherwise ready Pro.
  */
 export function isProProfileComplete(
   profile: Pick<
@@ -310,6 +311,7 @@ export function isProProfileComplete(
     | 'gender'
     | 'experienceLevel'
     | 'serviceRadiusKm'
+    | 'languages'
     | 'serviceIds'
     | 'hasSelfie'
     | 'hasDocuments'
@@ -323,6 +325,7 @@ export function isProProfileComplete(
     profile.gender !== null &&
     profile.experienceLevel !== null &&
     profile.serviceRadiusKm > 0 &&
+    profile.languages.length > 0 &&
     profile.serviceIds.length > 0 &&
     profile.hasSelfie &&
     profile.hasDocuments
@@ -362,6 +365,9 @@ export function nextIncompleteStep(profile: ProProfile | null): OnboardingStep {
   // Coordinates are optional, so the radius is the only persisted signal for
   // both work-area steps. Resuming at `location` keeps their natural order.
   if (!profile.serviceRadiusKm) return 'location';
+  // At least one spoken language is mandatory; the step sits between the work
+  // area and documents.
+  if (profile.languages.length === 0) return 'about';
   // At least one document is mandatory. Documents are asked before the face
   // check, which is the final question of the flow.
   if (!profile.hasDocuments) return 'documents';

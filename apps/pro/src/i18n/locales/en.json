@@ -56,6 +56,7 @@
     "getStarted": "Get started",
     "haveAccount": "I already have an account",
     "otpVerify": "We'll verify your phone number with a {{otpLength}}-digit code.",
+    "imageAlt": "A SAMONA professional on the way to a customer",
     "valueProps": {
       "jobRequests": "Get job requests from customers near you",
       "acceptWork": "Accept the work that fits your schedule",
@@ -67,8 +68,17 @@
     "helper": "We'll text you a {{otpLength}}-digit code to verify it's you.",
     "label": "Phone number",
     "hint": "Include your country code.",
+    "numberPlaceholder": "Enter Phone Number",
+    "enterNumber": "Enter your phone number.",
+    "invalidForCountry": "Enter a valid phone number for {{country}}.",
     "sendCode": "Send code",
     "legal": "By continuing you agree to the SAMONA Pro terms and privacy policy.",
+    "legalPrefix": "By continuing, you agree to our",
+    "countryTitle": "Country",
+    "countrySubtitle": "Choose your country or region",
+    "countryCode": "Country code: {{country}}, plus {{dial}}",
+    "countryOption": "{{country}}, plus {{dial}}",
+    "closeCountryPicker": "Close country picker",
     "tooManyAttempts": "Too many attempts. Please wait a minute before requesting another code.",
     "couldNotSend": "Could not send a code. Please try again.",
     "wrongCode": "That code is not right. Please try again.",
@@ -80,7 +90,8 @@
     "yourPhone": "your phone",
     "changeNumber": "Change number",
     "verify": "Verify",
-    "resendCode": "Resend code"
+    "resendCode": "Resend code",
+    "resendIn": "Resend code in {{seconds}}s"
   },
   "validation": {
     "phoneInvalid": "Enter a valid phone number.",
@@ -195,7 +206,8 @@
       "incomplete": "Incomplete",
       "gender": "Gender",
       "services": "Services",
-      "travelsUpTo": "Travels up to {{distance}}",
+      "experience": "Experience",
+      "serviceCoverageArea": "Service coverage area",
       "languages": "Languages",
       "footerNote": "Documents, payout details and certifications can be added later from your profile."
     }

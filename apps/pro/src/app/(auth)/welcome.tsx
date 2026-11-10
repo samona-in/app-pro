@@ -1,72 +1,92 @@
-import { Pressable, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { OTP_LENGTH } from '@samona/config';
+import welcomeBackground from '@/assets/images/welcome-background.jpg';
+import softBottomFade from '@/assets/images/soft-bottom-fade.png';
+import samonaTechnician from '@/assets/images/samona_technician.webp';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button, Screen, Text } from '@/components/ui';
-import { activeLanguage, SUPPORTED_LANGUAGES } from '@/i18n';
-import { color } from '@/theme';
 
-const VALUE_PROPS: { tKey: 'welcome.valueProps.jobRequests' | 'welcome.valueProps.acceptWork' | 'welcome.valueProps.trackEarnings' }[] = [
-  { tKey: 'welcome.valueProps.jobRequests' },
-  { tKey: 'welcome.valueProps.acceptWork' },
-  { tKey: 'welcome.valueProps.trackEarnings' },
-];
+/** Intrinsic aspect ratio of samona_technician.webp (width / height). */
+const IMAGE_ASPECT = 900 / 968;
+const IMAGE_MAX_WIDTH = 260;
 
+/** Deep blue from the top of `welcome-background.jpg`, reused for the CTA. */
+const HERO_BLUE = '#2A5FE0';
+
+/**
+ * First screen a signed-out Pro sees, opening on the brand the way the
+ * customer app does: a full-bleed background, the professional artwork, and
+ * the two entry points pinned above the fold.
+ *
+ * Both buttons lead to the same place: a professional entering their number
+ * does not know whether they already have an account, and Supabase creates
+ * one on first verification, so the phone flow resolves it either way.
+ */
 export default function Welcome() {
   const { t } = useTranslation();
-  const languageName = SUPPORTED_LANGUAGES.find((l) => l.code === activeLanguage())?.nativeName;
 
-  /**
-   * Both buttons lead to the same place: a professional entering their number
-   * does not know whether they already have an account, and Supabase creates
-   * one on first verification, so the phone flow resolves it either way.
-   */
   function continueToPhone() {
     router.push('/phone');
   }
 
   return (
-    <Screen edges={['top', 'bottom']} className="bg-surface">
-      <View className="flex-row justify-end pt-1">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('language.title')}
-          onPress={() => router.push('/language')}
-          className="flex-row items-center gap-1.5 rounded-full border border-border px-3 py-1.5 active:opacity-60"
-        >
-          <Ionicons name="globe-outline" size={16} color={color['text-secondary']} />
-          <Text variant="footnote" className="font-semibold text-text-secondary">
-            {languageName}
-          </Text>
-        </Pressable>
-      </View>
+    <Screen
+      edges={['top', 'bottom']}
+      className="bg-surface"
+      background={
+        <Image
+          source={welcomeBackground}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          accessible={false}
+        />
+      }
+    >
+      <StatusBar style="light" />
 
-      <View className="flex-1 justify-center">
-        <Wordmark size="lg" />
+      <View className="flex-1">
+        <Wordmark size="lg" inverse className="mt-8" />
 
-        <Text variant="titleLg" className="mt-8">
+        <View className="mt-2 items-center">
+          <View style={{ width: '100%', maxWidth: IMAGE_MAX_WIDTH }}>
+            <Image
+              source={samonaTechnician}
+              style={{ width: '100%', aspectRatio: IMAGE_ASPECT }}
+              contentFit="contain"
+              transition={200}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={t('welcome.imageAlt')}
+            />
+            {/* Dissolves the illustration's flat cut-out edge into the page. */}
+            <Image
+              source={softBottomFade}
+              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '30%' }}
+              contentFit="fill"
+              accessible={false}
+            />
+          </View>
+        </View>
+
+        <Text variant="titleLg" className="-mt-2 text-center">
           {t('welcome.heading')}
         </Text>
-        <Text variant="bodyLg" className="mt-3 text-text-secondary">
+        <Text variant="footnote" className="mt-3 text-center text-text-secondary">
           {t('welcome.subheading')}
         </Text>
-
-        <View className="mt-10 gap-4">
-          {VALUE_PROPS.map((item) => (
-            <View key={item.tKey} className="flex-row items-start">
-              <View className="mr-3 mt-2 h-1.5 w-1.5 rounded-full bg-brand" />
-              <Text variant="body" className="flex-1 text-text-secondary">
-                {t(item.tKey)}
-              </Text>
-            </View>
-          ))}
-        </View>
       </View>
 
       <View className="gap-3 pb-4">
-        <Button label={t('welcome.getStarted')} size="lg" onPress={continueToPhone} />
+        <Button
+          label={t('welcome.getStarted')}
+          size="lg"
+          backgroundColor={HERO_BLUE}
+          onPress={continueToPhone}
+        />
         <Button label={t('welcome.haveAccount')} variant="ghost" onPress={continueToPhone} />
         <Text variant="caption" className="mt-2 text-center">
           {t('welcome.otpVerify', { otpLength: OTP_LENGTH })}

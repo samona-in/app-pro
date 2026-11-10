@@ -28,6 +28,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.26",
     "@expo/vector-icons": "^15.1.1",
+    "@gorhom/bottom-sheet": "^5.2.14",
     "@noma4i/vision-camera-face-detector": "^3.0.1",
     "@samona/api-client": "*",
     "@samona/config": "*",
