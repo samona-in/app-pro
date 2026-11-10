@@ -222,9 +222,10 @@ export function FloatingTabBar({ state, descriptors, navigation, onHeight }: Flo
           })}
         </View>
 
-        {/* Rim lights sit on top so the edge stays crisp over any content. */}
+        {/* A single rim light along the top edge keeps the glass crisp. The
+            full outline is gone: the shadow already separates the bar from
+            the screen, and the hairline read as a stray line. */}
         <View pointerEvents="none" style={styles.topSheen} />
-        <View pointerEvents="none" style={styles.edge} />
       </BarSurface>
     </View>
   );
@@ -305,11 +306,5 @@ const styles = StyleSheet.create({
     height: 1,
     borderRadius: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-  },
-  edge: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: BAR_RADIUS,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
 });

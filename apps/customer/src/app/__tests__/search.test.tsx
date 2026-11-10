@@ -52,7 +52,7 @@ const leakRepair: SkillWithService = {
 
 /**
  * The nearest ancestor of `node` laid out as a wrapping row — the container the
- * recent chips share.
+ * recent tiles share.
  */
 function rowOf(node: ReactTestInstance): ReactTestInstance | null {
   let current = node.parent;
@@ -125,30 +125,30 @@ describe('Search — recent items', () => {
     useBookingDraft.getState().reset();
   });
 
-  it('shows the recent searches as chips in a wrapping row', async () => {
+  it('shows the recent searches as tiles in the catalogue grid', async () => {
     render(<Search />);
     await waitFor(() => expect(screen.getByText('Recent searches')).toBeTruthy());
 
-    // One chip per recent, carrying the name.
-    const serviceChip = screen.getByLabelText('Plumbing');
-    const skillChip = screen.getByLabelText('Leak repair');
+    // One tile per recent, carrying the name.
+    const serviceTile = screen.getByLabelText('Plumbing');
+    const skillTile = screen.getByLabelText('Leak repair');
     expect(screen.getByText('Plumbing')).toBeTruthy();
     expect(screen.getByText('Leak repair')).toBeTruthy();
 
-    // A chip is a compact pill...
-    expect(serviceChip.props.className).toMatch(/rounded-full/);
-    expect(skillChip.props.className).toMatch(/rounded-full/);
+    // A tile is the same borderless, square-artwork card the catalogue uses.
+    expect(serviceTile.props.className).not.toMatch(/rounded|border/);
+    expect(skillTile.props.className).not.toMatch(/rounded|border/);
 
-    // ...and the chips share one wrapping row rather than stacking as a list.
-    const row = rowOf(serviceChip);
-    expect(row).not.toBeNull();
-    expect(rowOf(skillChip)).toBe(row);
+    // ...and the tiles share one wrapping grid rather than stacking as a list.
+    const grid = rowOf(serviceTile);
+    expect(grid).not.toBeNull();
+    expect(rowOf(skillTile)).toBe(grid);
 
     // The old list rows are gone: no subtitle line under the name.
     expect(screen.queryByText('View all skills')).toBeNull();
   });
 
-  it('opens the service a service chip is tapped from', async () => {
+  it('opens the service a service tile is tapped from', async () => {
     render(<Search />);
     await waitFor(() => expect(screen.getByText('Recent searches')).toBeTruthy());
 
@@ -157,7 +157,7 @@ describe('Search — recent items', () => {
     expect(router.push).toHaveBeenCalledWith('/booking/new/plumbing/skill');
   });
 
-  it('opens the parent service with the skill preselected from a skill chip', async () => {
+  it('opens the parent service with the skill preselected from a skill tile', async () => {
     render(<Search />);
     await waitFor(() => expect(screen.getByText('Recent searches')).toBeTruthy());
 

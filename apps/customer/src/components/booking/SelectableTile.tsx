@@ -21,13 +21,7 @@ export interface SelectableTileProps {
  * under it in two lines. Selected state is a brand border plus a check badge,
  * which stays legible against photos of any colour.
  */
-export function SelectableTile({
-  label,
-  selected,
-  onToggle,
-  icon,
-  imageUri,
-}: SelectableTileProps) {
+export function SelectableTile({ label, selected, onToggle, icon, imageUri }: SelectableTileProps) {
   const hasImage = isImageUrl(imageUri ?? null);
 
   return (
@@ -40,7 +34,7 @@ export function SelectableTile({
     >
       <View
         className={cn(
-          'aspect-square w-full items-center justify-center overflow-hidden rounded-xl border-2 bg-surface',
+          'aspect-square w-full items-center justify-center overflow-hidden rounded-sm border-2 bg-surface',
           selected ? 'border-brand' : 'border-border',
         )}
       >

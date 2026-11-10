@@ -1,4 +1,6 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { BackHandler } from 'react-native';
+import type * as ReactTypes from 'react';
 import type { ServiceOption, ServiceWithWorkGroups, SkillOption } from '@samona/types';
 import BookingSkill from '../booking/new/[slug]/skill';
 
@@ -13,21 +15,36 @@ const mockDetailsSheetProps: {
   skillName?: string;
   pricing?: SkillOption | null;
   onContinue?: (description: string) => void;
+  open?: boolean;
 } = {};
+/** The stack options the screen last handed to the navigator. */
+const mockStackOptions: { gestureEnabled?: boolean } = {};
 let mockDraftService: ServiceOption | null = null;
 
-jest.mock('@/components/booking/BookingDetailsSheet', () => ({
-  BookingDetailsSheet: (props: {
-    skillName: string;
-    pricing?: SkillOption | null;
-    onContinue: (description: string) => void;
-  }) => {
-    mockDetailsSheetProps.skillName = props.skillName;
-    mockDetailsSheetProps.pricing = props.pricing;
-    mockDetailsSheetProps.onContinue = props.onContinue;
-    return null;
-  },
-}));
+jest.mock('@/components/booking/BookingDetailsSheet', () => {
+  const React = jest.requireActual<typeof ReactTypes>('react');
+
+  return {
+    BookingDetailsSheet: (props: {
+      skillName: string;
+      pricing?: SkillOption | null;
+      onContinue: (description: string) => void;
+    }) => {
+      mockDetailsSheetProps.skillName = props.skillName;
+      mockDetailsSheetProps.pricing = props.pricing;
+      mockDetailsSheetProps.onContinue = props.onContinue;
+
+      React.useEffect(() => {
+        mockDetailsSheetProps.open = true;
+        return () => {
+          mockDetailsSheetProps.open = false;
+        };
+      }, []);
+
+      return null;
+    },
+  };
+});
 
 jest.mock('@/hooks', () => ({
   useServiceCategories: (...args: unknown[]) => mockUseServiceCategories(...args),
@@ -50,6 +67,14 @@ jest.mock('@/stores/booking', () => ({
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn() },
   useLocalSearchParams: () => ({ slug: 'electrician' }),
+  // The screen sets its own stack options (it disables the swipe-back while the
+  // details sheet is open); the navigator is not mounted in these tests.
+  Stack: {
+    Screen: ({ options }: { options?: { gestureEnabled?: boolean } }) => {
+      mockStackOptions.gestureEnabled = options?.gestureEnabled;
+      return null;
+    },
+  },
 }));
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
@@ -158,6 +183,49 @@ describe('customer service work groups screen', () => {
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockDetailsSheetProps.skillName).toBe('Fan repair');
     expect(mockDetailsSheetProps.pricing).toEqual(fanRepair);
+  });
+
+  it('locks the swipe-back gesture while the details sheet is open', () => {
+    const { getByLabelText } = render(<BookingSkill />);
+
+    expect(mockStackOptions.gestureEnabled).toBe(true);
+
+    fireEvent.press(getByLabelText('Fan repair'));
+
+    // The native edge-swipe must not pop the screen out from under the sheet.
+    expect(mockStackOptions.gestureEnabled).toBe(false);
+  });
+
+  it('dismisses the details sheet on back instead of leaving the catalogue', () => {
+    const handlers: (() => boolean)[] = [];
+    const addListener = jest
+      .spyOn(BackHandler, 'addEventListener')
+      .mockImplementation((_event, handler) => {
+        handlers.push(handler as () => boolean);
+        return { remove: jest.fn() };
+      });
+
+    try {
+      const { getByLabelText } = render(<BookingSkill />);
+
+      fireEvent.press(getByLabelText('Fan repair'));
+      expect(mockDetailsSheetProps.open).toBe(true);
+      expect(handlers).toHaveLength(1);
+
+      let handled = false;
+      act(() => {
+        handled = handlers[0]?.() ?? false;
+      });
+
+      // The press is consumed by the screen, the sheet closes, and the
+      // catalogue stays put.
+      expect(handled).toBe(true);
+      expect(mockDetailsSheetProps.open).toBe(false);
+      expect(mockStackOptions.gestureEnabled).toBe(true);
+      expect(mockRouterPush).not.toHaveBeenCalled();
+    } finally {
+      addListener.mockRestore();
+    }
   });
 
   it('continues from the details sheet to the order preview', () => {

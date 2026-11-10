@@ -68,7 +68,7 @@ describe('PopularSkills', () => {
     await settle();
 
     const card = screen.getByLabelText('Plumbing leak repair');
-    expect(card.props.className).toMatch(/rounded-2xl/);
+    expect(card.props.className).toMatch(/rounded-sm/);
     expect(card.props.className).toMatch(/border-border/);
 
     // The two-line box keeps every card's label on the same baseline.

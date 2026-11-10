@@ -122,27 +122,19 @@ export default function Notifications() {
           />
         </View>
       ) : (
-        <View className="px-4 pt-1">
+        <View className="pt-1">
           {groups.map((group) => (
             <View key={group.key} className="mt-5">
-              <View className="mb-2 flex-row items-center gap-3">
+              <View className="mb-1 flex-row items-center gap-3 px-4">
                 <Text variant="caption" className="font-bold uppercase tracking-[0.12em]">
                   {group.label}
                 </Text>
                 <View className="h-px flex-1 bg-border/60" />
               </View>
 
-              {/* One grouped card per day, like the rest of the app. */}
-              <View className="overflow-hidden rounded-2xl border border-border bg-surface">
-                {group.items.map((notice, index) => (
-                  <NotificationRow
-                    key={notice.id}
-                    notice={notice}
-                    unread={notice.readAt === null}
-                    showDivider={index > 0}
-                  />
-                ))}
-              </View>
+              {group.items.map((notice) => (
+                <NotificationRow key={notice.id} notice={notice} unread={notice.readAt === null} />
+              ))}
             </View>
           ))}
         </View>
