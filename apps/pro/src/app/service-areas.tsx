@@ -4,18 +4,18 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { LOCATION_DEFAULTS } from '@samona/config';
 import { ErrorState, LoadingState } from '@/components/feedback';
-import { Screen, ServiceRadiusSlider, Text } from '@/components/ui';
+import { Screen, ServiceRadiusWheel, Text } from '@/components/ui';
 import { useProProfile, useUpdateServiceRadius } from '@/hooks';
 import { decideRadiusSave } from '@/utils/service-radius';
 
 /**
  * Service area — how far this pro will travel to jobs.
  *
- * Reached from the Profile settings row. The thumb's position is one local
+ * Reached from the Profile settings row. The wheel's position is one local
  * piece of state (`radius`), seeded once from the backend. While the pro
- * drags, only the finger moves the thumb — a refetch or mutation response can
- * never yank it back to a stale/default value. The network is hit once per
- * release, never per movement; a failed save rolls the thumb back to the last
+ * scrolls, only the wheel moves — a refetch or mutation response can never yank
+ * it back to a stale/default value. The network is hit once per settled value,
+ * never per row passed; a failed save rolls the wheel back to the last
  * confirmed radius and offers a retry.
  */
 export default function ServiceAreasScreen() {
@@ -24,8 +24,8 @@ export default function ServiceAreasScreen() {
   const update = useUpdateServiceRadius();
 
   const [radius, setRadius] = useState<number | null>(null);
-  // Seed the thumb exactly once; afterwards server data never overwrites a
-  // live drag or a pending save.
+  // Seed the wheel exactly once; afterwards server data never overwrites a
+  // live gesture or a pending save.
   const initializedRef = useRef(false);
   /** The last radius the server confirmed — what `decideRadiusSave` compares against. */
   const lastConfirmedRadius = useRef<number | null>(null);
@@ -49,7 +49,7 @@ export default function ServiceAreasScreen() {
       },
       onError: () => {
         failedRadius.current = km;
-        // The server kept the old value; put the thumb back on it.
+        // The server kept the old value; put the wheel back on it.
         setRadius(lastConfirmedRadius.current ?? km);
         Alert.alert(t('serviceAreas.saveErrorTitle'), t('serviceAreas.saveError'), [
           { text: t('common.cancel'), style: 'cancel' },
@@ -67,7 +67,7 @@ export default function ServiceAreasScreen() {
     commit(km);
   }
 
-  function onRelease(km: number) {
+  function onRadiusChanged(km: number) {
     setRadius(km);
     if (
       !decideRadiusSave(km, lastConfirmedRadius.current ?? shownRadius, update.isPending).shouldSave
@@ -115,16 +115,15 @@ export default function ServiceAreasScreen() {
         </View>
 
         <View className="mt-8">
-          <ServiceRadiusSlider
+          <ServiceRadiusWheel
             value={shownRadius}
             min={LOCATION_DEFAULTS.minServiceRadiusKm}
             max={LOCATION_DEFAULTS.maxServiceRadiusKm}
-            loading={update.isPending}
-            onValueChange={(km) => setRadius(km)}
-            onRelease={onRelease}
-            accessibilityLabel={t('serviceAreas.sliderA11y')}
+            disabled={update.isPending}
+            onChange={onRadiusChanged}
+            accessibilityLabel={t('serviceAreas.wheelA11y')}
           />
-          <View className="mt-1 flex-row justify-between px-5">
+          <View className="mt-4 flex-row justify-between px-5">
             <Text variant="footnote" className="text-text-muted">
               {t('format.km', { value: LOCATION_DEFAULTS.minServiceRadiusKm })}
             </Text>
