@@ -80,21 +80,26 @@ function SwipeableTabBar({ state, descriptors, navigation }: SwipeableTabBarProp
             }
             onPress={() => navigation.navigate(route.name)}
             className="flex-1 items-center"
-            style={({ pressed }) => pressed && { opacity: 0.6 }}
           >
-            <View>
-              {options.tabBarIcon?.({ focused: isFocused, color: tint })}
-              {route.name === 'incoming-jobs' && pendingCount > 0 ? (
-                <View className="absolute -right-2.5 -top-1.5 min-w-[18px] items-center rounded-full bg-brand px-1">
-                  <Text className="text-[10px] font-bold leading-4 text-brand-contrast">
-                    {pendingCount > 99 ? '99+' : pendingCount}
-                  </Text>
+            {({ pressed }) => (
+              // Press feedback rides a plain style on an inner View: css-interop
+              // (NativeWind) silently drops function `style` props on Pressable.
+              <View style={pressed ? { opacity: 0.6 } : undefined}>
+                <View>
+                  {options.tabBarIcon?.({ focused: isFocused, color: tint })}
+                  {route.name === 'incoming-jobs' && pendingCount > 0 ? (
+                    <View className="absolute -right-2.5 -top-1.5 min-w-[18px] items-center rounded-full bg-brand px-1">
+                      <Text className="text-[10px] font-bold leading-4 text-brand-contrast">
+                        {pendingCount > 99 ? '99+' : pendingCount}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
-              ) : null}
-            </View>
-            <Text style={[TAB_LABEL_STYLE, { color: tint }]} className="mt-0.5">
-              {label}
-            </Text>
+                <Text style={[TAB_LABEL_STYLE, { color: tint }]} className="mt-0.5">
+                  {label}
+                </Text>
+              </View>
+            )}
           </Pressable>
         );
       })}

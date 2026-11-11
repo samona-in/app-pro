@@ -331,39 +331,46 @@ const SidebarItem = memo(function SidebarItem({
       accessibilityLabel={t('incomingJobs.amountA11y', { amount })}
       accessibilityState={{ selected: active }}
       onPress={() => onPress(offer.jobId)}
-      className={cn(
-        'min-h-[68px] items-center justify-center border-l-[3px] py-2',
-        active ? 'border-brand bg-brand-soft' : 'border-transparent',
-      )}
-      style={({ pressed }) => (pressed ? { opacity: 0.6 } : undefined)}
     >
-      {deadline !== null ? (
-        <CountdownRing
-          progress={offerRemainingFraction(offer, now) ?? 0}
-          label={amount}
-          ringColor={ringColor}
-        />
-      ) : (
+      {({ pressed }) => (
+        // Press feedback rides a plain style on an inner View: css-interop
+        // (NativeWind) silently drops function `style` props on Pressable.
         <View
-          style={{ width: RING_SIZE, height: RING_SIZE }}
-          className="items-center justify-center"
+          className={cn(
+            'min-h-[68px] items-center justify-center border-l-[3px] py-2',
+            active ? 'border-brand bg-brand-soft' : 'border-transparent',
+          )}
+          style={pressed ? { opacity: 0.6 } : undefined}
         >
-          <Text variant="bodyStrong" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-            {amount}
-          </Text>
+          {deadline !== null ? (
+            <CountdownRing
+              progress={offerRemainingFraction(offer, now) ?? 0}
+              label={amount}
+              ringColor={ringColor}
+            />
+          ) : (
+            <View
+              style={{ width: RING_SIZE, height: RING_SIZE }}
+              className="items-center justify-center"
+            >
+              <Text variant="bodyStrong" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                {amount}
+              </Text>
+            </View>
+          )}
+          {remaining !== null ? (
+            <Text
+              variant="caption"
+              className={cn(
+                'mt-1 font-semibold',
+                expired ? 'text-danger' : urgent ? 'text-warning' : 'text-text-muted',
+              )}
+            >
+              {formatClock(remaining)}
+            </Text>
+          ) : null}
         </View>
       )}
-      {remaining !== null ? (
-        <Text
-          variant="caption"
-          className={cn(
-            'mt-1 font-semibold',
-            expired ? 'text-danger' : urgent ? 'text-warning' : 'text-text-muted',
-          )}
-        >
-          {formatClock(remaining)}
-        </Text>
-      ) : null}
     </Pressable>
   );
 });
