@@ -103,6 +103,12 @@ function SheetButton({
   const isPrimary = variant === 'primary';
   const labelColor = isPrimary ? theme.brandContrast : theme.textPrimary;
 
+  // The visual styles deliberately live on an inner View reached through the
+  // render-prop child, NOT on a function-valued `style` on the Pressable.
+  // NativeWind's css-interop wrapper hooks every Pressable and silently drops
+  // function `style` props, which made the primary CTA invisible and rendered
+  // the secondary as bare text. Plain style arrays (falsy entries included)
+  // survive the wrapper, and the render-prop child still receives `pressed`.
   return (
     <Pressable
       accessibilityRole="button"
@@ -110,19 +116,24 @@ function SheetButton({
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        isPrimary
-          ? { backgroundColor: theme.brand }
-          : { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 },
-        (disabled || loading) && styles.buttonDisabled,
-        pressed && !disabled && !loading && styles.buttonPressed,
-      ]}
     >
-      {loading ? (
-        <ActivityIndicator size="small" color={labelColor} />
-      ) : (
-        <Text style={[styles.buttonLabel, { color: labelColor }]}>{label}</Text>
+      {({ pressed }) => (
+        <View
+          style={[
+            styles.button,
+            isPrimary
+              ? { backgroundColor: theme.brand }
+              : { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 },
+            (disabled || loading) && styles.buttonDisabled,
+            pressed && !disabled && !loading && styles.buttonPressed,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color={labelColor} />
+          ) : (
+            <Text style={[styles.buttonLabel, { color: labelColor }]}>{label}</Text>
+          )}
+        </View>
       )}
     </Pressable>
   );
