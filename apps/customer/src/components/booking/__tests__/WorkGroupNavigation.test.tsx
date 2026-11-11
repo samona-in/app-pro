@@ -54,15 +54,15 @@ const groups: ServiceWorkGroupWithWorks[] = [
 ];
 
 describe('WorkGroupNavigation', () => {
-  it('shows the group image label, name, work count, and active state', () => {
+  it('shows the group image label and name for every group', () => {
     const { getByLabelText, getByText } = render(
       <WorkGroupNavigation groups={groups} activeGroupId="fans" onSelectGroup={jest.fn()} />,
     );
 
     expect(getByLabelText('Fans illustration')).toBeTruthy();
+    expect(getByLabelText('Lights illustration')).toBeTruthy();
     expect(getByText('Fans')).toBeTruthy();
-    expect(getByText('2 works')).toBeTruthy();
-    expect(getByLabelText('Fans, 2 works').props.accessibilityState).toEqual({ selected: true });
+    expect(getByText('Lights')).toBeTruthy();
   });
 
   it('notifies the selected group when a category is tapped', () => {
@@ -71,7 +71,7 @@ describe('WorkGroupNavigation', () => {
       <WorkGroupNavigation groups={groups} activeGroupId="fans" onSelectGroup={onSelectGroup} />,
     );
 
-    fireEvent.press(getByLabelText('Lights, 1 work'));
+    fireEvent.press(getByLabelText('Lights'));
 
     expect(onSelectGroup).toHaveBeenCalledWith('lights');
   });

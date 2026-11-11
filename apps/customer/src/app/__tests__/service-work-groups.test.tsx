@@ -2,6 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { BackHandler } from 'react-native';
 import type * as ReactTypes from 'react';
 import type { ServiceOption, ServiceWithWorkGroups, SkillOption } from '@samona/types';
+import * as workGroupsScroll from '@/components/booking/work-groups-scroll';
 import BookingSkill from '../booking/new/[slug]/skill';
 
 const mockUseServiceCategories = jest.fn();
@@ -183,6 +184,85 @@ describe('customer service work groups screen', () => {
     expect(mockRouterPush).not.toHaveBeenCalled();
     expect(mockDetailsSheetProps.skillName).toBe('Fan repair');
     expect(mockDetailsSheetProps.pricing).toEqual(fanRepair);
+  });
+
+  it('scrolls the catalogue to a tapped group with its name visible, without leaving the screen', () => {
+    const lightInstallation: SkillOption = {
+      id: 'skill-light-installation',
+      serviceId: 'service-1',
+      slug: 'light-installation',
+      name: 'Light installation',
+      icon: null,
+      groupId: 'group-lights',
+      basePricePaise: 40_000,
+    };
+    mockUseServiceSkills.mockReturnValue(
+      queryResult([fanRepair, fanInstallation, lightInstallation]),
+    );
+    mockUseServiceWorkGroups.mockReturnValue(
+      queryResult({
+        service,
+        groups: [
+          ...groupedCatalogue.groups,
+          {
+            id: 'group-lights',
+            serviceId: 'service-1',
+            name: 'Lights',
+            slug: 'lights',
+            imageUrl: 'asset://service-work-groups/light',
+            sortOrder: 2,
+            isActive: true,
+            works: [lightInstallation],
+          },
+        ],
+      } satisfies ServiceWithWorkGroups),
+    );
+
+    const scrollToWorkGroup = jest.spyOn(workGroupsScroll, 'scrollToWorkGroup');
+
+    try {
+      const { getByLabelText, getAllByTestId } = render(<BookingSkill />);
+
+      // Lay the catalogue out: the sections list sits below the hero and the
+      // group grid, and each group's section gets its own offset — a
+      // single-work group jumps to its section start just like a many-work
+      // group, so its name leads its rows below the pinned header.
+      const fireEventLayout = (testID: string, y: number) => {
+        const [anchor] = getAllByTestId(testID);
+        if (!anchor) throw new Error(`Missing catalogue anchor: ${testID}`);
+        fireEvent(anchor, 'layout', {
+          nativeEvent: { layout: { x: 0, y, width: 320, height: 400 } },
+        });
+      };
+      fireEventLayout('work-group-sections', 304);
+      fireEventLayout('work-group-section-group-fans', 0);
+      fireEventLayout('work-group-section-group-lights', 560);
+
+      fireEvent.press(getByLabelText('Lights'));
+
+      expect(scrollToWorkGroup).toHaveBeenCalledWith(expect.anything(), {
+        sectionsTop: 304,
+        sectionTop: 560,
+      });
+      expect(mockRouterPush).not.toHaveBeenCalled();
+      expect(mockDetailsSheetProps.skillName).toBeUndefined();
+    } finally {
+      scrollToWorkGroup.mockRestore();
+    }
+  });
+
+  it('waits for the catalogue to lay out before it can jump to a group', () => {
+    const scrollToWorkGroup = jest.spyOn(workGroupsScroll, 'scrollToWorkGroup');
+
+    try {
+      const { getByLabelText } = render(<BookingSkill />);
+
+      fireEvent.press(getByLabelText('Fans'));
+
+      expect(scrollToWorkGroup).not.toHaveBeenCalled();
+    } finally {
+      scrollToWorkGroup.mockRestore();
+    }
   });
 
   it('locks the swipe-back gesture while the details sheet is open', () => {
