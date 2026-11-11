@@ -63,3 +63,5 @@ yarn-error.log*
 # Working notes — scratch context for picking the project back up, not docs.
 CURRENTPROGRESS.md
 .vercel
+**/key.properties
+**/*.jks
