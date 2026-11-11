@@ -67,8 +67,22 @@ describe('usePhoneAuth verification messages', () => {
     );
   });
 
-  it('treats any unexpected failure the same way', async () => {
-    expect(await verifyWith(new Error('Network request failed'))).toBe(
+  it('reports a lost connection instead of blaming the code', async () => {
+    expect(await verifyWith(new TypeError('Network request failed'))).toBe(
+      'Connection lost. Check your network and try again.',
+    );
+  });
+
+  it('maps connection wording that arrives without an HTTP status', async () => {
+    expect(await verifyWith({ message: 'fetch timeout while offline' })).toBe(
+      'Connection lost. Check your network and try again.',
+    );
+  });
+
+  it('keeps blaming the code when Supabase answered the request', async () => {
+    // A response (any status) means the network worked; only a request that
+    // never got an answer — no status at all — reads as a connection problem.
+    expect(await verifyWith({ message: 'Network request failed', status: 400 })).toBe(
       'Incorrect code. Please try again.',
     );
   });

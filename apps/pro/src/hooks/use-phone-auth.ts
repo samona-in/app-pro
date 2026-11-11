@@ -43,6 +43,18 @@ function isRateLimited(error: unknown): boolean {
   return statusOf(error) === 429 || /rate limit|too many/i.test(messageOf(error));
 }
 
+/**
+ * Requests that never reached Supabase (offline, weak signal, a stalled
+ * fetch) arrive without an HTTP status and say so in the message. They are
+ * not code problems, so they get connection advice instead.
+ */
+function isConnectionProblem(error: unknown): boolean {
+  return (
+    statusOf(error) === undefined &&
+    /network|fetch|timeout|connection|offline/i.test(messageOf(error))
+  );
+}
+
 function friendlyMessage(error: unknown, fallback: string): string {
   if (isRateLimited(error)) return i18nInstance.t('phone.tooManyAttempts');
 
@@ -50,11 +62,11 @@ function friendlyMessage(error: unknown, fallback: string): string {
   return message && !INTERNAL_COPY_PATTERN.test(message) ? message : fallback;
 }
 
-/** Verification only ever reports a wrong code (or a rate limit). */
+/** Verification only ever reports a wrong code, a rate limit or a lost connection. */
 function verifyMessage(error: unknown): string {
-  return isRateLimited(error)
-    ? i18nInstance.t('phone.tooManyAttempts')
-    : i18nInstance.t('phone.wrongCode');
+  if (isRateLimited(error)) return i18nInstance.t('phone.tooManyAttempts');
+  if (isConnectionProblem(error)) return i18nInstance.t('phone.noConnection');
+  return i18nInstance.t('phone.wrongCode');
 }
 
 export function usePhoneAuth() {

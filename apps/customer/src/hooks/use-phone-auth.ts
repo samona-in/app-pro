@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 import { supabase } from '@/services/supabase';
 
-const TOO_MANY_ATTEMPTS =
-  'Too many attempts. Please wait a minute before requesting another code.';
+const TOO_MANY_ATTEMPTS = 'Too many attempts. Please wait a minute before requesting another code.';
 const INCORRECT_CODE = 'Incorrect code. Please try again.';
+const CONNECTION_LOST = 'Connection lost. Check your network and try again.';
 
 /**
  * Supabase reports a wrong, reused or stale OTP as "Token has expired or is
@@ -36,6 +36,18 @@ function isRateLimited(error: unknown): boolean {
   return statusOf(error) === 429 || /rate limit|too many/i.test(messageOf(error));
 }
 
+/**
+ * Requests that never reached Supabase (offline, weak signal, a stalled
+ * fetch) arrive without an HTTP status and say so in the message. They are
+ * not code problems, so they get connection advice instead.
+ */
+function isConnectionProblem(error: unknown): boolean {
+  return (
+    statusOf(error) === undefined &&
+    /network|fetch|timeout|connection|offline/i.test(messageOf(error))
+  );
+}
+
 function friendlyMessage(error: unknown, fallback: string): string {
   if (isRateLimited(error)) return TOO_MANY_ATTEMPTS;
 
@@ -43,9 +55,11 @@ function friendlyMessage(error: unknown, fallback: string): string {
   return message && !INTERNAL_COPY_PATTERN.test(message) ? message : fallback;
 }
 
-/** Verification only ever reports a wrong code (or a rate limit). */
+/** Verification only ever reports a wrong code, a rate limit or a lost connection. */
 function verifyMessage(error: unknown): string {
-  return isRateLimited(error) ? TOO_MANY_ATTEMPTS : INCORRECT_CODE;
+  if (isRateLimited(error)) return TOO_MANY_ATTEMPTS;
+  if (isConnectionProblem(error)) return CONNECTION_LOST;
+  return INCORRECT_CODE;
 }
 
 export function usePhoneAuth() {
