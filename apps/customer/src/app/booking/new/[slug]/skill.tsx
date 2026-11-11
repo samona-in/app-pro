@@ -24,7 +24,10 @@ import { useServiceCategories, useServiceSkills, useServiceWorkGroups } from '@/
 import { useBookingDraft } from '@/stores/booking';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
-import { activeWorkGroupAtOffset } from '@/components/booking/work-groups-scroll';
+import {
+  activeWorkGroupAtOffset,
+  scrollToWorkGroup,
+} from '@/components/booking/work-groups-scroll';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -139,9 +142,12 @@ export default function BookingSkill() {
   const [stickyHeight, setStickyHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const contentTop = useRef(0);
-  const groupListTop = useRef(0);
+  /** Top of the sections list within the grouped catalogue wrapper. */
+  const sectionsListTop = useRef(0);
+  /** Each section's top within the sections list, by group id. */
   const groupSectionTops = useRef(new Map<string, number>());
-  const absoluteSectionTops = useRef(new Map<string, number>());
+  /** Each group's first work row top within its section, by group id. */
+  const firstWorkTops = useRef(new Map<string, number>());
   const heroTop = useRef(0);
   const headerOpacity = useRef(new Animated.Value(0)).current;
 
@@ -233,24 +239,33 @@ export default function BookingSkill() {
   }
 
   function handleGroupLayout(event: LayoutChangeEvent, groupId: string) {
-    const top = event.nativeEvent.layout.y;
-    groupSectionTops.current.set(groupId, top);
-    absoluteSectionTops.current.set(groupId, top);
+    groupSectionTops.current.set(groupId, event.nativeEvent.layout.y);
   }
 
-  function handleGroupListLayout(event: LayoutChangeEvent) {
-    groupListTop.current = event.nativeEvent.layout.y;
-    for (const [groupId, top] of groupSectionTops.current) {
-      absoluteSectionTops.current.set(groupId, top);
-    }
+  function handleSectionsLayout(event: LayoutChangeEvent) {
+    sectionsListTop.current = event.nativeEvent.layout.y;
   }
 
+  function handleFirstWorkLayout(event: LayoutChangeEvent, groupId: string) {
+    firstWorkTops.current.set(groupId, event.nativeEvent.layout.y);
+  }
+
+  /**
+   * Jumps the catalogue to the first work of the tapped group: the row is
+   * scrolled to the top of the list, right below the pinned header, without
+   * leaving the screen.
+   */
   function scrollToGroup(groupId: string) {
-    const sectionTop = absoluteSectionTops.current.get(groupId);
-    if (sectionTop === undefined) return;
+    const sectionTop = groupSectionTops.current.get(groupId);
+    const firstWorkTop = firstWorkTops.current.get(groupId);
+    if (sectionTop === undefined || firstWorkTop === undefined) return;
 
     setActiveGroupId(groupId);
-    scrollRef.current?.scrollTo({ y: Math.max(0, sectionTop - 10), animated: true });
+    scrollToWorkGroup(scrollRef.current, {
+      sectionsTop: sectionsListTop.current,
+      sectionTop,
+      firstWorkTop,
+    });
   }
 
   function handleScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -276,7 +291,7 @@ export default function BookingSkill() {
 
     if (displayGroups.length === 0) return;
     const positions = displayGroups.flatMap((group) => {
-      const top = absoluteSectionTops.current.get(group.id);
+      const top = groupSectionTops.current.get(group.id);
       return top === undefined ? [] : [{ id: group.id, top }];
     });
     const activeId = activeWorkGroupAtOffset(positions, {
@@ -288,16 +303,10 @@ export default function BookingSkill() {
 
   function handleContentLayout(event: LayoutChangeEvent) {
     contentTop.current = event.nativeEvent.layout.y;
-    for (const [groupId, top] of groupSectionTops.current) {
-      absoluteSectionTops.current.set(groupId, top);
-    }
   }
 
   function handleHeroLayout(event: LayoutChangeEvent) {
     heroTop.current = event.nativeEvent.layout.y + contentTop.current;
-    for (const [groupId, top] of groupSectionTops.current) {
-      absoluteSectionTops.current.set(groupId, top);
-    }
   }
 
   function handleStickyLayout(event: LayoutChangeEvent) {
@@ -403,29 +412,22 @@ export default function BookingSkill() {
                 {service.name}
               </Text>
             </View>
-            <View onLayout={handleGroupListLayout}>
-              <WorkGroupNavigation
-                groups={displayGroups}
-                activeGroupId={null}
-                onSelectGroup={(groupId) => {
-                  const sectionTop = absoluteSectionTops.current.get(groupId);
-                  if (sectionTop !== undefined) {
-                    scrollRef.current?.scrollTo({
-                      y: Math.max(0, sectionTop - 20),
-                      animated: true,
-                    });
-                    setActiveGroupId(groupId);
-                    return;
-                  }
-                  scrollToGroup(groupId);
-                }}
-                onLayout={handleStickyLayout}
-              />
-            </View>
-            <View className="-mx-2">
+            <WorkGroupNavigation
+              groups={displayGroups}
+              activeGroupId={null}
+              onSelectGroup={scrollToGroup}
+              onLayout={handleStickyLayout}
+            />
+            <View
+              testID="work-group-sections"
+              onLayout={handleSectionsLayout}
+              className="-mx-2"
+              collapsable={false}
+            >
               {displayGroups.map((group) => (
                 <View
                   key={group.id}
+                  testID={`work-group-section-${group.id}`}
                   onLayout={(event) => handleGroupLayout(event, group.id)}
                   accessibilityRole="summary"
                   collapsable={false}
@@ -436,7 +438,14 @@ export default function BookingSkill() {
                     </Text>
                   </View>
                   {group.works.map((work, idx) => (
-                    <View key={work.id}>
+                    <View
+                      key={work.id}
+                      testID={idx === 0 ? `work-group-first-work-${group.id}` : undefined}
+                      onLayout={
+                        idx === 0 ? (event) => handleFirstWorkLayout(event, group.id) : undefined
+                      }
+                      collapsable={idx === 0 ? false : undefined}
+                    >
                       {idx === 0 ? null : <View className="-mx-2 h-px bg-border" />}
                       <SkillRow
                         label={work.name}
