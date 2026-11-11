@@ -146,8 +146,6 @@ export default function BookingSkill() {
   const sectionsListTop = useRef(0);
   /** Each section's top within the sections list, by group id. */
   const groupSectionTops = useRef(new Map<string, number>());
-  /** Each group's first work row top within its section, by group id. */
-  const firstWorkTops = useRef(new Map<string, number>());
   const heroTop = useRef(0);
   const headerOpacity = useRef(new Animated.Value(0)).current;
 
@@ -246,25 +244,19 @@ export default function BookingSkill() {
     sectionsListTop.current = event.nativeEvent.layout.y;
   }
 
-  function handleFirstWorkLayout(event: LayoutChangeEvent, groupId: string) {
-    firstWorkTops.current.set(groupId, event.nativeEvent.layout.y);
-  }
-
   /**
-   * Jumps the catalogue to the first work of the tapped group: the row is
-   * scrolled to the top of the list, right below the pinned header, without
-   * leaving the screen.
+   * Jumps the catalogue to the tapped group: the section is scrolled to the
+   * top of the list, right below the pinned header, so the group name leads
+   * its first work row, without leaving the screen.
    */
   function scrollToGroup(groupId: string) {
     const sectionTop = groupSectionTops.current.get(groupId);
-    const firstWorkTop = firstWorkTops.current.get(groupId);
-    if (sectionTop === undefined || firstWorkTop === undefined) return;
+    if (sectionTop === undefined) return;
 
     setActiveGroupId(groupId);
     scrollToWorkGroup(scrollRef.current, {
       sectionsTop: sectionsListTop.current,
       sectionTop,
-      firstWorkTop,
     });
   }
 
@@ -438,14 +430,7 @@ export default function BookingSkill() {
                     </Text>
                   </View>
                   {group.works.map((work, idx) => (
-                    <View
-                      key={work.id}
-                      testID={idx === 0 ? `work-group-first-work-${group.id}` : undefined}
-                      onLayout={
-                        idx === 0 ? (event) => handleFirstWorkLayout(event, group.id) : undefined
-                      }
-                      collapsable={idx === 0 ? false : undefined}
-                    >
+                    <View key={work.id}>
                       {idx === 0 ? null : <View className="-mx-2 h-px bg-border" />}
                       <SkillRow
                         label={work.name}
