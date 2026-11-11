@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Platform,
   Pressable,
   TextInput,
   View,
@@ -95,7 +96,9 @@ export function OtpInput({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           keyboardType="number-pad"
-          autoComplete="sms-otp"
+          // iOS reads `one-time-code` to offer the SMS suggestion above the
+          // keyboard; Android's equivalent autofill hint is `sms-otp`.
+          autoComplete={Platform.OS === 'ios' ? 'one-time-code' : 'sms-otp'}
           textContentType="oneTimeCode"
           maxLength={length}
           autoFocus

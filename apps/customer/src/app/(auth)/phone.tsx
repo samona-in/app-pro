@@ -6,7 +6,7 @@ import { OTP_LENGTH } from '@samona/config';
 import { phoneSchema } from '@samona/validation';
 import { AuthHero, CountryCodeButton, CountryPickerSheet } from '@/components/auth';
 import { Button, Screen, Text } from '@/components/ui';
-import { usePhoneAuth, usePhoneHint } from '@/hooks';
+import { usePhoneAuth, usePhoneHint, startOtpListening } from '@/hooks';
 import { DEFAULT_COUNTRY, type Country } from '@/constants/countries';
 import { PRIVACY_URL, TERMS_URL } from '@/constants/support';
 import { color } from '@/theme';
@@ -77,6 +77,10 @@ export default function PhoneScreen() {
       setLocalError(`Enter a valid phone number for ${country.name}.`);
       return;
     }
+
+    // Arm the SMS retriever before the code is requested, so Play Services
+    // is already listening when the SMS lands — no gap for it to fall into.
+    await startOtpListening();
 
     if (await sendCode(parsed.data)) {
       router.push({ pathname: '/verify', params: { phone: parsed.data } });

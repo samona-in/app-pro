@@ -82,6 +82,7 @@
     "tooManyAttempts": "Too many attempts. Please wait a minute before requesting another code.",
     "couldNotSend": "Could not send a code. Please try again.",
     "wrongCode": "That code is not right. Please try again.",
+    "noConnection": "Connection lost. Check your network and try again.",
     "signInIncomplete": "That code did not complete sign-in. Please request a new one."
   },
   "verify": {
