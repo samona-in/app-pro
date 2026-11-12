@@ -168,6 +168,34 @@ data-driven, so it applies to whatever rows exist there; it is not a list of
 development IDs. **Do not run it automatically** — the migration script does not
 touch the database.
 
+### Production / RDS via pgAdmin 4
+
+RDS lives in a private VPC, so it is not reachable from the migration script or
+`psql` on a laptop. Use `pgAdmin 4` from inside the network instead.
+
+`sql/10-rds-skills-update.sql` and `sql/11-rds-skills-rollback.sql` are the
+`skills.icon` rewrite in a single paste-ready transaction. They avoid psql
+meta-commands (`\set`), so they run as-is in the pgAdmin Query Tool (F5).
+
+Validated against a `SELECT id, icon FROM public.skills ORDER BY id ASC` export:
+
+| | |
+|---|---|
+| Total rows | 413 |
+| Supabase URLs | 376 (320 distinct images) |
+| `NULL` icons | 37 |
+| Supabase URLs missing from the bucket | 0 |
+| Expected run time | ~1–3 seconds |
+
+The update rewrites only values that start with the exact Supabase base URL and
+end in an image extension. It snapshots each original into
+`service_image_url_backup` first, then aborts the transaction if any
+`services/` URL is left behind.
+
+One important detail: a literal `+` in an S3 object path is decoded as a space
+by S3 and returns `403`, so the rewrite stores it as `%2B`. The generator now
+does this for every table; `%20` and other encoded characters are untouched.
+
 ### Rollback
 
 ```bash

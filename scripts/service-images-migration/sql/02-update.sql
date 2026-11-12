@@ -32,14 +32,14 @@ SELECT
   "id",
   'icon',
   "icon",
-  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 FROM "services"
 WHERE left("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "icon" ~* '[.](png|jpe?g|webp)$'
 ON CONFLICT ("table_name", "row_id", "column_name") DO NOTHING;
 
 UPDATE "services"
-SET "icon" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+SET "icon" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 WHERE left("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "icon" ~* '[.](png|jpe?g|webp)$';
 
@@ -50,14 +50,14 @@ SELECT
   "id",
   'icon',
   "icon",
-  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 FROM "skills"
 WHERE left("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "icon" ~* '[.](png|jpe?g|webp)$'
 ON CONFLICT ("table_name", "row_id", "column_name") DO NOTHING;
 
 UPDATE "skills"
-SET "icon" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+SET "icon" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 WHERE left("icon", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "icon" ~* '[.](png|jpe?g|webp)$';
 
@@ -68,14 +68,14 @@ SELECT
   "id",
   'image_url',
   "image_url",
-  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 FROM "service_work_groups"
 WHERE left("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "image_url" ~* '[.](png|jpe?g|webp)$'
 ON CONFLICT ("table_name", "row_id", "column_name") DO NOTHING;
 
 UPDATE "service_work_groups"
-SET "image_url" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+SET "image_url" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 WHERE left("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "image_url" ~* '[.](png|jpe?g|webp)$';
 
@@ -86,14 +86,14 @@ SELECT
   "id",
   'image',
   "image",
-  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("image", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("image", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 FROM "banners"
 WHERE left("image", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "image" ~* '[.](png|jpe?g|webp)$'
 ON CONFLICT ("table_name", "row_id", "column_name") DO NOTHING;
 
 UPDATE "banners"
-SET "image" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("image", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+SET "image" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("image", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 WHERE left("image", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "image" ~* '[.](png|jpe?g|webp)$';
 
@@ -104,14 +104,14 @@ SELECT
   "id",
   'image_url',
   "image_url",
-  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+  regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 FROM "notification_campaigns"
 WHERE left("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "image_url" ~* '[.](png|jpe?g|webp)$'
 ON CONFLICT ("table_name", "row_id", "column_name") DO NOTHING;
 
 UPDATE "notification_campaigns"
-SET "image_url" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || substr("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '[.](png|jpe?g|webp)$', '.webp', 'i')
+SET "image_url" = regexp_replace('https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/' || replace(substr("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/') + 1), '+', '%2B'), '[.](png|jpe?g|webp)$', '.webp', 'i')
 WHERE left("image_url", length('https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/')) = 'https://mbylupexffssmyiqgwnb.supabase.co/storage/v1/object/public/services/'
   AND "image_url" ~* '[.](png|jpe?g|webp)$';
 

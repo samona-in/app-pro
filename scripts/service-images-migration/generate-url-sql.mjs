@@ -138,10 +138,17 @@ function extensionCondition(target) {
   return `${quoteIdent(target.column)} ~* ${sqlLiteral(IMAGE_EXTENSIONS_REGEX)}`;
 }
 
-/** Replaces the base URL and the final image extension, nothing else. */
+/**
+ * Replaces the base URL and the final image extension, nothing else.
+ *
+ * A literal `+` in an S3 object path is decoded as a space by the S3 HTTP
+ * front end, so a stored URL containing it returns 403. Encode it as `%2B`
+ * while leaving the already-encoded `%20` and other punctuation untouched.
+ */
 function newValueExpression(target, oldBase, newBase) {
   const column = quoteIdent(target.column);
-  return `regexp_replace(${sqlLiteral(newBase)} || substr(${column}, length(${sqlLiteral(oldBase)}) + 1), ${sqlLiteral(IMAGE_EXTENSIONS_REGEX)}, '.webp', 'i')`;
+  const relativePath = `replace(substr(${column}, length(${sqlLiteral(oldBase)}) + 1), '+', '%2B')`;
+  return `regexp_replace(${sqlLiteral(newBase)} || ${relativePath}, ${sqlLiteral(IMAGE_EXTENSIONS_REGEX)}, '.webp', 'i')`;
 }
 
 function affectedWhere(target, oldBase) {
