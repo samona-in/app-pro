@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createJobSchema,
+  createJobBatchSchema,
   paginationSchema,
   jobListQuerySchema,
   transitionJobSchema,
@@ -108,6 +109,22 @@ export function createJobsRouter(services: Services): Router {
   customer.post('/', customerOnly, validate(createJobSchema), async (req, res, next) => {
     try {
       res.status(201).json(await services.jobs.createForCustomer(req.user!.id, req.body));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Places one checkout spanning one or more services.
+   *
+   * Each group becomes its own job (own pro, lifecycle, OTP, chat, cash
+   * payment), all sharing an `orderGroupId`. The whole checkout is atomic: if
+   * any service or work is invalid, no job is created. `POST /jobs` stays for
+   * single-service and older clients.
+   */
+  customer.post('/batch', customerOnly, validate(createJobBatchSchema), async (req, res, next) => {
+    try {
+      res.status(201).json(await services.jobs.createBatchForCustomer(req.user!.id, req.body));
     } catch (error) {
       next(error);
     }

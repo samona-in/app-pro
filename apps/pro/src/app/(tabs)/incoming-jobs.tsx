@@ -22,7 +22,7 @@ import {
 import { queryKeys } from '@/constants';
 import { occupiedJobRoute } from '@/utils/job-routes';
 import { messageForAcceptError } from '@/utils/job-errors';
-import { formatDistanceMeters, formatInr, formatJobQuantity } from '@/utils/format';
+import { formatDistanceMeters, formatInr, formatJobQuantity, formatWorksCount } from '@/utils/format';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import {
@@ -397,7 +397,14 @@ const FocusedJobCard = memo(function FocusedJobCard({
   }, [error]);
 
   const amountPaise = offer.amountPaise;
-  const quantityLabel = formatJobQuantity(offer);
+  const works = offer.works ?? [];
+  // The works list is the usual signal; the order type covers a payload whose
+  // works breakdown has not been backfilled yet.
+  const isBulk = works.length > 1 || offer.orderType === 'BULK';
+  // A single work keeps its own quantity/duration; a bulk visit reads as its
+  // works breakdown ("3 works · 6 items").
+  const worksSummary = formatWorksCount(works, t);
+  const quantityLabel = worksSummary ?? formatJobQuantity(offer);
   const distanceLabel =
     formatDistanceMeters(offer.distanceMeters) ??
     t(
@@ -412,7 +419,19 @@ const FocusedJobCard = memo(function FocusedJobCard({
 
   return (
     <View className="px-3 pt-1.5 pb-3">
-      <Card className="border border-border" padded={false}>
+      {/* A multi-work request carries the brand tint + border so the pro can
+          tell it apart from a single-work request at a glance, before reading
+          the works list. Inline colours beat the Card's own surface classes
+          (NativeWind does not resolve conflicting utilities by order). */}
+      <Card
+        className="border border-border"
+        style={
+          isBulk
+            ? { backgroundColor: color['brand-soft'], borderColor: color.brand }
+            : undefined
+        }
+        padded={false}
+      >
         <View className="p-4">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-4">
@@ -438,6 +457,28 @@ const FocusedJobCard = memo(function FocusedJobCard({
               </View>
             ) : null}
           </View>
+
+          {/* A bulk visit lists every work with its own quantity or duration,
+              so the pro accepts knowing the whole order. */}
+          {works.length > 1 ? (
+            <View className="mt-3 gap-1.5">
+              {works.map((work) => {
+                const qualifier = formatJobQuantity(work);
+                return (
+                  <View key={`${work.name}-${work.quantity}`} className="flex-row items-center">
+                    <Text variant="body" numberOfLines={1} className="min-w-0 flex-1 pr-3">
+                      {work.name}
+                    </Text>
+                    {qualifier ? (
+                      <Text variant="footnote" className="shrink-0 text-text-secondary">
+                        {qualifier}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
 
           <Text variant="body" className="mt-1 text-text-muted">
             {distanceLabel}

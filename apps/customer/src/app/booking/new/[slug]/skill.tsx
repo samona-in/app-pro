@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -13,21 +14,48 @@ import {
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ServiceWorkGroupWithWorks, SkillOption } from '@samona/types';
-import { JOB_CUSTOM_SKILL_MAX, JOB_CUSTOM_SKILL_MIN, OTHER_SKILL_SLUG } from '@samona/types';
-import { BookingDetailsSheet } from '@/components/booking/BookingDetailsSheet';
+import {
+  JOB_CUSTOM_SKILL_MAX,
+  JOB_CUSTOM_SKILL_MIN,
+  JOB_ITEMS_LIMIT,
+  OTHER_SKILL_SLUG,
+} from '@samona/types';
+import {
+  BookingDetailsSheet,
+  type BookingDetailsSelection,
+} from '@/components/booking/BookingDetailsSheet';
 import { BookingStep } from '@/components/booking/BookingStep';
+import { QuantityStepper } from '@/components/booking/QuantityStepper';
 import { WorkGroupNavigation } from '@/components/booking/WorkGroupNavigation';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { Input, Text } from '@/components/ui';
 import { ServiceImage, isImageUrl } from '@/components/home/ServiceImage';
 import { useServiceCategories, useServiceSkills, useServiceWorkGroups } from '@/hooks';
-import { useBookingDraft } from '@/stores/booking';
-import { color } from '@/theme';
+import {
+  cartTotalPaise,
+  cartUnitCount,
+  cartWorksCount,
+  groupItems,
+  useBookingDraft,
+  type DraftItem,
+} from '@/stores/booking';
+import { color, elevation } from '@/theme';
 import { cn } from '@/utils/cn';
+import { formatRupees } from '@/utils/format';
 import {
   activeWorkGroupAtOffset,
   scrollToWorkGroup,
 } from '@/components/booking/work-groups-scroll';
+import {
+  clampDuration,
+  durationStepMinutes,
+  formatDuration,
+  maxDurationMinutes,
+  maxQuantity,
+  minDurationMinutes,
+  minQuantity,
+  pricingModelOf,
+} from '@/utils/pricing';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -40,6 +68,10 @@ function SkillRow({
   basePricePaise,
   pricingModel,
   unitLabel,
+  cartItem,
+  onQuantity,
+  onDuration,
+  onRemove,
 }: {
   label: string;
   imageUri?: string | null;
@@ -49,6 +81,11 @@ function SkillRow({
   basePricePaise?: number | null;
   pricingModel?: 'PER_UNIT' | 'PER_BOOKING' | 'PER_HOUR';
   unitLabel?: string | null;
+  /** This work's entry in the cart, once it has been added. */
+  cartItem?: DraftItem | null;
+  onQuantity?: (quantity: number) => void;
+  onDuration?: (durationMinutes: number) => void;
+  onRemove?: () => void;
 }) {
   const hasImage = isImageUrl(imageUri ?? null);
   const height = Dimensions.get('window').height / 4;
@@ -61,6 +98,48 @@ function SkillRow({
             : ''
       }`
     : null;
+
+  // Once a work is in the cart its pill becomes a working stepper, so the
+  // customer can change the quantity or duration without opening the sheet
+  // again. Fixed-price works have nothing to step and keep the "Added" pill.
+  const cartModel = cartItem ? pricingModelOf(cartItem.skill) : null;
+  const steppable = cartModel === 'PER_UNIT' || cartModel === 'PER_HOUR';
+  const byDuration = cartModel === 'PER_HOUR';
+  const minQty = minQuantity(cartItem?.skill);
+  const maxQty = maxQuantity(cartItem?.skill);
+  const minDuration = minDurationMinutes(cartItem?.skill);
+  const maxDuration = maxDurationMinutes(cartItem?.skill);
+  const durationStep = durationStepMinutes(cartItem?.skill);
+  const quantity = cartItem?.quantity ?? minQty;
+  const duration = cartItem?.durationMinutes ?? minDuration;
+  const stepValue = byDuration ? formatDuration(duration) : quantity;
+
+  /** At the smallest selection the minus drops the work out of the cart. */
+  function decrease() {
+    if (!cartItem) return;
+    if (byDuration) {
+      if (duration <= minDuration) {
+        onRemove?.();
+        return;
+      }
+      onDuration?.(clampDuration(cartItem.skill, duration - durationStep));
+      return;
+    }
+    if (quantity <= minQty) {
+      onRemove?.();
+      return;
+    }
+    onQuantity?.(quantity - 1);
+  }
+
+  function increase() {
+    if (!cartItem) return;
+    if (byDuration) {
+      onDuration?.(clampDuration(cartItem.skill, duration + durationStep));
+      return;
+    }
+    onQuantity?.(quantity + 1);
+  }
 
   return (
     <Pressable
@@ -110,21 +189,94 @@ function SkillRow({
         <View
           style={{ position: 'absolute', bottom: -14, left: 0, right: 0, alignItems: 'center' }}
         >
-          <View
-            style={{
-              backgroundColor: '#FFFFFF',
-              paddingHorizontal: 16,
-              paddingVertical: 4,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: '#2563eb',
-            }}
-          >
-            <Text style={{ color: '#2563eb', fontSize: 12, fontWeight: '600' }}>Book now</Text>
-          </View>
+          {steppable ? (
+            <QuantityStepper
+              variant="pill"
+              value={stepValue}
+              valueLabel={`${label} ${byDuration ? 'duration' : 'quantity'} ${stepValue}`}
+              decreaseLabel={`Reduce ${byDuration ? 'duration' : 'quantity'} of ${label}`}
+              increaseLabel={`Increase ${byDuration ? 'duration' : 'quantity'} of ${label}`}
+              onDecrease={decrease}
+              onIncrease={increase}
+              increaseDisabled={byDuration ? duration >= maxDuration : quantity >= maxQty}
+              valueClassName={byDuration ? 'min-w-9' : 'min-w-4'}
+            />
+          ) : (
+            <View
+              style={{
+                backgroundColor: '#FFFFFF',
+                paddingHorizontal: 16,
+                paddingVertical: 4,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: selected ? '#054DFF' : '#2563eb',
+              }}
+            >
+              <Text
+                style={{ color: selected ? '#054DFF' : '#2563eb', fontSize: 12, fontWeight: '600' }}
+              >
+                {selected ? 'Added' : 'Book now'}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </Pressable>
+  );
+}
+
+/**
+ * The bar's surface, matched to the floating tab bar's frosted glass: the same
+ * near-white frost with its cool tint wash composited in, so the cart chrome
+ * reads as part of the same layer as the tab pill.
+ */
+const CART_BAR_SURFACE = 'rgba(246, 248, 250, 0.97)';
+
+/**
+ * The pinned cart summary: how many works the request carries, its estimate,
+ * and the way to the cart. It appears as soon as the first work is added and
+ * stays visible while the catalogue scrolls.
+ */
+function CartSummaryBar({
+  worksCount,
+  units,
+  totalPaise,
+  onContinue,
+}: {
+  worksCount: number;
+  units: number;
+  totalPaise: number;
+  onContinue: () => void;
+}) {
+  return (
+    <View className="bg-surface px-2 pb-3 pt-2">
+      <View
+        className="min-h-[60px] flex-row items-center rounded-full pl-5 pr-2"
+        style={[elevation.md, { backgroundColor: CART_BAR_SURFACE }]}
+      >
+        <View className="flex-1 pr-3">
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {worksCount} {worksCount === 1 ? 'work' : 'works'}
+            {units > worksCount ? ` · ${units} items` : ''}
+          </Text>
+          <Text variant="caption" numberOfLines={1} className="mt-0.5 text-text-secondary">
+            Estimated total {formatRupees(totalPaise)}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`View cart with ${worksCount} ${
+            worksCount === 1 ? 'work' : 'works'
+          } in cart`}
+          onPress={onContinue}
+          className="min-h-[46px] items-center justify-center rounded-full bg-brand px-6 active:opacity-80"
+        >
+          <Text variant="bodyLg" className="font-semibold text-white">
+            View cart
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -134,8 +286,18 @@ export default function BookingSkill() {
   const workGroups = useServiceWorkGroups(slug);
   const categories = useServiceCategories();
   const draft = useBookingDraft();
-  const [skillId, setSkillId] = useState<string | null>(draft.skill?.id ?? null);
-  const [customText, setCustomText] = useState(draft.customSkill);
+  /**
+   * The work driving the "Other" free-text input (and the arrival highlight
+   * for a popular-work or search-result pick). Which works are actually
+   * booked is the cart's, not this screen's, opinion.
+   */
+  const [skillId, setSkillId] = useState<string | null>(draft.preselectedSkillId);
+  const [customText, setCustomText] = useState(
+    () =>
+      groupItems(draft.groups, draft.service?.id).find(
+        (item) => item.skill.slug === OTHER_SKILL_SLUG,
+      )?.customSkill ?? '',
+  );
   /** The work whose details sheet is open; null while browsing the catalogue. */
   const [detailsSkill, setDetailsSkill] = useState<SkillOption | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
@@ -158,9 +320,12 @@ export default function BookingSkill() {
     (draft.service?.slug === slug ? draft.service.id : '');
 
   useEffect(() => {
-    if (service && draft.service?.id !== service.id) {
-      draft.start(service);
-    }
+    if (!service || draft.service?.id === service.id) return;
+
+    // Opening a service only switches which group the catalogue edits. Works
+    // already in the cart for other services are kept: one checkout can carry
+    // several trades, each becoming its own booking.
+    draft.start(service);
   }, [draft.service?.id, draft.start, service]);
 
   // While the details sheet is open, a back press dismisses the sheet instead of
@@ -212,28 +377,49 @@ export default function BookingSkill() {
     : skillId !== null;
 
   function selectPredefined(skill: SkillOption) {
-    draft.setSkill(skill);
     setDetailsSkill(skill);
   }
 
   function selectOther(skill: SkillOption) {
     if (skillId === skill.id) return;
     setSkillId(skill.id);
-    setCustomText('');
+    // Reopening "Other" restores whatever the cart already holds for it.
+    const carted = groupItems(draft.groups, draft.service?.id).find(
+      (item) => item.skill.id === skill.id,
+    );
+    setCustomText(carted?.customSkill ?? '');
   }
 
   function onContinue() {
     if (!canContinue) return;
     if (isOther && other) {
-      draft.setSkill(other, customText.trim());
       setDetailsSkill(other);
     }
   }
 
-  function onDetailsContinue(description: string) {
+  /** This service's cart entry for a work, once the customer added it. */
+  function cartedItem(workId: string): DraftItem | undefined {
+    return groupItems(draft.groups, draft.service?.id).find((item) => item.skill.id === workId);
+  }
+
+  function onDetailsAdd(description: string, selection: BookingDetailsSelection) {
+    if (!detailsSkill) return;
+    const added = draft.addItem({
+      skill: detailsSkill,
+      customSkill: detailsSkill.slug === OTHER_SKILL_SLUG ? customText.trim() : '',
+      quantity: selection.quantity,
+      durationMinutes: selection.durationMinutes,
+      totalPaise: selection.totalPaise,
+    });
+    if (!added) {
+      Alert.alert(
+        'Cart is full',
+        `You can book up to ${JOB_ITEMS_LIMIT} works in one request. Remove one to add another.`,
+      );
+      return;
+    }
     draft.setDescription(description);
     setDetailsSkill(null);
-    router.push(`/booking/new/${slug}/review`);
   }
 
   function handleGroupLayout(event: LayoutChangeEvent, groupId: string) {
@@ -374,6 +560,16 @@ export default function BookingSkill() {
         onContentLayout={handleContentLayout}
         primaryDisabled={!canContinue}
         onPrimary={undefined}
+        footer={
+          cartWorksCount(draft.groups) > 0 ? (
+            <CartSummaryBar
+              worksCount={cartWorksCount(draft.groups)}
+              units={cartUnitCount(draft.groups)}
+              totalPaise={cartTotalPaise(draft.groups)}
+              onContinue={() => router.push('/booking/cart')}
+            />
+          ) : undefined
+        }
         headerExtra={
           <Animated.View
             style={{
@@ -429,56 +625,86 @@ export default function BookingSkill() {
                       {group.name}
                     </Text>
                   </View>
-                  {group.works.map((work, idx) => (
-                    <View key={work.id}>
-                      {idx === 0 ? null : <View className="-mx-2 h-px bg-border" />}
-                      <SkillRow
-                        label={work.name}
-                        imageUri={work.slug === OTHER_SKILL_SLUG ? null : work.icon}
-                        icon={
-                          work.slug === OTHER_SKILL_SLUG
-                            ? ('ellipsis-horizontal-circle-outline' as IoniconName)
-                            : undefined
-                        }
-                        selected={work.id === skillId}
-                        basePricePaise={work.basePricePaise}
-                        pricingModel={work.pricingModel}
-                        unitLabel={work.unitLabel}
-                        onToggle={() =>
-                          work.slug === OTHER_SKILL_SLUG
-                            ? selectOther(work)
-                            : selectPredefined(work)
-                        }
-                      />
-                      {idx === group.works.length - 1 ? (
-                        <View className="-mx-2 h-[2px] bg-border mt-1" />
-                      ) : null}
-                    </View>
-                  ))}
+                  {group.works.map((work, idx) => {
+                    const carted = cartedItem(work.id);
+                    return (
+                      <View key={work.id}>
+                        {idx === 0 ? null : <View className="-mx-2 h-px bg-border" />}
+                        <SkillRow
+                          label={work.name}
+                          imageUri={work.slug === OTHER_SKILL_SLUG ? null : work.icon}
+                          icon={
+                            work.slug === OTHER_SKILL_SLUG
+                              ? ('ellipsis-horizontal-circle-outline' as IoniconName)
+                              : undefined
+                          }
+                          selected={Boolean(carted) || work.id === skillId}
+                          basePricePaise={work.basePricePaise}
+                          pricingModel={work.pricingModel}
+                          unitLabel={work.unitLabel}
+                          cartItem={carted}
+                          onQuantity={(quantity) => draft.setQuantity(work.id, quantity)}
+                          onDuration={(durationMinutes) =>
+                            draft.setDurationMinutes(work.id, durationMinutes)
+                          }
+                          onRemove={() => draft.removeItem(work.id)}
+                          onToggle={() =>
+                            work.slug === OTHER_SKILL_SLUG
+                              ? selectOther(work)
+                              : selectPredefined(work)
+                          }
+                        />
+                        {idx === group.works.length - 1 ? (
+                          <View className="-mx-2 h-[2px] bg-border mt-1" />
+                        ) : null}
+                      </View>
+                    );
+                  })}
                 </View>
               ))}
             </View>
           </View>
         ) : (
           <View>
-            {predefined.map((skill, idx) => (
-              <View key={skill.id}>
-                {idx > 0 ? <View className="h-px bg-border" /> : null}
-                <SkillRow
-                  label={skill.name}
-                  imageUri={skill.icon}
-                  selected={skill.id === skillId}
-                  onToggle={() => selectPredefined(skill)}
-                />
-              </View>
-            ))}
+            {predefined.map((skill, idx) => {
+              const carted = cartedItem(skill.id);
+              return (
+                <View key={skill.id}>
+                  {idx > 0 ? <View className="h-px bg-border" /> : null}
+                  <SkillRow
+                    label={skill.name}
+                    imageUri={skill.icon}
+                    selected={Boolean(carted) || skill.id === skillId}
+                    basePricePaise={skill.basePricePaise}
+                    pricingModel={skill.pricingModel}
+                    unitLabel={skill.unitLabel}
+                    cartItem={carted}
+                    onQuantity={(quantity) => draft.setQuantity(skill.id, quantity)}
+                    onDuration={(durationMinutes) =>
+                      draft.setDurationMinutes(skill.id, durationMinutes)
+                    }
+                    onRemove={() => draft.removeItem(skill.id)}
+                    onToggle={() => selectPredefined(skill)}
+                  />
+                </View>
+              );
+            })}
             {other ? (
               <View>
                 {predefined.length > 0 ? <View className="h-px bg-border" /> : null}
                 <SkillRow
                   label="Other"
                   icon={'ellipsis-horizontal-circle-outline' as IoniconName}
-                  selected={isOther}
+                  selected={isOther || Boolean(cartedItem(other.id))}
+                  basePricePaise={other.basePricePaise}
+                  pricingModel={other.pricingModel}
+                  unitLabel={other.unitLabel}
+                  cartItem={cartedItem(other.id)}
+                  onQuantity={(quantity) => draft.setQuantity(other.id, quantity)}
+                  onDuration={(durationMinutes) =>
+                    draft.setDurationMinutes(other.id, durationMinutes)
+                  }
+                  onRemove={() => draft.removeItem(other.id)}
                   onToggle={() => selectOther(other)}
                 />
                 <View className="h-px bg-border" />
@@ -499,28 +725,6 @@ export default function BookingSkill() {
             onSubmitEditing={() => void onContinue()}
           />
         ) : null}
-
-        {false && skillId && !isOther ? (
-          <View
-            style={{ position: 'absolute', bottom: -50, left: 0, right: 0, alignItems: 'center' }}
-            pointerEvents="box-none"
-          >
-            <Pressable
-              onPress={() => {
-                const skill = allWorks.find((item) => item.id === skillId);
-                if (skill && skill.slug !== OTHER_SKILL_SLUG) {
-                  selectPredefined(skill);
-                }
-              }}
-              className="mb-12 bg-brand px-10 py-3 rounded-full active:opacity-90"
-              style={{ shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 }}
-            >
-              <Text variant="bodyStrong" style={{ color: '#FFFFFF' }}>
-                Book now
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
       </BookingStep>
 
       {detailsSkill ? (
@@ -529,7 +733,7 @@ export default function BookingSkill() {
           skillIcon={detailsSkill.slug === OTHER_SKILL_SLUG ? null : detailsSkill.icon}
           pricing={detailsSkill}
           onClose={() => setDetailsSkill(null)}
-          onContinue={onDetailsContinue}
+          onAdd={onDetailsAdd}
         />
       ) : null}
     </View>

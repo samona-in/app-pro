@@ -1,7 +1,24 @@
-import { JobStatus, type JobDetail } from '@samona/types';
+import { JobStatus, OrderType, type JobDetail, type JobItem } from '@samona/types';
 import { jobEarningPaise, summarizeTodayEarnings } from '../earnings';
 
 const NOW = new Date('2026-10-30T12:00:00.000Z');
+
+/** The job's single work, matching the flat snapshot columns. */
+function item(overrides?: Partial<JobItem>): JobItem {
+  return {
+    id: 'item',
+    sortOrder: 0,
+    skill: { id: 'skill', slug: 'tap', name: 'Tap repair', icon: null },
+    customSkill: null,
+    pricingModel: 'PER_BOOKING',
+    unitPricePaise: 50_000,
+    quantity: 1,
+    unitLabel: null,
+    durationMinutes: null,
+    subtotalPaise: 50_000,
+    ...overrides,
+  };
+}
 
 function job(overrides: Partial<JobDetail>): JobDetail {
   return {
@@ -11,6 +28,9 @@ function job(overrides: Partial<JobDetail>): JobDetail {
     service: { id: 'service', slug: 'plumbing', name: 'Plumbing', icon: '' },
     skill: { id: 'skill', slug: 'tap', name: 'Tap repair', icon: null },
     customSkill: null,
+    orderType: OrderType.SINGLE,
+    orderGroupId: null,
+    items: [item()],
     status: JobStatus.PAID,
     locationLabel: null,
     latitude: null,

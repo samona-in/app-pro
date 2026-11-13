@@ -17,7 +17,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { api, errorMessage } from '@/lib/api';
-import { formatPaise, shortId, statusBadgeClass, statusLabel, type JobStatus } from '@/lib/jobs';
+import {
+  formatPaise,
+  orderTypeBadgeClass,
+  orderTypeLabel,
+  shortId,
+  statusBadgeClass,
+  statusLabel,
+  workSummaryLabel,
+  type JobStatus,
+} from '@/lib/jobs';
 import {
   LIVE_JOB_STATUSES,
   LIVE_SORT_OPTIONS,
@@ -341,9 +350,23 @@ function LiveContent() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <div className="text-sm">{job.service.name}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">{job.service.name}</span>
+                              {job.orderType === 'BULK' ? (
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${orderTypeBadgeClass(job.orderType)}`}
+                                >
+                                  {orderTypeLabel(job.orderType)}
+                                </span>
+                              ) : null}
+                              {job.orderGroupId ? (
+                                <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-800">
+                                  Grouped
+                                </span>
+                              ) : null}
+                            </div>
                             <div className="text-xs text-gray-500">
-                              {job.customSkill || job.skill.name}
+                              {workSummaryLabel(job.works)}
                             </div>
                           </TableCell>
                           <TableCell>

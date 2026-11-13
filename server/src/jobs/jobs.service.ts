@@ -1,16 +1,27 @@
 import {
   JobStatus,
   NotificationKind,
+  OrderType,
+  OTHER_SKILL_SLUG,
   ProServiceStatus,
   type PricingModel,
   ACTIVE_JOB_STATUSES,
   canTransition,
   type Job,
   type JobDetail,
+  type JobItem,
+  type JobBatchResult,
   type AvailableJob,
+  workSummaryLabel,
 } from '@samona/types';
-import { randomInt } from 'node:crypto';
-import type { CreateJobInput, JobAction } from '@samona/validation';
+import { randomInt, randomUUID } from 'node:crypto';
+import type {
+  CreateJobBatchInput,
+  CreateJobInput,
+  CreateJobItemInput,
+  JobAction,
+} from '@samona/validation';
+import type { Prisma } from '../generated/prisma/client';
 import { JOB_DEFAULTS, type AppType } from '@samona/config';
 import type { PrismaClient } from '../database/prisma';
 import type { StorageService } from '../files/storage.service';
@@ -51,6 +62,22 @@ function jobImageScope(customerUserId: string): string {
 const jobInclude = {
   service: { select: { id: true, slug: true, name: true, icon: true } },
   skill: { select: { id: true, slug: true, name: true, icon: true } },
+  // Every work in the request, in the order the customer added them.
+  items: {
+    orderBy: { sortOrder: 'asc' },
+    select: {
+      id: true,
+      sortOrder: true,
+      customSkill: true,
+      pricingModel: true,
+      unitPricePaise: true,
+      quantity: true,
+      unitLabel: true,
+      durationMinutes: true,
+      subtotalPaise: true,
+      skill: { select: { id: true, slug: true, name: true, icon: true } },
+    },
+  },
 } as const;
 
 /** Formats paise as a whole rupee string for customer-notice copy. */
@@ -152,13 +179,30 @@ const jobDetailInclude = {
   },
 } as const;
 
+/** One `job_items` row as the shared include reads it. */
+type JobItemRow = {
+  id: string;
+  sortOrder: number;
+  customSkill: string | null;
+  pricingModel: PricingModel;
+  unitPricePaise: number;
+  quantity: number;
+  unitLabel: string | null;
+  durationMinutes: number | null;
+  subtotalPaise: number;
+  skill: Job['skill'];
+};
+
 type JobRow = {
   id: string;
   customerId: string;
   proId: string | null;
+  orderGroupId: string | null;
   status: JobStatus;
   description: string;
   imagePaths: string[];
+  orderType: OrderType;
+  items: JobItemRow[];
   basePayPaise: number;
   pricingModel: PricingModel;
   unitPricePaise: number;
@@ -203,16 +247,76 @@ type JobDetailRow = JobRow & {
   } | null;
 };
 
+/** A catalogue skill row as job creation reads it — the pricing inputs. */
+type CatalogueSkill = {
+  id: string;
+  slug: string;
+  name: string;
+  basePricePaise: number | null;
+  pricingModel: PricingModel;
+  unitLabel: string | null;
+  minQuantity: number;
+  maxQuantity: number;
+  minDurationMinutes: number | null;
+  maxDurationMinutes: number | null;
+  durationStepMinutes: number | null;
+};
+
 const iso = (d: Date): string => d.toISOString();
+
+/**
+ * The works of a job, as every surface renders them.
+ *
+ * New jobs (created with bulk orders) read their `job_items` rows. Legacy rows
+ * have none, so the single work is derived from the job's flat snapshot
+ * columns — every job therefore always exposes at least one item, and clients
+ * never branch on data vintage.
+ */
+function jobItemsOf(row: JobRow): JobItem[] {
+  if (row.items.length > 0) {
+    return row.items.map((item) => ({
+      id: item.id,
+      sortOrder: item.sortOrder,
+      skill: item.skill,
+      customSkill: item.customSkill,
+      pricingModel: item.pricingModel,
+      unitPricePaise: item.unitPricePaise,
+      quantity: item.quantity,
+      unitLabel: item.unitLabel,
+      durationMinutes: item.durationMinutes,
+      subtotalPaise: item.subtotalPaise,
+    }));
+  }
+  return [
+    {
+      // No stored row exists; the job's own id keys the one derived work.
+      id: row.id,
+      sortOrder: 0,
+      skill: row.skill,
+      customSkill: row.customSkill,
+      pricingModel: row.pricingModel,
+      unitPricePaise: row.unitPricePaise,
+      quantity: row.quantity,
+      unitLabel: row.unitLabel,
+      durationMinutes: row.durationMinutes,
+      // A legacy job is a single work, so its whole-booking total is the
+      // item subtotal by definition.
+      subtotalPaise: row.basePayPaise,
+    },
+  ];
+}
 
 function toJobDto(row: JobRow, storage: StorageService, config: AppConfig): Job {
   return {
     id: row.id,
     customerId: row.customerId,
     proId: row.proId,
+    orderGroupId: row.orderGroupId,
     service: row.service,
     skill: row.skill,
     customSkill: row.customSkill,
+    orderType: row.orderType,
+    items: jobItemsOf(row),
     status: row.status,
     locationLabel: row.locationLabel,
     latitude: row.latitude,
@@ -331,17 +435,60 @@ export function createJobsService(deps: JobsServiceDeps) {
   // Customer side
   // -------------------------------------------------------------------------
 
+  /** The catalogue fields booking reads to resolve and price a request. */
+  const catalogueSkillSelect = {
+    id: true,
+    slug: true,
+    name: true,
+    basePricePaise: true,
+    pricingModel: true,
+    unitLabel: true,
+    minQuantity: true,
+    maxQuantity: true,
+    minDurationMinutes: true,
+    maxDurationMinutes: true,
+    durationStepMinutes: true,
+  } as const;
+
+  /** One request work after catalogue resolution and server-side pricing. */
+  type PricedRequestItem = {
+    skill: CatalogueSkill;
+    customSkill: string | null;
+    pricing: ReturnType<typeof priceJob>;
+  };
+
+  type BookingCustomer = {
+    id: string;
+    locationLabel: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    deletedAt: Date | null;
+    deletionRequestedAt: Date | null;
+  };
+
+  type WorkLocation = {
+    coords: { latitude: number; longitude: number } | null;
+    locationLabel: string | null;
+  };
+
+  type JobCreationData = {
+    customerId: string;
+    service: { id: string; name: string };
+    pricedItems: PricedRequestItem[];
+    description: string;
+    imagePaths: string[];
+    coords: { latitude: number; longitude: number } | null;
+    locationLabel: string | null;
+    orderGroupId: string | null;
+  };
+
   /**
-   * Places a job request (the customer booking flow's final step).
+   * The customer placing a booking, or the error that stops them.
    *
-   * The service and skill are resolved from slugs server-side; nothing
-   * id-based from the client is trusted. Reference photos are verified to have
-   * reached storage and to live under the caller's own scope.
+   * A pending or completed deletion locks the customer out of new bookings;
+   * the account keeps finishing whatever is already in flight.
    */
-  async function createForCustomer(
-    customerUserId: string,
-    input: CreateJobInput,
-  ): Promise<JobDetail> {
+  async function loadBookingCustomer(customerUserId: string): Promise<BookingCustomer> {
     const customer = await prisma.customerProfile.findUnique({
       where: { userId: customerUserId },
       select: {
@@ -356,70 +503,110 @@ export function createJobsService(deps: JobsServiceDeps) {
     if (!customer) {
       throw notFound('Your profile is not ready yet. Try again in a moment.');
     }
-    // A pending or completed deletion locks the customer out of new bookings;
-    // the account keeps finishing whatever is already in flight.
     if (customer.deletedAt || customer.deletionRequestedAt) {
       throw conflict('Your account is being deleted and can no longer place bookings.');
     }
+    return customer;
+  }
 
+  /** The active service behind a request, addressed by slug. */
+  async function findBookableService(serviceSlug: string): Promise<{ id: string; name: string }> {
     const service = await prisma.service.findFirst({
-      where: { slug: input.serviceSlug, isActive: true },
+      where: { slug: serviceSlug, isActive: true },
       select: { id: true, name: true },
     });
     if (!service) {
       throw badRequest('That service is no longer bookable.');
     }
+    return service;
+  }
 
-    const skill = await prisma.skill.findFirst({
-      where: { slug: input.skillSlug, serviceId: service.id, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        basePricePaise: true,
-        pricingModel: true,
-        unitLabel: true,
-        minQuantity: true,
-        maxQuantity: true,
-        minDurationMinutes: true,
-        maxDurationMinutes: true,
-        durationStepMinutes: true,
-      },
+  /**
+   * Resolves and prices one service's works from the catalogue.
+   *
+   * Every work is addressed by slug, so the request stays stable across
+   * catalogue re-seeds. Nothing id-based or price-based from the client is
+   * trusted: quantities and durations describe *what* the customer wants, and
+   * every total is computed here. The single-work path keeps its exact legacy
+   * query (and error), so old clients see no behaviour change.
+   */
+  async function priceServiceItems(
+    serviceId: string,
+    requestedItems: CreateJobItemInput[],
+  ): Promise<PricedRequestItem[]> {
+    if (requestedItems.length === 0) {
+      throw badRequest('Choose at least one work.');
+    }
+
+    const requestedSlugs = [...new Set(requestedItems.map((item) => item.skillSlug))];
+
+    let skillsBySlug: Map<string, CatalogueSkill>;
+    if (requestedItems.length === 1) {
+      const skill = await prisma.skill.findFirst({
+        where: { slug: requestedSlugs[0], serviceId, isActive: true },
+        select: catalogueSkillSelect,
+      });
+      skillsBySlug = skill ? new Map([[skill.slug, skill]]) : new Map();
+    } else {
+      const skills = await prisma.skill.findMany({
+        where: { slug: { in: requestedSlugs }, serviceId, isActive: true },
+        select: catalogueSkillSelect,
+      });
+      skillsBySlug = new Map(skills.map((skill) => [skill.slug, skill] as const));
+    }
+
+    return requestedItems.map((item) => {
+      const skill = skillsBySlug.get(item.skillSlug);
+      if (!skill) {
+        throw badRequest('That job category does not belong to the chosen service.');
+      }
+
+      const customSkill = item.customSkill ?? null;
+      if (item.skillSlug === OTHER_SKILL_SLUG && !customSkill) {
+        throw badRequest('Tell us what you need done.');
+      }
+      if (item.skillSlug !== OTHER_SKILL_SLUG && customSkill) {
+        throw badRequest('Only the "Other" category takes a custom skill.');
+      }
+
+      return {
+        skill,
+        customSkill,
+        pricing: priceJob(skill, item.quantity, item.durationMinutes),
+      };
     });
-    if (!skill) {
-      throw badRequest('That job category does not belong to the chosen service.');
-    }
+  }
 
-    const customSkill = input.customSkill ?? null;
-    if (input.skillSlug === 'other' && !customSkill) {
-      throw badRequest('Tell us what you need done.');
-    }
-    if (input.skillSlug !== 'other' && customSkill) {
-      throw badRequest('Only the "Other" category takes a custom skill.');
-    }
-
-    // The catalogue is the only source of price. `input.basePayPaise` is
-    // deliberately ignored: a client cannot name its own total.
-    const pricing = priceJob(skill, input.quantity, input.durationMinutes);
-
-    // Every submitted path must be scoped to this caller and must point at an
-    // object that really reached storage. Without the scope check a customer
-    // could reference another account's photos; without the existence check a
-    // job could point at nothing at all.
-    const scoped = input.imagePaths.every((path) => path.startsWith(jobImageScope(customerUserId)));
+  /**
+   * Every submitted photo must be scoped to this caller and must point at an
+   * object that really reached storage. Without the scope check a customer
+   * could reference another account's photos; without the existence check a
+   * job could point at nothing at all.
+   */
+  async function assertJobImagesReady(
+    customerUserId: string,
+    imagePaths: string[],
+  ): Promise<void> {
+    const scoped = imagePaths.every((path) => path.startsWith(jobImageScope(customerUserId)));
     if (!scoped) {
       throw badRequest('One of the photos is not valid.');
     }
-    const uploaded = await Promise.all(
-      input.imagePaths.map((path) => storage.jobImageExists(path)),
-    );
+    const uploaded = await Promise.all(imagePaths.map((path) => storage.jobImageExists(path)));
     if (uploaded.some((exists) => !exists)) {
       throw badRequest('One of the photos did not finish uploading. Try again.');
     }
+  }
 
-    // Work location for this job, snapshotted at creation. Coordinates come
-    // from the booking if provided (a pair), otherwise we fall back to the
-    // customer's saved profile location. Either way what matters is what is
-    // stored on the job — later profile edits must not move a placed booking.
+  /**
+   * Work location for this checkout, snapshotted at creation. Coordinates come
+   * from the booking if provided (a pair), otherwise we fall back to the
+   * customer's saved profile location. Either way what matters is what is
+   * stored on the job — later profile edits must not move a placed booking.
+   */
+  function resolveWorkLocation(
+    customer: BookingCustomer,
+    input: { locationLabel?: string; latitude?: number; longitude?: number },
+  ): WorkLocation {
     const submittedCoords =
       input.latitude !== undefined && input.longitude !== undefined
         ? { latitude: input.latitude, longitude: input.longitude }
@@ -429,83 +616,298 @@ export function createJobsService(deps: JobsServiceDeps) {
       (customer.latitude !== null && customer.longitude !== null
         ? { latitude: customer.latitude, longitude: customer.longitude }
         : null);
-    const locationLabel = input.locationLabel ?? customer.locationLabel;
+    return { coords, locationLabel: input.locationLabel ?? customer.locationLabel };
+  }
 
-    const created = await prisma.$transaction(async (tx) => {
-      const job = await tx.job.create({
-        data: {
-          customerId: customer.id,
-          serviceId: service.id,
-          skillId: skill.id,
-          customSkill,
-          status: JobStatus.REQUESTED,
-          locationLabel,
-          latitude: coords?.latitude ?? null,
-          longitude: coords?.longitude ?? null,
-          description: input.description,
-          imagePaths: input.imagePaths,
-          // Everything price-related is derived from the catalogue and frozen
-          // onto the job, so a later admin edit never rewrites this booking.
-          basePayPaise: pricing.totalPaise,
-          pricingModel: pricing.pricingModel,
-          unitPricePaise: pricing.unitPricePaise,
-          quantity: pricing.quantity,
-          unitLabel: pricing.unitLabel,
-          durationMinutes: pricing.durationMinutes,
+  /**
+   * Creates one service's job inside the caller's transaction, logs its first
+   * lifecycle row and converts that service's cart.
+   *
+   * The cart conversion happens in the same transaction so a converted draft
+   * can never point at a job that rolled back. Only this service's cart is
+   * converted — the other services of a multi-service checkout keep their own
+   * rows and convert alongside their own jobs.
+   */
+  async function createJobInTransaction(
+    tx: Prisma.TransactionClient,
+    data: JobCreationData,
+  ) {
+    const firstPriced = data.pricedItems[0];
+    if (!firstPriced) {
+      // Unreachable (callers pass a non-empty list); keeps the type honest.
+      throw badRequest('Choose at least one work.');
+    }
+    // The whole-booking estimate: the sum of every work's subtotal. This is
+    // what `basePayPaise` freezes and what accept / pay / earnings read.
+    const totalPaise = data.pricedItems.reduce((sum, item) => sum + item.pricing.totalPaise, 0);
+    const orderType = data.pricedItems.length > 1 ? OrderType.BULK : OrderType.SINGLE;
+
+    const job = await tx.job.create({
+      data: {
+        customerId: data.customerId,
+        serviceId: data.service.id,
+        orderGroupId: data.orderGroupId,
+        // The first work's snapshot rides the flat columns (single-work
+        // displays and legacy joins); every work is in `items`.
+        skillId: firstPriced.skill.id,
+        customSkill: firstPriced.customSkill,
+        orderType,
+        status: JobStatus.REQUESTED,
+        locationLabel: data.locationLabel,
+        latitude: data.coords?.latitude ?? null,
+        longitude: data.coords?.longitude ?? null,
+        description: data.description,
+        imagePaths: data.imagePaths,
+        // Everything price-related is derived from the catalogue and frozen
+        // onto the job, so a later admin edit never rewrites this booking.
+        // `basePayPaise` is the whole-booking estimate (the item sum); the
+        // flat pricing columns carry the first work's snapshot.
+        basePayPaise: totalPaise,
+        pricingModel: firstPriced.pricing.pricingModel,
+        unitPricePaise: firstPriced.pricing.unitPricePaise,
+        quantity: firstPriced.pricing.quantity,
+        unitLabel: firstPriced.pricing.unitLabel,
+        durationMinutes: firstPriced.pricing.durationMinutes,
+        items: {
+          create: data.pricedItems.map((item, index) => ({
+            sortOrder: index,
+            skillId: item.skill.id,
+            customSkill: item.customSkill,
+            pricingModel: item.pricing.pricingModel,
+            unitPricePaise: item.pricing.unitPricePaise,
+            quantity: item.pricing.quantity,
+            unitLabel: item.pricing.unitLabel,
+            durationMinutes: item.pricing.durationMinutes,
+            subtotalPaise: item.pricing.totalPaise,
+          })),
         },
-        include: jobDetailInclude,
-      });
-
-      await tx.jobStatusHistory.create({
-        data: { jobId: job.id, fromStatus: null, toStatus: JobStatus.REQUESTED },
-      });
-
-      return job;
+      },
+      include: jobDetailInclude,
     });
 
-    // Nudge eligible pros that a job is open, but only when there is a
-    // location to match against — the pull-style available-jobs feed is the
-    // source of truth either way.
-    if (coords) {
-      const eligible = await matching.findEligiblePros({
-        serviceId: service.id,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-      });
-      if (eligible.length > 0) {
-        const payload = toJobDto(created as unknown as JobRow, storage, config);
-        deps.realtime.emitToUsers(
-          eligible.map((pro) => pro.userId),
-          REALTIME_EVENTS.JOB_NEW,
-          payload,
-        );
+    await tx.jobStatusHistory.create({
+      data: { jobId: job.id, fromStatus: null, toStatus: JobStatus.REQUESTED },
+    });
 
-        // Push alert every eligible pro, then keep repeating on a cadence
-        // until one accepts or the job leaves the open pool. This is what
-        // reaches a pro whose phone is locked, in a pocket, or asleep — the
-        // socket cannot. Distance is per pro (from the match) and the address
-        // is the job's own snapshotted label, never the customer's identity.
-        void notifications.alertEligiblePros(
-          eligible.map((pro) => ({ proId: pro.proId, distanceKm: pro.distanceKm })),
-          {
-            jobId: created.id,
-            serviceName: service.name,
-            serviceCategory: customSkill ?? skill.name,
-            customSkill,
+    await tx.bookingDraft.updateMany({
+      where: { customerId: data.customerId, status: 'ACTIVE', serviceId: data.service.id },
+      data: { status: 'CONVERTED', convertedJobId: job.id },
+    });
+
+    return job;
+  }
+
+  /**
+   * Nudges the eligible pros of one new job.
+   *
+   * The socket event and the repeating push alert are best-effort delivery
+   * side effects; the pull-style available-jobs feed is the source of truth
+   * either way. Only jobs with a location can be matched.
+   */
+  async function dispatchNewJob(params: {
+    job: JobDetailRow;
+    service: { id: string; name: string };
+    pricedItems: PricedRequestItem[];
+    description: string;
+    locationLabel: string | null;
+    coords: { latitude: number; longitude: number } | null;
+  }): Promise<void> {
+    if (!params.coords) return;
+
+    const { job, service, pricedItems, coords } = params;
+    const firstPriced = pricedItems[0];
+    if (!firstPriced) return;
+    const totalPaise = pricedItems.reduce((sum, item) => sum + item.pricing.totalPaise, 0);
+    const orderType = pricedItems.length > 1 ? OrderType.BULK : OrderType.SINGLE;
+
+    const eligible = await matching.findEligiblePros({
+      serviceId: service.id,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+    });
+    if (eligible.length === 0) return;
+
+    const payload = toJobDto(job, storage, config);
+    deps.realtime.emitToUsers(
+      eligible.map((pro) => pro.userId),
+      REALTIME_EVENTS.JOB_NEW,
+      payload,
+    );
+
+    // Push alert every eligible pro, then keep repeating on a cadence until
+    // one accepts or the job leaves the open pool. This is what reaches a pro
+    // whose phone is locked, in a pocket, or asleep — the socket cannot.
+    // Distance is per pro (from the match) and the address is the job's own
+    // snapshotted label, never the customer's identity.
+    void notifications.alertEligiblePros(
+      eligible.map((pro) => ({ proId: pro.proId, distanceKm: pro.distanceKm })),
+      {
+        jobId: job.id,
+        serviceName: service.name,
+        // Compact one-line summary of the works ("Regular Tap Repair + 2 more
+        // works"); the full list rides in `works`.
+        serviceCategory: workSummaryLabel(
+          pricedItems.map((item) => item.customSkill ?? item.skill.name),
+        ),
+        customSkill: firstPriced.customSkill,
+        description: params.description,
+        basePayPaise: totalPaise,
+        pricingModel: firstPriced.pricing.pricingModel,
+        quantity: firstPriced.pricing.quantity,
+        unitLabel: firstPriced.pricing.unitLabel,
+        durationMinutes: firstPriced.pricing.durationMinutes,
+        orderType,
+        worksCount: pricedItems.length,
+        totalQuantity: pricedItems.reduce((sum, item) => sum + item.pricing.quantity, 0),
+        works: pricedItems.map((item) => ({
+          name: item.customSkill ?? item.skill.name,
+          quantity: item.pricing.quantity,
+          unitLabel: item.pricing.unitLabel,
+        })),
+        address: params.locationLabel,
+        expiresAt: new Date(job.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
+      },
+    );
+  }
+
+  /**
+   * Places a job request (the customer booking flow's final step).
+   *
+   * The service and skill are resolved from slugs server-side; nothing
+   * id-based from the client is trusted. Reference photos are verified to have
+   * reached storage and to live under the caller's own scope.
+   */
+  async function createForCustomer(
+    customerUserId: string,
+    input: CreateJobInput,
+  ): Promise<JobDetail> {
+    // Normalize the two request shapes into one list of works: a legacy request
+    // (single `skillSlug`) becomes a one-entry list, a multi-work request
+    // arrives as `items`. Validation guarantees exactly one shape is present;
+    // the guard below keeps direct service callers honest too. Everything
+    // downstream — catalogue resolution, pricing, storage — then sees one
+    // shape: a single-work request is a one-item list.
+    const requestedItems: CreateJobItemInput[] =
+      input.items ??
+      (input.skillSlug
+        ? [
+            {
+              skillSlug: input.skillSlug,
+              customSkill: input.customSkill,
+              quantity: input.quantity,
+              durationMinutes: input.durationMinutes,
+            },
+          ]
+        : []);
+
+    const customer = await loadBookingCustomer(customerUserId);
+    const service = await findBookableService(input.serviceSlug);
+    const pricedItems = await priceServiceItems(service.id, requestedItems);
+    await assertJobImagesReady(customerUserId, input.imagePaths);
+    const { coords, locationLabel } = resolveWorkLocation(customer, input);
+
+    const created = await prisma.$transaction((tx) =>
+      createJobInTransaction(tx, {
+        customerId: customer.id,
+        service,
+        pricedItems,
+        description: input.description,
+        imagePaths: input.imagePaths,
+        coords,
+        locationLabel,
+        // A single-service booking is not grouped: there is nothing to place it
+        // together with.
+        orderGroupId: null,
+      }),
+    );
+
+    await dispatchNewJob({
+      job: created as unknown as JobDetailRow,
+      service,
+      pricedItems,
+      description: input.description,
+      locationLabel,
+      coords,
+    });
+
+    return toJobDetail(created as unknown as JobDetailRow, 'customer', storage, config);
+  }
+
+  /**
+   * Places one checkout that may span several services.
+   *
+   * Every group becomes its own independent job (own pro, lifecycle, OTP, chat,
+   * cash payment); all of them share a generated `orderGroupId` so the
+   * customer can see they were placed together. The whole checkout is atomic:
+   * every service and work is resolved and priced before the transaction, and
+   * all jobs (plus their cart conversions) commit or none do.
+   */
+  async function createBatchForCustomer(
+    customerUserId: string,
+    input: CreateJobBatchInput,
+  ): Promise<JobBatchResult> {
+    const customer = await loadBookingCustomer(customerUserId);
+
+    // Resolve and price every service up front, so a bad service or work fails
+    // the whole checkout without creating any job.
+    const groups = await Promise.all(
+      input.groups.map(async (group) => {
+        const service = await findBookableService(group.serviceSlug);
+        const pricedItems = await priceServiceItems(service.id, group.items);
+        return { service, pricedItems };
+      }),
+    );
+
+    await assertJobImagesReady(customerUserId, input.imagePaths);
+    const { coords, locationLabel } = resolveWorkLocation(customer, input);
+    const orderGroupId = randomUUID();
+
+    const created = await prisma.$transaction(async (tx) => {
+      const jobs = [];
+      for (const group of groups) {
+        jobs.push(
+          await createJobInTransaction(tx, {
+            customerId: customer.id,
+            service: group.service,
+            pricedItems: group.pricedItems,
             description: input.description,
-            basePayPaise: pricing.totalPaise,
-            pricingModel: pricing.pricingModel,
-            quantity: pricing.quantity,
-            unitLabel: pricing.unitLabel,
-            durationMinutes: pricing.durationMinutes,
-            address: locationLabel,
-            expiresAt: new Date(created.createdAt.getTime() + config.jobExpireTtlMs).toISOString(),
-          },
+            imagePaths: input.imagePaths,
+            coords,
+            locationLabel,
+            orderGroupId,
+          }),
         );
+      }
+      return jobs;
+    });
+
+    // Dispatch each service's job to its own eligible pros. A matching failure
+    // for one service must not hide the jobs that were already committed, so
+    // failures are logged rather than thrown.
+    const dispatched = await Promise.allSettled(
+      created.map((job, index) =>
+        dispatchNewJob({
+          job: job as unknown as JobDetailRow,
+          service: groups[index]!.service,
+          pricedItems: groups[index]!.pricedItems,
+          description: input.description,
+          locationLabel,
+          coords,
+        }),
+      ),
+    );
+    for (const result of dispatched) {
+      if (result.status === 'rejected') {
+        logger.error('Failed to dispatch a multi-service checkout job to pros.', result.reason);
       }
     }
 
-    return toJobDetail(created as unknown as JobDetailRow, 'customer', storage, config);
+    return {
+      orderGroupId,
+      jobs: created.map((job) =>
+        toJobDetail(job as unknown as JobDetailRow, 'customer', storage, config),
+      ),
+    };
   }
 
   /**
@@ -2003,6 +2405,7 @@ export function createJobsService(deps: JobsServiceDeps) {
 
   return {
     createForCustomer,
+    createBatchForCustomer,
     listForCustomer,
     getForCustomer,
     collectCashForPro,

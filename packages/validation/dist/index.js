@@ -21,6 +21,7 @@ __exportStar(require("./address"), exports);
 __exportStar(require("./constants"), exports);
 __exportStar(require("./customer"), exports);
 __exportStar(require("./document"), exports);
+__exportStar(require("./draft"), exports);
 __exportStar(require("./job"), exports);
 __exportStar(require("./location"), exports);
 __exportStar(require("./message"), exports);

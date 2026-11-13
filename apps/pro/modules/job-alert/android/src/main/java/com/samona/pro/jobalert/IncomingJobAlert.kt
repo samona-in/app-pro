@@ -1,5 +1,6 @@
 package com.samona.pro.jobalert
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -25,6 +26,8 @@ data class IncomingJobAlert(
   val address: String,
   val distanceMeters: String?,
   val amountPaise: String?,
+  /** Distinct works in the request; null when the payload predates bulk orders. */
+  val worksCount: Int?,
   val expiresAt: String?,
   val professionalId: String?,
   val jobOfferToken: String?,
@@ -32,6 +35,14 @@ data class IncomingJobAlert(
   val receivedAt: Long,
 ) {
   val hasOfferToken: Boolean get() = !jobOfferToken.isNullOrBlank()
+
+  /**
+   * True when the request bundles several works. The overlay paints these
+   * requests with the brand tint + border so a pro can tell a multi-work
+   * request from a single-work one at a glance (the same treatment the
+   * in-app incoming-jobs card uses).
+   */
+  val isMultiWork: Boolean get() = (worksCount ?: 0) > 1
 
   /** "AC installation" — the category within the service, blank when absent. */
   fun categoryLabel(): String? = serviceCategory.takeIf { it.isNotBlank() }
@@ -92,6 +103,7 @@ data class IncomingJobAlert(
       put("address", address)
       put("distanceMeters", distanceMeters ?: JSONObject.NULL)
       put("amountPaise", amountPaise ?: JSONObject.NULL)
+      put("worksCount", worksCount ?: JSONObject.NULL)
       put("expiresAt", expiresAt ?: JSONObject.NULL)
       put("professionalId", professionalId ?: JSONObject.NULL)
       put("jobOfferToken", jobOfferToken ?: JSONObject.NULL)
@@ -109,6 +121,7 @@ data class IncomingJobAlert(
       "address" to address,
       "distanceMeters" to distanceMeters,
       "amountPaise" to amountPaise,
+      "worksCount" to worksCount,
       "expiresAt" to expiresAt,
       "professionalId" to professionalId,
       "jobOfferToken" to jobOfferToken,
@@ -143,6 +156,7 @@ data class IncomingJobAlert(
         address = json.optString("address"),
         distanceMeters = json.optString("distanceMeters").nullable(),
         amountPaise = json.optString("amountPaise").nullable(),
+        worksCount = json.optString("worksCount").nullable()?.toIntOrNull(),
         expiresAt = json.optString("expiresAt").nullable(),
         professionalId = json.optString("professionalId").nullable(),
         jobOfferToken = json.optString("jobOfferToken").nullable(),
@@ -159,6 +173,9 @@ data class IncomingJobAlert(
         address = data["address"].orEmpty(),
         distanceMeters = data["distanceMeters"]?.nullable(),
         amountPaise = data["amountPaise"]?.nullable(),
+        // Prefer the explicit count; older payloads only carry the compact
+        // works JSON, so fall back to its length.
+        worksCount = data["worksCount"]?.nullable()?.toIntOrNull() ?: countWorks(data["works"]),
         expiresAt = data["expiresAt"]?.nullable(),
         professionalId = data["professionalId"]?.nullable(),
         jobOfferToken = data["jobOfferToken"]?.nullable(),
@@ -168,5 +185,11 @@ data class IncomingJobAlert(
 
     // JSON nulls surface as the literal "null"; treat it as absent.
     private fun String.nullable(): String? = takeUnless { it.isBlank() || it == "null" }
+
+    /** Number of entries in the compact works JSON; null when absent/malformed. */
+    private fun countWorks(raw: String?): Int? =
+      raw?.let { value ->
+        runCatching { JSONArray(value).length() }.getOrNull()?.takeIf { it > 0 }
+      }
   }
 }

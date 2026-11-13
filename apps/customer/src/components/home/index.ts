@@ -5,6 +5,7 @@ export { BrandBanner, type BrandBannerProps } from './BrandBanner';
 export { ServiceCard, type ServiceCardProps } from './ServiceCard';
 export { ServiceGrid, type ServiceGridProps } from './ServiceGrid';
 export { PopularSkills, type PopularSkillsProps } from './PopularSkills';
+export { CartButton } from './CartButton';
 export { HomeBannerCard, BANNER_HEIGHT, type HomeBannerCardProps } from './HomeBannerCard';
 export {
   HomeBannerCarousel,

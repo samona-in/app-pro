@@ -1,4 +1,4 @@
-import type { PricingModel, SkillOption } from '@samona/types';
+import type { JobItem, OrderType, PricingModel, SkillOption } from '@samona/types';
 
 /**
  * Client-side reading of a work's pricing configuration.
@@ -144,4 +144,27 @@ export function describeJobQuantity(job: {
     return formatDuration(job.durationMinutes);
   }
   return null;
+}
+
+/** The name a booked work reads as — its custom text when it is "Other". */
+export function jobItemName(item: Pick<JobItem, 'skill' | 'customSkill'>): string {
+  const custom = item.customSkill?.trim();
+  return custom ? custom : item.skill.name;
+}
+
+/**
+ * The works breakdown of a placed booking, for list rows and captions:
+ * "3 works · 6 items" for a bulk visit, or null for a single work (whose
+ * quantity reads through `describeJobQuantity` instead).
+ */
+export function describeJobWorks(job: {
+  orderType?: OrderType;
+  items?: readonly { quantity: number }[];
+}): string | null {
+  const items = job.items ?? [];
+  if (items.length < 2) return null;
+  const units = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  return units > items.length
+    ? `${items.length} works · ${units} items`
+    : `${items.length} works`;
 }

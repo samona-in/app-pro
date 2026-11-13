@@ -3,6 +3,7 @@ export * from './address';
 export * from './constants';
 export * from './customer';
 export * from './document';
+export * from './draft';
 export * from './job';
 export * from './location';
 export * from './message';

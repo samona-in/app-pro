@@ -334,6 +334,7 @@
     "photoCount": "({{count}})",
     "beforeStart": "शुरू करने से पहले",
     "jobDescription": "काम का विवरण",
+    "worksHeading": "इस जॉब के सभी काम",
     "checklist": {
       "inspectIssue": "समस्या का निरीक्षण करें",
       "confirmWork": "ग्राहक के साथ काम की पुष्टि करें",
@@ -803,6 +804,9 @@
     "km": "{{value}} किमी",
     "m": "{{value}} मी",
     "minAway": "{{minutes}} मिनट दूर",
+    "works_one": "{{count}} काम",
+    "works_other": "{{count}} काम",
+    "worksItems": "{{works}} काम · {{items}} आइटम",
     "relative": {
       "justNow": "अभी",
       "m": "{{minutes}} मिनट पहले",

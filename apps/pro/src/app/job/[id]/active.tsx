@@ -10,6 +10,7 @@ import {
   JobStatus,
   isActiveJobStatus,
   isSettlementPendingStatus,
+  workSummaryLabel,
   type JobStatus as Status,
 } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
@@ -20,7 +21,7 @@ import type { TranslationKey } from '@/i18n';
 import { useProJobs, useSubmitGuard, useTransitionJob, useUnreadMessages } from '@/hooks';
 import type { ProJobTransitionAction } from '@/services/jobs';
 import { color } from '@/theme';
-import { formatDistance, formatEta, formatInr, formatJobQuantity } from '@/utils/format';
+import { formatDistance, formatEta, formatInr, formatJobQuantity, formatWorkName, formatWorksCount } from '@/utils/format';
 import { regionFor } from '@/utils/map';
 import { startJobTracking, stopJobTracking } from '@/services/job-tracking';
 
@@ -350,7 +351,10 @@ export default function ActiveJobScreen() {
   const address =
     job.locationLabel ?? job.customer?.locationLabel ?? t('common.locationSharedLater');
   const price = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  const quantityLabel = formatJobQuantity(job);
+  // A bulk visit reads as "first work + N more works" with its works
+  // breakdown; a single work keeps its own quantity/duration label.
+  const category = workSummaryLabel(job.items.map(formatWorkName));
+  const quantityLabel = formatWorksCount(job.items, t) ?? formatJobQuantity(job);
   const swipeLabel = t(SWIPE_LABEL[job.status] ?? 'activeJob.swipe.onMyWay');
 
   /** Straight dashed connector between the pro's live pin and the work spot,
@@ -529,7 +533,7 @@ export default function ActiveJobScreen() {
                 {job.service.name}
               </Text>
               <Text variant="footnote" className="text-text-secondary">
-                {job.customSkill ?? job.skill.name}
+                {category}
               </Text>
             </View>
             <View className="items-end">
@@ -543,6 +547,28 @@ export default function ActiveJobScreen() {
               ) : null}
             </View>
           </View>
+
+          {/* A bulk visit lists every work with its own quantity or duration,
+              so the pro knows the whole order before arriving. */}
+          {job.items.length > 1 ? (
+            <View className="mt-2.5 gap-1.5">
+              {job.items.map((work) => {
+                const qualifier = formatJobQuantity(work);
+                return (
+                  <View key={work.id} className="flex-row items-center">
+                    <Text variant="body" numberOfLines={1} className="min-w-0 flex-1 pr-3">
+                      {formatWorkName(work)}
+                    </Text>
+                    {qualifier ? (
+                      <Text variant="footnote" className="shrink-0 text-text-secondary">
+                        {qualifier}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
 
           <Divider spaced />
 

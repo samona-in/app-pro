@@ -334,6 +334,7 @@
     "photoCount": "({{count}})",
     "beforeStart": "Before you start",
     "jobDescription": "Job description",
+    "worksHeading": "Works in this job",
     "checklist": {
       "inspectIssue": "Inspect the issue",
       "confirmWork": "Confirm the work with the customer",
@@ -803,6 +804,9 @@
     "km": "{{value}} km",
     "m": "{{value}} m",
     "minAway": "{{minutes}} min away",
+    "works_one": "{{count}} work",
+    "works_other": "{{count}} works",
+    "worksItems": "{{works}} works · {{items}} items",
     "relative": {
       "justNow": "just now",
       "m": "{{minutes}}m ago",

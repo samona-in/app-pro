@@ -1,5 +1,5 @@
 import { JOB_DEFAULTS } from '@samona/config';
-import { JobStatus, type AvailableJob } from '@samona/types';
+import { JobStatus, OrderType, type AvailableJob, type JobItem } from '@samona/types';
 import {
   offerDeadlineMs,
   offerRemainingFraction,
@@ -79,6 +79,23 @@ describe('offerRemainingFraction', () => {
 });
 
 describe('toPendingOfferFromAvailableJob', () => {
+  /** One work in the request, matching the job's flat snapshot columns. */
+  function item(sortOrder: number, overrides?: Partial<JobItem>): JobItem {
+    return {
+      id: `item-${sortOrder}`,
+      sortOrder,
+      skill: { id: 'skill-1', slug: 'fan-installation', name: 'Fan installation', icon: null },
+      customSkill: null,
+      pricingModel: 'PER_BOOKING',
+      unitPricePaise: 8800,
+      quantity: 1,
+      unitLabel: null,
+      durationMinutes: null,
+      subtotalPaise: 8800,
+      ...overrides,
+    };
+  }
+
   const job: AvailableJob = {
     id: 'job-1',
     customerId: 'cust-1',
@@ -86,6 +103,9 @@ describe('toPendingOfferFromAvailableJob', () => {
     service: { id: 'svc-1', slug: 'electrical', name: 'Electrical', icon: 'flash-outline' },
     skill: { id: 'skill-1', slug: 'fan-installation', name: 'Fan installation', icon: null },
     customSkill: null,
+    orderType: OrderType.SINGLE,
+    orderGroupId: null,
+    items: [item(0)],
     status: JobStatus.REQUESTED,
     locationLabel: '1 Main Road',
     latitude: 12.97,
@@ -118,6 +138,61 @@ describe('toPendingOfferFromAvailableJob', () => {
       coordinates: { latitude: 12.97, longitude: 77.6 },
     });
   });
+
+  it('carries the order type and the single work of a single-work request', () => {
+    const offer = toPendingOfferFromAvailableJob(job);
+    expect(offer.orderType).toBe('SINGLE');
+    expect(offer.serviceCategory).toBe('Fan installation');
+    expect(offer.works).toEqual([
+      {
+        name: 'Fan installation',
+        quantity: 1,
+        unitLabel: null,
+        pricingModel: 'PER_BOOKING',
+        durationMinutes: null,
+      },
+    ]);
+  });
+
+  it('summarizes a bulk visit and carries every work with its quantity', () => {
+    const bulk: AvailableJob = {
+      ...job,
+      orderType: OrderType.BULK,
+      basePayPaise: 26_400,
+      items: [
+        item(0),
+        item(1, {
+          id: 'item-1',
+          skill: { id: 'skill-2', slug: 'switch-repair', name: 'Switch repair', icon: null },
+          pricingModel: 'PER_UNIT',
+          quantity: 2,
+          unitLabel: 'switch',
+          subtotalPaise: 17_600,
+        }),
+      ],
+    };
+
+    const offer = toPendingOfferFromAvailableJob(bulk);
+    expect(offer.orderType).toBe('BULK');
+    expect(offer.serviceCategory).toBe('Fan installation + 1 more work');
+    expect(offer.amountPaise).toBe(26_400);
+    expect(offer.works).toEqual([
+      {
+        name: 'Fan installation',
+        quantity: 1,
+        unitLabel: null,
+        pricingModel: 'PER_BOOKING',
+        durationMinutes: null,
+      },
+      {
+        name: 'Switch repair',
+        quantity: 2,
+        unitLabel: 'switch',
+        pricingModel: 'PER_UNIT',
+        durationMinutes: null,
+      },
+    ]);
+  });
 });
 
 describe('toPendingOfferFromPushData', () => {
@@ -142,6 +217,38 @@ describe('toPendingOfferFromPushData', () => {
       offerExpiresAt: '2026-09-11T10:30:00.000Z',
     });
     expect(offer?.offerExpiresAt).toBe('2026-09-11T10:30:00.000Z');
+  });
+
+  it('parses the works summary a NEW_JOB push carries', () => {
+    const offer = toPendingOfferFromPushData({
+      jobId: 'job-1',
+      orderType: 'BULK',
+      works: JSON.stringify([
+        { name: 'Fan installation', quantity: 1 },
+        { name: 'Switch repair', quantity: 2, unitLabel: 'switch' },
+      ]),
+    });
+    expect(offer?.orderType).toBe('BULK');
+    expect(offer?.works).toEqual([
+      { name: 'Fan installation', quantity: 1, unitLabel: null },
+      { name: 'Switch repair', quantity: 2, unitLabel: 'switch' },
+    ]);
+  });
+
+  it('defaults a push work without a quantity to a single unit', () => {
+    const offer = toPendingOfferFromPushData({
+      jobId: 'job-1',
+      works: JSON.stringify([{ name: 'Fan installation' }]),
+    });
+    expect(offer?.works).toEqual([{ name: 'Fan installation', quantity: 1, unitLabel: null }]);
+  });
+
+  it('leaves the works unknown when the push payload is malformed or empty', () => {
+    expect(toPendingOfferFromPushData({ jobId: 'job-1', works: 'not json' })?.works).toBeNull();
+    expect(toPendingOfferFromPushData({ jobId: 'job-1', works: '[]' })?.works).toBeNull();
+    expect(toPendingOfferFromPushData({ jobId: 'job-1', works: '[{"name":""}]' })?.works).toBeNull();
+    expect(toPendingOfferFromPushData({ jobId: 'job-1', works: '[42]' })?.works).toBeNull();
+    expect(toPendingOfferFromPushData({ jobId: 'job-1' })?.works).toBeNull();
   });
 });
 
@@ -179,6 +286,12 @@ describe('toPendingOfferFromNative', () => {
     });
     expect(offer.offerExpiresAt).toBe('2026-09-11T10:30:00.000Z');
     expect(offer.jobOfferToken).toBe('tok');
+  });
+
+  it('leaves the works breakdown unknown for a legacy native alert', () => {
+    const offer = toPendingOfferFromNative(native);
+    expect(offer.orderType).toBeNull();
+    expect(offer.works).toBeNull();
   });
 });
 
@@ -243,6 +356,28 @@ describe('incoming offers store offer window', () => {
     const stored = getOffer('job-1');
     expect(stored.offerExpiresAt).toBe(deadline);
     expect(offerRemainingFraction(stored, receivedAt)).toBe(1);
+  });
+
+  it('keeps a known works breakdown when a later event arrives without one', () => {
+    useIncomingOffersStore.getState().upsert(
+      offer({
+        orderType: 'BULK',
+        works: [
+          { name: 'Fan installation', quantity: 1 },
+          { name: 'Switch repair', quantity: 2 },
+        ],
+      }),
+    );
+    // A legacy native re-delivery or push fallback carries no works; the
+    // already-known breakdown must survive the merge.
+    useIncomingOffersStore.getState().upsert(offer({ orderType: null, works: null }));
+
+    const stored = getOffer('job-1');
+    expect(stored.orderType).toBe('BULK');
+    expect(stored.works).toEqual([
+      { name: 'Fan installation', quantity: 1 },
+      { name: 'Switch repair', quantity: 2 },
+    ]);
   });
 
   it('keeps an offer whose window has not lapsed through a tick', () => {

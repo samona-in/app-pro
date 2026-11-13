@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { JobDetail, SkillOption } from '@samona/types';
-import type { CreateJobInput } from '@samona/validation';
+import type { JobBatchResult, JobDetail, SkillOption } from '@samona/types';
+import type { CreateJobBatchRequest, CreateJobRequest } from '@samona/validation';
 import { queryKeys } from '@/constants';
 import { bookingApi } from '@/services/bookings';
 import { api } from '@/services/api';
@@ -43,7 +43,7 @@ export function useCreateBooking() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateJobInput) => bookingApi.create(input),
+    mutationFn: (input: CreateJobRequest) => bookingApi.create(input),
     onSuccess: (job) => {
       // Seed the detail so the booking screen the flow lands on renders the
       // real job immediately instead of flashing a loading state.
@@ -57,6 +57,35 @@ export function useCreateBooking() {
           return previous.map((existing) => (existing.id === job.id ? job : existing));
         }
         return [job, ...previous];
+      });
+
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+    },
+  });
+}
+
+/**
+ * Places one checkout that may span several services.
+ *
+ * The server creates one independent booking per service and returns them all
+ * with their shared `orderGroupId`. Every created job is seeded into the cache
+ * so the requests-sent summary and the bookings list render immediately.
+ */
+export function useCreateBookingBatch() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateJobBatchRequest) => bookingApi.createBatch(input),
+    onSuccess: (result: JobBatchResult) => {
+      for (const job of result.jobs) {
+        queryClient.setQueryData(queryKeys.bookings.detail(job.id), job);
+      }
+
+      queryClient.setQueryData<JobDetail[]>(queryKeys.bookings.list(), (previous) => {
+        const created = result.jobs.filter(
+          (job) => !previous?.some((existing) => existing.id === job.id),
+        );
+        return [...created, ...(previous ?? [])];
       });
 
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });

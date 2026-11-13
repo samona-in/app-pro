@@ -39,6 +39,9 @@ object JobAlertTheme {
   const val BRAND = 0xFF054DFF.toInt() // tokens.brand (blue-600)
   const val BRAND_MUTED = 0xFF053FCC.toInt() // tokens.brand-muted (blue-700)
   const val BRAND_CONTOUR = 0xFFFFFFFF.toInt() // tokens.brand-contrast (text-inverse)
+  // A light brand wash for cards that need to read as "brand" without the
+  // contrast of the full blue — e.g. a multi-work request's tinted card.
+  const val BRAND_SOFT = 0xFFEAF0FC.toInt() // tokens.brand-soft (blue-50)
 
   // Status
   const val SUCCESS = 0xFF059669.toInt() // tokens.success (green-600)

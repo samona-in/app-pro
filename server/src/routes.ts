@@ -13,6 +13,7 @@ import { createCustomersRouter } from './customers/customers.routes';
 import { createServicesRouter } from './services/services.routes';
 import { createBannersRouter } from './banners/banners.routes';
 import { createJobsRouter } from './jobs/jobs.routes';
+import { createDraftsRouter } from './drafts/drafts.routes';
 import { createMessagesRouter } from './messages/messages.routes';
 import { createLocationsRouter } from './locations/locations.routes';
 import { createAddressesRouter } from './addresses/addresses.routes';
@@ -38,6 +39,7 @@ export function createApiRouter(
   router.use('/services', createServicesRouter(services));
   router.use('/banners', createBannersRouter(services));
   router.use('/jobs', limiters.write, createJobsRouter(services));
+  router.use('/drafts', limiters.write, createDraftsRouter(services));
   router.use('/reviews', limiters.write, createReviewsRouter(services));
   router.use('/notifications', limiters.write, createNotificationsRouter(services));
   router.use('/locations', limiters.location, createLocationsRouter(services));

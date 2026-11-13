@@ -70,6 +70,19 @@ export default function Bookings() {
     () => jobs.filter((job) => ACTIVE.includes(job.status)).length,
     [jobs],
   );
+  /**
+   * How many bookings each multi-service checkout produced. A group only
+   * counts bookings still visible in this list, which is the same set the
+   * customer is looking at.
+   */
+  const groupSizes = useMemo(() => {
+    const sizes = new Map<string, number>();
+    for (const job of jobs) {
+      if (!job.orderGroupId) continue;
+      sizes.set(job.orderGroupId, (sizes.get(job.orderGroupId) ?? 0) + 1);
+    }
+    return sizes;
+  }, [jobs]);
 
   const summary =
     jobs.length === 0
@@ -144,7 +157,10 @@ export default function Bookings() {
             <View key={job.id}>
               {/* Hairline separator, the full width of the screen. */}
               {index > 0 ? <View className="h-px bg-border" /> : null}
-              <BookingRow job={job} />
+              <BookingRow
+                job={job}
+                groupServiceCount={job.orderGroupId ? groupSizes.get(job.orderGroupId) : undefined}
+              />
             </View>
           ))
         )}

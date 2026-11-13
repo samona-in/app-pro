@@ -15,10 +15,11 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { JOB_DESCRIPTION_MAX, JOB_IMAGE_LIMIT, type SkillOption } from '@samona/types';
 import { ServiceImage, isImageUrl } from '@/components/home/ServiceImage';
+import { StepperButton } from '@/components/booking/StepperButton';
 import { Text } from '@/components/ui';
 import { uploadJobImage } from '@/services/job-images';
-import type { DraftImage } from '@/stores/booking';
-import { useBookingDraft } from '@/stores/booking';
+import type { DraftImage, DraftItem } from '@/stores/booking';
+import { groupItems, useBookingDraft } from '@/stores/booking';
 import { color, elevation } from '@/theme';
 import { formatRupees } from '@/utils/format';
 import {
@@ -78,35 +79,12 @@ function SheetHandle() {
   );
 }
 
-/** A round +/- control used by the quantity and duration selectors. */
-function StepperButton({
-  icon,
-  label,
-  disabled,
-  onPress,
-}: {
-  icon: 'add' | 'remove';
-  label: string;
-  disabled: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      hitSlop={6}
-      className={
-        disabled
-          ? 'h-9 w-9 items-center justify-center rounded-full bg-surface-muted'
-          : 'h-9 w-9 items-center justify-center rounded-full bg-brand-soft active:opacity-70'
-      }
-    >
-      <Ionicons name={icon} size={18} color={disabled ? color['text-muted'] : color.brand} />
-    </Pressable>
-  );
+/** The selection a customer makes for one work in the details sheet. */
+export interface BookingDetailsSelection {
+  quantity: number;
+  durationMinutes: number | null;
+  /** The work's estimated total, in paise (display only; the server prices). */
+  totalPaise: number;
 }
 
 export interface BookingDetailsSheetProps {
@@ -122,22 +100,27 @@ export interface BookingDetailsSheetProps {
   pricing?: SkillOption | null;
   /** Called once the sheet has closed after a swipe or a backdrop press. */
   onClose: () => void;
-  /** Called with the trimmed description when the customer continues. */
-  onContinue: (description: string) => void;
+  /**
+   * Called with the trimmed description and the work's selection when the
+   * customer adds the work to the cart. Adding a work that is already in the
+   * cart replaces its entry — the caller owns the upsert.
+   */
+  onAdd: (description: string, selection: BookingDetailsSelection) => void;
 }
 
 /**
- * The "Tell us about the work" step, shown as a bottom sheet over the catalogue
- * instead of a separate screen. The customer describes the job and attaches
- * reference photos; the draft (and any in-flight uploads) lives in the booking
- * store so closing the sheet never loses work.
+ * The "Tell us about the work" step, shown as a bottom sheet over the
+ * catalogue instead of a separate screen. The customer describes the visit and
+ * attaches reference photos, then adds the work to the cart — the sheet can
+ * reopen for another work while everything picked so far stays in the booking
+ * store, so closing the sheet never loses work.
  */
 export function BookingDetailsSheet({
   skillName,
   skillIcon,
   pricing,
   onClose,
-  onContinue,
+  onAdd,
 }: BookingDetailsSheetProps) {
   const draft = useBookingDraft();
   const insets = useSafeAreaInsets();
@@ -147,13 +130,18 @@ export function BookingDetailsSheet({
   const hasBasePrice = typeof pricePaise === 'number' && pricePaise > 0;
   const [description, setDescription] = useState(draft.description);
   const [cameraDenied, setCameraDenied] = useState(false);
+  // A work already in the cart reopens with its saved selection, so "Add"
+  // updates that entry instead of stacking a second one.
+  const existing: DraftItem | null =
+    groupItems(draft.groups, draft.service?.id).find((item) => item.skill.id === pricing?.id) ??
+    null;
   const [quantity, setQuantity] = useState(() =>
-    model === 'PER_UNIT' ? clampQuantity(pricing, draft.quantity) : 1,
+    model === 'PER_UNIT' ? clampQuantity(pricing, existing?.quantity ?? 1) : 1,
   );
   const [duration, setDuration] = useState<number | null>(() => {
     if (model !== 'PER_HOUR') return null;
     const fallback = minDurationMinutes(pricing);
-    return clampDuration(pricing, draft.durationMinutes ?? fallback);
+    return clampDuration(pricing, existing?.durationMinutes ?? fallback);
   });
 
   const images = draft.images;
@@ -238,16 +226,21 @@ export function BookingDetailsSheet({
     draft.setImages((prev) => prev.filter((image) => image.uri !== uri));
   }
 
-  const handleContinue = useCallback(() => {
+  const isCarted = existing !== null;
+  const addButtonLabel = isCarted ? 'Update' : 'Add';
+  const addButtonAccessibility = isCarted
+    ? `Update ${skillName} in cart, estimated ${formatRupees(estimatedTotal)}`
+    : `Add ${skillName} to cart, estimated ${formatRupees(estimatedTotal)}`;
+
+  const handleAdd = useCallback(() => {
     if (!canContinue) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    draft.setPricing({
+    onAdd(description.trim(), {
       quantity,
       durationMinutes: model === 'PER_HOUR' ? duration : null,
       totalPaise: estimatedTotal,
     });
-    onContinue(description.trim());
-  }, [canContinue, description, draft, duration, estimatedTotal, model, onContinue, quantity]);
+  }, [canContinue, description, duration, estimatedTotal, model, onAdd, quantity]);
 
   const renderFooter = useCallback(
     (props: BottomSheetFooterProps) => (
@@ -334,12 +327,12 @@ export function BookingDetailsSheet({
               accessibilityRole="button"
               accessibilityLabel={
                 hasBasePrice
-                  ? `Continue, estimated total ${formatRupees(estimatedTotal)}`
-                  : 'Continue'
+                  ? addButtonAccessibility
+                  : `${addButtonLabel} ${skillName} to cart`
               }
               accessibilityState={{ disabled: !canContinue }}
               disabled={!canContinue}
-              onPress={handleContinue}
+              onPress={handleAdd}
               className={
                 canContinue
                   ? 'ml-2 min-h-[46px] flex-1 items-center justify-center rounded-full bg-brand px-4 active:opacity-80'
@@ -347,7 +340,7 @@ export function BookingDetailsSheet({
               }
             >
               <Text variant="bodyLg" className="font-semibold text-white">
-                Continue
+                {addButtonLabel}
               </Text>
             </Pressable>
           </View>
@@ -357,7 +350,9 @@ export function BookingDetailsSheet({
     [
       insets.bottom,
       canContinue,
-      handleContinue,
+      handleAdd,
+      addButtonLabel,
+      addButtonAccessibility,
       model,
       quantity,
       minQty,
@@ -369,6 +364,7 @@ export function BookingDetailsSheet({
       step,
       hasBasePrice,
       estimatedTotal,
+      skillName,
     ],
   );
 

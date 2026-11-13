@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { JOB_DEFAULTS } from '@samona/config';
-import type { AvailableJob, Job } from '@samona/types';
+import { workSummaryLabel, type AvailableJob, type Job, type JobItem } from '@samona/types';
 import type { Coordinates } from '@/services/location';
+import { formatWorkName } from '@/utils/format';
 import {
   clearNativeJobAlert,
   getPendingNativeJobs,
@@ -35,13 +36,46 @@ import {
  * native storage too.
  */
 
+/**
+ * One distinct work inside a pending offer, as the alert payloads carry it.
+ *
+ * The realtime DTO and the job detail know the full pricing snapshot; the FCM
+ * push summary carries only the name and its quantity/duration. Prices stay at
+ * the offer level (`amountPaise` is the whole visit) so no per-item amount is
+ * carried here.
+ */
+export interface OfferWork {
+  name: string;
+  /** Work units booked (PER_UNIT); 1 otherwise. */
+  quantity: number;
+  /** Human name of one unit — "hinge", "fan" (PER_UNIT only). */
+  unitLabel?: string | null;
+  pricingModel?: string | null;
+  /** Booked duration in minutes (PER_HOUR only). */
+  durationMinutes?: number | null;
+}
+
+/** The job's items as the compact per-work summary an offer carries. */
+export function toOfferWorks(items: readonly JobItem[]): OfferWork[] {
+  return items.map((item) => ({
+    name: formatWorkName(item),
+    quantity: item.quantity,
+    unitLabel: item.unitLabel,
+    pricingModel: item.pricingModel,
+    durationMinutes: item.durationMinutes,
+  }));
+}
+
 export interface PendingOffer {
   jobId: string;
   /** Short heading, e.g. "Electrical job nearby". */
   title: string;
   /** Display name of the requested service. */
   serviceName: string;
-  /** The requested category within the service; null when not known. */
+  /**
+   * The requested works — one work's name, or "first + N more works" for a
+   * bulk visit; null when not known.
+   */
   serviceCategory: string | null;
   /** Display label of the work location; null when unknown. */
   address: string | null;
@@ -51,6 +85,10 @@ export interface PendingOffer {
   coordinates?: Coordinates | null;
   /** Guaranteed amount, in paise (the server-calculated total). */
   amountPaise: number | null;
+  /** SINGLE vs BULK; null when the source predates multi-work orders. */
+  orderType?: string | null;
+  /** The distinct works in the request; null when the source did not carry them. */
+  works?: OfferWork[] | null;
   /** How the booking was priced; lets the pro read the amount correctly. */
   pricingModel?: string | null;
   /** Work units booked (PER_UNIT); 1 otherwise. */
@@ -80,6 +118,8 @@ function mergeOffer(existing: PendingOffer, incoming: PendingOffer): PendingOffe
     distanceMeters: incoming.distanceMeters ?? existing.distanceMeters,
     coordinates: incoming.coordinates ?? existing.coordinates,
     amountPaise: incoming.amountPaise ?? existing.amountPaise,
+    orderType: incoming.orderType ?? existing.orderType,
+    works: incoming.works ?? existing.works,
     pricingModel: incoming.pricingModel ?? existing.pricingModel,
     quantity: incoming.quantity ?? existing.quantity,
     unitLabel: incoming.unitLabel ?? existing.unitLabel,
@@ -131,6 +171,10 @@ export function toPendingOfferFromNative(native: PendingNativeJob): PendingOffer
     quantity: null,
     unitLabel: null,
     durationMinutes: null,
+    // Same for the works breakdown — `useIncomingOfferDistances` backfills it
+    // from the job's DTO for offers whose payload predates multi-work orders.
+    orderType: null,
+    works: null,
     // The native store's `expiresAt` is the job-level expiry, so it never
     // becomes the offer window; `offerExpiresAt` is kept when a minted token
     // exists (ensureOfferDeadline fills the default window otherwise).
@@ -157,7 +201,9 @@ export function toPendingOfferFromAvailableJob(
     jobId: job.id,
     title: `${job.service.name} job nearby`,
     serviceName: job.service.name,
-    serviceCategory: job.customSkill ?? job.skill.name,
+    // A bulk visit reads as "first work + N more works", the same summary the
+    // push notification carries; a single work reads as its own name.
+    serviceCategory: workSummaryLabel(job.items.map(formatWorkName)),
     address: job.locationLabel,
     coordinates:
       job.latitude != null && job.longitude != null
@@ -168,6 +214,8 @@ export function toPendingOfferFromAvailableJob(
         ? Math.round(job.distanceKm * 1000)
         : null,
     amountPaise: job.basePayPaise,
+    orderType: job.orderType,
+    works: toOfferWorks(job.items),
     pricingModel: job.pricingModel,
     quantity: job.quantity,
     unitLabel: job.unitLabel,
@@ -177,6 +225,39 @@ export function toPendingOfferFromAvailableJob(
     jobOfferToken: null,
     receivedAt: Date.now(),
   };
+}
+
+/**
+ * The works summary a NEW_JOB push carries — a JSON array of
+ * `{name, quantity, unitLabel}` entries the server derived from the job's
+ * items. Parsed defensively: a malformed or empty payload leaves the works
+ * unknown (the details fetch backfills them) instead of breaking the offer.
+ */
+function parseWorks(value: unknown): OfferWork[] | null {
+  if (typeof value !== 'string' || value === '') return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return null;
+  const works: OfferWork[] = [];
+  for (const entry of parsed) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const record = entry as Record<string, unknown>;
+    if (typeof record.name !== 'string' || record.name === '') continue;
+    const quantity =
+      typeof record.quantity === 'number' && Number.isFinite(record.quantity) && record.quantity > 0
+        ? record.quantity
+        : 1;
+    works.push({
+      name: record.name,
+      quantity,
+      unitLabel: typeof record.unitLabel === 'string' ? record.unitLabel : null,
+    });
+  }
+  return works.length > 0 ? works : null;
 }
 
 /** An offer from a foreground push's data (non-Android / no native module). */
@@ -201,6 +282,8 @@ export function toPendingOfferFromPushData(data: Record<string, unknown>): Pendi
     address: str('address'),
     distanceMeters: dist,
     amountPaise: amount,
+    orderType: str('orderType'),
+    works: parseWorks(data.works),
     pricingModel: str('pricingModel'),
     quantity: num('quantity'),
     unitLabel: str('unitLabel'),

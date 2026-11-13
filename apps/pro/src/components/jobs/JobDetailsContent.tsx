@@ -2,11 +2,11 @@ import type { ReactNode } from 'react';
 import { Image, ScrollView, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import type { JobDetail } from '@samona/types';
+import { workSummaryLabel, type JobDetail } from '@samona/types';
 import { Card, Divider, Text } from '@/components/ui';
 import { color } from '@/theme';
 import type { TranslationKey } from '@/i18n';
-import { formatInr, formatJobQuantity } from '@/utils/format';
+import { formatInr, formatJobQuantity, formatWorkName, formatWorksCount } from '@/utils/format';
 
 const CHECKLIST: TranslationKey[] = [
   'jobDetails.checklist.inspectIssue',
@@ -42,7 +42,12 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
   const address =
     job.locationLabel ?? job.customer?.locationLabel ?? t('common.locationSharedLater');
   const price = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  const quantityLabel = formatJobQuantity(job);
+  const works = job.items;
+  const isBulk = works.length > 1;
+  // A bulk visit reads as "first work + N more works"; its amounts stay the
+  // whole visit's (agreed/final once known, else the summed estimate).
+  const category = workSummaryLabel(works.map(formatWorkName));
+  const quantityLabel = formatWorksCount(works, t) ?? formatJobQuantity(job);
 
   return (
     <View className="flex-1">
@@ -62,7 +67,7 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
                 {job.service.name}
               </Text>
               <Text variant="footnote" className="text-text-secondary">
-                {job.customSkill ?? job.skill.name}
+                {category}
               </Text>
             </View>
             <View className="items-end">
@@ -89,6 +94,44 @@ export function JobDetailsContent({ job, footer }: JobDetailsContentProps) {
             </View>
           </View>
         </Card>
+
+        {/* Card 1b — every work in a bulk visit, with its own quantity or
+            duration and its share of the visit's amount. The card the pro
+            reads on site to work through the whole order. */}
+        {isBulk ? (
+          <Card className="mt-4" padded={false}>
+            <View className="flex-row items-center gap-2 px-4 pb-2 pt-4">
+              <Ionicons name="list-outline" size={18} color={color['text-secondary']} />
+              <Text variant="label">{t('jobDetails.worksHeading')}</Text>
+              <Text variant="caption">{formatWorksCount(works, t)}</Text>
+            </View>
+            <View className="gap-2.5 px-4 pb-4">
+              {works.map((work, index) => {
+                const qualifier = formatJobQuantity(work);
+                return (
+                  <View key={work.id}>
+                    {index > 0 ? <View className="h-px bg-border" /> : null}
+                    <View className="flex-row items-center pt-2.5">
+                      <View className="min-w-0 flex-1 pr-3">
+                        <Text variant="bodyStrong" numberOfLines={1}>
+                          {formatWorkName(work)}
+                        </Text>
+                        {qualifier ? (
+                          <Text variant="footnote" className="mt-0.5 text-text-secondary">
+                            {qualifier}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Text variant="bodyStrong" className="text-brand">
+                        {formatInr(work.subtotalPaise)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </Card>
+        ) : null}
 
         {/* Card 2 — job description. Hidden when the customer skipped it. */}
         {job.description ? (

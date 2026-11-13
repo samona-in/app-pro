@@ -14,11 +14,19 @@ function freshDate(): Date {
   return new Date(NOW.getTime() - DAY_MS);
 }
 
-function fakePrisma(jobs: Array<{ id: string; imagePaths: string[] }>) {
+function fakePrisma(
+  jobs: Array<{ id: string; imagePaths: string[] }>,
+  drafts: Array<{ id: string; imagePaths: string[] }> = [],
+) {
   const prisma = {
     job: {
       findMany: jest.fn(async (args: { cursor?: { id: string }; skip?: number }) =>
         args.cursor ? [] : jobs.map((job) => ({ id: job.id, imagePaths: job.imagePaths })),
+      ),
+    },
+    bookingDraft: {
+      findMany: jest.fn(async (args: { cursor?: { id: string }; skip?: number }) =>
+        args.cursor ? [] : drafts.map((draft) => ({ id: draft.id, imagePaths: draft.imagePaths })),
       ),
     },
   };
@@ -45,9 +53,10 @@ function fakeStorage(pages: Array<Array<{ key: string; lastModified: Date }>>) {
 function build(
   jobs: Array<{ id: string; imagePaths: string[] }>,
   storage: ReturnType<typeof fakeStorage>,
+  drafts: Array<{ id: string; imagePaths: string[] }> = [],
 ) {
   return createOrphanService({
-    prisma: fakePrisma(jobs),
+    prisma: fakePrisma(jobs, drafts),
     storage,
     safetyWindowDays: 7,
     now: () => NOW,
@@ -76,6 +85,25 @@ describe('orphan job-image scanner', () => {
     expect(report.sampleKeys).toEqual(['jobs/c1/orphan.jpg']);
     expect(report.deletedCount).toBe(0);
     expect(storage.deleteObjects).not.toHaveBeenCalled();
+  });
+
+  it('keeps a photo that an active booking cart references', async () => {
+    const storage = fakeStorage([
+      [
+        { key: 'jobs/c1/cart.jpg', lastModified: oldDate() },
+        { key: 'jobs/c1/orphan.jpg', lastModified: oldDate() },
+      ],
+    ]);
+    const orphan = build([], storage, [{ id: 'd1', imagePaths: ['jobs/c1/cart.jpg'] }]);
+
+    const report = await orphan.scanJobImages({
+      cutoffMs: CUTOFF_MS,
+      dryRun: true,
+      sampleLimit: 25,
+      maxScan: 1000,
+    });
+
+    expect(report.sampleKeys).toEqual(['jobs/c1/orphan.jpg']);
   });
 
   it('deletes the orphans when not a dry-run', async () => {

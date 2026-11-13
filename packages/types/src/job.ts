@@ -83,6 +83,25 @@ export function isChatClosed(status: JobStatus): boolean {
 /** Maximum reference photos a customer may attach to a job request. */
 export const JOB_IMAGE_LIMIT = 5;
 
+/**
+ * How many distinct works one job request may carry.
+ *
+ * A safety bound, not a product limit: bulk orders are "the plumber fixes
+ * several things on one visit", not an unbounded cart. The server and the
+ * validation package share it so a tampered request is rejected early.
+ */
+export const JOB_ITEMS_LIMIT = 10;
+
+/**
+ * How many different services one checkout may carry.
+ *
+ * A checkout creates one job per service (each dispatched to that service's
+ * pros), so this bounds both the request and the number of bookings a single
+ * tap can create. Like {@link JOB_ITEMS_LIMIT} it is a safety bound, not a
+ * product limit.
+ */
+export const ORDER_GROUP_SERVICES_LIMIT = 5;
+
 /** Minimum length of the free-text job description, kept for older clients. */
 export const JOB_DESCRIPTION_MIN = 10;
 
@@ -105,6 +124,66 @@ export const JOB_CUSTOM_SKILL_MIN = 3;
 export const JOB_CUSTOM_SKILL_MAX = 60;
 
 /**
+ * How many distinct works a job request carries.
+ *
+ * SINGLE: one distinct work (any quantity of it) — every job before bulk
+ * orders. BULK: two or more distinct works of the same service booked as one
+ * visit. Server-derived from the request; a client never asserts it.
+ */
+export const OrderType = {
+  SINGLE: 'SINGLE',
+  BULK: 'BULK',
+} as const;
+
+export type OrderType = (typeof OrderType)[keyof typeof OrderType];
+
+/**
+ * One distinct work inside a job request.
+ *
+ * A SINGLE job has exactly one entry; a BULK job has two or more, in the order
+ * the customer added them. Each entry freezes its own pricing snapshot at
+ * booking time so a later catalogue edit never rewrites a placed booking.
+ *
+ * Rows for legacy jobs (created before bulk orders) are derived from the job's
+ * flat snapshot columns on read — every job surfaces at least one item.
+ */
+export interface JobItem {
+  id: string;
+  /** Position within the request, 0-based (the order the customer added works). */
+  sortOrder: number;
+  skill: Pick<SkillOption, 'id' | 'slug' | 'name' | 'icon'>;
+  /** The free-text category when this item's skill is `other`; null otherwise. */
+  customSkill: string | null;
+  pricingModel: PricingModel;
+  /** The skill's price at booking time, in paise (unit/hour/booking price). */
+  unitPricePaise: number;
+  /** Work units booked for this item. Always 1 for PER_BOOKING and PER_HOUR. */
+  quantity: number;
+  /** Human name of one unit at booking time — "hinge", "fan". */
+  unitLabel: string | null;
+  /** Booked duration in minutes. PER_HOUR only; null otherwise. */
+  durationMinutes: number | null;
+  /** This item's server-calculated total, in paise. */
+  subtotalPaise: number;
+}
+
+/**
+ * A compact label for a job's works, for alert and list copy.
+ *
+ * One work reads as its own name ("Regular Tap Repair"); several read as the
+ * first plus a count ("Regular Tap Repair + 2 more works") so a push
+ * notification or a card row stays on one line no matter how many works were
+ * booked.
+ */
+export function workSummaryLabel(workNames: readonly string[]): string {
+  const names = workNames.filter((name) => name.trim().length > 0);
+  const first = names[0];
+  if (first === undefined) return 'Requested works';
+  if (names.length === 1) return first;
+  return `${first} + ${names.length - 1} more work${names.length > 2 ? 's' : ''}`;
+}
+
+/**
  * A job request as returned to its owner — the customer who placed it.
  *
  * `service` and `skill` are embedded so a client renders a booking without a
@@ -115,10 +194,34 @@ export interface Job {
   customerId: string;
   /** The accepting professional's ProProfile id; null until accepted. */
   proId: string | null;
+  /**
+   * Shared identifier for every job created by the same multi-service
+   * checkout. Jobs remain fully independent (own pro, lifecycle, OTP, chat,
+   * payment); this only lets the customer/history/admin say "placed together".
+   * Null for a single-service booking, including jobs placed before this field
+   * existed.
+   */
+  orderGroupId: string | null;
   service: Pick<ServiceOption, 'id' | 'slug' | 'name' | 'icon'>;
+  /**
+   * The first item's work. On a BULK job this is the first of `items` (kept
+   * so single-work displays and legacy joins keep working); render `items`
+   * for the full picture.
+   */
   skill: Pick<SkillOption, 'id' | 'slug' | 'name' | 'icon'>;
   /** The free-text category when `skill.slug` is `other`; null otherwise. */
   customSkill: string | null;
+  /**
+   * How many distinct works this request carries (SINGLE or BULK). Derived
+   * server-side from the request.
+   */
+  orderType: OrderType;
+  /**
+   * Every distinct work in this request, in the order the customer added
+   * them. Always at least one entry: legacy rows are derived from the job's
+   * flat snapshot columns on read.
+   */
+  items: JobItem[];
   status: JobStatus;
   /** Display label for the work location, snapshotted at creation. */
   locationLabel: string | null;
@@ -132,8 +235,9 @@ export interface Job {
    *
    * For `PER_UNIT` it is `unitPricePaise × quantity`, for `PER_HOUR`
    * `unitPricePaise × durationMinutes / 60`, and for `PER_BOOKING` the fixed
-   * booking price. It is frozen at booking time; later catalogue price changes
-   * never touch existing bookings.
+   * booking price. On a BULK job it is the **sum of every item's
+   * `subtotalPaise`** — the whole visit's estimate. It is frozen at booking
+   * time; later catalogue price changes never touch existing bookings.
    */
   basePayPaise: number;
   /** How the booking was priced when it was placed. */
@@ -267,4 +371,16 @@ export interface AvailableJob extends Job {
   distanceKm: number | null;
   /** Derived travel time, minutes. Null if no location. */
   estimatedEtaMinutes: number | null;
+}
+
+/**
+ * The outcome of one multi-service checkout.
+ *
+ * One checkout creates one independent job per service, all sharing
+ * `orderGroupId`. The app lands on a requests-sent summary listing every job
+ * so the customer sees "2 requests sent" rather than a single booking.
+ */
+export interface JobBatchResult {
+  orderGroupId: string;
+  jobs: JobDetail[];
 }

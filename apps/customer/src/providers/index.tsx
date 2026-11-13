@@ -3,6 +3,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppUpdateGate } from '@samona/app-updates';
 import { AuthProvider } from './auth-provider';
+import { DraftSync } from './draft-sync';
 import { LiveLocationProvider } from './live-location-provider';
 import { QueryProvider } from './query-provider';
 // Imported from its module, not the `@/hooks` barrel: that barrel re-exports
@@ -23,6 +24,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <SafeAreaProvider>
         <AuthProvider>
           <QueryProvider>
+            {/* Keeps the in-progress booking cart in step with its server copy. */}
+            <DraftSync />
             <LiveLocationProvider>{children}</LiveLocationProvider>
             {/* Google Play in-app updates. Default English copy, SAMONA brand theme. */}
             <AppUpdateGate />

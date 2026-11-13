@@ -8,6 +8,7 @@ import type { PopularSkill, ServiceOption } from '@samona/types';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import {
   BrandBanner,
+  CartButton,
   HOME_BANNERS,
   HomeBannerCarousel,
   HomeHeader,
@@ -27,8 +28,8 @@ import {
   useResolvedLocationLabel,
   useServiceCategories,
   useSession,
+  useStartBooking,
 } from '@/hooks';
-import { useBookingDraft } from '@/stores/booking';
 import { FLOATING_TAB_BAR_CLEARANCE } from '@/constants';
 
 export default function Home() {
@@ -39,7 +40,7 @@ export default function Home() {
   const categories = useServiceCategories();
   const popular = usePopularSkills();
   const bannersQuery = useBanners();
-  const bookingDraft = useBookingDraft();
+  const startBooking = useStartBooking();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -64,12 +65,11 @@ export default function Home() {
 
   function handleSelectService(service: ServiceOption) {
     setActiveSlug(service.slug);
-    bookingDraft.start(service);
-    router.push(`/booking/new/${service.slug}/skill`);
+    startBooking(service);
   }
 
-  // A popular skill opens the same booking flow with that skill already
-  // chosen, so the customer can confirm it or pick another.
+  // A popular skill opens the same booking flow with that work highlighted,
+  // so the customer can add it (or another) from the catalogue.
   function handleSelectPopularSkill(skill: PopularSkill) {
     const service: ServiceOption = {
       id: skill.service.id,
@@ -78,10 +78,7 @@ export default function Home() {
       icon: skill.service.icon,
     };
 
-    bookingDraft.start(service);
-    // draft.start resets the skill, so setSkill has to come after it.
-    bookingDraft.setSkill(skill);
-    router.push(`/booking/new/${skill.service.slug}/skill`);
+    startBooking(service, { preselectedSkillId: skill.id });
   }
 
   // A banner either promotes one service — and starts the booking flow for
@@ -97,8 +94,7 @@ export default function Home() {
     }
 
     setActiveSlug(service.slug);
-    bookingDraft.start(service);
-    router.push(`/booking/new/${service.slug}/skill`);
+    startBooking(service);
   }
 
   // Pull-to-refresh re-reads everything the home renders: the service
@@ -137,7 +133,12 @@ export default function Home() {
           locationLabel={locationLabel ?? undefined}
           locationCaption={activeSavedAddress?.name ?? 'Your location'}
           onPress={() => router.push('/address-search')}
-          trailing={<NotificationBell />}
+          trailing={
+            <View className="flex-row items-center gap-1">
+              <CartButton />
+              <NotificationBell />
+            </View>
+          }
         />
 
         {/* The sticky search bar must be a direct child of the scroll
@@ -156,7 +157,8 @@ export default function Home() {
 
         <View className="mt-6 px-4">
           <SectionHeader
-            title="What do you need?"
+            title="Services"
+            subtitle="Book trusted professionals for your home."
             actionLabel="See all"
             actionAccessibilityLabel="See all services"
             onPressAction={() => router.navigate('/search')}

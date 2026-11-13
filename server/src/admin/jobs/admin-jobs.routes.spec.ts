@@ -29,6 +29,15 @@ function listRow(overrides: Record<string, unknown> = {}) {
     basePayPaise: 15_000,
     agreedPayPaise: 16_000,
     finalPayPaise: 16_000,
+    // A legacy (pre-bulk-orders) row: SINGLE, no stored item rows, flat
+    // snapshot only.
+    orderType: 'SINGLE',
+    items: [],
+    pricingModel: 'PER_BOOKING',
+    unitPricePaise: 15_000,
+    quantity: 1,
+    unitLabel: null,
+    durationMinutes: null,
     customer: {
       id: 'cust-1',
       displayName: 'Ravi',
@@ -150,6 +159,59 @@ describe('admin jobs routes', () => {
       expect(serialized).not.toContain('verificationOtp');
       expect(serialized).not.toContain('tokenHash');
       expect(serialized).not.toContain('deviceId');
+    });
+
+    it('exposes a multi-work booking order type and its works, and derives legacy rows', async () => {
+      const { client } = buildClient({
+        rows: [
+          listRow({
+            orderType: 'BULK',
+            basePayPaise: 55_000,
+            items: [
+              {
+                id: 'item-1',
+                sortOrder: 0,
+                customSkill: null,
+                pricingModel: 'PER_UNIT',
+                unitPricePaise: 15_000,
+                quantity: 2,
+                unitLabel: 'tap',
+                durationMinutes: null,
+                subtotalPaise: 30_000,
+                skill: { id: 'skill-1', name: 'Regular Tap Repair', slug: 'tap-repair' },
+              },
+              {
+                id: 'item-2',
+                sortOrder: 1,
+                customSkill: 'Kitchen sink',
+                pricingModel: 'PER_BOOKING',
+                unitPricePaise: 25_000,
+                quantity: 1,
+                unitLabel: null,
+                durationMinutes: null,
+                subtotalPaise: 25_000,
+                skill: { id: 'skill-2', name: 'Other', slug: 'other' },
+              },
+            ],
+          }),
+          listRow(),
+        ],
+      });
+
+      const response = await request(appWith(client)).get('/jobs').expect(200);
+
+      expect(response.body.data[0]).toMatchObject({
+        orderType: 'BULK',
+        works: [
+          { name: 'Regular Tap Repair', quantity: 2, subtotalPaise: 30_000 },
+          { name: 'Kitchen sink', quantity: 1, subtotalPaise: 25_000 },
+        ],
+      });
+      // A legacy row still surfaces exactly one derived work.
+      expect(response.body.data[1]).toMatchObject({
+        orderType: 'SINGLE',
+        works: [{ name: 'Fan installation', quantity: 1, subtotalPaise: 15_000 }],
+      });
     });
 
     it('reads repeated and comma-separated status filters', async () => {
