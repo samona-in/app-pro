@@ -4,7 +4,9 @@ import {
   JOB_CUSTOM_SKILL_MIN,
   JOB_DESCRIPTION_MAX,
   JOB_IMAGE_LIMIT,
+  JOB_ITEMS_LIMIT,
   JOB_STATUSES,
+  ORDER_GROUP_SERVICES_LIMIT,
   OTHER_SKILL_SLUG,
   type JobStatus,
 } from '@samona/types';
@@ -85,25 +87,80 @@ export const customSkillSchema = z
   .max(JOB_CUSTOM_SKILL_MAX, `Keep it under ${JOB_CUSTOM_SKILL_MAX} characters.`);
 
 /**
+ * One distinct work inside a multi-work request.
+ *
+ * Each entry is addressed by slug (like the legacy single-work shape) and may
+ * carry its own `customSkill` (only for the `other` sentinel), `quantity`
+ * (`PER_UNIT` skills) and `durationMinutes` (`PER_HOUR` skills). Pricing is
+ * never taken from the client — the server prices every item from the
+ * catalogue.
+ */
+export const createJobItemSchema = z
+  .object({
+    skillSlug: slugSchema,
+    customSkill: customSkillSchema.optional(),
+    /** Work units for `PER_UNIT` skills; ignored for the other models. */
+    quantity: jobQuantitySchema.default(1),
+    /** Duration in minutes for `PER_HOUR` skills; ignored otherwise. */
+    durationMinutes: jobDurationMinutesSchema.optional(),
+  })
+  .superRefine((item, ctx) => {
+    if (item.skillSlug === OTHER_SKILL_SLUG && !item.customSkill) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Tell us what you need done.',
+        path: ['customSkill'],
+      });
+    }
+
+    if (item.skillSlug !== OTHER_SKILL_SLUG && item.customSkill) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Only the "Other" category takes a custom skill.',
+        path: ['customSkill'],
+      });
+    }
+  });
+
+export type CreateJobItemInput = z.infer<typeof createJobItemSchema>;
+
+/**
  * Creates a job request (the customer booking flow's final step).
  *
- * The service and skill are addressed by slug so the request stays stable
- * across catalogue re-seeds. The server resolves them to ids and confirms the
- * skill belongs to the service; nothing id-based from the client is trusted.
+ * The service is addressed by slug, and the works one of two ways:
  *
- * Choosing the `other` sentinel skill requires `customSkill` — the free-text
- * category; any other skill must leave it empty.
+ * - Legacy single-work shape: `skillSlug` (+ `quantity` / `durationMinutes` /
+ *   `customSkill` for that one work). Older app builds keep working unchanged.
+ * - Multi-work shape: `items`, a list of distinct works of the same service,
+ *   each with its own `quantity` / `durationMinutes` / `customSkill`. Two or
+ *   more entries make the request a BULK order.
+ *
+ * Exactly one of the two shapes may be used — a mixed request is rejected so
+ * the pricing input is never ambiguous. Each work may appear only once; to
+ * change the quantity of a work the client updates that entry.
+ *
+ * The works are addressed by slug so the request stays stable across catalogue
+ * re-seeds. The server resolves them to ids and confirms every work belongs to
+ * the service; nothing id-based from the client is trusted.
  *
  * Pricing is never trusted from the client: `quantity` and `durationMinutes`
- * describe *what* the customer wants, and the server derives the total from the
- * skill's current configuration. `basePayPaise` is accepted only so older app
- * builds keep working; the value is ignored.
+ * describe *what* the customer wants, and the server derives every total from
+ * the catalogue's current configuration. `basePayPaise` is accepted only so
+ * older app builds keep working; the value is ignored.
  */
 export const createJobSchema = z
   .object({
     serviceSlug: slugSchema,
-    skillSlug: slugSchema,
+    /** The single work (legacy shape). Mutually exclusive with `items`. */
+    skillSlug: slugSchema.optional(),
+    /** The free-text category for the `other` sentinel (legacy shape). */
     customSkill: customSkillSchema.optional(),
+    /**
+     * The distinct works in this request (multi-work shape). 1 entry keeps the
+     * order SINGLE; 2 or more make it BULK. Mutually exclusive with
+     * `skillSlug`.
+     */
+    items: z.array(createJobItemSchema).min(1).max(JOB_ITEMS_LIMIT).optional(),
     // The work location, snapshotted onto the job at creation (CLAUDE "jobs"
     // location snapshot). Coordinates come as a pair; the server falls back to
     // the customer profile's saved location when none is submitted.
@@ -112,9 +169,9 @@ export const createJobSchema = z
     longitude: longitudeSchema.optional(),
     description: jobDescriptionSchema.default(''),
     imagePaths: z.array(jobImagePathSchema).max(JOB_IMAGE_LIMIT).default([]),
-    /** Work units for `PER_UNIT` skills; ignored for the other models. */
+    /** Work units for the single `PER_UNIT` work (legacy shape). */
     quantity: jobQuantitySchema.default(1),
-    /** Duration in minutes for `PER_HOUR` skills; ignored otherwise. */
+    /** Duration in minutes for the single `PER_HOUR` work (legacy shape). */
     durationMinutes: jobDurationMinutesSchema.optional(),
     /**
      * Legacy field. The server computes the total from the catalogue, so this
@@ -123,20 +180,60 @@ export const createJobSchema = z
     basePayPaise: basePayPaiseSchema.optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.skillSlug === OTHER_SKILL_SLUG && !value.customSkill) {
+    // Exactly one addressing shape: the legacy single work or the item list.
+    // A mixed request is ambiguous (which quantity belongs to which work?) so
+    // it is rejected rather than guessed at.
+    const hasItems = value.items !== undefined;
+    const hasLegacySkill = value.skillSlug !== undefined;
+    if (hasItems && hasLegacySkill) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Tell us what you need done.',
-        path: ['customSkill'],
+        message: 'Send either one work or a list of works, not both.',
+        path: ['items'],
+      });
+    }
+    if (!hasItems && !hasLegacySkill) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Choose at least one work.',
+        path: ['skillSlug'],
       });
     }
 
-    if (value.skillSlug !== OTHER_SKILL_SLUG && value.customSkill) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Only the "Other" category takes a custom skill.',
-        path: ['customSkill'],
-      });
+    // Legacy single-work rules — mirrored per item in `createJobItemSchema`.
+    if (hasLegacySkill) {
+      if (value.skillSlug === OTHER_SKILL_SLUG && !value.customSkill) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Tell us what you need done.',
+          path: ['customSkill'],
+        });
+      }
+
+      if (value.skillSlug !== OTHER_SKILL_SLUG && value.customSkill) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Only the "Other" category takes a custom skill.',
+          path: ['customSkill'],
+        });
+      }
+    }
+
+    // A multi-work request lists distinct works: the same work may not appear
+    // twice (its quantity belongs on one entry).
+    const items = value.items;
+    if (items) {
+      const seen = new Set<string>();
+      for (const [index, item] of items.entries()) {
+        if (seen.has(item.skillSlug)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Each work may appear only once — change its quantity instead.',
+            path: ['items', index, 'skillSlug'],
+          });
+        }
+        seen.add(item.skillSlug);
+      }
     }
 
     const hasLat = value.latitude !== undefined;
@@ -150,7 +247,94 @@ export const createJobSchema = z
     }
   });
 
+/**
+ * The parsed request the server works with — defaults materialised, so every
+ * defaulted field is present.
+ */
 export type CreateJobInput = z.infer<typeof createJobSchema>;
+
+/**
+ * The request a client submits — the input side of the schema, where fields
+ * the validator defaults (`quantity`, `description`, `imagePaths`) may be
+ * omitted. The server fills them in during validation.
+ */
+export type CreateJobRequest = z.input<typeof createJobSchema>;
+
+/**
+ * One service's slice of a multi-service checkout.
+ *
+ * Works are addressed by slug exactly like a single-service request; the server
+ * resolves them to ids and confirms every one belongs to this service. Two or
+ * more works make this service's job BULK; one keeps it SINGLE.
+ */
+export const createJobGroupSchema = z
+  .object({
+    serviceSlug: slugSchema,
+    items: z.array(createJobItemSchema).min(1).max(JOB_ITEMS_LIMIT),
+  })
+  .superRefine((group, ctx) => {
+    // Distinct works per service: a work's quantity belongs on one entry.
+    const seen = new Set<string>();
+    for (const [index, item] of group.items.entries()) {
+      if (seen.has(item.skillSlug)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Each work may appear only once — change its quantity instead.',
+          path: ['items', index, 'skillSlug'],
+        });
+      }
+      seen.add(item.skillSlug);
+    }
+  });
+
+export type CreateJobGroupInput = z.infer<typeof createJobGroupSchema>;
+
+/**
+ * Places one checkout that may span several services.
+ *
+ * Each group becomes its own job (own pro, lifecycle, OTP, chat, cash payment)
+ * and all jobs share a server-generated `orderGroupId`. Notes, photos and the
+ * work location are shared by the whole checkout: it is one visit, even when
+ * several trades are needed. Services and works are addressed by slug; every
+ * price is derived from the catalogue server-side.
+ */
+export const createJobBatchSchema = z
+  .object({
+    groups: z.array(createJobGroupSchema).min(1).max(ORDER_GROUP_SERVICES_LIMIT),
+    locationLabel: jobLocationLabelSchema.optional(),
+    latitude: latitudeSchema.optional(),
+    longitude: longitudeSchema.optional(),
+    description: jobDescriptionSchema.default(''),
+    imagePaths: z.array(jobImagePathSchema).max(JOB_IMAGE_LIMIT).default([]),
+  })
+  .superRefine((value, ctx) => {
+    // One group per service: two groups for the same service would create two
+    // jobs competing for the same pros, which the cart never means.
+    const seen = new Set<string>();
+    for (const [index, group] of value.groups.entries()) {
+      if (seen.has(group.serviceSlug)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Each service may appear only once in a checkout.',
+          path: ['groups', index, 'serviceSlug'],
+        });
+      }
+      seen.add(group.serviceSlug);
+    }
+
+    const hasLat = value.latitude !== undefined;
+    const hasLon = value.longitude !== undefined;
+    if (hasLat !== hasLon) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Latitude and longitude must be provided together.',
+        path: hasLat ? ['longitude'] : ['latitude'],
+      });
+    }
+  });
+
+export type CreateJobBatchInput = z.infer<typeof createJobBatchSchema>;
+export type CreateJobBatchRequest = z.input<typeof createJobBatchSchema>;
 
 /** The on-site stages an assigned pro drives a confirmed job through. */
 export const JOB_ACTIONS = ['travel', 'arrived', 'start', 'complete'] as const;

@@ -9,8 +9,13 @@ import { useBookingDraft } from '@/stores/booking';
 
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 
+// The review screen reads the services chosen on the cart screen from its
+// route params; tests set `mockParams.services` per case.
+const mockParams: { services?: string } = {};
+
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), dismissAll: jest.fn(), dismissTo: jest.fn() },
+  useLocalSearchParams: () => mockParams,
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -112,6 +117,7 @@ jest.mock('@/hooks', () => {
       refetch: jest.fn(),
     }),
     useCreateBooking: () => createBooking,
+    useCreateBookingBatch: () => createBooking,
     __createBooking: createBooking,
   };
 });
@@ -129,8 +135,13 @@ const { __createBooking } = jest.requireMock('@/hooks') as {
 };
 
 describe('Booking review address picker', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    mockParams.services = undefined;
+    // A checkout clears the cart on a zero-delay timer after navigating, so
+    // let any pending timer from the previous test settle before seeding this
+    // test's cart.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     useBookingDraft.getState().reset();
   });
 
@@ -189,30 +200,256 @@ describe('Booking review address picker', () => {
     });
   });
 
-  it('returns to the tabs and opens the booking it just placed', async () => {
+  it('lands on the requests-sent summary for the checkout it just placed', async () => {
     useBookingDraft.getState().start({
       slug: 'electrician',
       name: 'Electrician',
     } as never);
-    useBookingDraft.getState().setSkill({
-      slug: 'fan-installation',
-      name: 'Fan installation',
-    } as never);
-    __createBooking.mutateAsync.mockResolvedValueOnce({ id: 'job-42' });
+    useBookingDraft.getState().addItem({
+      skill: { id: 'sk-fan', slug: 'fan-installation', name: 'Fan installation' } as never,
+      customSkill: '',
+      quantity: 1,
+      durationMinutes: null,
+      totalPaise: 49_900,
+    });
+    __createBooking.mutateAsync.mockResolvedValueOnce({
+      orderGroupId: 'group-42',
+      jobs: [{ id: 'job-42' }],
+    });
 
     render(<BookingReview />);
     fireEvent.press(screen.getByText('Place request'));
 
     await waitFor(() =>
       expect(router.push).toHaveBeenCalledWith({
-        pathname: '/booking/[id]',
-        params: { id: 'job-42' },
+        pathname: '/booking/requests-sent',
+        params: { orderGroupId: 'group-42' },
       }),
     );
     // The finished flow pops back to the tabs (which host the active-job
-    // hint); it must not push the detail over the review screen.
+    // hint); it must not push the summary over the review screen.
     expect(router.dismissAll).toHaveBeenCalled();
     expect(router.dismissTo).not.toHaveBeenCalled();
+  });
+
+  it('places one checkout carrying every cart work, with no amounts attached', async () => {
+    const draft = useBookingDraft.getState();
+    draft.start({
+      slug: 'plumbing',
+      name: 'Plumbing',
+    } as never);
+    draft.addItem({
+      skill: {
+        id: 'sk-1',
+        slug: 'leak-repair',
+        name: 'Leak repair',
+        pricingModel: 'PER_UNIT',
+        basePricePaise: 24_900,
+        unitLabel: 'tap',
+        minQuantity: 1,
+        maxQuantity: 5,
+      } as never,
+      customSkill: '',
+      quantity: 3,
+      durationMinutes: null,
+      totalPaise: 74_700,
+    });
+    draft.addItem({
+      skill: {
+        id: 'sk-2',
+        slug: 'other',
+        name: 'Other',
+        pricingModel: 'PER_BOOKING',
+        basePricePaise: 29_900,
+      } as never,
+      customSkill: 'Bathroom reseal',
+      quantity: 1,
+      durationMinutes: null,
+      totalPaise: 29_900,
+    });
+    __createBooking.mutateAsync.mockResolvedValueOnce({
+      orderGroupId: 'group-43',
+      jobs: [{ id: 'job-43' }],
+    });
+
+    render(<BookingReview />);
+    // The review summarises the visit as its works and their summed estimate.
+    expect(screen.getByText('Leak repair + 1 more work')).toBeTruthy();
+    expect(screen.getByText('2 works · 4 items')).toBeTruthy();
+    expect(screen.getByText('₹1,046')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Place request'));
+
+    await waitFor(() => expect(__createBooking.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(__createBooking.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groups: [
+          {
+            serviceSlug: 'plumbing',
+            items: [
+              { skillSlug: 'leak-repair', quantity: 3 },
+              { skillSlug: 'other', customSkill: 'Bathroom reseal', quantity: 1 },
+            ],
+          },
+        ],
+      }),
+    );
+    // No price ever travels with the request: the server prices each work.
+    const payload = __createBooking.mutateAsync.mock.calls[0][0];
+    expect(payload).not.toHaveProperty('serviceSlug');
+    expect(payload).not.toHaveProperty('basePayPaise');
+    expect(JSON.stringify(payload)).not.toContain('totalPaise');
+  });
+
+  it('places a multi-service checkout as one request with a group per service', async () => {
+    const draft = useBookingDraft.getState();
+    draft.start({
+      id: 'svc-plumbing',
+      slug: 'plumbing',
+      name: 'Plumbing',
+    } as never);
+    draft.addItem({
+      skill: {
+        id: 'sk-leak',
+        slug: 'leak-repair',
+        name: 'Leak repair',
+        pricingModel: 'PER_BOOKING',
+        basePricePaise: 24_900,
+      } as never,
+      customSkill: '',
+      quantity: 1,
+      durationMinutes: null,
+      totalPaise: 24_900,
+    });
+    draft.start({
+      id: 'svc-electrical',
+      slug: 'electrical',
+      name: 'Electrical',
+    } as never);
+    draft.addItem({
+      skill: {
+        id: 'sk-switch',
+        slug: 'switch-repair',
+        name: 'Switch repair',
+        pricingModel: 'PER_UNIT',
+        basePricePaise: 15_000,
+        unitLabel: 'switch',
+        minQuantity: 1,
+        maxQuantity: 5,
+      } as never,
+      customSkill: '',
+      quantity: 2,
+      durationMinutes: null,
+      totalPaise: 30_000,
+    });
+    __createBooking.mutateAsync.mockResolvedValueOnce({
+      orderGroupId: 'group-44',
+      jobs: [{ id: 'job-44' }, { id: 'job-45' }],
+    });
+
+    render(<BookingReview />);
+
+    // The review shows every service and its works, with one combined estimate.
+    expect(screen.getByText('2 services')).toBeTruthy();
+    expect(screen.getByText('Plumbing')).toBeTruthy();
+    expect(screen.getByText('Electrical')).toBeTruthy();
+    expect(screen.getByText('₹549')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Place request'));
+
+    await waitFor(() => expect(__createBooking.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(__createBooking.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groups: [
+          {
+            serviceSlug: 'plumbing',
+            items: [{ skillSlug: 'leak-repair', quantity: 1 }],
+          },
+          {
+            serviceSlug: 'electrical',
+            items: [{ skillSlug: 'switch-repair', quantity: 2 }],
+          },
+        ],
+      }),
+    );
+  });
+
+  it('books only the services chosen on the cart and keeps the rest in the cart', async () => {
+    const draft = useBookingDraft.getState();
+    draft.start({
+      id: 'svc-plumbing',
+      slug: 'plumbing',
+      name: 'Plumbing',
+    } as never);
+    draft.addItem({
+      skill: {
+        id: 'sk-leak',
+        slug: 'leak-repair',
+        name: 'Leak repair',
+        pricingModel: 'PER_BOOKING',
+        basePricePaise: 24_900,
+      } as never,
+      customSkill: '',
+      quantity: 1,
+      durationMinutes: null,
+      totalPaise: 24_900,
+    });
+    draft.start({
+      id: 'svc-electrical',
+      slug: 'electrical',
+      name: 'Electrical',
+    } as never);
+    draft.addItem({
+      skill: {
+        id: 'sk-switch',
+        slug: 'switch-repair',
+        name: 'Switch repair',
+        pricingModel: 'PER_UNIT',
+        basePricePaise: 15_000,
+        unitLabel: 'switch',
+        minQuantity: 1,
+        maxQuantity: 5,
+      } as never,
+      customSkill: '',
+      quantity: 2,
+      durationMinutes: null,
+      totalPaise: 30_000,
+    });
+
+    // The cart's selection sheet passed only the electrical service.
+    mockParams.services = 'electrical';
+    __createBooking.mutateAsync.mockResolvedValueOnce({
+      orderGroupId: 'group-46',
+      jobs: [{ id: 'job-46' }],
+    });
+
+    render(<BookingReview />);
+
+    // Only the chosen service is reviewed, and the estimate follows it.
+    expect(screen.getByText('Electrical')).toBeTruthy();
+    expect(screen.queryByText('Plumbing')).toBeNull();
+    expect(screen.getByText('₹300')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Place request'));
+
+    await waitFor(() => expect(__createBooking.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(__createBooking.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groups: [
+          {
+            serviceSlug: 'electrical',
+            items: [{ skillSlug: 'switch-repair', quantity: 2 }],
+          },
+        ],
+      }),
+    );
+
+    // The deferred service stays in the cart for a later visit.
+    await waitFor(() =>
+      expect(useBookingDraft.getState().groups.map((group) => group.service.slug)).toEqual([
+        'plumbing',
+      ]),
+    );
   });
 
   it('moves the pin and refits the map when the address changes', async () => {

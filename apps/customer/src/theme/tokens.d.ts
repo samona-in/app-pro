@@ -43,6 +43,7 @@ export interface ColorTokens {
   brand: string;
   'brand-muted': string;
   'brand-contrast': string;
+  'brand-soft': string;
 
   success: string;
   'success-surface': string;

@@ -211,11 +211,22 @@ object JobAlertOverlay {
       LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(20), dp(16), dp(20), dp(16))
+        // A multi-work request is tinted with the light brand wash and a brand
+        // border, so the pro can tell it apart from a single-work request at a
+        // glance — the same treatment as the in-app incoming-jobs card. Every
+        // other request keeps the neutral surface + hairline slate border.
+        val multiWork = alert.isMultiWork
         background =
-          gradient(dp(16).toFloat(), JobAlertTheme.SURFACE).apply {
+          gradient(
+            dp(16).toFloat(),
+            if (multiWork) JobAlertTheme.BRAND_SOFT else JobAlertTheme.SURFACE,
+          ).apply {
             // A hairline SAMONA-slate border keeps the card legible against the
             // light background without needing a drop shadow on the lock screen.
-            setStroke(dp(1), JobAlertTheme.BORDER_STRONG)
+            setStroke(
+              dp(1),
+              if (multiWork) JobAlertTheme.BRAND else JobAlertTheme.BORDER_STRONG,
+            )
           }
         elevation = JobAlertTheme.CARD_ELEVATION
         // The whole card is the entry point to the combined offers list; the

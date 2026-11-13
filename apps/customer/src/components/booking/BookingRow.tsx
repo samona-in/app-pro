@@ -1,13 +1,13 @@
 import { Pressable, View, type PressableProps } from 'react-native';
 import { router } from 'expo-router';
-import { type Job, type JobStatus } from '@samona/types';
+import { type Job, type JobStatus, workSummaryLabel } from '@samona/types';
 import { UnreadBadge } from '@/components/chat';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { Text } from '@/components/ui';
 import { useUnreadMessages } from '@/hooks';
 import { cn } from '@/utils/cn';
 import { formatBookingDate, formatRupees } from '@/utils/format';
-import { describeJobQuantity } from '@/utils/pricing';
+import { describeJobQuantity, describeJobWorks, jobItemName } from '@/utils/pricing';
 
 const STATUS_PRESENTATION: Record<JobStatus, { label: string }> = {
   REQUESTED: { label: 'Requested' },
@@ -63,6 +63,11 @@ const TONE_TEXT: Record<StatusTone, string> = {
 
 export interface BookingRowProps extends Omit<PressableProps, 'style'> {
   job: Job;
+  /**
+   * How many bookings were placed together with this one (same checkout).
+   * Undefined or 1 means this booking stands alone.
+   */
+  groupServiceCount?: number;
   className?: string;
 }
 
@@ -73,15 +78,26 @@ export interface BookingRowProps extends Omit<PressableProps, 'style'> {
  * The row carries no card chrome. The separator between rows belongs to the
  * list, which draws it as a hairline across the full width of the screen.
  */
-export function BookingRow({ job, className, ...rest }: BookingRowProps) {
+export function BookingRow({ job, groupServiceCount, className, ...rest }: BookingRowProps) {
   const unread = useUnreadMessages();
   const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  // The skill is the specific thing booked; "other" bookings carry free text.
-  const title = job.customSkill?.trim() || job.skill.name;
-  const quantity = describeJobQuantity(job);
+  // A bulk visit reads as its works ("Regular Tap Repair + 2 more works");
+  // a single work keeps its own title, "other" bookings carry free text.
+  const isBulk = (job.items?.length ?? 0) > 1 || job.orderType === 'BULK';
+  const title = isBulk
+    ? workSummaryLabel((job.items ?? []).map(jobItemName))
+    : job.customSkill?.trim() || job.skill.name;
+  const quantity = isBulk ? describeJobWorks(job) : describeJobQuantity(job);
   const tone = STATUS_TONE[job.status] ?? 'muted';
   // "Other" work has no image of its own, so it keeps the service artwork.
   const artwork = job.skill.icon ?? job.service.icon;
+  // Jobs from one multi-service checkout share an orderGroupId. Naming the
+  // group here explains why several unrelated-looking bookings appeared at
+  // once, without merging their independent lifecycles.
+  const placedTogether =
+    job.orderGroupId && (groupServiceCount ?? 1) > 1
+      ? `Placed together · ${groupServiceCount} services`
+      : null;
 
   return (
     <Pressable
@@ -98,13 +114,18 @@ export function BookingRow({ job, className, ...rest }: BookingRowProps) {
       </View>
 
       <View className="flex-1">
-        <Text variant="bodyLg" numberOfLines={1} className="font-semibold">
+        <Text variant="body" numberOfLines={1}>
           {title}
         </Text>
         <Text variant="footnote" className="mt-0.5 text-text-secondary" numberOfLines={1}>
           {job.service.name} · {formatBookingDate(job.createdAt)}
           {quantity ? ` · ${quantity}` : ''}
         </Text>
+        {placedTogether ? (
+          <Text variant="caption" className="mt-0.5 font-semibold text-brand" numberOfLines={1}>
+            {placedTogether}
+          </Text>
+        ) : null}
       </View>
 
       <View className="items-end">

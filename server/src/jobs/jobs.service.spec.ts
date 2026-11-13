@@ -13,6 +13,11 @@ const jobRow = {
   longitude: null,
   description: 'Fix the switch near the door.',
   imagePaths: ['jobs/user-1/abc.jpg'],
+  // A legacy (pre-bulk-orders) row: SINGLE with no item rows — `jobItemsOf`
+  // derives the one work from the flat snapshot columns.
+  orderType: 'SINGLE' as const,
+  orderGroupId: null,
+  items: [],
   basePayPaise: 15_000,
   pricingModel: 'PER_BOOKING',
   unitPricePaise: 15_000,
@@ -50,6 +55,8 @@ function buildJobs() {
 
   const txJobCreate = jest.fn().mockResolvedValue(jobRow);
   const txHistoryCreate = jest.fn().mockResolvedValue({});
+  const txDraftUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+  const alertEligiblePros = jest.fn().mockResolvedValue(undefined);
 
   const prisma = {
     customerProfile: {
@@ -65,6 +72,7 @@ function buildJobs() {
     skill: {
       findFirst: jest.fn().mockResolvedValue({
         id: 'skill-1',
+        slug: 'electrical-socket-switch-installation',
         name: 'Electrical socket and switch installation',
         basePricePaise: 15_000,
         pricingModel: 'PER_BOOKING',
@@ -75,11 +83,14 @@ function buildJobs() {
         maxDurationMinutes: null,
         durationStepMinutes: null,
       }),
+      findMany: jest.fn().mockResolvedValue([]),
     },
+    jobTracking: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) => {
       const tx = {
         job: { create: txJobCreate },
         jobStatusHistory: { create: txHistoryCreate },
+        bookingDraft: { updateMany: txDraftUpdateMany },
       };
       return fn(tx);
     }),
@@ -91,9 +102,20 @@ function buildJobs() {
     storage,
     matching: matching as never,
     realtime: realtime as never,
+    notifications: { alertEligiblePros } as never,
     config: { jobExpireTtlMs: 30 * 60_000 } as never,
   } as never);
-  return { jobs, prisma, storage, matching, realtime, txJobCreate, txHistoryCreate };
+  return {
+    jobs,
+    prisma,
+    storage,
+    matching,
+    realtime,
+    txJobCreate,
+    txHistoryCreate,
+    txDraftUpdateMany,
+    alertEligiblePros,
+  };
 }
 
 const baseInput = {
@@ -125,6 +147,7 @@ describe('createJobsService.createForCustomer', () => {
     const ctx = buildJobs();
     ctx.prisma.skill.findFirst.mockResolvedValue({
       id: 'skill-1',
+      slug: 'electrical-socket-switch-installation',
       name: 'Hinge repair',
       basePricePaise: 19_900,
       pricingModel: 'PER_UNIT',
@@ -156,6 +179,7 @@ describe('createJobsService.createForCustomer', () => {
     const ctx = buildJobs();
     ctx.prisma.skill.findFirst.mockResolvedValue({
       id: 'skill-1',
+      slug: 'electrical-socket-switch-installation',
       name: 'Deep cleaning',
       basePricePaise: 20_000,
       pricingModel: 'PER_HOUR',
@@ -342,6 +366,20 @@ describe('createJobsService.createForCustomer', () => {
 
   it('stores the free-text category when the Other skill is chosen', async () => {
     const ctx = buildJobs();
+    // The sentinel skill row the service resolves for slug `other`.
+    ctx.prisma.skill.findFirst.mockResolvedValue({
+      id: 'skill-other',
+      slug: 'other',
+      name: 'Other',
+      basePricePaise: 10_000,
+      pricingModel: 'PER_BOOKING',
+      unitLabel: null,
+      minQuantity: 1,
+      maxQuantity: 1,
+      minDurationMinutes: null,
+      maxDurationMinutes: null,
+      durationStepMinutes: null,
+    });
     await ctx.jobs.createForCustomer('user-1', {
       ...baseInput,
       skillSlug: 'other',
@@ -383,6 +421,595 @@ describe('createJobsService.createForCustomer', () => {
     });
     expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  // -------------------------------------------------------------------------
+  // Multi-work (bulk) requests
+  // -------------------------------------------------------------------------
+
+  /** Two PER_UNIT works of one service, as the catalogue resolves them. */
+  const bulkSkills = [
+    {
+      id: 'skill-1',
+      slug: 'tap-repair',
+      name: 'Regular Tap Repair',
+      basePricePaise: 15_000,
+      pricingModel: 'PER_UNIT' as const,
+      unitLabel: 'tap',
+      minQuantity: 1,
+      maxQuantity: 10,
+      minDurationMinutes: null,
+      maxDurationMinutes: null,
+      durationStepMinutes: null,
+    },
+    {
+      id: 'skill-2',
+      slug: 'fan-repair',
+      name: 'Fan Repair',
+      basePricePaise: 25_000,
+      pricingModel: 'PER_UNIT' as const,
+      unitLabel: 'fan',
+      minQuantity: 1,
+      maxQuantity: 20,
+      minDurationMinutes: null,
+      maxDurationMinutes: null,
+      durationStepMinutes: null,
+    },
+  ];
+
+  it('creates a BULK job with one row per work and the summed total', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.skill.findMany.mockResolvedValue(bulkSkills);
+
+    await ctx.jobs.createForCustomer('user-1', {
+      ...baseInput,
+      items: [
+        { skillSlug: 'tap-repair', quantity: 2 },
+        { skillSlug: 'fan-repair', quantity: 1 },
+      ],
+    });
+
+    expect(ctx.prisma.skill.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { slug: { in: ['tap-repair', 'fan-repair'] }, serviceId: 'svc-1', isActive: true },
+      }),
+    );
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          orderType: 'BULK',
+          // 2 taps @ ₹150 + 1 fan @ ₹250.
+          basePayPaise: 55_000,
+          // The flat snapshot carries the first work; the whole total is the sum.
+          skillId: 'skill-1',
+          pricingModel: 'PER_UNIT',
+          unitPricePaise: 15_000,
+          quantity: 2,
+          unitLabel: 'tap',
+          items: {
+            create: [
+              expect.objectContaining({
+                sortOrder: 0,
+                skillId: 'skill-1',
+                subtotalPaise: 30_000,
+                quantity: 2,
+              }),
+              expect.objectContaining({
+                sortOrder: 1,
+                skillId: 'skill-2',
+                subtotalPaise: 25_000,
+                quantity: 1,
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it('keeps a single-work request SINGLE but still writes its item row', async () => {
+    const ctx = buildJobs();
+    // One requested work takes the legacy single-skill read path.
+    ctx.prisma.skill.findFirst.mockResolvedValue(bulkSkills[0]);
+
+    await ctx.jobs.createForCustomer('user-1', {
+      ...baseInput,
+      items: [{ skillSlug: 'tap-repair', quantity: 3 }],
+    });
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          orderType: 'SINGLE',
+          basePayPaise: 45_000,
+          items: { create: [expect.objectContaining({ sortOrder: 0, quantity: 3 })] },
+        }),
+      }),
+    );
+  });
+
+  it('writes an item row for the legacy single-work shape too', async () => {
+    const ctx = buildJobs();
+
+    await ctx.jobs.createForCustomer('user-1', baseInput);
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          orderType: 'SINGLE',
+          basePayPaise: 15_000,
+          items: {
+            create: [
+              expect.objectContaining({
+                sortOrder: 0,
+                skillId: 'skill-1',
+                pricingModel: 'PER_BOOKING',
+                subtotalPaise: 15_000,
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it('rejects a work that belongs to another service, whole request', async () => {
+    const ctx = buildJobs();
+    // The catalogue only resolves one of the two requested works.
+    ctx.prisma.skill.findMany.mockResolvedValue([bulkSkills[0]]);
+
+    await expect(
+      ctx.jobs.createForCustomer('user-1', {
+        ...baseInput,
+        items: [
+          { skillSlug: 'tap-repair', quantity: 1 },
+          { skillSlug: 'fan-repair', quantity: 1 },
+        ],
+      }),
+    ).rejects.toMatchObject({ name: 'HttpError', status: 400 });
+    expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('prices every work from the catalogue and ignores the client total', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.skill.findMany.mockResolvedValue(bulkSkills);
+
+    await ctx.jobs.createForCustomer('user-1', {
+      ...baseInput,
+      basePayPaise: 100,
+      items: [
+        { skillSlug: 'tap-repair', quantity: 2 },
+        { skillSlug: 'fan-repair', quantity: 1 },
+      ],
+    });
+
+    expect(ctx.txJobCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ basePayPaise: 55_000 }),
+      }),
+    );
+  });
+
+  it('rejects a work quantity outside the catalogue bounds', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.skill.findFirst.mockResolvedValue(bulkSkills[0]);
+
+    await expect(
+      ctx.jobs.createForCustomer('user-1', {
+        ...baseInput,
+        items: [{ skillSlug: 'tap-repair', quantity: 50 }],
+      }),
+    ).rejects.toMatchObject({ name: 'HttpError', status: 400 });
+    expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rolls the whole request back when the write fails', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.skill.findMany.mockResolvedValue(bulkSkills);
+    ctx.txJobCreate.mockRejectedValue(new Error('db write failed'));
+
+    await expect(
+      ctx.jobs.createForCustomer('user-1', {
+        ...baseInput,
+        items: [
+          { skillSlug: 'tap-repair', quantity: 1 },
+          { skillSlug: 'fan-repair', quantity: 1 },
+        ],
+      }),
+    ).rejects.toThrow('db write failed');
+    expect(ctx.txHistoryCreate).not.toHaveBeenCalled();
+  });
+
+  it('alerts eligible pros with the compact works summary and counts', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.skill.findMany.mockResolvedValue(bulkSkills);
+    ctx.prisma.customerProfile.findUnique.mockResolvedValue({
+      id: 'cust-1',
+      userId: 'user-1',
+      locationLabel: 'Home, Koramangala',
+      latitude: 12.93,
+      longitude: 77.62,
+    });
+    ctx.matching.findEligiblePros.mockResolvedValue([
+      { proId: 'pro-1', userId: 'user-2', distanceKm: 1.5 },
+    ]);
+
+    await ctx.jobs.createForCustomer('user-1', {
+      ...baseInput,
+      items: [
+        { skillSlug: 'tap-repair', quantity: 2 },
+        { skillSlug: 'fan-repair', quantity: 1 },
+      ],
+    });
+
+    expect(ctx.alertEligiblePros).toHaveBeenCalledWith(
+      [{ proId: 'pro-1', distanceKm: 1.5 }],
+      expect.objectContaining({
+        jobId: 'job-1',
+        serviceCategory: 'Regular Tap Repair + 1 more work',
+        orderType: 'BULK',
+        worksCount: 2,
+        totalQuantity: 3,
+        basePayPaise: 55_000,
+        works: [
+          { name: 'Regular Tap Repair', quantity: 2, unitLabel: 'tap' },
+          { name: 'Fan Repair', quantity: 1, unitLabel: 'fan' },
+        ],
+      }),
+    );
+  });
+});
+
+describe('createJobsService.createBatchForCustomer', () => {
+  const batchNow = new Date('2026-11-12T10:00:00Z');
+
+  const services = {
+    electrical: { id: 'svc-elec', slug: 'electrical', name: 'Electrical', icon: 'flash-outline' },
+    plumbing: { id: 'svc-plumb', slug: 'plumbing', name: 'Plumbing', icon: 'water-outline' },
+  };
+  const serviceById = new Map(Object.values(services).map((service) => [service.id, service]));
+
+  /** Two works for electrical (BULK), one for plumbing (SINGLE). */
+  const catalogue = [
+    {
+      id: 'skill-tap',
+      serviceId: 'svc-elec',
+      slug: 'tap-repair',
+      name: 'Tap repair',
+      icon: null,
+      basePricePaise: 15_000,
+      pricingModel: 'PER_UNIT' as const,
+      unitLabel: 'tap',
+      minQuantity: 1,
+      maxQuantity: 10,
+      minDurationMinutes: null,
+      maxDurationMinutes: null,
+      durationStepMinutes: null,
+    },
+    {
+      id: 'skill-fan',
+      serviceId: 'svc-elec',
+      slug: 'fan-repair',
+      name: 'Fan repair',
+      icon: null,
+      basePricePaise: 25_000,
+      pricingModel: 'PER_UNIT' as const,
+      unitLabel: 'fan',
+      minQuantity: 1,
+      maxQuantity: 20,
+      minDurationMinutes: null,
+      maxDurationMinutes: null,
+      durationStepMinutes: null,
+    },
+    {
+      id: 'skill-leak',
+      serviceId: 'svc-plumb',
+      slug: 'leak-repair',
+      name: 'Leak repair',
+      icon: null,
+      basePricePaise: 20_000,
+      pricingModel: 'PER_BOOKING' as const,
+      unitLabel: null,
+      minQuantity: 1,
+      maxQuantity: 1,
+      minDurationMinutes: null,
+      maxDurationMinutes: null,
+      durationStepMinutes: null,
+    },
+  ];
+  const skillById = new Map(catalogue.map((skill) => [skill.id, skill]));
+
+  /** The job row a create would produce from the write payload. */
+  function rowFromCreate(data: Record<string, any>, id: string) {
+    const items = data.items.create as Record<string, any>[];
+    const first = items[0]!;
+    const service = serviceById.get(data.serviceId)!;
+    return {
+      ...jobRow,
+      id,
+      orderGroupId: data.orderGroupId,
+      service,
+      skill: skillById.get(first.skillId)!,
+      customSkill: first.customSkill,
+      orderType: data.orderType,
+      basePayPaise: data.basePayPaise,
+      pricingModel: first.pricingModel,
+      unitPricePaise: first.unitPricePaise,
+      quantity: first.quantity,
+      unitLabel: first.unitLabel,
+      durationMinutes: first.durationMinutes,
+      locationLabel: data.locationLabel,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      description: data.description,
+      imagePaths: data.imagePaths,
+      items: items.map((item, index) => ({
+        id: `${id}-item-${index}`,
+        sortOrder: item.sortOrder,
+        customSkill: item.customSkill,
+        pricingModel: item.pricingModel,
+        unitPricePaise: item.unitPricePaise,
+        quantity: item.quantity,
+        unitLabel: item.unitLabel,
+        durationMinutes: item.durationMinutes,
+        subtotalPaise: item.subtotalPaise,
+        skill: skillById.get(item.skillId)!,
+      })),
+      createdAt: batchNow,
+      updatedAt: batchNow,
+    };
+  }
+
+  function buildBatchJobs() {
+    const storage = {
+      jobImageExists: jest.fn().mockResolvedValue(true),
+      jobImagePublicUrl: jest.fn().mockImplementation((path: string) => `https://cdn/${path}`),
+      selfiePublicUrl: jest.fn().mockImplementation((path: string) => `https://cdn/${path}`),
+    };
+
+    const matching = {
+      findEligiblePros: jest.fn().mockResolvedValue([]),
+    };
+
+    const realtime = { emitToUsers: jest.fn(), emitToUser: jest.fn() };
+    const alertEligiblePros = jest.fn().mockResolvedValue(undefined);
+
+    const txJobCreate = jest
+      .fn()
+      .mockImplementation(async ({ data }: { data: Record<string, any> }) =>
+        rowFromCreate(data, `job-${txJobCreate.mock.calls.length}`),
+      );
+    const txHistoryCreate = jest.fn().mockResolvedValue({});
+    const txDraftUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+    const prisma = {
+      customerProfile: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'cust-1',
+          userId: 'user-1',
+          locationLabel: 'Home, Koramangala',
+          latitude: 12.93,
+          longitude: 77.62,
+          deletedAt: null,
+          deletionRequestedAt: null,
+        }),
+      },
+      service: {
+        findFirst: jest
+          .fn()
+          .mockImplementation(async ({ where }: { where: { slug: string } }) =>
+            Object.values(services).find((service) => service.slug === where.slug) ?? null,
+          ),
+      },
+      skill: {
+        findFirst: jest
+          .fn()
+          .mockImplementation(
+            async ({ where }: { where: { slug: string; serviceId: string } }) =>
+              catalogue.find(
+                (skill) => skill.slug === where.slug && skill.serviceId === where.serviceId,
+              ) ?? null,
+          ),
+        findMany: jest
+          .fn()
+          .mockImplementation(
+            async ({ where }: { where: { slug: { in: string[] }; serviceId: string } }) =>
+              catalogue.filter(
+                (skill) =>
+                  where.slug.in.includes(skill.slug) && skill.serviceId === where.serviceId,
+              ),
+          ),
+      },
+      $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) => {
+        const tx = {
+          job: { create: txJobCreate },
+          jobStatusHistory: { create: txHistoryCreate },
+          bookingDraft: { updateMany: txDraftUpdateMany },
+        };
+        return fn(tx);
+      }),
+      job: { findMany: jest.fn(), findFirst: jest.fn() },
+    };
+
+    const jobs = createJobsService({
+      prisma: prisma as never,
+      storage,
+      matching: matching as never,
+      realtime: realtime as never,
+      notifications: { alertEligiblePros } as never,
+      config: { jobExpireTtlMs: 30 * 60_000 } as never,
+    } as never);
+
+    return {
+      jobs,
+      prisma,
+      storage,
+      matching,
+      realtime,
+      txJobCreate,
+      txHistoryCreate,
+      txDraftUpdateMany,
+      alertEligiblePros,
+    };
+  }
+
+  /** Two services: electrical with two works, plumbing with one. */
+  const twoServiceInput = {
+    groups: [
+      {
+        serviceSlug: 'electrical',
+        items: [
+          { skillSlug: 'tap-repair', quantity: 2 },
+          { skillSlug: 'fan-repair', quantity: 1 },
+        ],
+      },
+      {
+        serviceSlug: 'plumbing',
+        items: [{ skillSlug: 'leak-repair', quantity: 1 }],
+      },
+    ],
+    description: 'Fix the switch near the door.',
+    imagePaths: ['jobs/user-1/abc.jpg'],
+  };
+
+  it('creates one independent job per service sharing an orderGroupId', async () => {
+    const ctx = buildBatchJobs();
+
+    const result = await ctx.jobs.createBatchForCustomer('user-1', twoServiceInput as never);
+
+    expect(ctx.txJobCreate).toHaveBeenCalledTimes(2);
+    expect(result.jobs).toHaveLength(2);
+    expect(result.orderGroupId).toEqual(expect.any(String));
+    expect(result.jobs.map((job) => job.orderGroupId)).toEqual([
+      result.orderGroupId,
+      result.orderGroupId,
+    ]);
+    expect(result.jobs.map((job) => job.service.slug)).toEqual(['electrical', 'plumbing']);
+    // Order type stays per service: two works vs one.
+    expect(result.jobs.map((job) => job.orderType)).toEqual(['BULK', 'SINGLE']);
+    // One shared checkout transaction.
+    expect(ctx.prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('prices each service from its own catalogue entries', async () => {
+    const ctx = buildBatchJobs();
+
+    const result = await ctx.jobs.createBatchForCustomer('user-1', twoServiceInput as never);
+
+    // 2 taps @ ₹150 + 1 fan @ ₹250 = ₹550; 1 leak @ ₹200.
+    expect(result.jobs[0]?.basePayPaise).toBe(55_000);
+    expect(result.jobs[0]?.items.map((item) => item.subtotalPaise)).toEqual([30_000, 25_000]);
+    expect(result.jobs[1]?.basePayPaise).toBe(20_000);
+    expect(result.jobs[1]?.items).toHaveLength(1);
+    expect(ctx.txJobCreate.mock.calls[0][0].data.orderGroupId).toBe(result.orderGroupId);
+    expect(ctx.txJobCreate.mock.calls[1][0].data.orderGroupId).toBe(result.orderGroupId);
+  });
+
+  it('converts each service’s own cart inside the same transaction', async () => {
+    const ctx = buildBatchJobs();
+
+    const result = await ctx.jobs.createBatchForCustomer('user-1', twoServiceInput as never);
+
+    expect(ctx.txDraftUpdateMany).toHaveBeenCalledTimes(2);
+    expect(ctx.txDraftUpdateMany).toHaveBeenCalledWith({
+      where: { customerId: 'cust-1', status: 'ACTIVE', serviceId: 'svc-elec' },
+      data: { status: 'CONVERTED', convertedJobId: result.jobs[0]?.id },
+    });
+    expect(ctx.txDraftUpdateMany).toHaveBeenCalledWith({
+      where: { customerId: 'cust-1', status: 'ACTIVE', serviceId: 'svc-plumb' },
+      data: { status: 'CONVERTED', convertedJobId: result.jobs[1]?.id },
+    });
+  });
+
+  it('aborts the whole checkout before writing when one service is invalid', async () => {
+    const ctx = buildBatchJobs();
+    ctx.prisma.service.findFirst.mockImplementation(
+      async ({ where }: { where: { slug: string } }) =>
+        where.slug === 'plumbing' ? null : services.electrical,
+    );
+
+    await expect(
+      ctx.jobs.createBatchForCustomer('user-1', twoServiceInput as never),
+    ).rejects.toMatchObject({ status: 400, message: 'That service is no longer bookable.' });
+
+    expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
+    expect(ctx.txJobCreate).not.toHaveBeenCalled();
+    expect(ctx.txDraftUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('aborts the whole checkout when one service’s work is invalid', async () => {
+    const ctx = buildBatchJobs();
+
+    await expect(
+      ctx.jobs.createBatchForCustomer('user-1', {
+        ...twoServiceInput,
+        groups: [
+          twoServiceInput.groups[0],
+          { serviceSlug: 'plumbing', items: [{ skillSlug: 'tap-repair', quantity: 1 }] },
+        ],
+      } as never),
+    ).rejects.toMatchObject({ status: 400 });
+
+    expect(ctx.prisma.$transaction).not.toHaveBeenCalled();
+    expect(ctx.txJobCreate).not.toHaveBeenCalled();
+  });
+
+  it('dispatches each job to its own pros and survives one service’s matching failure', async () => {
+    const ctx = buildBatchJobs();
+    ctx.matching.findEligiblePros.mockImplementation(
+      async ({ serviceId }: { serviceId: string }) => {
+        if (serviceId === 'svc-plumb') throw new Error('matching service unavailable');
+        return [{ proId: 'pro-elec', userId: 'user-pro-elec', distanceKm: 1.2 }];
+      },
+    );
+
+    const result = await ctx.jobs.createBatchForCustomer('user-1', twoServiceInput as never);
+
+    // Both jobs are committed and returned even though plumbing's dispatch failed.
+    expect(result.jobs).toHaveLength(2);
+    expect(ctx.matching.findEligiblePros).toHaveBeenCalledTimes(2);
+    expect(ctx.realtime.emitToUsers).toHaveBeenCalledTimes(1);
+    expect(ctx.realtime.emitToUsers).toHaveBeenCalledWith(
+      ['user-pro-elec'],
+      expect.anything(),
+      expect.objectContaining({ service: expect.objectContaining({ slug: 'electrical' }) }),
+    );
+    expect(ctx.alertEligiblePros).toHaveBeenCalledTimes(1);
+    expect(ctx.alertEligiblePros).toHaveBeenCalledWith(
+      [{ proId: 'pro-elec', distanceKm: 1.2 }],
+      expect.objectContaining({ serviceName: 'Electrical', orderType: 'BULK', worksCount: 2 }),
+    );
+  });
+
+  it('does not dispatch when the checkout has no location', async () => {
+    const ctx = buildBatchJobs();
+    ctx.prisma.customerProfile.findUnique.mockResolvedValue({
+      id: 'cust-1',
+      userId: 'user-1',
+      locationLabel: null,
+      latitude: null,
+      longitude: null,
+      deletedAt: null,
+      deletionRequestedAt: null,
+    });
+
+    const result = await ctx.jobs.createBatchForCustomer('user-1', twoServiceInput as never);
+
+    expect(result.jobs).toHaveLength(2);
+    expect(ctx.matching.findEligiblePros).not.toHaveBeenCalled();
+    expect(ctx.realtime.emitToUsers).not.toHaveBeenCalled();
+  });
+
+  it('groups even a single-service checkout placed through the batch route', async () => {
+    const ctx = buildBatchJobs();
+
+    const result = await ctx.jobs.createBatchForCustomer('user-1', {
+      ...twoServiceInput,
+      groups: [twoServiceInput.groups[1]],
+    } as never);
+
+    expect(result.jobs).toHaveLength(1);
+    expect(result.jobs[0]?.orderGroupId).toBe(result.orderGroupId);
+  });
 });
 
 describe('createJobsService.getForCustomer', () => {
@@ -395,6 +1022,95 @@ describe('createJobsService.getForCustomer', () => {
     expect(ctx.prisma.job.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'job-1', customer: { userId: 'user-1' } } }),
     );
+  });
+
+  it('maps a job with stored item rows onto the DTO, in sort order', async () => {
+    const ctx = buildJobs();
+    ctx.prisma.job.findFirst.mockResolvedValue({
+      ...jobRow,
+      orderType: 'BULK',
+      basePayPaise: 55_000,
+      items: [
+        {
+          id: 'item-1',
+          sortOrder: 0,
+          customSkill: null,
+          pricingModel: 'PER_UNIT',
+          unitPricePaise: 15_000,
+          quantity: 2,
+          unitLabel: 'tap',
+          durationMinutes: null,
+          subtotalPaise: 30_000,
+          skill: { id: 'skill-1', slug: 'tap-repair', name: 'Regular Tap Repair', icon: null },
+        },
+        {
+          id: 'item-2',
+          sortOrder: 1,
+          customSkill: null,
+          pricingModel: 'PER_UNIT',
+          unitPricePaise: 25_000,
+          quantity: 1,
+          unitLabel: 'fan',
+          durationMinutes: null,
+          subtotalPaise: 25_000,
+          skill: { id: 'skill-2', slug: 'fan-repair', name: 'Fan Repair', icon: null },
+        },
+      ],
+    });
+
+    const job = await ctx.jobs.getForCustomer('user-1', 'job-1');
+
+    expect(job.orderType).toBe('BULK');
+    expect(job.items).toEqual([
+      {
+        id: 'item-1',
+        sortOrder: 0,
+        skill: { id: 'skill-1', slug: 'tap-repair', name: 'Regular Tap Repair', icon: null },
+        customSkill: null,
+        pricingModel: 'PER_UNIT',
+        unitPricePaise: 15_000,
+        quantity: 2,
+        unitLabel: 'tap',
+        durationMinutes: null,
+        subtotalPaise: 30_000,
+      },
+      {
+        id: 'item-2',
+        sortOrder: 1,
+        skill: { id: 'skill-2', slug: 'fan-repair', name: 'Fan Repair', icon: null },
+        customSkill: null,
+        pricingModel: 'PER_UNIT',
+        unitPricePaise: 25_000,
+        quantity: 1,
+        unitLabel: 'fan',
+        durationMinutes: null,
+        subtotalPaise: 25_000,
+      },
+    ]);
+  });
+
+  it('derives a legacy job single item from the flat snapshot columns', async () => {
+    const ctx = buildJobs();
+    // `jobRow` carries no item rows (pre-bulk-orders row).
+    ctx.prisma.job.findFirst.mockResolvedValue(jobRow);
+
+    const job = await ctx.jobs.getForCustomer('user-1', 'job-1');
+
+    expect(job.orderType).toBe('SINGLE');
+    expect(job.items).toEqual([
+      {
+        id: 'job-1',
+        sortOrder: 0,
+        skill: jobRow.skill,
+        customSkill: null,
+        pricingModel: 'PER_BOOKING',
+        unitPricePaise: 15_000,
+        quantity: 1,
+        unitLabel: null,
+        durationMinutes: null,
+        subtotalPaise: 15_000,
+      },
+    ]);
   });
 
   it('404s when the job does not belong to the caller', async () => {
@@ -942,6 +1658,10 @@ describe('createJobsService.acceptJob', () => {
     const prisma = {
       proProfile: { findUnique: jest.fn().mockResolvedValue(pro) },
       notification: { findMany: notificationFindMany },
+      jobTracking: {
+        upsert: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
           job: {
@@ -1110,6 +1830,10 @@ describe('createJobsService.acceptJobWithOffer', () => {
       },
       jobOffer: { updateMany: offerUpdateMany },
       notification: { findMany: notificationFindMany },
+      jobTracking: {
+        upsert: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
           job: {
@@ -1608,6 +2332,10 @@ describe('createJobsService.transitionJob', () => {
 
     const prisma = {
       proProfile: { findUnique: jest.fn().mockResolvedValue({ id: 'pro-1', userId: 'user-1' }) },
+      jobTracking: {
+        upsert: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
           job: { findFirst: jobFindFirst, update: jobUpdate },
@@ -2168,6 +2896,7 @@ describe('createJobsService.cancelJob', () => {
       message: { deleteMany: messageDeleteMany },
       notification: { findMany: notificationFindMany },
       proProfile: { findUnique: jest.fn().mockResolvedValue({ isOnline: false }) },
+      jobTracking: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
       $transaction: jest.fn().mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
           job: {

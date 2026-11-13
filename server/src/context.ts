@@ -19,6 +19,7 @@ import { createCustomersService, type CustomersService } from './customers/custo
 import { createServicesService, type ServicesService } from './services/services.service';
 import { createBannersService, type BannersService } from './banners/banners.service';
 import { createJobsService, type JobsService } from './jobs/jobs.service';
+import { createDraftsService, type DraftsService } from './drafts/drafts.service';
 import { createMatchingService, type MatchingService } from './matching/matching.service';
 import { createMessagesService, type MessagesService } from './messages/messages.service';
 import { createLocationsService, type LocationsService } from './locations/locations.service';
@@ -67,6 +68,8 @@ export interface Services {
   services: ServicesService;
   banners: BannersService;
   jobs: JobsService;
+  /** Server-side persistence for the customer's in-progress booking cart. */
+  drafts: DraftsService;
   messages: MessagesService;
   matching: MatchingService;
   locations: LocationsService;
@@ -226,6 +229,7 @@ export function createServices(
     customers: createCustomersService(deps),
     services: createServicesService(deps),
     banners: createBannersService(deps.prisma),
+    drafts: createDraftsService({ prisma, storage }),
     jobs,
     messages,
     matching,

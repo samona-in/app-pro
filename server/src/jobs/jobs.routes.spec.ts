@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express from 'express';
-import { ApiErrorCode, JOB_DESCRIPTION_MAX, JobStatus } from '@samona/types';
+import { ApiErrorCode, JOB_DESCRIPTION_MAX, JOB_ITEMS_LIMIT, ORDER_GROUP_SERVICES_LIMIT, JobStatus } from '@samona/types';
 import type { Services } from '../context';
 import { errorHandler } from '../common/middleware/error-handler';
 import { createJobsRouter } from './jobs.routes';
@@ -44,6 +44,9 @@ function buildServices(overrides: Partial<Services> = {}) {
     auth: { syncUser: jest.fn().mockResolvedValue(activeUser) },
     jobs: {
       createForCustomer: jest.fn().mockResolvedValue(job),
+      createBatchForCustomer: jest
+        .fn()
+        .mockResolvedValue({ orderGroupId: 'group-1', jobs: [job] }),
       listForCustomer: jest.fn().mockResolvedValue([job]),
       getForCustomer: jest.fn().mockResolvedValue(job),
     },
@@ -54,6 +57,7 @@ function buildServices(overrides: Partial<Services> = {}) {
 function jobsService(partial: Partial<ReturnType<typeof buildServices>['jobs']> = {}) {
   return {
     createForCustomer: jest.fn().mockResolvedValue(job),
+    createBatchForCustomer: jest.fn().mockResolvedValue({ orderGroupId: 'group-1', jobs: [job] }),
     listForCustomer: jest.fn().mockResolvedValue([job]),
     getForCustomer: jest.fn().mockResolvedValue(job),
     collectCashForPro: jest.fn().mockResolvedValue(job),
@@ -163,6 +167,121 @@ describe('jobs routes', () => {
     expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
   });
 
+  it('POST /jobs places a multi-work request', async () => {
+    const services = buildServices();
+    const body = {
+      serviceSlug: validBody.serviceSlug,
+      description: validBody.description,
+      imagePaths: validBody.imagePaths,
+      items: [
+        { skillSlug: 'tap-repair', quantity: 2 },
+        { skillSlug: 'other', customSkill: 'Kitchen sink', quantity: 1 },
+      ],
+    };
+
+    await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send(body)
+      .expect(201);
+
+    // The top-level `quantity` default rides along (legacy field, ignored for
+    // an items request); every work carries its own quantity.
+    expect(services.jobs.createForCustomer).toHaveBeenCalledWith('user-1', {
+      ...body,
+      quantity: 1,
+    });
+  });
+
+  it('POST /jobs rejects the same work twice in a multi-work request', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        ...validBody,
+        items: [
+          { skillSlug: 'tap-repair', quantity: 2 },
+          { skillSlug: 'tap-repair', quantity: 1 },
+        ],
+      })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('POST /jobs rejects a request mixing the legacy work with the items list', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        ...validBody,
+        items: [{ skillSlug: 'tap-repair', quantity: 1 }],
+      })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('POST /jobs rejects a request with no work at all', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        serviceSlug: validBody.serviceSlug,
+        description: validBody.description,
+        imagePaths: validBody.imagePaths,
+      })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('POST /jobs caps a multi-work request at the works limit', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        serviceSlug: validBody.serviceSlug,
+        description: validBody.description,
+        imagePaths: validBody.imagePaths,
+        items: Array.from({ length: JOB_ITEMS_LIMIT + 1 }, (_, index) => ({
+          skillSlug: `work-${index}`,
+          quantity: 1,
+        })),
+      })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('POST /jobs applies the Other-skill rules per work in a multi-work request', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        serviceSlug: validBody.serviceSlug,
+        description: validBody.description,
+        imagePaths: validBody.imagePaths,
+        items: [
+          { skillSlug: 'tap-repair', quantity: 1 },
+          { skillSlug: 'other', quantity: 1 },
+        ],
+      })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
+  });
+
   it('GET /jobs lists the caller jobs', async () => {
     const services = buildServices();
     const response = await request(appWith(services))
@@ -172,6 +291,98 @@ describe('jobs routes', () => {
 
     expect(response.body).toHaveLength(1);
     expect(services.jobs.listForCustomer).toHaveBeenCalledWith('user-1', 20);
+  });
+
+  it('POST /jobs/batch places one checkout across services', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs/batch')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        groups: [
+          {
+            serviceSlug: 'electrical',
+            items: [{ skillSlug: 'fan-installation', quantity: 1 }],
+          },
+          {
+            serviceSlug: 'plumbing',
+            items: [{ skillSlug: 'leak-repair', quantity: 1 }],
+          },
+        ],
+        description: 'Fix the switch near the door.',
+        imagePaths: ['jobs/user-1/abc.jpg'],
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({ orderGroupId: 'group-1' });
+    expect(response.body.jobs).toHaveLength(1);
+    expect(services.jobs.createBatchForCustomer).toHaveBeenCalledWith('user-1', {
+      groups: [
+        {
+          serviceSlug: 'electrical',
+          items: [{ skillSlug: 'fan-installation', quantity: 1 }],
+        },
+        {
+          serviceSlug: 'plumbing',
+          items: [{ skillSlug: 'leak-repair', quantity: 1 }],
+        },
+      ],
+      description: 'Fix the switch near the door.',
+      imagePaths: ['jobs/user-1/abc.jpg'],
+    });
+    expect(services.jobs.createForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('POST /jobs/batch rejects two groups for the same service', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs/batch')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        groups: [
+          {
+            serviceSlug: 'electrical',
+            items: [{ skillSlug: 'fan-installation', quantity: 1 }],
+          },
+          {
+            serviceSlug: 'electrical',
+            items: [{ skillSlug: 'switch-repair', quantity: 1 }],
+          },
+        ],
+      })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createBatchForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('POST /jobs/batch rejects an empty checkout', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs/batch')
+      .set('authorization', 'Bearer good.token')
+      .send({ groups: [] })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createBatchForCustomer).not.toHaveBeenCalled();
+  });
+
+  it('POST /jobs/batch rejects more services than the checkout limit', async () => {
+    const services = buildServices();
+    const response = await request(appWith(services))
+      .post('/jobs/batch')
+      .set('authorization', 'Bearer good.token')
+      .send({
+        groups: Array.from({ length: ORDER_GROUP_SERVICES_LIMIT + 1 }, (_, index) => ({
+          serviceSlug: `service-${index}`,
+          items: [{ skillSlug: `work-${index}`, quantity: 1 }],
+        })),
+      })
+      .expect(422);
+
+    expect(response.body.error.code).toBe(ApiErrorCode.VALIDATION_FAILED);
+    expect(services.jobs.createBatchForCustomer).not.toHaveBeenCalled();
   });
 
   it('GET /jobs/:id returns the caller job', async () => {

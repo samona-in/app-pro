@@ -23,9 +23,12 @@ import {
   PAST_JOB_STATUSES,
   formatDateTime,
   formatPaise,
+  orderTypeBadgeClass,
+  orderTypeLabel,
   shortId,
   statusBadgeClass,
   statusLabel,
+  workSummaryLabel,
   type AdminJobListResponse,
   type JobStatus,
 } from '@/lib/jobs';
@@ -268,6 +271,7 @@ function BookingsContent() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Professional</TableHead>
                     <TableHead>Service</TableHead>
+                    <TableHead>Order</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -276,7 +280,7 @@ function BookingsContent() {
                 <TableBody>
                   {jobs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-10 text-center text-gray-500">
+                      <TableCell colSpan={8} className="py-10 text-center text-gray-500">
                         No bookings match these filters.
                       </TableCell>
                     </TableRow>
@@ -317,8 +321,23 @@ function BookingsContent() {
                           <TableCell>
                             <div className="text-sm">{job.service.name}</div>
                             <div className="text-xs text-gray-500">
-                              {job.customSkill || job.skill.name}
+                              {workSummaryLabel(job.works)}
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${orderTypeBadgeClass(job.orderType)}`}
+                            >
+                              {orderTypeLabel(job.orderType)}
+                            </span>
+                            {job.orderType === 'BULK' ? (
+                              <div className="text-xs text-gray-500">{job.works.length} works</div>
+                            ) : null}
+                            {job.orderGroupId ? (
+                              <div className="text-xs text-gray-500">
+                                Placed together · {shortId(job.orderGroupId)}
+                              </div>
+                            ) : null}
                           </TableCell>
                           <TableCell>
                             <span

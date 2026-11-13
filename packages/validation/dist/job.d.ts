@@ -31,24 +31,55 @@ export declare const jobImagePathSchema: z.ZodString;
  */
 export declare const customSkillSchema: z.ZodString;
 /**
+ * One distinct work inside a multi-work request.
+ *
+ * Each entry is addressed by slug (like the legacy single-work shape) and may
+ * carry its own `customSkill` (only for the `other` sentinel), `quantity`
+ * (`PER_UNIT` skills) and `durationMinutes` (`PER_HOUR` skills). Pricing is
+ * never taken from the client — the server prices every item from the
+ * catalogue.
+ */
+export declare const createJobItemSchema: z.ZodObject<{
+    skillSlug: z.ZodString;
+    customSkill: z.ZodOptional<z.ZodString>;
+    quantity: z.ZodDefault<z.ZodNumber>;
+    durationMinutes: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strip>;
+export type CreateJobItemInput = z.infer<typeof createJobItemSchema>;
+/**
  * Creates a job request (the customer booking flow's final step).
  *
- * The service and skill are addressed by slug so the request stays stable
- * across catalogue re-seeds. The server resolves them to ids and confirms the
- * skill belongs to the service; nothing id-based from the client is trusted.
+ * The service is addressed by slug, and the works one of two ways:
  *
- * Choosing the `other` sentinel skill requires `customSkill` — the free-text
- * category; any other skill must leave it empty.
+ * - Legacy single-work shape: `skillSlug` (+ `quantity` / `durationMinutes` /
+ *   `customSkill` for that one work). Older app builds keep working unchanged.
+ * - Multi-work shape: `items`, a list of distinct works of the same service,
+ *   each with its own `quantity` / `durationMinutes` / `customSkill`. Two or
+ *   more entries make the request a BULK order.
+ *
+ * Exactly one of the two shapes may be used — a mixed request is rejected so
+ * the pricing input is never ambiguous. Each work may appear only once; to
+ * change the quantity of a work the client updates that entry.
+ *
+ * The works are addressed by slug so the request stays stable across catalogue
+ * re-seeds. The server resolves them to ids and confirms every work belongs to
+ * the service; nothing id-based from the client is trusted.
  *
  * Pricing is never trusted from the client: `quantity` and `durationMinutes`
- * describe *what* the customer wants, and the server derives the total from the
- * skill's current configuration. `basePayPaise` is accepted only so older app
- * builds keep working; the value is ignored.
+ * describe *what* the customer wants, and the server derives every total from
+ * the catalogue's current configuration. `basePayPaise` is accepted only so
+ * older app builds keep working; the value is ignored.
  */
 export declare const createJobSchema: z.ZodObject<{
     serviceSlug: z.ZodString;
-    skillSlug: z.ZodString;
+    skillSlug: z.ZodOptional<z.ZodString>;
     customSkill: z.ZodOptional<z.ZodString>;
+    items: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        skillSlug: z.ZodString;
+        customSkill: z.ZodOptional<z.ZodString>;
+        quantity: z.ZodDefault<z.ZodNumber>;
+        durationMinutes: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>>>;
     locationLabel: z.ZodOptional<z.ZodString>;
     latitude: z.ZodOptional<z.ZodNumber>;
     longitude: z.ZodOptional<z.ZodNumber>;
@@ -58,7 +89,61 @@ export declare const createJobSchema: z.ZodObject<{
     durationMinutes: z.ZodOptional<z.ZodNumber>;
     basePayPaise: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strip>;
+/**
+ * The parsed request the server works with — defaults materialised, so every
+ * defaulted field is present.
+ */
 export type CreateJobInput = z.infer<typeof createJobSchema>;
+/**
+ * The request a client submits — the input side of the schema, where fields
+ * the validator defaults (`quantity`, `description`, `imagePaths`) may be
+ * omitted. The server fills them in during validation.
+ */
+export type CreateJobRequest = z.input<typeof createJobSchema>;
+/**
+ * One service's slice of a multi-service checkout.
+ *
+ * Works are addressed by slug exactly like a single-service request; the server
+ * resolves them to ids and confirms every one belongs to this service. Two or
+ * more works make this service's job BULK; one keeps it SINGLE.
+ */
+export declare const createJobGroupSchema: z.ZodObject<{
+    serviceSlug: z.ZodString;
+    items: z.ZodArray<z.ZodObject<{
+        skillSlug: z.ZodString;
+        customSkill: z.ZodOptional<z.ZodString>;
+        quantity: z.ZodDefault<z.ZodNumber>;
+        durationMinutes: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>>;
+}, z.core.$strip>;
+export type CreateJobGroupInput = z.infer<typeof createJobGroupSchema>;
+/**
+ * Places one checkout that may span several services.
+ *
+ * Each group becomes its own job (own pro, lifecycle, OTP, chat, cash payment)
+ * and all jobs share a server-generated `orderGroupId`. Notes, photos and the
+ * work location are shared by the whole checkout: it is one visit, even when
+ * several trades are needed. Services and works are addressed by slug; every
+ * price is derived from the catalogue server-side.
+ */
+export declare const createJobBatchSchema: z.ZodObject<{
+    groups: z.ZodArray<z.ZodObject<{
+        serviceSlug: z.ZodString;
+        items: z.ZodArray<z.ZodObject<{
+            skillSlug: z.ZodString;
+            customSkill: z.ZodOptional<z.ZodString>;
+            quantity: z.ZodDefault<z.ZodNumber>;
+            durationMinutes: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strip>>;
+    }, z.core.$strip>>;
+    locationLabel: z.ZodOptional<z.ZodString>;
+    latitude: z.ZodOptional<z.ZodNumber>;
+    longitude: z.ZodOptional<z.ZodNumber>;
+    description: z.ZodDefault<z.ZodString>;
+    imagePaths: z.ZodDefault<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export type CreateJobBatchInput = z.infer<typeof createJobBatchSchema>;
+export type CreateJobBatchRequest = z.input<typeof createJobBatchSchema>;
 /** The on-site stages an assigned pro drives a confirmed job through. */
 export declare const JOB_ACTIONS: readonly ["travel", "arrived", "start", "complete"];
 export type JobAction = (typeof JOB_ACTIONS)[number];

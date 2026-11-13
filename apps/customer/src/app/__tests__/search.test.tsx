@@ -14,11 +14,14 @@ jest.mock('expo-router', () => ({
 }));
 
 // The catalogue hooks would reach the API, which needs a configured env.
+// `useStartBooking` stays real so the guarded booking entry works against the
+// real draft store and the mocked router.
 let mockCategories: ServiceOption[] = [];
 
 jest.mock('@/hooks', () => ({
   useServiceSearch: () => ({ data: undefined, isPending: false, isError: false }),
   useServiceCategories: () => ({ data: mockCategories }),
+  ...jest.requireActual('@/hooks/use-start-booking'),
 }));
 
 // Secure storage needs a native module; the recents are seeded in the store.
@@ -164,7 +167,9 @@ describe('Search — recent items', () => {
     fireEvent.press(screen.getByLabelText('Leak repair'));
 
     expect(router.push).toHaveBeenCalledWith('/booking/new/plumbing/skill');
-    expect(useBookingDraft.getState().skill?.name).toBe('Leak repair');
+    // The picked work arrives highlighted on the catalogue, ready to be added.
+    expect(useBookingDraft.getState().preselectedSkillId).toBe('sk1');
+    expect(useBookingDraft.getState().service?.slug).toBe('plumbing');
   });
 });
 

@@ -334,6 +334,7 @@
     "photoCount": "({{count}})",
     "beforeStart": "ప్రారంభించే ముందు",
     "jobDescription": "పని వివరణ",
+    "worksHeading": "ఈ జాబ్‌లోని పనులు",
     "checklist": {
       "inspectIssue": "సమస్యను పరిశీలించండి",
       "confirmWork": "కస్టమర్తో పనిని నిర్ధారించండి",
@@ -803,6 +804,9 @@
     "km": "{{value}} కి.మీ",
     "m": "{{value}} మీ",
     "minAway": "{{minutes}} నిమిషాల దూరం",
+    "works_one": "{{count}} పని",
+    "works_other": "{{count}} పనులు",
+    "worksItems": "{{works}} పనులు · {{items}} అంశాలు",
     "relative": {
       "justNow": "ఇప్పుడే",
       "m": "{{minutes}} ని. క్రితం",

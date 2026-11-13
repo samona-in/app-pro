@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import type { AvailableJob } from '@samona/types';
+import { workSummaryLabel, type AvailableJob } from '@samona/types';
 import { Badge, Button, Text } from '@/components/ui';
-import { formatDistance, formatEta, formatInr, formatJobQuantity } from '@/utils/format';
+import {
+  formatDistance,
+  formatEta,
+  formatInr,
+  formatJobQuantity,
+  formatWorkName,
+  formatWorksCount,
+} from '@/utils/format';
 
 /**
  * One entry in the pro's job pool, matching the offer surface's rhythm: the
@@ -34,8 +41,12 @@ export function JobPoolCard({
     return () => clearTimeout(id);
   }, [error]);
 
-  const category = job.customSkill ?? job.skill.name;
-  const quantityLabel = formatJobQuantity(job);
+  // A bulk visit reads as "first work + N more works"; a single work as itself.
+  const category = workSummaryLabel(job.items.map(formatWorkName));
+  const works = job.items;
+  const isBulk = works.length > 1;
+  const worksSummary = formatWorksCount(works, t);
+  const quantityLabel = worksSummary ?? formatJobQuantity(job);
 
   return (
     <View className="py-4">
@@ -59,6 +70,28 @@ export function JobPoolCard({
           ) : null}
         </View>
       </View>
+
+      {/* A bulk visit lists every work with its own quantity or duration, so
+          the pro accepts knowing the whole order. */}
+      {isBulk ? (
+        <View className="mt-2 gap-1.5">
+          {works.map((work) => {
+            const qualifier = formatJobQuantity(work);
+            return (
+              <View key={work.id} className="flex-row items-center">
+                <Text variant="body" numberOfLines={1} className="min-w-0 flex-1 pr-3">
+                  {formatWorkName(work)}
+                </Text>
+                {qualifier ? (
+                  <Text variant="footnote" className="shrink-0 text-text-secondary">
+                    {qualifier}
+                  </Text>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
 
       <View className="mt-3 flex-row flex-wrap items-center gap-2">
         <Badge label={formatDistance(job.distanceKm, t)} tone="info" />

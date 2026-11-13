@@ -3,7 +3,7 @@ import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react
 import { AppState } from 'react-native';
 import type * as ReactModule from 'react';
 import * as Location from 'expo-location';
-import { JobStatus, type Job } from '@samona/types';
+import { JobStatus, OrderType, type Job, type JobItem } from '@samona/types';
 import IncomingJobsScreen from '../(tabs)/incoming-jobs';
 import { IncomingOffersSync } from '@/hooks/use-incoming-offers';
 import { subscribe } from '@/services/realtime';
@@ -61,6 +61,23 @@ const watch = jest.mocked(Location.watchPositionAsync);
 beforeAll(() => notifyManager.setNotifyFunction((callback) => act(callback)));
 afterAll(() => notifyManager.setNotifyFunction((callback) => callback()));
 
+/** One work in a request, matching the job's flat snapshot columns. */
+function item(sortOrder: number, overrides?: Partial<JobItem>): JobItem {
+  return {
+    id: `item-${sortOrder}`,
+    sortOrder,
+    skill: { id: 'skill', slug: 'fan-installation', name: 'Fan installation', icon: null },
+    customSkill: null,
+    pricingModel: 'PER_BOOKING',
+    unitPricePaise: 8800,
+    quantity: 1,
+    unitLabel: null,
+    durationMinutes: null,
+    subtotalPaise: 8800,
+    ...overrides,
+  };
+}
+
 // The server sends a Job DTO, with coordinates but no per-recipient distance.
 function job(id: string, longitude: number): Job {
   return {
@@ -70,6 +87,9 @@ function job(id: string, longitude: number): Job {
     service: { id: 'service', slug: 'electrical', name: 'Electrical', icon: 'flash-outline' },
     skill: { id: 'skill', slug: 'fan-installation', name: 'Fan installation', icon: null },
     customSkill: null,
+    orderType: OrderType.SINGLE,
+    orderGroupId: null,
+    items: [item(0)],
     status: JobStatus.REQUESTED,
     locationLabel: 'Main Road',
     latitude: 0,
@@ -157,6 +177,35 @@ it('updates every socket request when the initial location arrives, without inte
   expect(view.getByText('1.1 km away')).toBeTruthy();
   expect(view.getByText('2.2 km away')).toBeTruthy();
   expect(view.queryByText('Calculating distance...')).toBeNull();
+});
+
+it('summarizes a bulk visit and lists every work on its card', async () => {
+  const view = await showRequests();
+  arrive({
+    ...job('bulk', 0.01),
+    orderType: OrderType.BULK,
+    basePayPaise: 26_400,
+    items: [
+      item(0),
+      item(1, {
+        id: 'item-1',
+        skill: { id: 'skill-2', slug: 'switch-repair', name: 'Switch repair', icon: null },
+        pricingModel: 'PER_UNIT',
+        quantity: 2,
+        unitLabel: 'switch',
+        subtotalPaise: 17_600,
+      }),
+    ],
+  });
+
+  // The compact summary the notification carries, then the per-work rows.
+  await waitFor(() => expect(view.getByText('Fan installation + 1 more work')).toBeTruthy());
+  expect(view.getByText('2 works · 3 items')).toBeTruthy();
+  expect(view.getByText('Fan installation')).toBeTruthy();
+  expect(view.getByText('Switch repair')).toBeTruthy();
+  expect(view.getByText('2 switches')).toBeTruthy();
+  // The whole visit's estimate, not the first work's (the sidebar ring repeats it).
+  expect(view.getAllByText('₹264').length).toBeGreaterThan(0);
 });
 
 it('calculates new arrivals immediately and updates memoized cards when the pro moves', async () => {

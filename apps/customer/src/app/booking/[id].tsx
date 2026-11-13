@@ -16,12 +16,13 @@ import {
   ProfessionalCard,
   ProfessionalTrackingMap,
 } from '@/components/booking/detail';
+import { WorksList } from '@/components/booking';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { Button, Text } from '@/components/ui';
 import { useBooking, useCancelBooking, useSubmitGuard } from '@/hooks';
 import { color } from '@/theme';
 import { formatBookingDate, formatRupees } from '@/utils/format';
-import { describeJobQuantity } from '@/utils/pricing';
+import { describeJobQuantity, describeJobWorks } from '@/utils/pricing';
 
 const CANCELLABLE: JobStatus[] = [
   JobStatus.REQUESTED,
@@ -220,10 +221,16 @@ export default function BookingDetail() {
   const showMap = job.status === JobStatus.ACCEPTED || job.status === JobStatus.TRAVELLING;
   const showProCard = job.pro !== null || job.status !== JobStatus.REQUESTED;
   const amount = job.finalPayPaise ?? job.agreedPayPaise ?? job.basePayPaise;
-  const quantityLabel = describeJobQuantity(job);
+  // A bulk visit is titled by its service and itemised through the works
+  // list; a single work keeps its own name as the booking's title.
+  const isBulk = (job.items?.length ?? 0) > 1 || job.orderType === 'BULK';
+  const quantityLabel = isBulk ? describeJobWorks(job) : describeJobQuantity(job);
 
-  const serviceTitle =
-    job.skill?.name && job.skill.name !== job.service.name ? job.skill.name : job.service.name;
+  const serviceTitle = isBulk
+    ? job.service.name
+    : job.skill?.name && job.skill.name !== job.service.name
+      ? job.skill.name
+      : job.service.name;
   const hasLocation = typeof job.latitude === 'number' && typeof job.longitude === 'number';
 
   return (
@@ -293,6 +300,8 @@ export default function BookingDetail() {
               </View>
             </View>
             <View className="h-px bg-border w-full" />
+
+            {isBulk ? <WorksList items={job.items} /> : null}
 
             <View className="flex-row items-start gap-3 px-5 py-4">
               <Ionicons name="location-outline" size={20} color={color['text-primary']} />

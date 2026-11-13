@@ -18,8 +18,7 @@ import { ServiceCard } from '@/components/home/ServiceCard';
 import { ServiceGrid } from '@/components/home/ServiceGrid';
 import { ServiceImage } from '@/components/home/ServiceImage';
 import { IconButton, Text } from '@/components/ui';
-import { useServiceCategories, useServiceSearch } from '@/hooks';
-import { useBookingDraft } from '@/stores/booking';
+import { useServiceCategories, useServiceSearch, useStartBooking } from '@/hooks';
 import { FLOATING_TAB_BAR_CLEARANCE } from '@/constants';
 import { type RecentSearchItem, useSearchStore } from '@/stores/search';
 import { color, elevation } from '@/theme';
@@ -29,9 +28,9 @@ export default function Search() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
 
-  const draft = useBookingDraft();
   const search = useServiceSearch(query);
   const categories = useServiceCategories();
+  const startBooking = useStartBooking();
 
   const recents = useSearchStore((state) => state.recents);
   const addRecent = useSearchStore((state) => state.addRecent);
@@ -48,8 +47,7 @@ export default function Search() {
 
   function handleSelectService(service: ServiceOption) {
     addRecent({ type: 'service', service });
-    draft.start(service);
-    router.push(`/booking/new/${service.slug}/skill`);
+    startBooking(service);
   }
 
   function handleSelectSkill(skill: SkillWithService) {
@@ -60,17 +58,8 @@ export default function Search() {
       name: skill.service.name,
       icon: skill.service.icon,
     };
-    draft.start(parentService);
-    // Pre-select the skill so the skill screen is pre-populated after /place.
-    // draft.start resets skill to null, so setSkill must come after.
-    draft.setSkill({
-      id: skill.id,
-      serviceId: skill.serviceId,
-      slug: skill.slug,
-      name: skill.name,
-      icon: skill.icon,
-    });
-    router.push(`/booking/new/${skill.service.slug}/skill`);
+    // The picked work is highlighted on the catalogue it belongs to.
+    startBooking(parentService, { preselectedSkillId: skill.id });
   }
 
   return (

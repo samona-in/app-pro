@@ -1,0 +1,1931 @@
+{
+  "generatedAt": "2026-11-12T17:28:24.587Z",
+  "baseUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/",
+  "images": [
+    {
+      "sourceKey": "2 way switch installreplace.png",
+      "destinationKey": "services/2 way switch installreplace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/2%20way%20switch%20installreplace.webp"
+    },
+    {
+      "sourceKey": "2-pin plug replacement.png",
+      "destinationKey": "services/2-pin plug replacement.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/2-pin%20plug%20replacement.webp"
+    },
+    {
+      "sourceKey": "3-phase.png",
+      "destinationKey": "services/3-phase.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/3-phase.webp"
+    },
+    {
+      "sourceKey": "3-pin plug replacement.png",
+      "destinationKey": "services/3-pin plug replacement.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/3-pin%20plug%20replacement.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/ac install.png",
+      "destinationKey": "services/AC and Applications/ac install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/ac%20install.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/ac repair.png",
+      "destinationKey": "services/AC and Applications/ac repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/ac%20repair.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/ac service.png",
+      "destinationKey": "services/AC and Applications/ac service.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/ac%20service.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/ac uninstall.png",
+      "destinationKey": "services/AC and Applications/ac uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/ac%20uninstall.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/AC-applications.jpeg",
+      "destinationKey": "services/AC and Applications/AC-applications.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/AC-applications.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/chimney checkup.png",
+      "destinationKey": "services/AC and Applications/chimney checkup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/chimney%20checkup.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/chimney service2.png",
+      "destinationKey": "services/AC and Applications/chimney service2.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/chimney%20service2.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/chimney uninstall.png",
+      "destinationKey": "services/AC and Applications/chimney uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/chimney%20uninstall.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/chimney.png",
+      "destinationKey": "services/AC and Applications/chimney.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/chimney.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/chimnry installl.png",
+      "destinationKey": "services/AC and Applications/chimnry installl.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/chimnry%20installl.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/chimny service1.png",
+      "destinationKey": "services/AC and Applications/chimny service1.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/chimny%20service1.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/gas and refill.png",
+      "destinationKey": "services/AC and Applications/gas and refill.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/gas%20and%20refill.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/geyser checkup.png",
+      "destinationKey": "services/AC and Applications/geyser checkup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/geyser%20checkup.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/geyser service.png",
+      "destinationKey": "services/AC and Applications/geyser service.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/geyser%20service.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/geyser uninstall.png",
+      "destinationKey": "services/AC and Applications/geyser uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/geyser%20uninstall.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/geyser_head.png",
+      "destinationKey": "services/AC and Applications/geyser_head.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/geyser_head.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/geyser_installation.png",
+      "destinationKey": "services/AC and Applications/geyser_installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/geyser_installation.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/microwave1.png",
+      "destinationKey": "services/AC and Applications/microwave1.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/microwave1.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/microwave2.png",
+      "destinationKey": "services/AC and Applications/microwave2.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/microwave2.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/microwave3.png",
+      "destinationKey": "services/AC and Applications/microwave3.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/microwave3.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/microwave4.png",
+      "destinationKey": "services/AC and Applications/microwave4.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/microwave4.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/no cool_fridge.png",
+      "destinationKey": "services/AC and Applications/no cool_fridge.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/no%20cool_fridge.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/power_single.png",
+      "destinationKey": "services/AC and Applications/power_single.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/power_single.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/purifier filter checkup.png",
+      "destinationKey": "services/AC and Applications/purifier filter checkup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/purifier%20filter%20checkup.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/purifier filter replace.png",
+      "destinationKey": "services/AC and Applications/purifier filter replace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/purifier%20filter%20replace.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/purifier repair checkup.png",
+      "destinationKey": "services/AC and Applications/purifier repair checkup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/purifier%20repair%20checkup.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/purifier under counter install.png",
+      "destinationKey": "services/AC and Applications/purifier under counter install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/purifier%20under%20counter%20install.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/purifier uninstall.png",
+      "destinationKey": "services/AC and Applications/purifier uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/purifier%20uninstall.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/purifier wall install.png",
+      "destinationKey": "services/AC and Applications/purifier wall install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/purifier%20wall%20install.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/purifier_head.png",
+      "destinationKey": "services/AC and Applications/purifier_head.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/purifier_head.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/tv install.png",
+      "destinationKey": "services/AC and Applications/tv install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/tv%20install.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/tv reapair.png",
+      "destinationKey": "services/AC and Applications/tv reapair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/tv%20reapair.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/tv uninstall.png",
+      "destinationKey": "services/AC and Applications/tv uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/tv%20uninstall.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/washing machine checkup.png",
+      "destinationKey": "services/AC and Applications/washing machine checkup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/washing%20machine%20checkup.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/washing machine install.png",
+      "destinationKey": "services/AC and Applications/washing machine install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/washing%20machine%20install.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/washing machine repair.png",
+      "destinationKey": "services/AC and Applications/washing machine repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/washing%20machine%20repair.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/washing machine.png",
+      "destinationKey": "services/AC and Applications/washing machine.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/washing%20machine.webp"
+    },
+    {
+      "sourceKey": "AC and Applications/wasjing machine unstall.png",
+      "destinationKey": "services/AC and Applications/wasjing machine unstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/AC%20and%20Applications/wasjing%20machine%20unstall.webp"
+    },
+    {
+      "sourceKey": "Adjusting a Cabinet Magnetic Catch.png",
+      "destinationKey": "services/Adjusting a Cabinet Magnetic Catch.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Adjusting%20a%20Cabinet%20Magnetic%20Catch.webp"
+    },
+    {
+      "sourceKey": "Adjusting a Soft-Close Drawer Mechanism.png",
+      "destinationKey": "services/Adjusting a Soft-Close Drawer Mechanism.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Adjusting%20a%20Soft-Close%20Drawer%20Mechanism.webp"
+    },
+    {
+      "sourceKey": "Adjusting a Wall Cabinet Hinge-2.png",
+      "destinationKey": "services/Adjusting a Wall Cabinet Hinge-2.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Adjusting%20a%20Wall%20Cabinet%20Hinge-2.webp"
+    },
+    {
+      "sourceKey": "Adjusting a Wall Cabinet Hinge.png",
+      "destinationKey": "services/Adjusting a Wall Cabinet Hinge.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Adjusting%20a%20Wall%20Cabinet%20Hinge.webp"
+    },
+    {
+      "sourceKey": "Adjusting a Wooden Drawer Slide.png",
+      "destinationKey": "services/Adjusting a Wooden Drawer Slide.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Adjusting%20a%20Wooden%20Drawer%20Slide.webp"
+    },
+    {
+      "sourceKey": "Adjusting a Wooden Wall Cabinet.png",
+      "destinationKey": "services/Adjusting a Wooden Wall Cabinet.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Adjusting%20a%20Wooden%20Wall%20Cabinet.webp"
+    },
+    {
+      "sourceKey": "Applying White Grout Between Beige Tiles.png",
+      "destinationKey": "services/Applying White Grout Between Beige Tiles.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Applying%20White%20Grout%20Between%20Beige%20Tiles.webp"
+    },
+    {
+      "sourceKey": "Applying White Grout to Wall Tiles.png",
+      "destinationKey": "services/Applying White Grout to Wall Tiles.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Applying%20White%20Grout%20to%20Wall%20Tiles.webp"
+    },
+    {
+      "sourceKey": "Bathroom Mirror Cabinet Installation.png",
+      "destinationKey": "services/Bathroom Mirror Cabinet Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Bathroom%20Mirror%20Cabinet%20Installation.webp"
+    },
+    {
+      "sourceKey": "Black Stainless Steel Microwave Oven.png",
+      "destinationKey": "services/Black Stainless Steel Microwave Oven.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Black%20Stainless%20Steel%20Microwave%20Oven.webp"
+    },
+    {
+      "sourceKey": "Blue Delivery Worker Icon.png",
+      "destinationKey": "services/Blue Delivery Worker Icon.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Blue%20Delivery%20Worker%20Icon.webp"
+    },
+    {
+      "sourceKey": "Blue Uniform Faucet Repair.png",
+      "destinationKey": "services/Blue Uniform Faucet Repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Blue%20Uniform%20Faucet%20Repair.webp"
+    },
+    {
+      "sourceKey": "Blue-Shirt Installer Mounting Brass Pendant Light.png",
+      "destinationKey": "services/Blue-Shirt Installer Mounting Brass Pendant Light.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Blue-Shirt%20Installer%20Mounting%20Brass%20Pendant%20Light.webp"
+    },
+    {
+      "sourceKey": "Bottle Trap Repair Under Sink.png",
+      "destinationKey": "services/Bottle Trap Repair Under Sink.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Bottle%20Trap%20Repair%20Under%20Sink.webp"
+    },
+    {
+      "sourceKey": "bulb_socket.png",
+      "destinationKey": "services/bulb_socket.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/bulb_socket.webp"
+    },
+    {
+      "sourceKey": "bulb.jpeg",
+      "destinationKey": "services/bulb.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/bulb.webp"
+    },
+    {
+      "sourceKey": "Cabinet Door Bolt Latch Demonstration.png",
+      "destinationKey": "services/Cabinet Door Bolt Latch Demonstration.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Cabinet%20Door%20Bolt%20Latch%20Demonstration.webp"
+    },
+    {
+      "sourceKey": "Cabinet Hinge Repair in a Modern Kitchen.png",
+      "destinationKey": "services/Cabinet Hinge Repair in a Modern Kitchen.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Cabinet%20Hinge%20Repair%20in%20a%20Modern%20Kitchen.webp"
+    },
+    {
+      "sourceKey": "carenter.png",
+      "destinationKey": "services/carenter.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/carenter.webp"
+    },
+    {
+      "sourceKey": "carpenting_head.jpeg",
+      "destinationKey": "services/carpenting_head.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/carpenting_head.webp"
+    },
+    {
+      "sourceKey": "Cascading Amber Globe Chandelier.png",
+      "destinationKey": "services/Cascading Amber Globe Chandelier.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Cascading%20Amber%20Globe%20Chandelier.webp"
+    },
+    {
+      "sourceKey": "cc cam install.png",
+      "destinationKey": "services/cc cam install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/cc%20cam%20install.webp"
+    },
+    {
+      "sourceKey": "cc camera.png",
+      "destinationKey": "services/cc camera.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/cc%20camera.webp"
+    },
+    {
+      "sourceKey": "cc tv repair.png",
+      "destinationKey": "services/cc tv repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/cc%20tv%20repair.webp"
+    },
+    {
+      "sourceKey": "CCTV Camera Removal and Maintenance.png",
+      "destinationKey": "services/CCTV Camera Removal and Maintenance.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/CCTV%20Camera%20Removal%20and%20Maintenance.webp"
+    },
+    {
+      "sourceKey": "CCTV Camera Replacement Installation.png",
+      "destinationKey": "services/CCTV Camera Replacement Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/CCTV%20Camera%20Replacement%20Installation.webp"
+    },
+    {
+      "sourceKey": "CCTV DVR Hard Drive Replacement.png",
+      "destinationKey": "services/CCTV DVR Hard Drive Replacement.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/CCTV%20DVR%20Hard%20Drive%20Replacement.webp"
+    },
+    {
+      "sourceKey": "cctv maintance.png",
+      "destinationKey": "services/cctv maintance.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/cctv%20maintance.webp"
+    },
+    {
+      "sourceKey": "CCTV Technician Servicing Security Camera.png",
+      "destinationKey": "services/CCTV Technician Servicing Security Camera.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/CCTV%20Technician%20Servicing%20Security%20Camera.webp"
+    },
+    {
+      "sourceKey": "ChatGPT Image Sep 2, 2026 at 02_39_01 AM copy.png",
+      "destinationKey": "services/ChatGPT Image Sep 2, 2026 at 02_39_01 AM copy.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/ChatGPT%20Image%20Sep%202%2C%202026%20at%2002_39_01%20AM%20copy.webp"
+    },
+    {
+      "sourceKey": "ChatGPT Image Sep 3, 2026 at 07_20_57 PM.png",
+      "destinationKey": "services/ChatGPT Image Sep 3, 2026 at 07_20_57 PM.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/ChatGPT%20Image%20Sep%203%2C%202026%20at%2007_20_57%20PM.webp"
+    },
+    {
+      "sourceKey": "ChatGPT Image Sep 3, 2026 at 07_24_12 PM.png",
+      "destinationKey": "services/ChatGPT Image Sep 3, 2026 at 07_24_12 PM.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/ChatGPT%20Image%20Sep%203%2C%202026%20at%2007_24_12%20PM.webp"
+    },
+    {
+      "sourceKey": "Chrome U-Bend Basin Installation.png",
+      "destinationKey": "services/Chrome U-Bend Basin Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Chrome%20U-Bend%20Basin%20Installation.webp"
+    },
+    {
+      "sourceKey": "Circuit Breaker with Service Tools.png",
+      "destinationKey": "services/Circuit Breaker with Service Tools.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Circuit%20Breaker%20with%20Service%20Tools.webp"
+    },
+    {
+      "sourceKey": "Concealed Door Closer in Light Wood Frame.png",
+      "destinationKey": "services/Concealed Door Closer in Light Wood Frame.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Concealed%20Door%20Closer%20in%20Light%20Wood%20Frame.webp"
+    },
+    {
+      "sourceKey": "Connecting a Washing Machine Hose.png",
+      "destinationKey": "services/Connecting a Washing Machine Hose.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Connecting%20a%20Washing%20Machine%20Hose.webp"
+    },
+    {
+      "sourceKey": "decorativefan_install.png",
+      "destinationKey": "services/decorativefan_install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/decorativefan_install.webp"
+    },
+    {
+      "sourceKey": "decorativefan_repair.png",
+      "destinationKey": "services/decorativefan_repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/decorativefan_repair.webp"
+    },
+    {
+      "sourceKey": "decorativeFan_uninstall.png",
+      "destinationKey": "services/decorativeFan_uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/decorativeFan_uninstall.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/Focused Technician Diagnoses PC Issues.png",
+      "destinationKey": "services/desktop & pc repair/Focused Technician Diagnoses PC Issues.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/Focused%20Technician%20Diagnoses%20PC%20Issues.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/Hands-On SMPS Repair Workshop.png",
+      "destinationKey": "services/desktop & pc repair/Hands-On SMPS Repair Workshop.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/Hands-On%20SMPS%20Repair%20Workshop.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/Installing an SSD in a Desktop PC.png",
+      "destinationKey": "services/desktop & pc repair/Installing an SSD in a Desktop PC.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/Installing%20an%20SSD%20in%20a%20Desktop%20PC.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/Installing RAM in a Desktop PC.png",
+      "destinationKey": "services/desktop & pc repair/Installing RAM in a Desktop PC.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/Installing%20RAM%20in%20a%20Desktop%20PC.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/Minimalist Desktop Computer Setup.png",
+      "destinationKey": "services/desktop & pc repair/Minimalist Desktop Computer Setup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/Minimalist%20Desktop%20Computer%20Setup.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/Modern Black Desktop Computer Setup.png",
+      "destinationKey": "services/desktop & pc repair/Modern Black Desktop Computer Setup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/Modern%20Black%20Desktop%20Computer%20Setup.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/PC Cleaning at a Modern Workspace.png",
+      "destinationKey": "services/desktop & pc repair/PC Cleaning at a Modern Workspace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/PC%20Cleaning%20at%20a%20Modern%20Workspace.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/RGB Gaming PC Setup Assembly.png",
+      "destinationKey": "services/desktop & pc repair/RGB Gaming PC Setup Assembly.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/RGB%20Gaming%20PC%20Setup%20Assembly.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/Technician Repairing a Desktop Tower.png",
+      "destinationKey": "services/desktop & pc repair/Technician Repairing a Desktop Tower.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/Technician%20Repairing%20a%20Desktop%20Tower.webp"
+    },
+    {
+      "sourceKey": "desktop & pc repair/Windows Installation at 74.png",
+      "destinationKey": "services/desktop & pc repair/Windows Installation at 74.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/desktop%20%26%20pc%20repair/Windows%20Installation%20at%2074.webp"
+    },
+    {
+      "sourceKey": "Door_hing_replace.jpeg",
+      "destinationKey": "services/Door_hing_replace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Door_hing_replace.webp"
+    },
+    {
+      "sourceKey": "Door_hinge.jpeg",
+      "destinationKey": "services/Door_hinge.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Door_hinge.webp"
+    },
+    {
+      "sourceKey": "doorbell install.png",
+      "destinationKey": "services/doorbell install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/doorbell%20install.webp"
+    },
+    {
+      "sourceKey": "doorbell replace.png",
+      "destinationKey": "services/doorbell replace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/doorbell%20replace.webp"
+    },
+    {
+      "sourceKey": "dorebell.png",
+      "destinationKey": "services/dorebell.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/dorebell.webp"
+    },
+    {
+      "sourceKey": "doubel battery.jpeg",
+      "destinationKey": "services/doubel battery.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/doubel%20battery.webp"
+    },
+    {
+      "sourceKey": "doubel service.jpeg",
+      "destinationKey": "services/doubel service.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/doubel%20service.webp"
+    },
+    {
+      "sourceKey": "double mcb.png",
+      "destinationKey": "services/double mcb.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/double%20mcb.webp"
+    },
+    {
+      "sourceKey": "double_door_i.jpeg",
+      "destinationKey": "services/double_door_i.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/double_door_i.webp"
+    },
+    {
+      "sourceKey": "Dynamic Blue Tech Repair Icon.png",
+      "destinationKey": "services/Dynamic Blue Tech Repair Icon.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Dynamic%20Blue%20Tech%20Repair%20Icon.webp"
+    },
+    {
+      "sourceKey": "Dynamic Painter Service Icon.png",
+      "destinationKey": "services/Dynamic Painter Service Icon.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Dynamic%20Painter%20Service%20Icon.webp"
+    },
+    {
+      "sourceKey": "electrician head.jpeg",
+      "destinationKey": "services/electrician head.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/electrician%20head.webp"
+    },
+    {
+      "sourceKey": "Electrician Installing Digital Energy Submeter.png",
+      "destinationKey": "services/Electrician Installing Digital Energy Submeter.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Electrician%20Installing%20Digital%20Energy%20Submeter.webp"
+    },
+    {
+      "sourceKey": "electrician_head2.jpeg",
+      "destinationKey": "services/electrician_head2.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/electrician_head2.webp"
+    },
+    {
+      "sourceKey": "Elegant Brass Chandelier Installation.png",
+      "destinationKey": "services/Elegant Brass Chandelier Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Elegant%20Brass%20Chandelier%20Installation.webp"
+    },
+    {
+      "sourceKey": "ev 2 wheelers.jpeg",
+      "destinationKey": "services/ev 2 wheelers.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/ev%202%20wheelers.webp"
+    },
+    {
+      "sourceKey": "ev 4 whellers.png",
+      "destinationKey": "services/ev 4 whellers.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/ev%204%20whellers.webp"
+    },
+    {
+      "sourceKey": "fan installation.png",
+      "destinationKey": "services/fan installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/fan%20installation.webp"
+    },
+    {
+      "sourceKey": "fan repair.png",
+      "destinationKey": "services/fan repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/fan%20repair.webp"
+    },
+    {
+      "sourceKey": "fan uninstall.png",
+      "destinationKey": "services/fan uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/fan%20uninstall.webp"
+    },
+    {
+      "sourceKey": "fan_regulator.png",
+      "destinationKey": "services/fan_regulator.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/fan_regulator.webp"
+    },
+    {
+      "sourceKey": "fan.png",
+      "destinationKey": "services/fan.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/fan.webp"
+    },
+    {
+      "sourceKey": "Filter Installation in Progress.png",
+      "destinationKey": "services/Filter Installation in Progress.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Filter%20Installation%20in%20Progress.webp"
+    },
+    {
+      "sourceKey": "fourth mcb.png",
+      "destinationKey": "services/fourth mcb.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/fourth%20mcb.webp"
+    },
+    {
+      "sourceKey": "Framed Art Installation in a Bright Interior.png",
+      "destinationKey": "services/Framed Art Installation in a Bright Interior.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Framed%20Art%20Installation%20in%20a%20Bright%20Interior.webp"
+    },
+    {
+      "sourceKey": "Full switch board repairreplace.png",
+      "destinationKey": "services/Full switch board repairreplace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Full%20switch%20board%20repairreplace.webp"
+    },
+    {
+      "sourceKey": "Glossy Blue Car Wash Icon.png",
+      "destinationKey": "services/Glossy Blue Car Wash Icon.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Glossy%20Blue%20Car%20Wash%20Icon.webp"
+    },
+    {
+      "sourceKey": "Gloved Hands Adjusting Warm Wall Spotlight.png",
+      "destinationKey": "services/Gloved Hands Adjusting Warm Wall Spotlight.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Gloved%20Hands%20Adjusting%20Warm%20Wall%20Spotlight.webp"
+    },
+    {
+      "sourceKey": "Gloved Hands Installing a Crystal Chandelier.png",
+      "destinationKey": "services/Gloved Hands Installing a Crystal Chandelier.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Gloved%20Hands%20Installing%20a%20Crystal%20Chandelier.webp"
+    },
+    {
+      "sourceKey": "Gloved Hands Installing a Golden Chandelier.png",
+      "destinationKey": "services/Gloved Hands Installing a Golden Chandelier.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Gloved%20Hands%20Installing%20a%20Golden%20Chandelier.webp"
+    },
+    {
+      "sourceKey": "Gloved Hands Installing a Warm Lantern.png",
+      "destinationKey": "services/Gloved Hands Installing a Warm Lantern.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Gloved%20Hands%20Installing%20a%20Warm%20Lantern.webp"
+    },
+    {
+      "sourceKey": "Golden Chandelier Installation Close-Up.png",
+      "destinationKey": "services/Golden Chandelier Installation Close-Up.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Golden%20Chandelier%20Installation%20Close-Up.webp"
+    },
+    {
+      "sourceKey": "Grounding Wire Installation Close-Up.png",
+      "destinationKey": "services/Grounding Wire Installation Close-Up.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Grounding%20Wire%20Installation%20Close-Up.webp"
+    },
+    {
+      "sourceKey": "Grouting a Modern Tiled Bathroom.png",
+      "destinationKey": "services/Grouting a Modern Tiled Bathroom.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Grouting%20a%20Modern%20Tiled%20Bathroom.webp"
+    },
+    {
+      "sourceKey": "HandleLock_Installlation.jpeg",
+      "destinationKey": "services/HandleLock_Installlation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/HandleLock_Installlation.webp"
+    },
+    {
+      "sourceKey": "HandleLock_Replacement.jpeg",
+      "destinationKey": "services/HandleLock_Replacement.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/HandleLock_Replacement.webp"
+    },
+    {
+      "sourceKey": "Hands Installing a Ceiling LED Tube.png",
+      "destinationKey": "services/Hands Installing a Ceiling LED Tube.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Hands%20Installing%20a%20Ceiling%20LED%20Tube.webp"
+    },
+    {
+      "sourceKey": "Hands Repairing a Leaking Chrome Valve.png",
+      "destinationKey": "services/Hands Repairing a Leaking Chrome Valve.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Hands%20Repairing%20a%20Leaking%20Chrome%20Valve.webp"
+    },
+    {
+      "sourceKey": "HVAC Technician Repair Icon.png",
+      "destinationKey": "services/HVAC Technician Repair Icon.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/HVAC%20Technician%20Repair%20Icon.webp"
+    },
+    {
+      "sourceKey": "Inspecting Window Frame Alignment.png",
+      "destinationKey": "services/Inspecting Window Frame Alignment.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Inspecting%20Window%20Frame%20Alignment.webp"
+    },
+    {
+      "sourceKey": "install repair.jpeg",
+      "destinationKey": "services/install repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/install%20repair.webp"
+    },
+    {
+      "sourceKey": "Installing a Balcony Mesh Screen.png",
+      "destinationKey": "services/Installing a Balcony Mesh Screen.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Balcony%20Mesh%20Screen.webp"
+    },
+    {
+      "sourceKey": "Installing a Braided Faucet Connection Hose.png",
+      "destinationKey": "services/Installing a Braided Faucet Connection Hose.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Braided%20Faucet%20Connection%20Hose.webp"
+    },
+    {
+      "sourceKey": "Installing a Brass Barrel Bolt Latch.png",
+      "destinationKey": "services/Installing a Brass Barrel Bolt Latch.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Brass%20Barrel%20Bolt%20Latch.webp"
+    },
+    {
+      "sourceKey": "Installing a Brass Door Chain Latch.png",
+      "destinationKey": "services/Installing a Brass Door Chain Latch.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Brass%20Door%20Chain%20Latch.webp"
+    },
+    {
+      "sourceKey": "Installing a Brass Window Restrictor Hook.png",
+      "destinationKey": "services/Installing a Brass Window Restrictor Hook.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Brass%20Window%20Restrictor%20Hook.webp"
+    },
+    {
+      "sourceKey": "Installing a Brass-Framed Wall Mirror.png",
+      "destinationKey": "services/Installing a Brass-Framed Wall Mirror.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Brass-Framed%20Wall%20Mirror.webp"
+    },
+    {
+      "sourceKey": "Installing a Brushed Metal Drawer Handle.png",
+      "destinationKey": "services/Installing a Brushed Metal Drawer Handle.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Brushed%20Metal%20Drawer%20Handle.webp"
+    },
+    {
+      "sourceKey": "Installing a Cabinet Door Lock.png",
+      "destinationKey": "services/Installing a Cabinet Door Lock.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Cabinet%20Door%20Lock.webp"
+    },
+    {
+      "sourceKey": "Installing a CCTV Camera with Blue Ethernet Cable.png",
+      "destinationKey": "services/Installing a CCTV Camera with Blue Ethernet Cable.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20CCTV%20Camera%20with%20Blue%20Ethernet%20Cable.webp"
+    },
+    {
+      "sourceKey": "Installing a Ceiling Hook.png",
+      "destinationKey": "services/Installing a Ceiling Hook.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Ceiling%20Hook.webp"
+    },
+    {
+      "sourceKey": "Installing a Chrome Cam Lock in Oak Drawer.png",
+      "destinationKey": "services/Installing a Chrome Cam Lock in Oak Drawer.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Chrome%20Cam%20Lock%20in%20Oak%20Drawer.webp"
+    },
+    {
+      "sourceKey": "Installing a Chrome Shower Rod.png",
+      "destinationKey": "services/Installing a Chrome Shower Rod.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Chrome%20Shower%20Rod.webp"
+    },
+    {
+      "sourceKey": "Installing a Chrome Soap Dish.png",
+      "destinationKey": "services/Installing a Chrome Soap Dish.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Chrome%20Soap%20Dish.webp"
+    },
+    {
+      "sourceKey": "Installing a Chrome Toilet Paper Holder.png",
+      "destinationKey": "services/Installing a Chrome Toilet Paper Holder.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Chrome%20Toilet%20Paper%20Holder.webp"
+    },
+    {
+      "sourceKey": "Installing a Chrome Towel Rack.png",
+      "destinationKey": "services/Installing a Chrome Towel Rack.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Chrome%20Towel%20Rack.webp"
+    },
+    {
+      "sourceKey": "Installing a Closet Rod.png",
+      "destinationKey": "services/Installing a Closet Rod.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Closet%20Rod.webp"
+    },
+    {
+      "sourceKey": "Installing a Corner Glass Shelf.png",
+      "destinationKey": "services/Installing a Corner Glass Shelf.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Corner%20Glass%20Shelf.webp"
+    },
+    {
+      "sourceKey": "Installing a Door Peephole-2.png",
+      "destinationKey": "services/Installing a Door Peephole-2.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Door%20Peephole-2.webp"
+    },
+    {
+      "sourceKey": "Installing a Glass Bathroom Shelf.png",
+      "destinationKey": "services/Installing a Glass Bathroom Shelf.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Glass%20Bathroom%20Shelf.webp"
+    },
+    {
+      "sourceKey": "Installing a Glass Cabinet Shelf.png",
+      "destinationKey": "services/Installing a Glass Cabinet Shelf.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Glass%20Cabinet%20Shelf.webp"
+    },
+    {
+      "sourceKey": "Installing a Glass Corner Shelf.png",
+      "destinationKey": "services/Installing a Glass Corner Shelf.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Glass%20Corner%20Shelf.webp"
+    },
+    {
+      "sourceKey": "Installing a Glowing Gold Chandelier.png",
+      "destinationKey": "services/Installing a Glowing Gold Chandelier.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Glowing%20Gold%20Chandelier.webp"
+    },
+    {
+      "sourceKey": "Installing a Hydraulic Door Closer.png",
+      "destinationKey": "services/Installing a Hydraulic Door Closer.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Hydraulic%20Door%20Closer.webp"
+    },
+    {
+      "sourceKey": "Installing a Light Oak Wall Cabinet.png",
+      "destinationKey": "services/Installing a Light Oak Wall Cabinet.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Light%20Oak%20Wall%20Cabinet.webp"
+    },
+    {
+      "sourceKey": "Installing a Modern Cabinet Handle.png",
+      "destinationKey": "services/Installing a Modern Cabinet Handle.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Modern%20Cabinet%20Handle.webp"
+    },
+    {
+      "sourceKey": "Installing a Modern Door Handle.png",
+      "destinationKey": "services/Installing a Modern Door Handle.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Modern%20Door%20Handle.webp"
+    },
+    {
+      "sourceKey": "Installing a Modern Gooseneck Bedside Lamp.png",
+      "destinationKey": "services/Installing a Modern Gooseneck Bedside Lamp.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Modern%20Gooseneck%20Bedside%20Lamp.webp"
+    },
+    {
+      "sourceKey": "Installing a Modern LED Vanity Light.png",
+      "destinationKey": "services/Installing a Modern LED Vanity Light.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Modern%20LED%20Vanity%20Light.webp"
+    },
+    {
+      "sourceKey": "Installing a Modern Mirrored Bathroom Cabinet.png",
+      "destinationKey": "services/Installing a Modern Mirrored Bathroom Cabinet.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Modern%20Mirrored%20Bathroom%20Cabinet.webp"
+    },
+    {
+      "sourceKey": "Installing a Modern Rain Shower Head.png",
+      "destinationKey": "services/Installing a Modern Rain Shower Head.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Modern%20Rain%20Shower%20Head.webp"
+    },
+    {
+      "sourceKey": "Installing a Modern Window Handle.png",
+      "destinationKey": "services/Installing a Modern Window Handle.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Modern%20Window%20Handle.webp"
+    },
+    {
+      "sourceKey": "Installing a Satin Metal Door Stopper.png",
+      "destinationKey": "services/Installing a Satin Metal Door Stopper.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Satin%20Metal%20Door%20Stopper.webp"
+    },
+    {
+      "sourceKey": "Installing a Stainless Door Stopper.png",
+      "destinationKey": "services/Installing a Stainless Door Stopper.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Stainless%20Door%20Stopper.webp"
+    },
+    {
+      "sourceKey": "Installing a Telescopic Drawer Slide.png",
+      "destinationKey": "services/Installing a Telescopic Drawer Slide.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Telescopic%20Drawer%20Slide.webp"
+    },
+    {
+      "sourceKey": "Installing a Warm Brass Pendant Light.png",
+      "destinationKey": "services/Installing a Warm Brass Pendant Light.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Warm%20Brass%20Pendant%20Light.webp"
+    },
+    {
+      "sourceKey": "Installing a Warm Brass Wall Sconce.png",
+      "destinationKey": "services/Installing a Warm Brass Wall Sconce.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Warm%20Brass%20Wall%20Sconce.webp"
+    },
+    {
+      "sourceKey": "Installing a Warmly Glowing Pillar Lantern.png",
+      "destinationKey": "services/Installing a Warmly Glowing Pillar Lantern.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Warmly%20Glowing%20Pillar%20Lantern.webp"
+    },
+    {
+      "sourceKey": "Installing a Water Filter Beside the Washing Machine.png",
+      "destinationKey": "services/Installing a Water Filter Beside the Washing Machine.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Water%20Filter%20Beside%20the%20Washing%20Machine.webp"
+    },
+    {
+      "sourceKey": "Installing a White P-Trap Under the Sink.png",
+      "destinationKey": "services/Installing a White P-Trap Under the Sink.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20White%20P-Trap%20Under%20the%20Sink.webp"
+    },
+    {
+      "sourceKey": "Installing a White Pedestal Sink.png",
+      "destinationKey": "services/Installing a White Pedestal Sink.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20White%20Pedestal%20Sink.webp"
+    },
+    {
+      "sourceKey": "Installing a Window Mosquito Net.png",
+      "destinationKey": "services/Installing a Window Mosquito Net.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Window%20Mosquito%20Net.webp"
+    },
+    {
+      "sourceKey": "Installing a Window Screen in a Bright Home.png",
+      "destinationKey": "services/Installing a Window Screen in a Bright Home.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Window%20Screen%20in%20a%20Bright%20Home.webp"
+    },
+    {
+      "sourceKey": "Installing a Wooden Cabinet Shelf.png",
+      "destinationKey": "services/Installing a Wooden Cabinet Shelf.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Wooden%20Cabinet%20Shelf.webp"
+    },
+    {
+      "sourceKey": "Installing a Wooden Corner Shelf.png",
+      "destinationKey": "services/Installing a Wooden Corner Shelf.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20a%20Wooden%20Corner%20Shelf.webp"
+    },
+    {
+      "sourceKey": "Installing an RO Water Connection.png",
+      "destinationKey": "services/Installing an RO Water Connection.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20an%20RO%20Water%20Connection.webp"
+    },
+    {
+      "sourceKey": "Installing Hot and Cold Water Heater Hoses.png",
+      "destinationKey": "services/Installing Hot and Cold Water Heater Hoses.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20Hot%20and%20Cold%20Water%20Heater%20Hoses.webp"
+    },
+    {
+      "sourceKey": "Installing Warm Fairy Lights.png",
+      "destinationKey": "services/Installing Warm Fairy Lights.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20Warm%20Fairy%20Lights.webp"
+    },
+    {
+      "sourceKey": "Installing Window Screen Mesh.png",
+      "destinationKey": "services/Installing Window Screen Mesh.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Installing%20Window%20Screen%20Mesh.webp"
+    },
+    {
+      "sourceKey": "inverter.png",
+      "destinationKey": "services/inverter.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/inverter.webp"
+    },
+    {
+      "sourceKey": "invertor checkup.jpeg",
+      "destinationKey": "services/invertor checkup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/invertor%20checkup.webp"
+    },
+    {
+      "sourceKey": "invertor fuse.jpeg",
+      "destinationKey": "services/invertor fuse.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/invertor%20fuse.webp"
+    },
+    {
+      "sourceKey": "invertor uninstall.jpeg",
+      "destinationKey": "services/invertor uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/invertor%20uninstall.webp"
+    },
+    {
+      "sourceKey": "ip cam installl.png",
+      "destinationKey": "services/ip cam installl.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/ip%20cam%20installl.webp"
+    },
+    {
+      "sourceKey": "laptop and electrnois.png",
+      "destinationKey": "services/laptop and electrnois.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptop%20and%20electrnois.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/home elctrnois.png",
+      "destinationKey": "services/laptops&electronis/home elctrnois.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/home%20elctrnois.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/home theater install.png",
+      "destinationKey": "services/laptops&electronis/home theater install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/home%20theater%20install.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop battery.png",
+      "destinationKey": "services/laptops&electronis/laptop battery.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop%20battery.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop charging issue.png",
+      "destinationKey": "services/laptops&electronis/laptop charging issue.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop%20charging%20issue.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop hinge repair.png",
+      "destinationKey": "services/laptops&electronis/laptop hinge repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop%20hinge%20repair.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop keyboard.png",
+      "destinationKey": "services/laptops&electronis/laptop keyboard.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop%20keyboard.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop motherboard.png",
+      "destinationKey": "services/laptops&electronis/laptop motherboard.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop%20motherboard.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop not turning on.png",
+      "destinationKey": "services/laptops&electronis/laptop not turning on.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop%20not%20turning%20on.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop overheating.png",
+      "destinationKey": "services/laptops&electronis/laptop overheating.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop%20overheating.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop screen replacement.png",
+      "destinationKey": "services/laptops&electronis/laptop screen replacement.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop%20screen%20replacement.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/laptop.png",
+      "destinationKey": "services/laptops&electronis/laptop.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/laptop.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/llaptop service.png",
+      "destinationKey": "services/laptops&electronis/llaptop service.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/llaptop%20service.webp"
+    },
+    {
+      "sourceKey": "laptops&electronis/Modern Laptop with Blue Swirl Display.png",
+      "destinationKey": "services/laptops&electronis/Modern Laptop with Blue Swirl Display.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/laptops%26electronis/Modern%20Laptop%20with%20Blue%20Swirl%20Display.webp"
+    },
+    {
+      "sourceKey": "Leaking PVC Elbow Joint.png",
+      "destinationKey": "services/Leaking PVC Elbow Joint.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Leaking%20PVC%20Elbow%20Joint.webp"
+    },
+    {
+      "sourceKey": "Leaking White PVC Elbow Joint.png",
+      "destinationKey": "services/Leaking White PVC Elbow Joint.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Leaking%20White%20PVC%20Elbow%20Joint.webp"
+    },
+    {
+      "sourceKey": "Leaking White PVC Pipe Elbow.png",
+      "destinationKey": "services/Leaking White PVC Pipe Elbow.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Leaking%20White%20PVC%20Pipe%20Elbow.webp"
+    },
+    {
+      "sourceKey": "Led bulb.png",
+      "destinationKey": "services/Led bulb.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Led%20bulb.webp"
+    },
+    {
+      "sourceKey": "Light Oak Panel Door with Silver Hardware.png",
+      "destinationKey": "services/Light Oak Panel Door with Silver Hardware.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Light%20Oak%20Panel%20Door%20with%20Silver%20Hardware.webp"
+    },
+    {
+      "sourceKey": "main boaded.png",
+      "destinationKey": "services/main boaded.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/main%20boaded.webp"
+    },
+    {
+      "sourceKey": "mcb&fuse.png",
+      "destinationKey": "services/mcb&fuse.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/mcb%26fuse.webp"
+    },
+    {
+      "sourceKey": "mesh_grill.jpeg",
+      "destinationKey": "services/mesh_grill.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/mesh_grill.webp"
+    },
+    {
+      "sourceKey": "Minimalist Shelf Vignette with Abstract Art.png",
+      "destinationKey": "services/Minimalist Shelf Vignette with Abstract Art.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Minimalist%20Shelf%20Vignette%20with%20Abstract%20Art.webp"
+    },
+    {
+      "sourceKey": "mobile setup.png",
+      "destinationKey": "services/mobile setup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/mobile%20setup.webp"
+    },
+    {
+      "sourceKey": "Modern Art Installation in a Minimalist Living Room.png",
+      "destinationKey": "services/Modern Art Installation in a Minimalist Living Room.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Modern%20Art%20Installation%20in%20a%20Minimalist%20Living%20Room.webp"
+    },
+    {
+      "sourceKey": "Modern Black Glass Range Hood.png",
+      "destinationKey": "services/Modern Black Glass Range Hood.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Modern%20Black%20Glass%20Range%20Hood.webp"
+    },
+    {
+      "sourceKey": "Modern Kitchen Tile Grouting.png",
+      "destinationKey": "services/Modern Kitchen Tile Grouting.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Modern%20Kitchen%20Tile%20Grouting.webp"
+    },
+    {
+      "sourceKey": "Mosquito Net Window Installation.png",
+      "destinationKey": "services/Mosquito Net Window Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Mosquito%20Net%20Window%20Installation.webp"
+    },
+    {
+      "sourceKey": "Motion Cleaning Icon.png",
+      "destinationKey": "services/Motion Cleaning Icon.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Motion%20Cleaning%20Icon.webp"
+    },
+    {
+      "sourceKey": "Mounting a Gold-Framed Mirror.png",
+      "destinationKey": "services/Mounting a Gold-Framed Mirror.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Mounting%20a%20Gold-Framed%20Mirror.webp"
+    },
+    {
+      "sourceKey": "mutliple cc cam install.png",
+      "destinationKey": "services/mutliple cc cam install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/mutliple%20cc%20cam%20install.webp"
+    },
+    {
+      "sourceKey": "New switchboard installation.png",
+      "destinationKey": "services/New switchboard installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/New%20switchboard%20installation.webp"
+    },
+    {
+      "sourceKey": "On-the-Go Handyman Service Icon.png",
+      "destinationKey": "services/On-the-Go Handyman Service Icon.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/On-the-Go%20Handyman%20Service%20Icon.webp"
+    },
+    {
+      "sourceKey": "outdoor cc install.png",
+      "destinationKey": "services/outdoor cc install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/outdoor%20cc%20install.webp"
+    },
+    {
+      "sourceKey": "Outdoor PVC Pipe Leak Repair.png",
+      "destinationKey": "services/Outdoor PVC Pipe Leak Repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Outdoor%20PVC%20Pipe%20Leak%20Repair.webp"
+    },
+    {
+      "sourceKey": "painting_head.jpeg",
+      "destinationKey": "services/painting_head.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/painting_head.webp"
+    },
+    {
+      "sourceKey": "painting_head2.png",
+      "destinationKey": "services/painting_head2.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/painting_head2.webp"
+    },
+    {
+      "sourceKey": "paintings/painting 1bhk.png",
+      "destinationKey": "services/paintings/painting 1bhk.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%201bhk.webp"
+    },
+    {
+      "sourceKey": "paintings/painting 2bhk.png",
+      "destinationKey": "services/paintings/painting 2bhk.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%202bhk.webp"
+    },
+    {
+      "sourceKey": "paintings/painting 3bhk.png",
+      "destinationKey": "services/paintings/painting 3bhk.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%203bhk.webp"
+    },
+    {
+      "sourceKey": "paintings/painting 4bhk.png",
+      "destinationKey": "services/paintings/painting 4bhk.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%204bhk.webp"
+    },
+    {
+      "sourceKey": "paintings/painting balcony.png",
+      "destinationKey": "services/paintings/painting balcony.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20balcony.webp"
+    },
+    {
+      "sourceKey": "paintings/painting bathroom waterproof.png",
+      "destinationKey": "services/paintings/painting bathroom waterproof.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20bathroom%20waterproof.webp"
+    },
+    {
+      "sourceKey": "paintings/painting doors and windows.png",
+      "destinationKey": "services/paintings/painting doors and windows.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20doors%20and%20windows.webp"
+    },
+    {
+      "sourceKey": "paintings/painting double rooms.png",
+      "destinationKey": "services/paintings/painting double rooms.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20double%20rooms.webp"
+    },
+    {
+      "sourceKey": "paintings/painting exterior.png",
+      "destinationKey": "services/paintings/painting exterior.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20exterior.webp"
+    },
+    {
+      "sourceKey": "paintings/painting gril.png",
+      "destinationKey": "services/paintings/painting gril.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20gril.webp"
+    },
+    {
+      "sourceKey": "paintings/Painting interior.png",
+      "destinationKey": "services/paintings/Painting interior.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/Painting%20interior.webp"
+    },
+    {
+      "sourceKey": "paintings/painting rental 2bhk.png",
+      "destinationKey": "services/paintings/painting rental 2bhk.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20rental%202bhk.webp"
+    },
+    {
+      "sourceKey": "paintings/painting rental 4bhk.png",
+      "destinationKey": "services/paintings/painting rental 4bhk.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20rental%204bhk.webp"
+    },
+    {
+      "sourceKey": "paintings/painting rental.png",
+      "destinationKey": "services/paintings/painting rental.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20rental.webp"
+    },
+    {
+      "sourceKey": "paintings/painting single room (1).png",
+      "destinationKey": "services/paintings/painting single room (1).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20single%20room%20(1).webp"
+    },
+    {
+      "sourceKey": "paintings/painting single room.png",
+      "destinationKey": "services/paintings/painting single room.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20single%20room.webp"
+    },
+    {
+      "sourceKey": "paintings/painting terrace waterproof.png",
+      "destinationKey": "services/paintings/painting terrace waterproof.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20terrace%20waterproof.webp"
+    },
+    {
+      "sourceKey": "paintings/painting terrace.png",
+      "destinationKey": "services/paintings/painting terrace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20terrace.webp"
+    },
+    {
+      "sourceKey": "paintings/painting wall waterproof.png",
+      "destinationKey": "services/paintings/painting wall waterproof.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20wall%20waterproof.webp"
+    },
+    {
+      "sourceKey": "paintings/painting wall.png",
+      "destinationKey": "services/paintings/painting wall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20wall.webp"
+    },
+    {
+      "sourceKey": "paintings/painting waterproof.png",
+      "destinationKey": "services/paintings/painting waterproof.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/painting%20waterproof.webp"
+    },
+    {
+      "sourceKey": "paintings/paiting rentakl 1bhk (1).png",
+      "destinationKey": "services/paintings/paiting rentakl 1bhk (1).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/paiting%20rentakl%201bhk%20(1).webp"
+    },
+    {
+      "sourceKey": "paintings/paiting rentakl 1bhk.png",
+      "destinationKey": "services/paintings/paiting rentakl 1bhk.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/paintings/paiting%20rentakl%201bhk.webp"
+    },
+    {
+      "sourceKey": "Plumber Adjusting Chrome Bathtub Faucet.png",
+      "destinationKey": "services/Plumber Adjusting Chrome Bathtub Faucet.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Adjusting%20Chrome%20Bathtub%20Faucet.webp"
+    },
+    {
+      "sourceKey": "Plumber Adjusting Toilet Tank.png",
+      "destinationKey": "services/Plumber Adjusting Toilet Tank.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Adjusting%20Toilet%20Tank.webp"
+    },
+    {
+      "sourceKey": "Plumber Clearing a Swirling Sink Drain.png",
+      "destinationKey": "services/Plumber Clearing a Swirling Sink Drain.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Clearing%20a%20Swirling%20Sink%20Drain.webp"
+    },
+    {
+      "sourceKey": "plumber head.jpeg",
+      "destinationKey": "services/plumber head.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/plumber%20head.webp"
+    },
+    {
+      "sourceKey": "Plumber Installing a Chrome Faucet.png",
+      "destinationKey": "services/Plumber Installing a Chrome Faucet.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Installing%20a%20Chrome%20Faucet.webp"
+    },
+    {
+      "sourceKey": "Plumber Installing a Squat Toilet Pan.png",
+      "destinationKey": "services/Plumber Installing a Squat Toilet Pan.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Installing%20a%20Squat%20Toilet%20Pan.webp"
+    },
+    {
+      "sourceKey": "Plumber Installing Chrome Faucet Accessories.png",
+      "destinationKey": "services/Plumber Installing Chrome Faucet Accessories.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Installing%20Chrome%20Faucet%20Accessories.webp"
+    },
+    {
+      "sourceKey": "Plumber Installing Chrome Rain Showerhead.png",
+      "destinationKey": "services/Plumber Installing Chrome Rain Showerhead.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Installing%20Chrome%20Rain%20Showerhead.webp"
+    },
+    {
+      "sourceKey": "Plumber Installing Chrome Shower Mixer.png",
+      "destinationKey": "services/Plumber Installing Chrome Shower Mixer.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Installing%20Chrome%20Shower%20Mixer.webp"
+    },
+    {
+      "sourceKey": "Plumber Installing Handheld Shower Fixture.png",
+      "destinationKey": "services/Plumber Installing Handheld Shower Fixture.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Installing%20Handheld%20Shower%20Fixture.webp"
+    },
+    {
+      "sourceKey": "Plumber Installing Modern Wall-Mounted Sink.png",
+      "destinationKey": "services/Plumber Installing Modern Wall-Mounted Sink.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Installing%20Modern%20Wall-Mounted%20Sink.webp"
+    },
+    {
+      "sourceKey": "Plumber Installing Stainless Steel Drain Cover.png",
+      "destinationKey": "services/Plumber Installing Stainless Steel Drain Cover.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Installing%20Stainless%20Steel%20Drain%20Cover.webp"
+    },
+    {
+      "sourceKey": "Plumber Repairing a Pedestal Sink.png",
+      "destinationKey": "services/Plumber Repairing a Pedestal Sink.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Repairing%20a%20Pedestal%20Sink.webp"
+    },
+    {
+      "sourceKey": "Plumber Repairing a Squat Toilet.png",
+      "destinationKey": "services/Plumber Repairing a Squat Toilet.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Repairing%20a%20Squat%20Toilet.webp"
+    },
+    {
+      "sourceKey": "Plumber Repairing Chrome Bathroom Faucet.png",
+      "destinationKey": "services/Plumber Repairing Chrome Bathroom Faucet.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Repairing%20Chrome%20Bathroom%20Faucet.webp"
+    },
+    {
+      "sourceKey": "Plumber Repairing Chrome Bidet Sprayer.png",
+      "destinationKey": "services/Plumber Repairing Chrome Bidet Sprayer.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Repairing%20Chrome%20Bidet%20Sprayer.webp"
+    },
+    {
+      "sourceKey": "Plumber Repairing Leaking Sink Trap.png",
+      "destinationKey": "services/Plumber Repairing Leaking Sink Trap.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Repairing%20Leaking%20Sink%20Trap.webp"
+    },
+    {
+      "sourceKey": "Plumber Repairing Toilet Cistern Mechanism.png",
+      "destinationKey": "services/Plumber Repairing Toilet Cistern Mechanism.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Repairing%20Toilet%20Cistern%20Mechanism.webp"
+    },
+    {
+      "sourceKey": "Plumber Servicing Concealed Flush Cistern.png",
+      "destinationKey": "services/Plumber Servicing Concealed Flush Cistern.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Servicing%20Concealed%20Flush%20Cistern.webp"
+    },
+    {
+      "sourceKey": "Plumber Tightening a Toilet Seat Hinge.png",
+      "destinationKey": "services/Plumber Tightening a Toilet Seat Hinge.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Tightening%20a%20Toilet%20Seat%20Hinge.webp"
+    },
+    {
+      "sourceKey": "Plumber Unclogging Kitchen Sink Drain.png",
+      "destinationKey": "services/Plumber Unclogging Kitchen Sink Drain.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Plumber%20Unclogging%20Kitchen%20Sink%20Drain.webp"
+    },
+    {
+      "sourceKey": "Precision Sink Drain Installation.png",
+      "destinationKey": "services/Precision Sink Drain Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Precision%20Sink%20Drain%20Installation.webp"
+    },
+    {
+      "sourceKey": "printer/Black All-in-One Printer Printing Photo.png",
+      "destinationKey": "services/printer/Black All-in-One Printer Printing Photo.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Black%20All-in-One%20Printer%20Printing%20Photo.webp"
+    },
+    {
+      "sourceKey": "printer/Black Multifunction Printer Printing Landscape Photo.png",
+      "destinationKey": "services/printer/Black Multifunction Printer Printing Landscape Photo.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Black%20Multifunction%20Printer%20Printing%20Landscape%20Photo.webp"
+    },
+    {
+      "sourceKey": "printer/Black Printer Printing a Vibrant Landscape.png",
+      "destinationKey": "services/printer/Black Printer Printing a Vibrant Landscape.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Black%20Printer%20Printing%20a%20Vibrant%20Landscape.webp"
+    },
+    {
+      "sourceKey": "printer/Compact Black Printer Printing a Photo.png",
+      "destinationKey": "services/printer/Compact Black Printer Printing a Photo.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Compact%20Black%20Printer%20Printing%20a%20Photo.webp"
+    },
+    {
+      "sourceKey": "printer/final_printer.png",
+      "destinationKey": "services/printer/final_printer.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/final_printer.webp"
+    },
+    {
+      "sourceKey": "printer/Printer Connectivity Troubleshooting setup - Copy.png",
+      "destinationKey": "services/printer/Printer Connectivity Troubleshooting setup - Copy.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Printer%20Connectivity%20Troubleshooting%20setup%20-%20Copy.webp"
+    },
+    {
+      "sourceKey": "printer/Printer Connectivity Troubleshooting setup.png",
+      "destinationKey": "services/printer/Printer Connectivity Troubleshooting setup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Printer%20Connectivity%20Troubleshooting%20setup.webp"
+    },
+    {
+      "sourceKey": "printer/Printer Driver Installation Workspace.png",
+      "destinationKey": "services/printer/Printer Driver Installation Workspace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Printer%20Driver%20Installation%20Workspace.webp"
+    },
+    {
+      "sourceKey": "printer/Printer Installation Success.png",
+      "destinationKey": "services/printer/Printer Installation Success.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Printer%20Installation%20Success.webp"
+    },
+    {
+      "sourceKey": "printer/Printer Repair in Progress.png",
+      "destinationKey": "services/printer/Printer Repair in Progress.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Printer%20Repair%20in%20Progress.webp"
+    },
+    {
+      "sourceKey": "printer/Printer-wifi-setup.png",
+      "destinationKey": "services/printer/Printer-wifi-setup.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Printer-wifi-setup.webp"
+    },
+    {
+      "sourceKey": "printer/Replacing Printer Ink in a Modern Workspace - Copy.png",
+      "destinationKey": "services/printer/Replacing Printer Ink in a Modern Workspace - Copy.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/printer/Replacing%20Printer%20Ink%20in%20a%20Modern%20Workspace%20-%20Copy.webp"
+    },
+    {
+      "sourceKey": "Professional Drain Cleaning in Action.png",
+      "destinationKey": "services/Professional Drain Cleaning in Action.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Professional%20Drain%20Cleaning%20in%20Action.webp"
+    },
+    {
+      "sourceKey": "Professional Tile Grouting Work.png",
+      "destinationKey": "services/Professional Tile Grouting Work.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Professional%20Tile%20Grouting%20Work.webp"
+    },
+    {
+      "sourceKey": "Professional Toilet Installation.png",
+      "destinationKey": "services/Professional Toilet Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Professional%20Toilet%20Installation.webp"
+    },
+    {
+      "sourceKey": "Professional Toilet Repair in Modern Bathroom.png",
+      "destinationKey": "services/Professional Toilet Repair in Modern Bathroom.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Professional%20Toilet%20Repair%20in%20Modern%20Bathroom.webp"
+    },
+    {
+      "sourceKey": "Professional Toilet Repair Service.png",
+      "destinationKey": "services/Professional Toilet Repair Service.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Professional%20Toilet%20Repair%20Service.webp"
+    },
+    {
+      "sourceKey": "Professional Toilet Unclogging Service.png",
+      "destinationKey": "services/Professional Toilet Unclogging Service.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Professional%20Toilet%20Unclogging%20Service.webp"
+    },
+    {
+      "sourceKey": "Professional Wall-Mounted Toilet Installation.png",
+      "destinationKey": "services/Professional Wall-Mounted Toilet Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Professional%20Wall-Mounted%20Toilet%20Installation.webp"
+    },
+    {
+      "sourceKey": "Refrigerator Leak Inspection in Kitchen.png",
+      "destinationKey": "services/Refrigerator Leak Inspection in Kitchen.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Leak%20Inspection%20in%20Kitchen.webp"
+    },
+    {
+      "sourceKey": "Refrigerator Leak Repair Inspection.png",
+      "destinationKey": "services/Refrigerator Leak Repair Inspection.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Leak%20Repair%20Inspection.webp"
+    },
+    {
+      "sourceKey": "Refrigerator Repair in the Kitchen-2.png",
+      "destinationKey": "services/Refrigerator Repair in the Kitchen-2.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Repair%20in%20the%20Kitchen-2.webp"
+    },
+    {
+      "sourceKey": "Refrigerator Repair in the Kitchen-3.png",
+      "destinationKey": "services/Refrigerator Repair in the Kitchen-3.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Repair%20in%20the%20Kitchen-3.webp"
+    },
+    {
+      "sourceKey": "Refrigerator Repair Technician at Work (1).png",
+      "destinationKey": "services/Refrigerator Repair Technician at Work (1).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Repair%20Technician%20at%20Work%20(1).webp"
+    },
+    {
+      "sourceKey": "Refrigerator Repair Technician at Work.png",
+      "destinationKey": "services/Refrigerator Repair Technician at Work.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Repair%20Technician%20at%20Work.webp"
+    },
+    {
+      "sourceKey": "Refrigerator Repair Temperature Check.png",
+      "destinationKey": "services/Refrigerator Repair Temperature Check.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Repair%20Temperature%20Check.webp"
+    },
+    {
+      "sourceKey": "Refrigerator Seal Inspection in Kitchen.png",
+      "destinationKey": "services/Refrigerator Seal Inspection in Kitchen.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Seal%20Inspection%20in%20Kitchen.webp"
+    },
+    {
+      "sourceKey": "Refrigerator Technician at Work.png",
+      "destinationKey": "services/Refrigerator Technician at Work.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Refrigerator%20Technician%20at%20Work.webp"
+    },
+    {
+      "sourceKey": "Removing Fairy Lights from Wall Clips.png",
+      "destinationKey": "services/Removing Fairy Lights from Wall Clips.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Removing%20Fairy%20Lights%20from%20Wall%20Clips.webp"
+    },
+    {
+      "sourceKey": "Replacing a Ceiling Tube Light.png",
+      "destinationKey": "services/Replacing a Ceiling Tube Light.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Replacing%20a%20Ceiling%20Tube%20Light.webp"
+    },
+    {
+      "sourceKey": "Rooftop Tank Cleaning in Blue.png",
+      "destinationKey": "services/Rooftop Tank Cleaning in Blue.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Rooftop%20Tank%20Cleaning%20in%20Blue.webp"
+    },
+    {
+      "sourceKey": "Rooftop Water Tank Cleaning Service.png",
+      "destinationKey": "services/Rooftop Water Tank Cleaning Service.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Rooftop%20Water%20Tank%20Cleaning%20Service.webp"
+    },
+    {
+      "sourceKey": "Rooftop Water Tank Installation and Maintenance.png",
+      "destinationKey": "services/Rooftop Water Tank Installation and Maintenance.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Rooftop%20Water%20Tank%20Installation%20and%20Maintenance.webp"
+    },
+    {
+      "sourceKey": "Rooftop Water Tank Maintenance.png",
+      "destinationKey": "services/Rooftop Water Tank Maintenance.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Rooftop%20Water%20Tank%20Maintenance.webp"
+    },
+    {
+      "sourceKey": "Rooftop Water Tank Pipe Repair.png",
+      "destinationKey": "services/Rooftop Water Tank Pipe Repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Rooftop%20Water%20Tank%20Pipe%20Repair.webp"
+    },
+    {
+      "sourceKey": "Rooftop Water Tank Repair.png",
+      "destinationKey": "services/Rooftop Water Tank Repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Rooftop%20Water%20Tank%20Repair.webp"
+    },
+    {
+      "sourceKey": "Round_knob.jpeg",
+      "destinationKey": "services/Round_knob.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Round_knob.webp"
+    },
+    {
+      "sourceKey": "samona-graphics.jpeg",
+      "destinationKey": "services/samona-graphics.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/samona-graphics.webp"
+    },
+    {
+      "sourceKey": "Satin Steel Door Handle on Backplate.png",
+      "destinationKey": "services/Satin Steel Door Handle on Backplate.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Satin%20Steel%20Door%20Handle%20on%20Backplate.webp"
+    },
+    {
+      "sourceKey": "Servicing a Blue Water Pump.png",
+      "destinationKey": "services/Servicing a Blue Water Pump.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Servicing%20a%20Blue%20Water%20Pump.webp"
+    },
+    {
+      "sourceKey": "Shower Diverter Repair in Progress.png",
+      "destinationKey": "services/Shower Diverter Repair in Progress.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Shower%20Diverter%20Repair%20in%20Progress.webp"
+    },
+    {
+      "sourceKey": "Showerhead Repair by a Skilled Technician.png",
+      "destinationKey": "services/Showerhead Repair by a Skilled Technician.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Showerhead%20Repair%20by%20a%20Skilled%20Technician.webp"
+    },
+    {
+      "sourceKey": "single battery.jpeg",
+      "destinationKey": "services/single battery.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/single%20battery.webp"
+    },
+    {
+      "sourceKey": "single mcb.png",
+      "destinationKey": "services/single mcb.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/single%20mcb.webp"
+    },
+    {
+      "sourceKey": "single service.jpeg",
+      "destinationKey": "services/single service.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/single%20service.webp"
+    },
+    {
+      "sourceKey": "single_wooden_door_installation.jpeg",
+      "destinationKey": "services/single_wooden_door_installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/single_wooden_door_installation.webp"
+    },
+    {
+      "sourceKey": "Sliding Wardrobe Door Repair.png",
+      "destinationKey": "services/Sliding Wardrobe Door Repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Sliding%20Wardrobe%20Door%20Repair.webp"
+    },
+    {
+      "sourceKey": "Sliding Wardrobe Roller Repair.png",
+      "destinationKey": "services/Sliding Wardrobe Roller Repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Sliding%20Wardrobe%20Roller%20Repair.webp"
+    },
+    {
+      "sourceKey": "sliding_door.jpeg",
+      "destinationKey": "services/sliding_door.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/sliding_door.webp"
+    },
+    {
+      "sourceKey": "slidingdoor_repair.jpeg",
+      "destinationKey": "services/slidingdoor_repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/slidingdoor_repair.webp"
+    },
+    {
+      "sourceKey": "smart fan install.jpeg",
+      "destinationKey": "services/smart fan install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/smart%20fan%20install.webp"
+    },
+    {
+      "sourceKey": "smart fan repair.png",
+      "destinationKey": "services/smart fan repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/smart%20fan%20repair.webp"
+    },
+    {
+      "sourceKey": "smart fan uninstall.png",
+      "destinationKey": "services/smart fan uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/smart%20fan%20uninstall.webp"
+    },
+    {
+      "sourceKey": "Smiling Young Man in Blue Shirt.png",
+      "destinationKey": "services/Smiling Young Man in Blue Shirt.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Smiling%20Young%20Man%20in%20Blue%20Shirt.webp"
+    },
+    {
+      "sourceKey": "Smoothing a Seam on Marble Countertop.png",
+      "destinationKey": "services/Smoothing a Seam on Marble Countertop.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Smoothing%20a%20Seam%20on%20Marble%20Countertop.webp"
+    },
+    {
+      "sourceKey": "Socket installation(power).png",
+      "destinationKey": "services/Socket installation(power).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Socket%20installation(power).webp"
+    },
+    {
+      "sourceKey": "Socket installation(regular).png",
+      "destinationKey": "services/Socket installation(regular).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Socket%20installation(regular).webp"
+    },
+    {
+      "sourceKey": "Socket replace(power).png",
+      "destinationKey": "services/Socket replace(power).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Socket%20replace(power).webp"
+    },
+    {
+      "sourceKey": "Socket replace(regular).png",
+      "destinationKey": "services/Socket replace(regular).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Socket%20replace(regular).webp"
+    },
+    {
+      "sourceKey": "socket.png",
+      "destinationKey": "services/socket.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/socket.webp"
+    },
+    {
+      "sourceKey": "South Asian Technician Repairing Refrigerator.png",
+      "destinationKey": "services/South Asian Technician Repairing Refrigerator.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/South%20Asian%20Technician%20Repairing%20Refrigerator.webp"
+    },
+    {
+      "sourceKey": "stabilizer install.png",
+      "destinationKey": "services/stabilizer install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/stabilizer%20install.webp"
+    },
+    {
+      "sourceKey": "stabilizer repair.jpeg",
+      "destinationKey": "services/stabilizer repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/stabilizer%20repair.webp"
+    },
+    {
+      "sourceKey": "stabilizer uninstall.png",
+      "destinationKey": "services/stabilizer uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/stabilizer%20uninstall.webp"
+    },
+    {
+      "sourceKey": "stabilizer.png",
+      "destinationKey": "services/stabilizer.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/stabilizer.webp"
+    },
+    {
+      "sourceKey": "Switch installation(power).png",
+      "destinationKey": "services/Switch installation(power).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Switch%20installation(power).webp"
+    },
+    {
+      "sourceKey": "Switch installation(Regular).png",
+      "destinationKey": "services/Switch installation(Regular).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Switch%20installation(Regular).webp"
+    },
+    {
+      "sourceKey": "Switch replace(Power).png",
+      "destinationKey": "services/Switch replace(Power).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Switch%20replace(Power).webp"
+    },
+    {
+      "sourceKey": "Switch replace(Regular).png",
+      "destinationKey": "services/Switch replace(Regular).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Switch%20replace(Regular).webp"
+    },
+    {
+      "sourceKey": "switches&sockets.png",
+      "destinationKey": "services/switches&sockets.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/switches%26sockets.webp"
+    },
+    {
+      "sourceKey": "Tall Oak Cabinet Hinge Installation.png",
+      "destinationKey": "services/Tall Oak Cabinet Hinge Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Tall%20Oak%20Cabinet%20Hinge%20Installation.webp"
+    },
+    {
+      "sourceKey": "Technician Adjusting Blue Water Pump.png",
+      "destinationKey": "services/Technician Adjusting Blue Water Pump.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Technician%20Adjusting%20Blue%20Water%20Pump.webp"
+    },
+    {
+      "sourceKey": "Technician Adjusting Warm Gold Wall Sconce.png",
+      "destinationKey": "services/Technician Adjusting Warm Gold Wall Sconce.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Technician%20Adjusting%20Warm%20Gold%20Wall%20Sconce.webp"
+    },
+    {
+      "sourceKey": "Technician Measuring an Open Refrigerator.png",
+      "destinationKey": "services/Technician Measuring an Open Refrigerator.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Technician%20Measuring%20an%20Open%20Refrigerator.webp"
+    },
+    {
+      "sourceKey": "Technician Repairing Swan-Style Faucet.png",
+      "destinationKey": "services/Technician Repairing Swan-Style Faucet.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Technician%20Repairing%20Swan-Style%20Faucet.webp"
+    },
+    {
+      "sourceKey": "Technician Setting Up CCTV Remote Viewing.png",
+      "destinationKey": "services/Technician Setting Up CCTV Remote Viewing.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Technician%20Setting%20Up%20CCTV%20Remote%20Viewing.webp"
+    },
+    {
+      "sourceKey": "technician_portrait_small.png",
+      "destinationKey": "services/technician_portrait_small.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/technician_portrait_small.webp"
+    },
+    {
+      "sourceKey": "Toilet Cistern Flush Mechanism Repair.png",
+      "destinationKey": "services/Toilet Cistern Flush Mechanism Repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Toilet%20Cistern%20Flush%20Mechanism%20Repair.webp"
+    },
+    {
+      "sourceKey": "Tower_bolt.jpeg",
+      "destinationKey": "services/Tower_bolt.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Tower_bolt.webp"
+    },
+    {
+      "sourceKey": "triple mcb (1).png",
+      "destinationKey": "services/triple mcb (1).webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/triple%20mcb%20(1).webp"
+    },
+    {
+      "sourceKey": "triple mcb.png",
+      "destinationKey": "services/triple mcb.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/triple%20mcb.webp"
+    },
+    {
+      "sourceKey": "tube_light.png",
+      "destinationKey": "services/tube_light.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/tube_light.webp"
+    },
+    {
+      "sourceKey": "ventilationfan_install.png",
+      "destinationKey": "services/ventilationfan_install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/ventilationfan_install.webp"
+    },
+    {
+      "sourceKey": "Ventilationfan_repair.png",
+      "destinationKey": "services/Ventilationfan_repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Ventilationfan_repair.webp"
+    },
+    {
+      "sourceKey": "ventilationfan_uninstall.png",
+      "destinationKey": "services/ventilationfan_uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/ventilationfan_uninstall.webp"
+    },
+    {
+      "sourceKey": "video-door-1.jpeg",
+      "destinationKey": "services/video-door-1.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/video-door-1.webp"
+    },
+    {
+      "sourceKey": "video-door-2.jpeg",
+      "destinationKey": "services/video-door-2.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/video-door-2.webp"
+    },
+    {
+      "sourceKey": "video-door-3.jpeg",
+      "destinationKey": "services/video-door-3.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/video-door-3.webp"
+    },
+    {
+      "sourceKey": "video-door-4.jpeg",
+      "destinationKey": "services/video-door-4.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/video-door-4.webp"
+    },
+    {
+      "sourceKey": "video-door-5.jpeg",
+      "destinationKey": "services/video-door-5.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/video-door-5.webp"
+    },
+    {
+      "sourceKey": "video-door-6.jpeg",
+      "destinationKey": "services/video-door-6.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/video-door-6.webp"
+    },
+    {
+      "sourceKey": "wall_fan_repair.png",
+      "destinationKey": "services/wall_fan_repair.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wall_fan_repair.webp"
+    },
+    {
+      "sourceKey": "wall_lights.png",
+      "destinationKey": "services/wall_lights.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wall_lights.webp"
+    },
+    {
+      "sourceKey": "Wall-Mounted AC Showing.png",
+      "destinationKey": "services/Wall-Mounted AC Showing.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Wall-Mounted%20AC%20Showing.webp"
+    },
+    {
+      "sourceKey": "wallfan_install.png",
+      "destinationKey": "services/wallfan_install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wallfan_install.webp"
+    },
+    {
+      "sourceKey": "wallfan_uninstall.png",
+      "destinationKey": "services/wallfan_uninstall.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wallfan_uninstall.webp"
+    },
+    {
+      "sourceKey": "Warm LED Mirror Installation.png",
+      "destinationKey": "services/Warm LED Mirror Installation.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Warm%20LED%20Mirror%20Installation.webp"
+    },
+    {
+      "sourceKey": "Water Meter Installation in Blue Uniform.png",
+      "destinationKey": "services/Water Meter Installation in Blue Uniform.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Water%20Meter%20Installation%20in%20Blue%20Uniform.webp"
+    },
+    {
+      "sourceKey": "water tank bell.png",
+      "destinationKey": "services/water tank bell.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/water%20tank%20bell.webp"
+    },
+    {
+      "sourceKey": "wifi cam install.png",
+      "destinationKey": "services/wifi cam install.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi%20cam%20install.webp"
+    },
+    {
+      "sourceKey": "wifi-networking/Matte Black Wi-Fi Router with Three Antennas.png",
+      "destinationKey": "services/wifi-networking/Matte Black Wi-Fi Router with Three Antennas.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi-networking/Matte%20Black%20Wi-Fi%20Router%20with%20Three%20Antennas.webp"
+    },
+    {
+      "sourceKey": "wifi-networking/Network Setup in Progress.png",
+      "destinationKey": "services/wifi-networking/Network Setup in Progress.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi-networking/Network%20Setup%20in%20Progress.webp"
+    },
+    {
+      "sourceKey": "wifi-networking/Technician Installing Ethernet Cable.png",
+      "destinationKey": "services/wifi-networking/Technician Installing Ethernet Cable.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi-networking/Technician%20Installing%20Ethernet%20Cable.webp"
+    },
+    {
+      "sourceKey": "wifi-networking/Technician Installing Wi-Fi Router.png",
+      "destinationKey": "services/wifi-networking/Technician Installing Wi-Fi Router.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi-networking/Technician%20Installing%20Wi-Fi%20Router.webp"
+    },
+    {
+      "sourceKey": "wifi-networking/Wi-Fi Router Repair Workspace.png",
+      "destinationKey": "services/wifi-networking/Wi-Fi Router Repair Workspace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi-networking/Wi-Fi%20Router%20Repair%20Workspace.webp"
+    },
+    {
+      "sourceKey": "wifi-networking/Wi-Fi Troubleshooting Workspace.png",
+      "destinationKey": "services/wifi-networking/Wi-Fi Troubleshooting Workspace.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi-networking/Wi-Fi%20Troubleshooting%20Workspace.webp"
+    },
+    {
+      "sourceKey": "wifi-networking/wifi-hero.png",
+      "destinationKey": "services/wifi-networking/wifi-hero.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi-networking/wifi-hero.webp"
+    },
+    {
+      "sourceKey": "wifi-networking/wifi-router.png",
+      "destinationKey": "services/wifi-networking/wifi-router.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wifi-networking/wifi-router.webp"
+    },
+    {
+      "sourceKey": "Window Lock Adjustment Close-Up.png",
+      "destinationKey": "services/Window Lock Adjustment Close-Up.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Window%20Lock%20Adjustment%20Close-Up.webp"
+    },
+    {
+      "sourceKey": "window_hnge.jpeg",
+      "destinationKey": "services/window_hnge.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/window_hnge.webp"
+    },
+    {
+      "sourceKey": "wiring-hero.png",
+      "destinationKey": "services/wiring-hero.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wiring-hero.webp"
+    },
+    {
+      "sourceKey": "wiring01.jpeg",
+      "destinationKey": "services/wiring01.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wiring01.webp"
+    },
+    {
+      "sourceKey": "wiring02.jpeg",
+      "destinationKey": "services/wiring02.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wiring02.webp"
+    },
+    {
+      "sourceKey": "wiring03.jpeg",
+      "destinationKey": "services/wiring03.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wiring03.webp"
+    },
+    {
+      "sourceKey": "wodden+door_misaaliment.jpeg",
+      "destinationKey": "services/wodden+door_misaaliment.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wodden%2Bdoor_misaaliment.webp"
+    },
+    {
+      "sourceKey": "wooden_door_closing.jpeg",
+      "destinationKey": "services/wooden_door_closing.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/wooden_door_closing.webp"
+    },
+    {
+      "sourceKey": "woodendoor_sanding.jpeg",
+      "destinationKey": "services/woodendoor_sanding.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/woodendoor_sanding.webp"
+    },
+    {
+      "sourceKey": "Worker Cleaning Underground Water Tank.png",
+      "destinationKey": "services/Worker Cleaning Underground Water Tank.webp",
+      "publicUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/Worker%20Cleaning%20Underground%20Water%20Tank.webp"
+    }
+  ]
+}

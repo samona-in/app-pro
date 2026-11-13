@@ -64,6 +64,16 @@ export interface JobAlertRecipient {
   distanceKm?: number | null;
 }
 
+/** One work in a job alert's compact works list. */
+export interface JobAlertWork {
+  /** Display name — the skill's name, or its `customSkill` when "other". */
+  name: string;
+  /** Work units booked for this work (PER_UNIT); 1 otherwise. */
+  quantity: number;
+  /** Unit name — "hinge", "fan" (PER_UNIT only). */
+  unitLabel?: string | null;
+}
+
 /** The caller-supplied part of a job alert's content (no per-recipient state). */
 export type JobAlertInfoInput = {
   jobId: string;
@@ -71,7 +81,9 @@ export type JobAlertInfoInput = {
   serviceName: string;
   /**
    * The requested category within the service — the chosen skill's name, or
-   * the free-text `customSkill` when the "Other" skill was picked.
+   * the free-text `customSkill` when the "Other" skill was picked. For a
+   * multi-work (bulk) request this is already the compact summary
+   * ("Regular Tap Repair + 2 more works") built by `workSummaryLabel`.
    */
   serviceCategory: string;
   /** The free-text category when the skill is "other". */
@@ -88,6 +100,17 @@ export type JobAlertInfoInput = {
   unitLabel?: string | null;
   /** Booked duration in minutes (PER_HOUR only). */
   durationMinutes?: number | null;
+  /** How many distinct works the request carries. */
+  orderType?: string | null;
+  /** Number of distinct works in the request (1 for a single-work request). */
+  worksCount?: number | null;
+  /** Total units across every work in the request. */
+  totalQuantity?: number | null;
+  /**
+   * The request's works, compactly, for a multi-work alert's expanded view.
+   * Serialized to JSON in the FCM data; null for single-work requests.
+   */
+  works?: JobAlertWork[] | null;
   /** Display label of the work location (never the customer's name). */
   address: string | null;
   /** ISO instant the job stops being actionable. Null when the sweep will own it. */
@@ -281,6 +304,12 @@ function jobAlertData(info: JobAlertInfo, config: AppConfig): Record<string, unk
     quantity: info.quantity ?? null,
     unitLabel: info.unitLabel ?? null,
     durationMinutes: info.durationMinutes ?? null,
+    // Multi-work context. Additive keys: older native builds ignore them, the
+    // JS fallback reads them to badge and expand a bulk alert.
+    orderType: info.orderType ?? null,
+    worksCount: info.worksCount ?? null,
+    totalQuantity: info.totalQuantity ?? null,
+    works: info.works ? JSON.stringify(info.works) : null,
     expiresAt: info.expiresAt ?? new Date(Date.now() + config.jobExpireTtlMs).toISOString(),
   };
 }

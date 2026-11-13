@@ -26,6 +26,14 @@ function listRow(overrides: Record<string, unknown> = {}) {
     agreedPayPaise: 16_000,
     finalPayPaise: null,
     customSkill: null,
+    // A legacy (pre-bulk-orders) row: SINGLE, no stored item rows.
+    orderType: 'SINGLE',
+    items: [],
+    pricingModel: 'PER_BOOKING',
+    unitPricePaise: 15_000,
+    quantity: 1,
+    unitLabel: null,
+    durationMinutes: null,
     customer: {
       id: 'cust-1',
       displayName: 'Ravi',

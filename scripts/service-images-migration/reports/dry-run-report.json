@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-11-12T17:30:48.296Z",
+  "mode": "dry-run",
+  "source": {
+    "bucket": "services",
+    "prefix": null,
+    "objectCount": 385,
+    "totalBytes": 699946552
+  },
+  "destination": {
+    "bucket": "samona-staging-services-072842665972",
+    "region": "us-east-1",
+    "prefix": "services/",
+    "baseUrl": "https://samona-staging-services-072842665972.s3.us-east-1.amazonaws.com/services/"
+  },
+  "targetBytes": 51200,
+  "conflicts": [],
+  "skippedNonImages": [],
+  "samples": [
+    {
+      "sourceKey": "2 way switch installreplace.png",
+      "originalBytes": 2059302,
+      "optimizedBytes": 50222,
+      "quality": 65,
+      "width": 1280,
+      "height": 853,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "2-pin plug replacement.png",
+      "originalBytes": 2227352,
+      "optimizedBytes": 50080,
+      "quality": 72,
+      "width": 1280,
+      "height": 853,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "3-phase.png",
+      "originalBytes": 2193413,
+      "optimizedBytes": 46742,
+      "quality": 72,
+      "width": 1024,
+      "height": 683,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "3-pin plug replacement.png",
+      "originalBytes": 2213367,
+      "optimizedBytes": 50034,
+      "quality": 72,
+      "width": 1280,
+      "height": 853,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "AC and Applications/ac install.png",
+      "originalBytes": 2115592,
+      "optimizedBytes": 50314,
+      "quality": 65,
+      "width": 1280,
+      "height": 853,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "AC and Applications/ac repair.png",
+      "originalBytes": 2342528,
+      "optimizedBytes": 44710,
+      "quality": 72,
+      "width": 1024,
+      "height": 683,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "AC and Applications/ac service.png",
+      "originalBytes": 2305777,
+      "optimizedBytes": 48616,
+      "quality": 58,
+      "width": 1024,
+      "height": 683,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "AC and Applications/ac uninstall.png",
+      "originalBytes": 2151959,
+      "optimizedBytes": 49832,
+      "quality": 65,
+      "width": 1024,
+      "height": 683,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "AC and Applications/AC-applications.jpeg",
+      "originalBytes": 346997,
+      "optimizedBytes": 48746,
+      "quality": 80,
+      "width": 1024,
+      "height": 683,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "AC and Applications/chimney checkup.png",
+      "originalBytes": 2152274,
+      "optimizedBytes": 47788,
+      "quality": 58,
+      "width": 1024,
+      "height": 683,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "AC and Applications/chimney service2.png",
+      "originalBytes": 2498536,
+      "optimizedBytes": 48424,
+      "quality": 58,
+      "width": 800,
+      "height": 533,
+      "underTarget": true
+    },
+    {
+      "sourceKey": "AC and Applications/chimney uninstall.png",
+      "originalBytes": 2186055,
+      "optimizedBytes": 50156,
+      "quality": 58,
+      "width": 1024,
+      "height": 683,
+      "underTarget": true
+    }
+  ],
+  "summary": {
+    "total": 385,
+    "plannedUploads": 385,
+    "sampleCount": 12
+  }
+}

@@ -31,6 +31,33 @@ export const jobBaseSelect = {
   agreedPayPaise: true,
   finalPayPaise: true,
   customSkill: true,
+  orderType: true,
+  // Shared by every job from the same multi-service checkout; null for a
+  // single-service booking.
+  orderGroupId: true,
+  // Flat pricing snapshot, used only to derive a legacy row's single work.
+  pricingModel: true,
+  unitPricePaise: true,
+  quantity: true,
+  unitLabel: true,
+  durationMinutes: true,
+  // Every work in the request (bulk orders), in the order the customer added
+  // them. Legacy rows come back empty and the DTO derives the single work.
+  items: {
+    orderBy: { sortOrder: 'asc' as const },
+    select: {
+      id: true,
+      sortOrder: true,
+      customSkill: true,
+      pricingModel: true,
+      unitPricePaise: true,
+      quantity: true,
+      unitLabel: true,
+      durationMinutes: true,
+      subtotalPaise: true,
+      skill: { select: { id: true, name: true, slug: true } },
+    },
+  },
   customer: {
     select: {
       id: true,
@@ -72,6 +99,11 @@ export function toJobListDto(job: JobListRow) {
     agreedPayPaise: job.agreedPayPaise,
     finalPayPaise: job.finalPayPaise,
     customSkill: job.customSkill,
+    orderType: job.orderType,
+    orderGroupId: job.orderGroupId,
+    // Works of the request; legacy rows (no stored items) keep one derived
+    // entry so the ledger never shows an empty works list.
+    works: adminWorksOf(job),
     customer: {
       id: job.customer.id,
       displayName: customerDeleted ? null : customerName(job.customer),
@@ -87,6 +119,55 @@ export function toJobListDto(job: JobListRow) {
     service: job.service,
     skill: job.skill,
   };
+}
+
+/** One work of a request, as the admin ledger and live board render it. */
+type AdminWork = {
+  id: string;
+  sortOrder: number;
+  name: string;
+  slug: string;
+  customSkill: string | null;
+  pricingModel: string;
+  unitPricePaise: number;
+  quantity: number;
+  unitLabel: string | null;
+  durationMinutes: number | null;
+  subtotalPaise: number;
+};
+
+function adminWorksOf(job: JobListRow): AdminWork[] {
+  if (job.items.length > 0) {
+    return job.items.map((item) => ({
+      id: item.id,
+      sortOrder: item.sortOrder,
+      name: item.customSkill ?? item.skill.name,
+      slug: item.skill.slug,
+      customSkill: item.customSkill,
+      pricingModel: item.pricingModel,
+      unitPricePaise: item.unitPricePaise,
+      quantity: item.quantity,
+      unitLabel: item.unitLabel,
+      durationMinutes: item.durationMinutes,
+      subtotalPaise: item.subtotalPaise,
+    }));
+  }
+  // Legacy single-work row: derive the one work from the flat snapshot columns.
+  return [
+    {
+      id: job.id,
+      sortOrder: 0,
+      name: job.customSkill ?? job.skill.name,
+      slug: job.skill.slug,
+      customSkill: job.customSkill,
+      pricingModel: job.pricingModel,
+      unitPricePaise: job.unitPricePaise,
+      quantity: job.quantity,
+      unitLabel: job.unitLabel,
+      durationMinutes: job.durationMinutes,
+      subtotalPaise: job.basePayPaise,
+    },
+  ];
 }
 
 export function customerName(customer: {

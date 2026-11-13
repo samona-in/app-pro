@@ -55,6 +55,31 @@ export function createOrphanService(deps: OrphanServiceDeps) {
       if (!last || jobs.length < REFERENCE_PAGE_SIZE) break;
       cursor = last.id;
     }
+
+    // Saved carts reference photos before they become a booking. An ACTIVE or
+    // CONVERTED cart's photos must survive the sweep — only an ABANDONED cart
+    // releases them (its row is history, its bytes are not).
+    let draftCursor: string | undefined;
+    for (;;) {
+      const drafts = await deps.prisma.bookingDraft.findMany({
+        where: {
+          status: { in: ['ACTIVE', 'CONVERTED'] },
+          imagePaths: { isEmpty: false },
+        },
+        select: { id: true, imagePaths: true },
+        orderBy: { id: 'asc' },
+        take: REFERENCE_PAGE_SIZE,
+        ...(draftCursor ? { cursor: { id: draftCursor }, skip: 1 } : {}),
+      });
+      if (drafts.length === 0) break;
+      for (const draft of drafts) {
+        for (const path of draft.imagePaths) referenced.add(path);
+      }
+      const lastDraft = drafts[drafts.length - 1];
+      if (!lastDraft || drafts.length < REFERENCE_PAGE_SIZE) break;
+      draftCursor = lastDraft.id;
+    }
+
     return referenced;
   }
 

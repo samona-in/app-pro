@@ -17,6 +17,7 @@ import {
   FileText,
   Image,
   Activity,
+  ShoppingCart,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdmin } from '@/providers/admin-provider';
@@ -26,6 +27,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
   { icon: Activity, label: 'Live Operations', href: '/dashboard/live' },
   { icon: Calendar, label: 'Bookings', href: '/dashboard/bookings' },
+  { icon: ShoppingCart, label: 'Booking carts', href: '/dashboard/drafts' },
   { icon: Users, label: 'Customers', href: '/dashboard/customers' },
   { icon: Briefcase, label: 'Professionals', href: '/dashboard/professionals' },
   { icon: Settings, label: 'Services & Categories', href: '/dashboard/services' },

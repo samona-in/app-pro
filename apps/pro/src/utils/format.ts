@@ -84,6 +84,30 @@ export function formatJobQuantity(input: {
   return null;
 }
 
+/** The name a booked work reads as — its custom text when it is "Other". */
+export function formatWorkName(item: { customSkill?: string | null; skill: { name: string } }): string {
+  const custom = item.customSkill?.trim();
+  return custom ? custom : item.skill.name;
+}
+
+/**
+ * The works breakdown of a multi-work visit — "3 works · 6 items", or just
+ * "2 works" when every work is a single unit — for the second line under an
+ * amount. Returns `null` for a single work, whose quantity reads through
+ * `formatJobQuantity` instead, and when the works are unknown.
+ */
+export function formatWorksCount(
+  works: readonly { quantity?: number | null }[] | null | undefined,
+  t: TFunction,
+): string | null {
+  const list = works ?? [];
+  if (list.length < 2) return null;
+  const units = list.reduce((sum, work) => sum + (work.quantity || 1), 0);
+  return units > list.length
+    ? t('format.worksItems', { works: list.length, items: units })
+    : t('format.works', { count: list.length });
+}
+
 /** "hinge" → "hinges", "switch" → "switches", "battery" → "batteries". */
 function pluralizeUnit(label: string, count: number): string {
   if (count === 1) return label;

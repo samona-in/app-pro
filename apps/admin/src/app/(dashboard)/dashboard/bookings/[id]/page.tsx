@@ -20,13 +20,25 @@ import { api, errorMessage } from '@/lib/api';
 import {
   formatDateTime,
   formatPaise,
+  orderTypeBadgeClass,
+  orderTypeLabel,
   shortId,
   statusBadgeClass,
   statusLabel,
+  workQuantityLabel,
+  workSummaryLabel,
   type AdminJobDetail,
   type AdminJobDetailResponse,
   type AdminJobStatusActor,
+  type AdminJobWork,
 } from '@/lib/jobs';
+
+/** The per-unit note beside a work's subtotal, e.g. "₹30 each" or "₹250 / hr". */
+function workPriceNote(work: AdminJobWork): string | null {
+  if (work.pricingModel === 'PER_UNIT') return `${formatPaise(work.unitPricePaise)} each`;
+  if (work.pricingModel === 'PER_HOUR') return `${formatPaise(work.unitPricePaise)} / hr`;
+  return null;
+}
 
 /** Human label for the actor behind a status change (never a raw id). */
 function statusActorLabel(actor: AdminJobStatusActor): string {
@@ -144,9 +156,19 @@ function BookingDetail({ job }: { job: AdminJobDetail }) {
             >
               {statusLabel(job.status)}
             </span>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${orderTypeBadgeClass(job.orderType)}`}
+            >
+              {orderTypeLabel(job.orderType)}
+            </span>
+            {job.orderGroupId ? (
+              <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800">
+                Placed together · {shortId(job.orderGroupId)}
+              </span>
+            ) : null}
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            {job.service.name} · {job.customSkill || job.skill.name}
+            {job.service.name} · {workSummaryLabel(job.works)}
           </p>
         </div>
         <div className="text-right">
@@ -157,6 +179,37 @@ function BookingDetail({ job }: { job: AdminJobDetail }) {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Works in this booking</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {job.works.map((work) => {
+                const qualifier = workQuantityLabel(work);
+                const priceNote = workPriceNote(work);
+                const detail = [qualifier, priceNote].filter(Boolean).join(' · ');
+                return (
+                  <div
+                    key={work.id}
+                    className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3 last:border-0 last:pb-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{work.name}</p>
+                      <p className="text-xs text-gray-500">{detail || 'Fixed price'}</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-medium">
+                      {formatPaise(work.subtotalPaise)}
+                    </span>
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between pt-1 text-sm">
+                <span className="text-gray-500">Estimated total</span>
+                <span className="font-semibold">{formatPaise(job.basePayPaise)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Job details</CardTitle>

@@ -298,6 +298,7 @@ model CustomerProfile {
   jobs                Job[]
   campaignRecipients  NotificationCampaignRecipient[]
   savedAddresses      SavedAddress[]
+  bookingDrafts       BookingDraft[]
 
   @@index([onboardingStatus])
   @@map("customer_profiles")
@@ -341,17 +342,18 @@ model SavedAddress {
 
 /// The service catalogue a professional selects from (onboarding step 3).
 model Service {
-  id                  String                @id @default(uuid()) @db.Uuid
+  id            String             @id @default(uuid()) @db.Uuid
   /// Stable machine name, safe to reference from code and seeds.
-  slug                String                @unique
-  name                String
-  icon                String?
-  sortOrder           Int                   @default(0) @map("sort_order")
-  isActive            Boolean               @default(true) @map("is_active")
-  jobs                Job[]
-  pros                ProService[]
-  workGroups          ServiceWorkGroup[]
-  skills              Skill[]
+  slug          String             @unique
+  name          String
+  icon          String?
+  sortOrder     Int                @default(0) @map("sort_order")
+  isActive      Boolean            @default(true) @map("is_active")
+  jobs          Job[]
+  pros          ProService[]
+  workGroups    ServiceWorkGroup[]
+  skills        Skill[]
+  bookingDrafts BookingDraft[]
 
   @@map("services")
 }
@@ -367,43 +369,59 @@ enum PricingModel {
   PER_HOUR
 }
 
+/// How many distinct works a job request carries.
+///
+/// - SINGLE: one distinct work (any quantity of it) — every job before bulk
+///   orders, and still the common case.
+/// - BULK: two or more distinct works of the same service booked as one visit.
+///
+/// Derived server-side from the number of distinct works in the request; a
+/// client never asserts it. Kept on the row so every surface can badge a
+/// booking without loading its items.
+enum OrderType {
+  SINGLE
+  BULK
+}
+
 model Skill {
-  id                  String               @id @default(uuid()) @db.Uuid
-  serviceId           String               @map("service_id") @db.Uuid
+  id                  String             @id @default(uuid()) @db.Uuid
+  serviceId           String             @map("service_id") @db.Uuid
   slug                String
   name                String
-  sortOrder           Int                  @default(0) @map("sort_order")
-  isActive            Boolean              @default(true) @map("is_active")
+  sortOrder           Int                @default(0) @map("sort_order")
+  isActive            Boolean            @default(true) @map("is_active")
   /// The price for one booking/unit/hour, in paise. Its meaning is set by
   /// `pricingModel`. One column serves all three models — there is no second
   /// price field to keep in sync.
-  basePricePaise      Int?                 @map("base_price_paise")
+  basePricePaise      Int?               @map("base_price_paise")
   /// How this work is priced. Defaults to PER_BOOKING so every existing skill
   /// keeps today's behaviour (one fixed-price booking) until an admin opts it
   /// into quantity or hourly pricing.
-  pricingModel        PricingModel         @default(PER_BOOKING) @map("pricing_model")
+  pricingModel        PricingModel       @default(PER_BOOKING) @map("pricing_model")
   /// Human name of one unit, shown next to the price — "hinge", "fan",
   /// "switch". PER_UNIT only; null for the other models.
-  unitLabel           String?              @map("unit_label")
+  unitLabel           String?            @map("unit_label")
   /// Smallest quantity a customer may book. PER_UNIT only.
-  minQuantity         Int                  @default(1) @map("min_quantity")
+  minQuantity         Int                @default(1) @map("min_quantity")
   /// Largest quantity a customer may book. PER_UNIT only.
-  maxQuantity         Int                  @default(1) @map("max_quantity")
+  maxQuantity         Int                @default(1) @map("max_quantity")
   /// Shortest bookable duration, in minutes. PER_HOUR only.
-  minDurationMinutes  Int?                 @map("min_duration_minutes")
+  minDurationMinutes  Int?               @map("min_duration_minutes")
   /// Longest bookable duration, in minutes. PER_HOUR only.
-  maxDurationMinutes  Int?                 @map("max_duration_minutes")
+  maxDurationMinutes  Int?               @map("max_duration_minutes")
   /// Step between bookable durations, in minutes (e.g. 30 for half-hours).
-  durationStepMinutes Int?                 @map("duration_step_minutes")
+  durationStepMinutes Int?               @map("duration_step_minutes")
   /// Icon of the skill itself. Seeded from the parent service's icon, so a
   /// skill can be given an icon of its own later.
   icon                String?
-  groupId             String?              @map("group_id") @db.Uuid
+  groupId             String?            @map("group_id") @db.Uuid
+  jobItems            JobItem[]
   jobs                Job[]
+  bookingDraftItems   BookingDraftItem[]
   popularSkill        PopularSkill?
   pros                ProSkill[]
-  workGroup           ServiceWorkGroup?    @relation(fields: [groupId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  service             Service              @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  workGroup           ServiceWorkGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  service             Service            @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@unique([serviceId, slug])
   @@index([serviceId])
@@ -492,9 +510,21 @@ model Job {
   customerId            String                 @map("customer_id") @db.Uuid
   /// The ProProfile that accepted it; null until then.
   proId                 String?                @map("pro_id") @db.Uuid
+  /// Shared identifier for every job created by the same multi-service
+  /// checkout. Jobs stay fully independent (own pro, lifecycle, OTP, chat,
+  /// payment); this only groups them for the customer's "placed together"
+  /// summary. Null for single-service bookings and pre-existing rows.
+  orderGroupId          String?                @map("order_group_id") @db.Uuid
   serviceId             String                 @map("service_id") @db.Uuid
+  /// The first item's work (skill). On a BULK job this is the first of the
+  /// items in `job_items` (kept so legacy joins and single-work displays keep
+  /// working); every work is in `items`.
   skillId               String                 @map("skill_id") @db.Uuid
   status                JobStatus              @default(REQUESTED)
+  /// How many distinct works this request carries. SINGLE for one work (any
+  /// quantity), BULK for two or more works of the same service. Server-derived
+  /// from the request; legacy rows backfill as SINGLE.
+  orderType             OrderType              @default(SINGLE) @map("order_type")
   /// Free-text description of the requested job.
   description           String
   /// Storage paths of reference photos (0–5), inside the job-images bucket.
@@ -508,9 +538,18 @@ model Job {
   /// `unitPricePaise × quantity` (PER_UNIT), `unitPricePaise × durationMinutes
   /// / 60` (PER_HOUR), or the fixed price (PER_BOOKING). Never taken from the
   /// client, and never recomputed from a later catalogue change.
+  ///
+  /// For a multi-work (BULK) job this is the **sum of every item's
+  /// subtotalPaise** — the whole visit's estimate — so the accept/pay/earnings
+  /// flows keep reading one number.
   basePayPaise          Int                    @map("base_pay_paise")
   /// Pricing configuration snapshotted at booking time. These columns make a
   /// placed booking self-describing even after an admin edits the skill.
+  ///
+  /// On a BULK job they carry the **first item's** snapshot (display fallback
+  /// for surfaces that have not loaded `items` yet); `basePayPaise` is the
+  /// authoritative whole-booking total, and each item keeps its own pricing
+  /// snapshot in `job_items`.
   pricingModel          PricingModel           @default(PER_BOOKING) @map("pricing_model")
   /// The skill price at booking time (per unit / per booking / per hour).
   unitPricePaise        Int                    @map("unit_price_paise")
@@ -558,9 +597,11 @@ model Job {
   startOtpAttempts      Int                    @default(0) @map("start_otp_attempts")
   customerNotifications CustomerNotification[]
   declines              JobDecline[]
+  items                 JobItem[]
   jobOffers             JobOffer[]
   statusHistory         JobStatusHistory[]
   tracking              JobTracking?
+  bookingDraft          BookingDraft?
   customer              CustomerProfile        @relation(fields: [customerId], references: [id])
   pro                   ProProfile?            @relation(fields: [proId], references: [id], onDelete: Restrict)
   service               Service                @relation(fields: [serviceId], references: [id])
@@ -571,8 +612,127 @@ model Job {
   @@index([customerId, status])
   @@index([serviceId, status])
   @@index([proId, status])
+  @@index([orderGroupId])
   @@index([createdAt])
   @@map("jobs")
+}
+
+/// One distinct work inside a job request.
+///
+/// A SINGLE job has exactly one row; a BULK job has two or more, all of the
+/// same service, ordered by `sortOrder` in the order the customer added them.
+/// Every row freezes its own pricing snapshot at booking time so a later
+/// catalogue edit never rewrites a placed booking — mirroring the flat
+/// snapshot columns on `jobs`, which (for BULK) carry only the first item.
+///
+/// Legacy jobs created before bulk orders have no rows here; their works are
+/// derived from the flat `jobs` columns on read.
+model JobItem {
+  id              String       @id @default(uuid()) @db.Uuid
+  jobId           String       @map("job_id") @db.Uuid
+  /// Position of this work within the request (the order the customer added
+  /// the works in). 0-based; unique within a job.
+  sortOrder       Int          @map("sort_order")
+  skillId         String       @map("skill_id") @db.Uuid
+  /// The free-text category when this item's skill is the `other` sentinel.
+  /// Mirrors `jobs.custom_skill` per item.
+  customSkill     String?      @map("custom_skill")
+  /// Pricing configuration snapshotted at booking time, per item.
+  pricingModel    PricingModel @default(PER_BOOKING) @map("pricing_model")
+  /// The skill's price at booking time (per unit / per booking / per hour).
+  unitPricePaise  Int          @map("unit_price_paise")
+  /// Work units booked for this item; always 1 for PER_BOOKING/PER_HOUR.
+  quantity        Int
+  /// Unit name at booking time — "hinge", "fan". Null for non-unit models.
+  unitLabel       String?      @map("unit_label")
+  /// Booked duration in minutes, PER_HOUR only. Null otherwise.
+  durationMinutes Int?         @map("duration_minutes")
+  /// This item's server-calculated total, in paise, frozen at booking time.
+  subtotalPaise   Int          @map("subtotal_paise")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  job             Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skill           Skill        @relation(fields: [skillId], references: [id], onDelete: Restrict)
+
+  @@index([jobId])
+  @@map("job_items")
+}
+
+/// Lifecycle of a saved booking cart.
+///
+/// Mirrors `BookingDraftStatus` in `@samona/types`. A customer has at most one
+/// ACTIVE draft (enforced by a partial unique index in the migration); rows are
+/// kept after conversion or abandonment as history for support and analytics.
+enum BookingDraftStatus {
+  ACTIVE
+  CONVERTED
+  ABANDONED
+}
+
+/// A customer's in-progress booking cart, saved server-side.
+///
+/// The cart is the request the customer is still building: one service, one or
+/// more distinct works, notes and reference photos. Persisting it means a cart
+/// survives an app kill or a device switch, and it gives support/analytics a
+/// durable record of what customers were assembling when they dropped off.
+///
+/// Prices are recomputed from the catalogue on every save, so a draft is an
+/// estimate — never a commitment. Placing the booking re-prices everything
+/// again and freezes the result on the job.
+model BookingDraft {
+  id                  String             @id @default(uuid()) @db.Uuid
+  customerId          String             @map("customer_id") @db.Uuid
+  /// One row per service in the customer's cart: a multi-service checkout has
+  /// one ACTIVE draft per service, each converting into its own job.
+  serviceId           String             @map("service_id") @db.Uuid
+  status              BookingDraftStatus @default(ACTIVE)
+  /// Notes shared by the whole visit, exactly as they will be submitted.
+  description         String             @default("")
+  /// Storage paths of reference photos inside the job-images bucket. Public
+  /// URLs are derived on read; the customer only ever sees its own paths.
+  imagePaths          String[]           @default([]) @map("image_paths")
+  /// Server-calculated estimate for the whole cart, in paise, at save time.
+  estimatedTotalPaise Int                @default(0) @map("estimated_total_paise")
+  /// The booking this cart became, once converted. Unique so one job can only
+  /// ever be the outcome of one cart.
+  convertedJobId      String?            @unique @map("converted_job_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  customer            CustomerProfile    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  service             Service            @relation(fields: [serviceId], references: [id])
+  convertedJob        Job?               @relation(fields: [convertedJobId], references: [id], onDelete: SetNull)
+  items               BookingDraftItem[]
+
+  @@index([customerId, status])
+  @@index([serviceId, status])
+  @@index([status, updatedAt])
+  @@map("booking_drafts")
+}
+
+/// One distinct work in a saved cart.
+///
+/// Mirrors `JobItem`, but its prices are an estimate refreshed on every save
+/// rather than a frozen commitment. Rows are replaced wholesale when the cart
+/// is saved, so `sortOrder` always reflects the current order.
+model BookingDraftItem {
+  id              String       @id @default(uuid()) @db.Uuid
+  draftId         String       @map("draft_id") @db.Uuid
+  sortOrder       Int          @map("sort_order")
+  skillId         String       @map("skill_id") @db.Uuid
+  customSkill     String?      @map("custom_skill")
+  pricingModel    PricingModel @default(PER_BOOKING) @map("pricing_model")
+  unitPricePaise  Int          @map("unit_price_paise")
+  quantity        Int
+  unitLabel       String?      @map("unit_label")
+  durationMinutes Int?         @map("duration_minutes")
+  subtotalPaise   Int          @map("subtotal_paise")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  draft           BookingDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  skill           Skill        @relation(fields: [skillId], references: [id], onDelete: Restrict)
+
+  @@index([draftId])
+  @@map("booking_draft_items")
 }
 
 /// One recorded transition in a job's life, for audit and the client timeline.

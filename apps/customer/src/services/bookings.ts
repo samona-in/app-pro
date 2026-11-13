@@ -1,5 +1,5 @@
-import type { JobDetail } from '@samona/types';
-import type { CreateJobInput } from '@samona/validation';
+import type { JobBatchResult, JobDetail } from '@samona/types';
+import type { CreateJobBatchRequest, CreateJobRequest } from '@samona/validation';
 import { api } from './api';
 
 /**
@@ -14,8 +14,18 @@ export const bookingApi = {
   /** The caller's booking history, newest first. */
   list: (options: { limit?: number } = {}) => api.get<JobDetail[]>('/jobs', { query: options }),
 
-  /** Files a new booking; matching nudges eligible pros. */
-  create: (input: CreateJobInput) => api.post<JobDetail>('/jobs', input),
+  /** Files a new single-service booking; matching nudges eligible pros. */
+  create: (input: CreateJobRequest) => api.post<JobDetail>('/jobs', input),
+
+  /**
+   * Places one checkout spanning one or more services.
+   *
+   * Each service becomes its own independent booking, all sharing an
+   * `orderGroupId`. The whole checkout is atomic: if any service or work is
+   * invalid, no booking is created.
+   */
+  createBatch: (input: CreateJobBatchRequest) =>
+    api.post<JobBatchResult>('/jobs/batch', input),
 
   /** One booking, including the assigned professional when there is one. */
   get: (jobId: string) => api.get<JobDetail>(`/jobs/${jobId}`),
