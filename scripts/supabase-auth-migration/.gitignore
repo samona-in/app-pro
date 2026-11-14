@@ -1,0 +1,3 @@
+# Never commit: the export contains phone numbers and emails (PII).
+.state/
+reports/
