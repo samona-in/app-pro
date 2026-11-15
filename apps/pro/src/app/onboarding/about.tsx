@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { OnboardingStepLayout, SelectableCard } from '@/components/onboarding';
 import { useProProfile, useSaveOnboardingStep, useSeededState } from '@/hooks';
+import { onboardingHref } from '@/utils/onboarding-route';
 
 const LANGUAGES = ['English', 'Hindi', 'Telugu', 'Tamil', 'Kannada', 'Marathi', 'Bengali'];
 
@@ -25,8 +26,9 @@ export default function OnboardingAbout() {
     // At least one language is required, so the button stays disabled until
     // the Pro picks one (mirrors the services step's guard).
     await save.mutateAsync({ languages });
-    // Documents and the face check follow this step, then review.
-    router.push('/onboarding/documents');
+    // Aadhaar and the face check follow this step, then review. Onboarding
+    // asks for the Aadhaar card directly instead of a general documents screen.
+    router.push(onboardingHref('documents'));
   }
 
   return (

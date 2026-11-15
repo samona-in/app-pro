@@ -12,6 +12,7 @@ import { LoadingState } from '@/components/feedback';
 import { OnboardingStepLayout } from '@/components/onboarding';
 import { Avatar, Badge, Text } from '@/components/ui';
 import { useCatalogue, useProProfile, useSession } from '@/hooks';
+import { onboardingHref } from '@/utils/onboarding-route';
 
 /**
  * The review step reads as two clean lists — the pro's identity in a soft
@@ -66,7 +67,7 @@ export default function OnboardingReview() {
    */
   async function onFinish() {
     if (!complete) {
-      router.push(`/onboarding/${nextIncompleteStep(profile ?? null)}`);
+      router.push(onboardingHref(nextIncompleteStep(profile ?? null)));
       return;
     }
     await refetch();

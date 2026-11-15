@@ -1,4 +1,5 @@
 export { useAppStore } from './app';
+export { useAadhaarStore } from './aadhaar';
 export { useIncomingOffersStore } from './incoming-offers';
 export type { PendingOffer } from './incoming-offers';
 export {

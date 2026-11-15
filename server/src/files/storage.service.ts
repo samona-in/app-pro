@@ -105,6 +105,123 @@ export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 export const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 
 /**
+ * Bounds for a submitted document image's pixel dimensions.
+ *
+ * Deliberately lenient. The floor exists to reject a thumbnail or a corrupt
+ * header rather than to police image quality — the app's own Aadhaar camera
+ * enforces a stricter floor before it uploads, but the generic document picker
+ * accepts screenshots and scans whose dimensions we should not second-guess
+ * after the fact. The ceiling rejects a decompression-bomb header: no real
+ * identity document needs more than 12,000 pixels on a side.
+ */
+export const DOCUMENT_MIN_DIMENSION_PX = 200;
+export const DOCUMENT_MAX_DIMENSION_PX = 12_000;
+
+/**
+ * The leading bytes read to parse an image header.
+ *
+ * A JPEG's SOF segment sits after its metadata, which can include an EXIF
+ * thumbnail tens of kilobytes long, so the window is generous. A PNG puts its
+ * IHDR in the first 24 bytes.
+ */
+const IMAGE_HEADER_BYTES = 256 * 1024;
+
+/** An image's pixel dimensions, as read from its own header. */
+interface ImageDimensions {
+  width: number;
+  height: number;
+}
+
+/** Reads a big-endian unsigned 32-bit integer at `offset`. */
+function uint32(bytes: Uint8Array, offset: number): number {
+  const b0 = bytes[offset]!;
+  const b1 = bytes[offset + 1]!;
+  const b2 = bytes[offset + 2]!;
+  const b3 = bytes[offset + 3]!;
+  return ((b0 << 24) >>> 0) + (b1 << 16) + (b2 << 8) + b3;
+}
+
+/**
+ * A JPEG's dimensions from its SOF (start-of-frame) segment.
+ *
+ * Walks the marker chain rather than assuming a fixed offset, because EXIF,
+ * ICC profiles and thumbnails all sit ahead of the frame header. Returns null
+ * for anything that is not a parseable JPEG; callers treat that as unreadable
+ * rather than guessing at dimensions.
+ */
+function jpegDimensions(bytes: Uint8Array): ImageDimensions | null {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+
+  let offset = 2;
+  while (offset + 9 < bytes.length) {
+    if (bytes[offset] !== 0xff) {
+      offset += 1;
+      continue;
+    }
+
+    let marker = bytes[offset + 1]!;
+    // Fill bytes: any number of 0xFF may precede the marker itself.
+    while (marker === 0xff && offset + 2 < bytes.length) {
+      offset += 1;
+      marker = bytes[offset + 1]!;
+    }
+    offset += 2;
+
+    // Standalone markers carry no length field.
+    if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      continue;
+    }
+    // Start of scan or end of image means the frame header was never found.
+    if (marker === 0xda || marker === 0xd9) return null;
+    if (offset + 2 > bytes.length) return null;
+
+    const length = (bytes[offset]! << 8) | bytes[offset + 1]!;
+    if (length < 2) return null;
+
+    // SOF0–SOF15 carry the frame size, except DHT (C4), JPG (C8) and DAC (CC),
+    // which share the range but are not frame headers.
+    const isSof =
+      marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+    if (isSof) {
+      if (offset + 7 > bytes.length) return null;
+      // length(2) precision(1) height(2) width(2)
+      const height = (bytes[offset + 3]! << 8) | bytes[offset + 4]!;
+      const width = (bytes[offset + 5]! << 8) | bytes[offset + 6]!;
+      return width > 0 && height > 0 ? { width, height } : null;
+    }
+
+    offset += length;
+  }
+  return null;
+}
+
+/**
+ * A PNG's dimensions from its mandatory leading IHDR chunk.
+ *
+ * The PNG spec fixes IHDR as the first chunk, so this is a constant-offset
+ * read once the signature matches.
+ */
+function pngDimensions(bytes: Uint8Array): ImageDimensions | null {
+  if (bytes.length < 24) return null;
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  for (let i = 0; i < signature.length; i += 1) {
+    if (bytes[i] !== signature[i]) return null;
+  }
+  // IHDR: length(4) type(4) width(4) height(4)
+  if (bytes[12] !== 0x49 || bytes[13] !== 0x48 || bytes[14] !== 0x44 || bytes[15] !== 0x52) {
+    return null;
+  }
+  const width = uint32(bytes, 16);
+  const height = uint32(bytes, 20);
+  return width > 0 && height > 0 ? { width, height } : null;
+}
+
+/** The dimensions of a JPEG or PNG, or null when the header is unreadable. */
+function imageDimensions(bytes: Uint8Array): ImageDimensions | null {
+  return jpegDimensions(bytes) ?? pngDimensions(bytes);
+}
+
+/**
  * The surface an avatar belongs to. A person who is both a customer and a
  * professional keeps an independent profile photo for each surface, so avatar
  * objects are scoped under that surface's own folder.
@@ -500,17 +617,73 @@ export function createStorageService(deps: StorageServiceDeps) {
   }
 
   /**
+   * Reads the leading bytes of a stored document and parses its dimensions.
+   *
+   * A ranged GET keeps this cheap: the header is in the first few kilobytes
+   * even for a large photo. Returns null when the object cannot be read or the
+   * header is not a parseable JPEG/PNG, which the caller treats as a refused
+   * upload rather than recording a document it could not inspect.
+   */
+  async function documentImageDimensions(path: string): Promise<ImageDimensions | null> {
+    try {
+      const object = await s3.send(
+        new GetObjectCommand({
+          Bucket: documentsBucket,
+          Key: path,
+          Range: `bytes=0-${IMAGE_HEADER_BYTES - 1}`,
+        }),
+      );
+      const bytes = await object.Body?.transformToByteArray();
+      return bytes ? imageDimensions(bytes) : null;
+    } catch (cause) {
+      logger.error('Could not read a document image header.', cause);
+      return null;
+    }
+  }
+
+  /**
    * What actually landed for a submitted document path: size and content type
    * read from the object itself, never from what the client claimed.
    *
    * Null when nothing landed (the route turns that into a retryable 409);
-   * throws 422 when it arrived but is over the limit — same contract as
-   * `objectExists`, with the details the domain needs to record the row.
+   * throws 422 when the object arrived but is unacceptable. Images are probed
+   * for their real dimensions, so a document cannot be recorded on the
+   * client's word that it is a legible scan. A refused image is deleted here,
+   * exactly like a refused content type, so it cannot accumulate unseen.
    */
   async function documentObjectInfo(
     path: string,
   ): Promise<{ sizeBytes: number; contentType: string | null } | null> {
-    return objectInfo(documentsBucket, path, DOCUMENT_MAX_BYTES, 'document');
+    const info = await objectInfo(documentsBucket, path, DOCUMENT_MAX_BYTES, 'document');
+    if (!info) return null;
+
+    // Only image documents carry pixel dimensions; PDFs are validated by type
+    // and size alone and never incur a second storage read.
+    const isImage = info.contentType === 'image/jpeg' || info.contentType === 'image/png';
+    if (!isImage) return info;
+
+    const dimensions = await documentImageDimensions(path);
+    if (!dimensions) {
+      await removeDocument(path);
+      throw createHttpError(
+        422,
+        ApiErrorCode.VALIDATION_FAILED,
+        'That image could not be read. Try a different photo.',
+      );
+    }
+
+    const shortEdge = Math.min(dimensions.width, dimensions.height);
+    const longEdge = Math.max(dimensions.width, dimensions.height);
+    if (shortEdge < DOCUMENT_MIN_DIMENSION_PX || longEdge > DOCUMENT_MAX_DIMENSION_PX) {
+      await removeDocument(path);
+      throw createHttpError(
+        422,
+        ApiErrorCode.VALIDATION_FAILED,
+        'That image is too small or too large to review. Try a different photo.',
+      );
+    }
+
+    return info;
   }
 
   /**

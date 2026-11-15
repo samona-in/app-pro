@@ -17,7 +17,6 @@ import { documentRowModel, documentTypeLabelKey, messageForDocumentError } from 
  * Every verdict (approved, rejected, the reason) belongs to the review team and
  * is read back, never written. Approved rows are locked on both sides: the
  * server 409s, so the row drops the delete affordance rather than let it fail.
- * Shared by the Profile > Documents screen and the onboarding documents step.
  */
 export function DocumentList({ documents }: { documents: ProDocument[] }) {
   const { t } = useTranslation();

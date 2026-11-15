@@ -15,6 +15,7 @@ import { ServicesVerificationCard } from '@/components/services/ServicesVerifica
 import { CompleteProfileCard } from '@/components/home/CompleteProfileCard';
 import { useProProfile, useProfileCompletion, useSession } from '@/hooks';
 import { color } from '@/theme';
+import { onboardingHref } from '@/utils/onboarding-route';
 
 /**
  * Collapsed sheet height. It is chosen to fit the grab handle plus whichever
@@ -103,9 +104,7 @@ export const HomeSheet = memo(function HomeSheet() {
   // Resume onboarding at the server's own step (the session already carries
   // it). Once onboarding is done, the completion derivation owns the route:
   // Documents while review is pending, or the read-only verification status.
-  const nextRoute = isAwaitingVerification
-    ? nextStep?.route
-    : `/onboarding/${onboardingNextStep ?? 'intro'}`;
+  const nextRoute = isAwaitingVerification ? nextStep?.route : onboardingHref(onboardingNextStep);
 
   // Refresh when Home regains focus (returning from Documents, Manage Services
   // or another tab) so an admin verdict that landed while the Pro was away is

@@ -188,12 +188,6 @@
       "usePhoto": "Use this photo",
       "retake": "Retake"
     },
-    "documents": {
-      "title": "Add your documents",
-      "subtitle": "Upload at least one document so our review team can verify you. You can add the rest later from your profile.",
-      "requiredHint": "Upload at least one document to continue.",
-      "ready": "Document received — tap Continue when you're ready."
-    },
     "review": {
       "readyTitle": "You're ready to receive jobs",
       "almostThere": "Almost there",
@@ -525,6 +519,100 @@
       "viewVerificationStatus": "View Verification Status"
     },
     "loadError": "Could not load your progress."
+  },
+  "aadhaar": {
+    "entry": {
+      "title": "Aadhaar card",
+      "subtitle": "Capture both sides with your camera",
+      "badge": "Camera",
+      "a11y": "Add your Aadhaar card using the camera"
+    },
+    "intro": {
+      "title": "Ready to verify your Aadhaar?",
+      "subtitle": "Take clear photos of both sides. This helps us confirm your identity.",
+      "whyTitle": "Why we ask",
+      "whyBody": "Aadhaar is accepted as an ID proof. Our review team checks the photos before approving your profile.",
+      "privacyTitle": "Your privacy",
+      "privacyBody": "Photos are uploaded over a secure connection and stored privately. They are only seen by our review team, and we do not store your Aadhaar number.",
+      "tipsTitle": "Before you start",
+      "tipLight": "Use a well-lit place",
+      "tipFlat": "Place the card on a flat surface",
+      "tipCorners": "Keep all four corners inside the frame",
+      "consent": "I agree to share my Aadhaar card for identity verification.",
+      "start": "Start capture",
+      "disclaimer": "This is a manual document review. We do not connect to UIDAI or verify your Aadhaar in real time."
+    },
+    "reference": {
+      "title": "Both sides needed",
+      "subtitle": "Your card should look like this",
+      "front": "Front",
+      "back": "Back"
+    },
+    "capture": {
+      "frontTitle": "Confirm front side of Aadhaar card",
+      "backTitle": "Confirm back side of Aadhaar card",
+      "holdSteady": "Hold steady and tap capture",
+      "processing": "Preparing your photo…",
+      "starting": "Starting camera…",
+      "torch": "Toggle light",
+      "cameraUnavailableTitle": "Camera unavailable",
+      "cameraUnavailableBody": "We could not start the camera on this device. Close this screen and try again.",
+      "permissionTitle": "Camera access needed",
+      "permissionBody": "We use your camera only to capture your Aadhaar card. Photos stay on this screen until you submit them.",
+      "permissionAllow": "Allow camera",
+      "permissionBlockedTitle": "Camera access is off",
+      "permissionBlockedBody": "Turn on camera access in Settings to capture your Aadhaar card.",
+      "permissionOpenSettings": "Open Settings",
+      "description": "Keep your Aadhaar card within the frame and ensure your image is clear.",
+      "referenceFrontTitle": "Front side example",
+      "referenceBackTitle": "Back side example"
+    },
+    "preview": {
+      "frontTitle": "Check the front",
+      "backTitle": "Check the back",
+      "stepOne": "Photo 1 of 2",
+      "stepTwo": "Photo 2 of 2",
+      "hint": "Make sure the text and photo are clear",
+      "use": "Use this photo",
+      "retake": "Retake photo"
+    },
+    "review": {
+      "title": "Review your Aadhaar",
+      "subtitle": "Check both sides before you submit them for review.",
+      "frontLabel": "Front",
+      "backLabel": "Back",
+      "readyHint": "Ready to submit",
+      "savedHint": "Saved on the server",
+      "saved": "Saved",
+      "retake": "Retake",
+      "submit": "Submit for verification",
+      "submitting": "Submitting…",
+      "consentReminder": "By submitting, you confirm these photos are yours and are clear enough for our review team.",
+      "pendingNote": "Your document will show as in review until our team checks it.",
+      "partialTitle": "One side was saved"
+    },
+    "pending": {
+      "title": "Aadhaar submitted",
+      "body": "Our review team will check your Aadhaar card. This usually takes up to 2 working days.",
+      "status": "In review",
+      "note": "We will notify you when the review is complete.",
+      "reviewNote": "Your profile is not verified until the review team approves a document.",
+      "done": "Back to documents",
+      "continueOnboarding": "Continue"
+    },
+    "errors": {
+      "dimensions": "That photo is too small to read. Move closer and try again.",
+      "too-large": "That photo is too large to upload. Try again.",
+      "unreadable": "We could not read that photo. Please try again.",
+      "processing": "We could not prepare that photo. Please try again.",
+      "camera": "The camera could not take that photo. Please try again."
+    },
+    "a11y": {
+      "frontImage": "Front of Aadhaar card",
+      "backImage": "Back of Aadhaar card",
+      "capture": "Capture Aadhaar photo",
+      "close": "Close Aadhaar capture"
+    }
   },
   "documents": {
     "subtitle": "ID, address and payout documents for verification. Only our review team can see them.",

@@ -13,6 +13,7 @@ import { queryKeys } from '@/constants';
 import { useAvailability, useJobPool, useSession } from '@/hooks';
 import { occupiedJobRoute } from '@/utils/job-routes';
 import { messageForAcceptError } from '@/utils/job-errors';
+import { onboardingHref } from '@/utils/onboarding-route';
 
 /** Full-bleed hairline between pool entries, matching the app's list language. */
 function PoolSeparator() {
@@ -90,7 +91,7 @@ export default function JobPoolScreen() {
   }
 
   if (!isOnboardingComplete) {
-    return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
+    return <Redirect href={onboardingHref(nextStep)} />;
   }
 
   return (
