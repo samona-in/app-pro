@@ -39,6 +39,7 @@ export interface ColorTokens {
   background: string;
   surface: string;
   'surface-muted': string;
+  'surface-tint': string;
   'surface-inverse': string;
 
   'text-primary': string;

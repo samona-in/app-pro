@@ -18,11 +18,9 @@ import {
 /**
  * The pick-and-upload card: document type chips plus the file action.
  *
- * Shared by the Profile > Documents screen and the onboarding documents step,
- * so both run exactly the same pick/validate/upload handshake: pick a file
- * on-device (PDF/JPEG/PNG, 10 MB cap enforced here as a courtesy — the server
- * enforces it for real), choose its type, then let the hook mint a ticket, PUT
- * the bytes and confirm.
+ * Used by the Profile > Documents screen: pick a file on-device (PDF/JPEG/PNG,
+ * 10 MB cap enforced here as a courtesy — the server enforces it for real),
+ * choose its type, then let the hook mint a ticket, PUT the bytes and confirm.
  */
 export function DocumentUploadCard() {
   const { t } = useTranslation();

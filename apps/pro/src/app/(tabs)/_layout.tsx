@@ -13,6 +13,7 @@ import { useRealtimeSync, useSession, useUnreadMessages } from '@/hooks';
 import { useIncomingOffersStore } from '@/stores';
 import { initializeJobAlertService, stopJobAlertService } from '@/services/foreground-service';
 import { color } from '@/theme';
+import { onboardingHref } from '@/utils/onboarding-route';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -153,7 +154,7 @@ export default function TabsLayout() {
   // A Pro without a usable profile cannot be matched to work, so the tabs would
   // be empty and confusing. Send them back to finish.
   if (!isOnboardingComplete) {
-    return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
+    return <Redirect href={onboardingHref(nextStep)} />;
   }
 
   return (

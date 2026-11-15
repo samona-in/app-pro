@@ -1,8 +1,15 @@
-import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import type { S3Client } from '@aws-sdk/client-s3';
 import {
   AVATAR_MAX_BYTES,
   createStorageService,
+  DOCUMENT_MAX_DIMENSION_PX,
+  DOCUMENT_MIN_DIMENSION_PX,
   JOB_IMAGE_MAX_BYTES,
   SELFIE_MAX_BYTES,
   type SignUploadUrl,
@@ -41,6 +48,76 @@ function headOf(bytes: number) {
 /** A HEAD that fails, which is how S3 reports a key that is not there. */
 function headMissing() {
   return jest.fn().mockRejectedValue(Object.assign(new Error('NotFound'), { name: 'NotFound' }));
+}
+
+/**
+ * A minimal but structurally real JPEG header: SOI, an APP0 segment and a
+ * baseline SOF0 carrying the dimensions. Enough for the parser to walk the
+ * marker chain exactly as it would for a camera photo.
+ */
+function jpegHeader(width: number, height: number): Uint8Array {
+  const app0 = [
+    0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00,
+    0x01, 0x00, 0x00,
+  ];
+  const sof0 = [
+    0xff,
+    0xc0,
+    0x00,
+    0x11,
+    0x08,
+    (height >> 8) & 0xff,
+    height & 0xff,
+    (width >> 8) & 0xff,
+    width & 0xff,
+    0x03,
+    0x01,
+    0x22,
+    0x00,
+    0x02,
+    0x11,
+    0x01,
+    0x03,
+    0x11,
+    0x01,
+  ];
+  return Uint8Array.from([0xff, 0xd8, ...app0, ...sof0, 0xff, 0xd9]);
+}
+
+/** A PNG signature followed by the mandatory IHDR chunk. */
+function pngHeader(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(33);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  bytes.set([0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52], 8);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width, false);
+  view.setUint32(20, height, false);
+  bytes.set([0x08, 0x06, 0x00, 0x00, 0x00], 24);
+  // The CRC (bytes 29–32) is not validated by the parser.
+  return bytes;
+}
+
+/** A HEAD that reports a landed document, and a ranged GET that returns it. */
+function documentSend(bytes: Uint8Array, contentType = 'image/jpeg') {
+  return jest.fn(async (command: unknown) => {
+    if (command instanceof HeadObjectCommand) {
+      return { ContentLength: bytes.length, ContentType: contentType };
+    }
+    if (command instanceof GetObjectCommand) {
+      return { Body: { transformToByteArray: async () => bytes } };
+    }
+    return {};
+  });
+}
+
+/** Whether a simulated S3 call asked to delete the given document key. */
+function deleted(send: jest.Mock, key: string): boolean {
+  return send.mock.calls.some(
+    ([command]) =>
+      command instanceof DeleteObjectCommand &&
+      command.input.Bucket === DOCUMENTS &&
+      command.input.Key === key,
+  );
 }
 
 function build(send: jest.Mock, overrides: Record<string, unknown> = {}) {
@@ -469,6 +546,120 @@ describe('createStorageService', () => {
       const storage = build(send);
 
       await expect(storage.deleteObjects(DOCUMENTS, ['a.pdf'])).rejects.toThrow(/partially failed/);
+    });
+  });
+
+  describe('documentObjectInfo', () => {
+    const KEY = `pros/${USER}/documents/doc.jpg`;
+
+    it('accepts a JPEG whose dimensions are inside the bounds', async () => {
+      const send = documentSend(jpegHeader(2000, 1260));
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).resolves.toEqual({
+        sizeBytes: jpegHeader(2000, 1260).length,
+        contentType: 'image/jpeg',
+      });
+      expect(deleted(send, KEY)).toBe(false);
+    });
+
+    it('accepts a PNG, reading its dimensions from the IHDR chunk', async () => {
+      const send = documentSend(pngHeader(1200, 800), 'image/png');
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).resolves.toMatchObject({
+        contentType: 'image/png',
+      });
+    });
+
+    it('reads only a bounded prefix instead of the whole object', async () => {
+      const send = documentSend(jpegHeader(2000, 1260));
+      const storage = build(send);
+
+      await storage.documentObjectInfo(KEY);
+
+      const get = send.mock.calls
+        .map(([command]) => command)
+        .find((command): command is GetObjectCommand => command instanceof GetObjectCommand);
+      expect(get?.input).toMatchObject({
+        Bucket: DOCUMENTS,
+        Key: KEY,
+        Range: expect.stringMatching(/^bytes=0-\d+$/),
+      });
+    });
+
+    it('rejects an image below the minimum edge and removes it', async () => {
+      const send = documentSend(jpegHeader(DOCUMENT_MIN_DIMENSION_PX - 1, 800));
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).rejects.toMatchObject({ status: 422 });
+      expect(deleted(send, KEY)).toBe(true);
+    });
+
+    it('rejects an image above the maximum edge and removes it', async () => {
+      const send = documentSend(jpegHeader(DOCUMENT_MAX_DIMENSION_PX + 1, 800));
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).rejects.toMatchObject({ status: 422 });
+      expect(deleted(send, KEY)).toBe(true);
+    });
+
+    it('rejects an unreadable image header and removes it', async () => {
+      const send = documentSend(Uint8Array.from([0x00, 0x01, 0x02, 0x03]));
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).rejects.toMatchObject({ status: 422 });
+      expect(deleted(send, KEY)).toBe(true);
+    });
+
+    it('rejects an image when the header read itself fails', async () => {
+      const send = jest.fn(async (command: unknown) => {
+        if (command instanceof HeadObjectCommand) {
+          return { ContentLength: 1024, ContentType: 'image/jpeg' };
+        }
+        throw new Error('AccessDenied');
+      });
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).rejects.toMatchObject({ status: 422 });
+      expect(deleted(send, KEY)).toBe(true);
+    });
+
+    it('does not probe a PDF, so existing PDF uploads are unaffected', async () => {
+      const send = documentSend(Uint8Array.from([0x25, 0x50, 0x44, 0x46]), 'application/pdf');
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).resolves.toEqual({
+        sizeBytes: 4,
+        contentType: 'application/pdf',
+      });
+      expect(
+        send.mock.calls.some(([command]) => command instanceof GetObjectCommand),
+      ).toBe(false);
+    });
+
+    it('returns null for a missing object without probing it', async () => {
+      const send = headMissing();
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).resolves.toBeNull();
+      expect(
+        send.mock.calls.some(([command]) => command instanceof GetObjectCommand),
+      ).toBe(false);
+    });
+
+    it('rejects an oversize object before reading its header', async () => {
+      const send = jest.fn().mockResolvedValue({
+        ContentLength: 10 * 1024 * 1024 + 1,
+        ContentType: 'image/jpeg',
+      });
+      const storage = build(send);
+
+      await expect(storage.documentObjectInfo(KEY)).rejects.toMatchObject({ status: 422 });
+      expect(
+        send.mock.calls.some(([command]) => command instanceof GetObjectCommand),
+      ).toBe(false);
+      expect(deleted(send, KEY)).toBe(false);
     });
   });
 

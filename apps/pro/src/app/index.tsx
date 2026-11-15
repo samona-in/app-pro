@@ -2,6 +2,7 @@ import { Redirect } from 'expo-router';
 import { isActiveJobStatus, isSettlementPendingStatus } from '@samona/types';
 import { useProJobs, useSession } from '@/hooks';
 import { hasChosenLanguage } from '@/i18n';
+import { onboardingHref } from '@/utils/onboarding-route';
 
 /**
  * Entry route — the single place the post-sign-in decision is made.
@@ -57,7 +58,7 @@ export default function Index() {
   }
 
   if (!isOnboardingComplete) {
-    return <Redirect href={`/onboarding/${nextStep ?? 'intro'}`} />;
+    return <Redirect href={onboardingHref(nextStep)} />;
   }
 
   const jobs = jobsQuery.data ?? [];

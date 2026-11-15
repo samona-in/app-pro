@@ -69,6 +69,15 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "SAMONA Pro uses the camera so you can capture your Aadhaar card and other verification documents.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/images/Samona.png",

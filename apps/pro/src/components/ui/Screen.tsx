@@ -24,7 +24,9 @@ export interface ScreenProps extends ViewProps {
    * is added to the scroll view's keyboard offset so the focused field is
    * kept clear of the footer, not just the keyboard. The pinned footer draws
    * over the scroll content, so it carries an opaque `bg-surface` — screens
-   * with a different background should wrap their footer in one.
+   * with a different background should wrap their footer in one. It gets the
+   * same standard gutter as the content, so a full-width CTA never runs to the
+   * screen edges.
    */
   footer?: ReactNode;
   /** Applies the standard horizontal gutter. */
@@ -118,12 +120,12 @@ export function Screen({
             >
               {children}
             </ScrollView>
-            {footer}
+            {footer ? <View className={cn(padded && 'px-5')}>{footer}</View> : null}
           </>
         ) : (
           <>
             <View className={cn('flex-1', contentClasses)}>{children}</View>
-            {footer}
+            {footer ? <View className={cn(padded && 'px-5')}>{footer}</View> : null}
           </>
         )}
       </SafeAreaView>

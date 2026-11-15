@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { AadhaarEntryCard } from '@/components/aadhaar';
 import { DocumentList, DocumentUploadCard } from '@/components/documents';
 import { EmptyState, ErrorState, LoadingState } from '@/components/feedback';
 import { Screen, Text } from '@/components/ui';
@@ -10,8 +11,8 @@ import { useDocuments } from '@/hooks';
  *
  * The pro owns the list and the upload handshake; every verdict (approved,
  * rejected, the reason) belongs to the review team and is read back, never
- * written. The pick-and-upload card and the grouped list are shared with the
- * onboarding documents step so the two surfaces cannot drift.
+ * written. The pick-and-upload card and the grouped list live only here now —
+ * onboarding routes straight into the Aadhaar flow instead of a documents step.
  */
 export default function DocumentsScreen() {
   const { t } = useTranslation();
@@ -42,6 +43,7 @@ export default function DocumentsScreen() {
         </Text>
       </View>
 
+      <AadhaarEntryCard source="profile" className="mt-4" />
       <DocumentUploadCard />
 
       {documents.length === 0 ? (

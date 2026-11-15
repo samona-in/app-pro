@@ -57,6 +57,8 @@ const colors = {
   background: palette.ink[50],
   surface: palette.white,
   'surface-muted': palette.ink[100],
+  /** Soft violet-tinted card used by the Aadhaar capture flow. */
+  'surface-tint': '#F7F5FC',
   'surface-inverse': palette.ink[900],
 
   // Text

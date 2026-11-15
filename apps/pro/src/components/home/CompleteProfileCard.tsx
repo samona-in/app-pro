@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Button, Text } from '@/components/ui';
@@ -14,7 +14,7 @@ import { color } from '@/theme';
  * or the read-only verification status), so the CTA drops the Pro back exactly
  * where they stopped instead of re-deriving the decision here.
  */
-export function CompleteProfileCard({ nextRoute }: { nextRoute?: string | null }) {
+export function CompleteProfileCard({ nextRoute }: { nextRoute?: Href | null }) {
   const { t } = useTranslation();
 
   return (

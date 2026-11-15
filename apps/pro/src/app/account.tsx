@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { AccountDeletionScope, type DeletionAuthorization } from '@samona/types';
 import { isApiError } from '@samona/api-client';
 import { OTP_LENGTH } from '@samona/config';
+import type { TranslationKey } from '@/i18n';
 import { Button, Card, Divider, OtpInput, Screen, Text } from '@/components/ui';
 import { ErrorState, LoadingState } from '@/components/feedback';
 import { usePhoneAuth, useRequestDeletionAuthorization, useSession } from '@/hooks';
@@ -59,7 +60,7 @@ export default function AccountDeletionScreen() {
         void phoneAuth.sendCode(user?.phone ?? '');
         return;
       }
-      Alert.alert(t('accountDeletion.title'), accountErrorCopy(error, t));
+      Alert.alert(t('accountDeletion.title'), t(accountErrorKey(error)));
     }
   }
 
@@ -282,10 +283,10 @@ function TerminalState({
   );
 }
 
-function accountErrorCopy(error: unknown, t: ReturnType<typeof useTranslation>['t']): string {
+function accountErrorKey(error: unknown): TranslationKey {
   if (isApiError(error)) {
-    if (error.status === 409) return t('accountDeletion.alreadyPending');
-    if (error.status === 410) return t('accountDeletion.tokenExpired');
+    if (error.status === 409) return 'accountDeletion.alreadyPending';
+    if (error.status === 410) return 'accountDeletion.tokenExpired';
   }
-  return t('accountDeletion.genericError');
+  return 'accountDeletion.genericError';
 }

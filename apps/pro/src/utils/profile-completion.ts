@@ -1,3 +1,4 @@
+import type { Href } from 'expo-router';
 import {
   DocumentStatus,
   DocumentType,
@@ -7,6 +8,7 @@ import {
   type ProDocument,
   type ProProfile,
 } from '@samona/types';
+import { onboardingHref } from '@/utils/onboarding-route';
 
 /**
  * The four milestones the Home widget tracks. Declared in the order they must
@@ -35,7 +37,7 @@ export interface ProfileCompletionStep {
   completed: boolean;
   status: ProfileCompletionStepStatus;
   /** The existing screen that finishes this step; null once it is complete. */
-  route: string | null;
+  route: Href | null;
 }
 
 export interface ProfileCompletion {
@@ -111,7 +113,7 @@ export function computeProfileCompletion(
       key: 'profile',
       completed: profileComplete,
       status: profileComplete ? 'complete' : 'todo',
-      route: profileComplete ? null : `/onboarding/${nextIncompleteStep(profile ?? null)}`,
+      route: profileComplete ? null : onboardingHref(nextIncompleteStep(profile ?? null)),
     },
     {
       key: 'services',
