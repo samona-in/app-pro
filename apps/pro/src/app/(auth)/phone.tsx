@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -55,6 +55,10 @@ export default function PhoneScreen() {
   const [number, setNumber] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  /** Covers the SMS-retriever arm before `sendCode` starts its own busy state. */
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  /** Synchronous guard: state updates land a render too late to stop a double tap. */
+  const submittingRef = useRef(false);
 
   // The hint arrives as a single E.164 string, so strip the dial code we
   // already show and keep only the subscriber number.
@@ -76,6 +80,8 @@ export default function PhoneScreen() {
   }
 
   async function onContinue() {
+    if (submittingRef.current) return;
+
     setLocalError(null);
     clearError();
 
@@ -92,16 +98,44 @@ export default function PhoneScreen() {
       return;
     }
 
-    // Arm the SMS retriever before the code is requested, so Play Services
-    // is already listening when the SMS lands — no gap for it to fall into.
-    await startOtpListening();
+    // One flow at a time: the retriever arm happens before `sendCode` sets the
+    // hook's busy flag, so this local flag is what keeps Continue disabled for
+    // the whole request and prevents overlapping OTP sends.
+    submittingRef.current = true;
+    setIsSubmitting(true);
 
-    if (await sendCode(parsed.data)) {
-      router.push({ pathname: '/verify', params: { phone: parsed.data } });
+    try {
+      // Arm the SMS retriever before the code is requested, so Play Services
+      // is already listening when the SMS lands — no gap for it to fall into.
+      // Autofill is a convenience: a failed arm must not block the code request.
+      try {
+        await startOtpListening();
+      } catch {
+        // Manual entry still works when the native retriever is unavailable.
+      }
+
+      if (await sendCode(parsed.data)) {
+        router.push({ pathname: '/verify', params: { phone: parsed.data } });
+      }
+    } catch (unexpected) {
+      // Never leave the professional on this screen with no explanation: a
+      // failed retriever arm or navigation must surface as a visible error.
+      if (__DEV__) {
+        console.warn(
+          '[phone] continue failed',
+          unexpected instanceof Error ? unexpected.name : 'unknown',
+        );
+      }
+      setLocalError(t('phone.couldNotSend'));
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
     }
   }
 
   const hasError = Boolean(localError ?? error);
+  // The whole request, including the retriever arm, owns the loading state.
+  const busy = isBusy || isSubmitting;
 
   return (
     /* The country sheet is a plain `BottomSheet` mounted beside the screen
@@ -122,7 +156,7 @@ export default function PhoneScreen() {
             <Button
               label={t('common.continue')}
               size="lg"
-              loading={isBusy}
+              loading={busy}
               onPress={() => void onContinue()}
             />
             <View>
@@ -154,7 +188,7 @@ export default function PhoneScreen() {
             <CountryCodeButton
               country={country}
               expanded={pickerOpen}
-              disabled={isBusy}
+              disabled={busy}
               onPress={() => setPickerOpen(true)}
             />
 
@@ -176,7 +210,7 @@ export default function PhoneScreen() {
                 textAlignVertical="center"
                 maxLength={country.maxLocalDigits}
                 autoFocus
-                editable={!isBusy}
+                editable={!busy}
                 style={{ includeFontPadding: false, paddingVertical: 0 }}
                 className="h-full min-w-0 flex-1 bg-transparent text-body-lg leading-6 text-text-primary"
               />

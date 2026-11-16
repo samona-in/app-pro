@@ -24,6 +24,15 @@ import { i18nInstance } from '@/i18n';
  */
 const INTERNAL_COPY_PATTERN = /token|otp|jwt|expired|supabase/i;
 
+/**
+ * Infrastructure failures (a restricted/paused project, a bad or stale API
+ * key, an upstream 5xx) are not something a professional can act on. Their raw
+ * wording names quotas and dashboards, so it is replaced with the ordinary
+ * "try again" copy instead of being echoed.
+ */
+const INFRASTRUCTURE_COPY_PATTERN =
+  /quota|restricted|violation|upgrade|spend cap|service unavailable|bad gateway|internal server/i;
+
 function statusOf(error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
   const status = (error as { status?: unknown }).status;
@@ -57,9 +66,33 @@ function isConnectionProblem(error: unknown): boolean {
 
 function friendlyMessage(error: unknown, fallback: string): string {
   if (isRateLimited(error)) return i18nInstance.t('phone.tooManyAttempts');
+  if (isConnectionProblem(error)) return i18nInstance.t('phone.noConnection');
 
+  // A 401/402/403 or 5xx, or wording that talks about project limits, is an
+  // infrastructure problem rather than a bad number the professional can fix.
   const message = messageOf(error);
-  return message && !INTERNAL_COPY_PATTERN.test(message) ? message : fallback;
+  const status = statusOf(error);
+  const serviceProblem =
+    (status !== undefined &&
+      (status === 401 || status === 402 || status === 403 || status >= 500)) ||
+    INFRASTRUCTURE_COPY_PATTERN.test(message);
+
+  return message && !serviceProblem && !INTERNAL_COPY_PATTERN.test(message) ? message : fallback;
+}
+
+/**
+ * Developer breadcrumb for a failed request. Logs only the HTTP status and
+ * Supabase error code — never the phone number, the OTP or a raw provider
+ * message, either of which can carry customer data.
+ */
+function logAuthFailure(action: 'send' | 'verify', error: unknown) {
+  if (!__DEV__) return;
+  const code =
+    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+  console.warn(`[phone-auth] ${action} failed`, {
+    status: statusOf(error),
+    code: typeof code === 'string' ? code : undefined,
+  });
 }
 
 /** Verification only ever reports a wrong code, a rate limit or a lost connection. */
@@ -86,11 +119,13 @@ export function usePhoneAuth() {
       });
 
       if (otpError) {
+        logAuthFailure('send', otpError);
         setError(friendlyMessage(otpError, i18nInstance.t('phone.couldNotSend')));
         return false;
       }
       return true;
     } catch (unexpected) {
+      logAuthFailure('send', unexpected);
       setError(friendlyMessage(unexpected, i18nInstance.t('phone.couldNotSend')));
       return false;
     } finally {
@@ -117,6 +152,7 @@ export function usePhoneAuth() {
       });
 
       if (verifyError) {
+        logAuthFailure('verify', verifyError);
         setError(verifyMessage(verifyError));
         return false;
       }
@@ -126,6 +162,7 @@ export function usePhoneAuth() {
       }
       return true;
     } catch (unexpected) {
+      logAuthFailure('verify', unexpected);
       setError(verifyMessage(unexpected));
       return false;
     } finally {

@@ -110,4 +110,38 @@ describe('usePhoneAuth send messages', () => {
       'Invalid phone number',
     );
   });
+
+  it('reports a lost connection when the send request never reaches Supabase', async () => {
+    expect(await sendWith(new TypeError('Network request failed'))).toBe('phone.noConnection');
+  });
+
+  it('hides infrastructure wording such as a restricted project', async () => {
+    const restricted = new AuthError(
+      'Service for this project is restricted due to the following violations: exceed_cached_egress_quota.',
+      402,
+      'project_restricted',
+    );
+
+    expect(await sendWith(restricted)).toBe('phone.couldNotSend');
+  });
+
+  it('hides an upstream 5xx message behind the retry copy', async () => {
+    expect(await sendWith({ message: 'Internal server error', status: 500 })).toBe(
+      'phone.couldNotSend',
+    );
+  });
+
+  it('marks a successful send as success', async () => {
+    signInWithOtp.mockResolvedValue({ data: {}, error: null } as never);
+
+    const { result } = renderHook(() => usePhoneAuth());
+    let sent = false;
+    await act(async () => {
+      sent = await result.current.sendCode('+919876543210');
+    });
+
+    expect(sent).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(result.current.isBusy).toBe(false);
+  });
 });
