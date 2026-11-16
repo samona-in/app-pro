@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TextInput } from 'react-native';
 import { router } from 'expo-router';
 import PhoneScreen from '../(auth)/phone';
@@ -68,6 +68,15 @@ function numberField() {
   return field;
 }
 
+/** A promise whose settlement the test controls, for the retriever arm. */
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 describe('PhoneScreen', () => {
   it('arms the SMS retriever before requesting a code', async () => {
     mockSendCode.mockResolvedValue(true);
@@ -112,5 +121,58 @@ describe('PhoneScreen', () => {
     expect(screen.getByText('phone.enterNumber')).toBeTruthy();
     expect(mockSendCode).not.toHaveBeenCalled();
     expect(mockStartOtpListening).not.toHaveBeenCalled();
+  });
+
+  it('sends only one code when Continue is tapped again while arming', async () => {
+    const arm = deferred();
+    mockStartOtpListening.mockReturnValue(arm.promise);
+    mockSendCode.mockResolvedValue(true);
+    render(<PhoneScreen />);
+
+    fireEvent.changeText(numberField(), '9876543210');
+    const button = screen.getByRole('button', { name: 'common.continue' });
+
+    fireEvent.press(button);
+    fireEvent.press(button);
+
+    // The retriever arm runs before `sendCode` owns the busy flag, so the CTA
+    // must already be disabled here or a second request can overlap the first.
+    expect(
+      screen.getByRole('button', { name: 'common.continue' }).props.accessibilityState?.disabled,
+    ).toBe(true);
+
+    await act(async () => {
+      arm.resolve();
+      await arm.promise;
+    });
+
+    await waitFor(() => expect(mockSendCode).toHaveBeenCalledTimes(1));
+    expect(router.push).toHaveBeenCalledTimes(1);
+  });
+
+  it('still requests a code when the SMS retriever cannot arm', async () => {
+    mockStartOtpListening.mockRejectedValue(new Error('native unavailable'));
+    mockSendCode.mockResolvedValue(true);
+    render(<PhoneScreen />);
+
+    fireEvent.changeText(numberField(), '9876543210');
+    fireEvent.press(screen.getByRole('button', { name: 'common.continue' }));
+
+    await waitFor(() => expect(mockSendCode).toHaveBeenCalledWith('+919876543210'));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/verify',
+      params: { phone: '+919876543210' },
+    });
+  });
+
+  it('stays on the screen when the code request fails', async () => {
+    mockSendCode.mockResolvedValue(false);
+    render(<PhoneScreen />);
+
+    fireEvent.changeText(numberField(), '9876543210');
+    fireEvent.press(screen.getByRole('button', { name: 'common.continue' }));
+
+    await waitFor(() => expect(mockSendCode).toHaveBeenCalled());
+    expect(router.push).not.toHaveBeenCalled();
   });
 });

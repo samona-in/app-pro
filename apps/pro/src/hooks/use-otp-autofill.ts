@@ -108,7 +108,15 @@ export async function startOtpListening(): Promise<void> {
   const mod = loadOtpAutofillModule();
   if (!mod || Platform.OS !== 'android') return;
 
-  installBus(mod);
+  try {
+    installBus(mod);
+  } catch {
+    // Registering the process-wide listeners failed (e.g. the native side is
+    // missing). Autofill is a convenience, so never fail the sign-in request
+    // over it — manual entry still works.
+    return;
+  }
+
   primedAt = Date.now();
   try {
     await mod.startSmsRetrieverAsync();
