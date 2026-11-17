@@ -67,6 +67,35 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: optional(z.string().min(1)),
 
   /**
+   * Phone-OTP delivery telemetry.
+   *
+   * Twilio Verify performs delivery behind Supabase Auth. Turning this on makes
+   * the API accept Twilio's Message Status Stream callbacks and lets the apps
+   * register each code request, so carrier/device delivery failures can be
+   * diagnosed. It is off by default and all-or-nothing: a half-configured
+   * webhook either rejects real callbacks or accepts forged ones.
+   *
+   * `TWILIO_WEBHOOK_URL` must be the exact public URL configured in Twilio,
+   * without query parameters — Twilio appends `?bodySHA256=…` for JSON.
+   */
+  OTP_TELEMETRY_ENABLED: z.enum(['true', 'false']).default('false'),
+  TWILIO_AUTH_TOKEN: optional(z.string().min(1)),
+  TWILIO_WEBHOOK_URL: optional(z.url({ message: 'TWILIO_WEBHOOK_URL must be a valid URL.' })),
+  /**
+   * Server-only key for HMAC-hashing E.164 numbers before storage. Hashes of
+   * phone numbers are trivially reversible by enumeration without a secret.
+   * Generate with `openssl rand -hex 32`; never commit or log it.
+   */
+  OTP_PHONE_HASH_SECRET: optional(z.string().min(16)),
+  /** How far apart an attempt and a Twilio event may be and still correlate. */
+  OTP_CORRELATION_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .min(10_000)
+    .max(3_600_000)
+    .default(10 * 60_000),
+
+  /**
    * Region the object buckets live in. Also determines the shape of a public
    * object URL, so it must match where the buckets actually are.
    */
@@ -381,6 +410,18 @@ export interface AppConfig {
   supabaseJwksUrl: string | null;
   /** Supabase service-role key used to delete identities; null until configured. */
   supabaseServiceRoleKey: string | null;
+  /** Phone-OTP delivery telemetry, disabled unless fully configured. */
+  otpTelemetry: {
+    enabled: boolean;
+    /** Twilio account auth token used to validate callback signatures. */
+    twilioAuthToken: string | null;
+    /** Exact public callback URL configured in Twilio (no query string). */
+    webhookUrl: string | null;
+    /** Server-only HMAC key for hashing phone numbers. */
+    phoneHashSecret: string | null;
+    /** Window for correlating a callback with an app request, in ms. */
+    correlationWindowMs: number;
+  };
   /** Region the object buckets live in. */
   s3Region: string;
   /** Bucket holding live-captured Pro face photos. */
@@ -559,6 +600,38 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     }
   }
 
+  // OTP telemetry is either fully configured or off. Missing one piece would
+  // let the API accept unsigned callbacks (a forgery hole) or reject every real
+  // one (silent data loss), so fail at boot instead.
+  const otpTelemetryEnabled = env.OTP_TELEMETRY_ENABLED === 'true';
+  if (otpTelemetryEnabled) {
+    const missing = [
+      env.TWILIO_AUTH_TOKEN === null || env.TWILIO_AUTH_TOKEN === undefined
+        ? 'TWILIO_AUTH_TOKEN'
+        : null,
+      env.TWILIO_WEBHOOK_URL === null || env.TWILIO_WEBHOOK_URL === undefined
+        ? 'TWILIO_WEBHOOK_URL'
+        : null,
+      env.OTP_PHONE_HASH_SECRET === null || env.OTP_PHONE_HASH_SECRET === undefined
+        ? 'OTP_PHONE_HASH_SECRET'
+        : null,
+    ].filter((name): name is string => name !== null);
+    if (missing.length > 0) {
+      throw new Error(
+        `Invalid environment configuration:\n  - ${missing.join(
+          ', ',
+        )}: OTP_TELEMETRY_ENABLED=true needs TWILIO_AUTH_TOKEN, TWILIO_WEBHOOK_URL and OTP_PHONE_HASH_SECRET together.`,
+      );
+    }
+    // Twilio appends `bodySHA256` for JSON callbacks; a URL that already has a
+    // query string makes signature reconstruction ambiguous.
+    if (new URL(env.TWILIO_WEBHOOK_URL as string).search !== '') {
+      throw new Error(
+        'Invalid environment configuration:\n  - TWILIO_WEBHOOK_URL: configure the URL without query parameters; Twilio appends bodySHA256 itself.',
+      );
+    }
+  }
+
   return {
     nodeEnv: env.NODE_ENV,
     port: env.PORT,
@@ -570,6 +643,13 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     supabaseJwtSecret: env.SUPABASE_JWT_SECRET ?? null,
     supabaseJwksUrl: env.SUPABASE_JWKS_URL ?? null,
     supabaseServiceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY ?? null,
+    otpTelemetry: {
+      enabled: otpTelemetryEnabled,
+      twilioAuthToken: otpTelemetryEnabled ? (env.TWILIO_AUTH_TOKEN as string) : null,
+      webhookUrl: otpTelemetryEnabled ? (env.TWILIO_WEBHOOK_URL as string) : null,
+      phoneHashSecret: otpTelemetryEnabled ? (env.OTP_PHONE_HASH_SECRET as string) : null,
+      correlationWindowMs: env.OTP_CORRELATION_WINDOW_MS,
+    },
     s3Region: env.S3_REGION,
     s3BucketSelfies: env.S3_BUCKET_SELFIES,
     s3BucketJobImages: env.S3_BUCKET_JOB_IMAGES,

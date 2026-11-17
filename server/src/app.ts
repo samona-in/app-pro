@@ -15,6 +15,7 @@ import {
 } from './common/middleware/request-guards';
 import { createLimiters, type RateLimiterDeps } from './common/middleware/rate-limit';
 import { createApiRouter } from './routes';
+import { createOtpWebhookRouter } from './otp/otp-webhook.routes';
 
 export interface CreateAppOptions {
   config: AppConfig;
@@ -111,6 +112,11 @@ export function createApp({ config, services, prisma, rateLimit }: CreateAppOpti
 
   // Global budget first: it is the cheapest possible rejection.
   app.use(limiters.global);
+
+  // Twilio signs the exact request bytes, so this must be mounted before the
+  // global JSON parser consumes the body. It lives outside the versioned API
+  // because the URL is configured in the Twilio console, not called by an app.
+  app.use('/webhooks/twilio/verify', createOtpWebhookRouter(services));
 
   app.use(enforceJsonContentType);
   // 100kb is generous for this API's payloads. Uploads must go to object

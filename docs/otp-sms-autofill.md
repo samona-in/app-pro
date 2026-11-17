@@ -6,6 +6,10 @@ the code fills itself in — Android's zero-tap SMS Retriever and iOS's
 one-time-code keyboard suggestion — and what is live today versus what needs
 provider-side setup.
 
+Delivery failures are a separate concern from autofill: whether the SMS reached
+the handset at all is covered in
+[otp-delivery-audit.md](./otp-delivery-audit.md).
+
 **Current state:** Supabase delegates SMS to **Twilio Verify**, which owns the
 message body (the Supabase dashboard's SMS Template box does not apply). The
 Verify service sends its default message — `Your SAMONA verification code is:

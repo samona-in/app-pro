@@ -8,6 +8,7 @@ import { createAdminJobsRouter } from './jobs/admin-jobs.routes';
 import { createAdminLiveRouter } from './live/admin-live.routes';
 import { createAdminDraftsRouter } from './drafts/admin-drafts.routes';
 import { createAdminNotificationsRouter } from './notifications/admin-notifications.routes';
+import { createAdminOtpRouter } from './otp/admin-otp.routes';
 import { createAdminServiceWorkGroupsRouter } from './catalogue/admin-service-work-groups.routes';
 import { createRequireAdmin, requirePermission } from './middleware/require-admin';
 import { createBannerSchema, updateBannerSchema } from '@samona/validation';
@@ -343,6 +344,10 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
   router.use('/live', createAdminLiveRouter({ prisma: deps.prisma }));
   router.use('/drafts', createAdminDraftsRouter({ prisma: deps.prisma }));
   router.use('/notifications', createAdminNotificationsRouter({ prisma: deps.prisma, config: services.config as any, services }));
+
+  // OTP delivery telemetry — read-only. Mounted after `requireAdmin`, like the
+  // jobs ledger; no phone number, hash or OTP ever leaves these handlers.
+  router.use(createAdminOtpRouter({ prisma: deps.prisma }));
 
   // Services / categories
   router.get('/categories', async (_req, res, next) => {

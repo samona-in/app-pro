@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
+import { APP_TYPES } from '@samona/config';
 import { supabase } from '@/services/supabase';
+import { registerOtpAttempt } from '@/services/otp-telemetry';
 
 const TOO_MANY_ATTEMPTS = 'Too many attempts. Please wait a minute before requesting another code.';
 const INCORRECT_CODE = 'Incorrect code. Please try again.';
@@ -104,6 +106,11 @@ export function usePhoneAuth() {
     setError(null);
 
     try {
+      // Telemetry first, and deliberately not awaited: the registration gives
+      // Twilio's callback something to correlate against, but the code must
+      // never wait on it. A failure here is swallowed inside the service.
+      void registerOtpAttempt(phone, APP_TYPES.CUSTOMER);
+
       const { error: otpError } = await supabase.auth.signInWithOtp({
         phone,
         options: { shouldCreateUser: true },

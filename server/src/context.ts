@@ -50,6 +50,7 @@ import {
 } from './retention/cleanup.service';
 import { createRetentionScheduler, type RetentionScheduler } from './retention/scheduler';
 import { createTrackingService, type TrackingService } from './tracking/tracking.service';
+import { createOtpTelemetryService, type OtpTelemetryService } from './otp/otp-telemetry.service';
 
 /**
  * Every domain service, constructed once per process.
@@ -95,6 +96,8 @@ export interface Services {
   retentionScheduler: RetentionScheduler;
   /** Live tracking for active jobs. */
   tracking: TrackingService;
+  /** Phone-OTP attempt registration and Twilio delivery callbacks. */
+  otpTelemetry: OtpTelemetryService;
   config: AppConfig;
 }
 
@@ -271,6 +274,7 @@ export function createServices(
     retention,
     retentionScheduler,
     tracking,
+    otpTelemetry: createOtpTelemetryService({ prisma, config }),
     config,
   };
 }

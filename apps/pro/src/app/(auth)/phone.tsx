@@ -13,10 +13,7 @@ import { PRIVACY_URL, TERMS_URL } from '@/constants/support';
 import { color } from '@/theme';
 import { cn } from '@/utils/cn';
 import { openExternalUrl } from '@/utils/open-url';
-
-function digitsOf(value: string) {
-  return value.replace(/\D/g, '');
-}
+import { toLocalDigits } from '@/utils/phone';
 
 /** A quiet legal link: dark label, dotted rule underneath, like the reference. */
 function LegalLink({ label, url }: { label: string; url: string }) {
@@ -60,23 +57,26 @@ export default function PhoneScreen() {
   /** Synchronous guard: state updates land a render too late to stop a double tap. */
   const submittingRef = useRef(false);
 
-  // The hint arrives as a single E.164 string, so strip the dial code we
-  // already show and keep only the subscriber number.
+  // The hint arrives as a single E.164 string for the SIM's own number, which
+  // may belong to a different country than the one selected. Only adopt it
+  // when it matches the dial code on screen, then strip that code and any
+  // trunk zero like typed input.
   usePhoneHint((hint) => {
-    const digits = digitsOf(hint);
-    const code = digitsOf(country.dial);
-    if (digits.startsWith(code))
-      setNumber(digits.slice(code.length, code.length + country.maxLocalDigits));
+    if (!hint.replace(/\D/g, '').startsWith(country.dial)) return;
+    setNumber(toLocalDigits(hint, country));
   }, number.length === 0);
 
   function onNumberChange(text: string) {
-    setNumber(digitsOf(text).slice(0, country.maxLocalDigits));
+    // Normalised in JS rather than capped by `maxLength`, because the native
+    // cap truncates a pasted "+91 98765 43210" before the dial code or a
+    // trunk zero can be removed.
+    setNumber(toLocalDigits(text, country));
   }
 
   function onCountryChange(next: Country) {
     setCountry(next);
     // A number typed for one country can be too long for the next.
-    setNumber((current) => digitsOf(current).slice(0, next.maxLocalDigits));
+    setNumber((current) => toLocalDigits(current, next));
   }
 
   async function onContinue() {
@@ -85,7 +85,7 @@ export default function PhoneScreen() {
     setLocalError(null);
     clearError();
 
-    const local = digitsOf(number);
+    const local = toLocalDigits(number, country);
 
     if (!local) {
       setLocalError(t('phone.enterNumber'));
@@ -208,7 +208,6 @@ export default function PhoneScreen() {
                 autoComplete="tel"
                 textContentType="telephoneNumber"
                 textAlignVertical="center"
-                maxLength={country.maxLocalDigits}
                 autoFocus
                 editable={!busy}
                 style={{ includeFontPadding: false, paddingVertical: 0 }}

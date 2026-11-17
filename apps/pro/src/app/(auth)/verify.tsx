@@ -116,7 +116,13 @@ export default function VerifyScreen() {
     // attempt, and re-arm the retriever before the request goes out.
     setCode('');
     lastAutoAttemptRef.current = null;
-    await startOtpListening();
+    // Autofill is a convenience: a failed retriever arm must not stop the
+    // resend, exactly as on the phone screen.
+    try {
+      await startOtpListening();
+    } catch {
+      // Manual entry still works when the native retriever is unavailable.
+    }
     if (await sendCode(phone)) restartResendWindow();
   }
 

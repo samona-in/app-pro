@@ -45,6 +45,41 @@ const corsOrigins =
     dotenvValue('CORS_ORIGINS'),
   ]) ?? '';
 
+/**
+ * OTP delivery telemetry is opt-in, and only on when both halves are present:
+ * the exact public callback URL Twilio will sign, and the name of the Secrets
+ * Manager secret holding TWILIO_AUTH_TOKEN + OTP_PHONE_HASH_SECRET. Resolved the
+ * same way as SUPABASE_URL so `cdk list`/`diff` keep working without them.
+ *
+ * The secret is created out of band (it holds no CloudFormation-managed value):
+ *   aws secretsmanager create-secret --name samona/staging/otp-telemetry \
+ *     --secret-string '{"TWILIO_AUTH_TOKEN":"…","OTP_PHONE_HASH_SECRET":"…"}'
+ * Rotating it is then a normal secret update, not a stack deploy.
+ */
+const otpWebhookUrl = firstString([
+  app.node.tryGetContext('otpWebhookUrl') as string | undefined,
+  process.env.TWILIO_WEBHOOK_URL,
+  dotenvValue('TWILIO_WEBHOOK_URL'),
+]);
+const otpTelemetrySecretName = firstString([
+  app.node.tryGetContext('otpTelemetrySecretName') as string | undefined,
+  process.env.OTP_TELEMETRY_SECRET_NAME,
+  dotenvValue('OTP_TELEMETRY_SECRET_NAME'),
+]);
+// Half-configured telemetry is the dangerous state: the API would accept
+// callbacks it cannot verify, or vice versa. Fail at synth instead.
+if ((otpWebhookUrl === undefined) !== (otpTelemetrySecretName === undefined)) {
+  throw new Error(
+    'OTP telemetry needs both a webhook URL and a secret name: pass --context otpWebhookUrl=… ' +
+      'and --context otpTelemetrySecretName=… (or set TWILIO_WEBHOOK_URL and ' +
+      'OTP_TELEMETRY_SECRET_NAME). Set neither to deploy with telemetry off.',
+  );
+}
+const otpTelemetry =
+  otpWebhookUrl !== undefined && otpTelemetrySecretName !== undefined
+    ? { webhookUrl: otpWebhookUrl, secretName: otpTelemetrySecretName }
+    : undefined;
+
 const env = { account, region };
 const tags = { Project: 'samona', Environment: stage, ManagedBy: 'cdk' };
 
@@ -60,6 +95,7 @@ const service = new SamonaServiceStack(app, `Samona${capitalize(stage)}ServiceSt
   stage,
   supabaseUrl,
   corsOrigins,
+  otpTelemetry,
   description: 'SAMONA staging service plane: ALB, ECS Fargate, API task',
   tags,
 });
