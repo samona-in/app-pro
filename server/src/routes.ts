@@ -23,6 +23,7 @@ import { createReviewsRouter } from './reviews/reviews.routes';
 import { createDocumentsRouter } from './documents/documents.routes';
 import { createAdminRouter } from './admin';
 import { createTrackingRouter } from './tracking/tracking.routes';
+import { createOtpRouter } from './otp/otp.routes';
 
 export function createApiRouter(
   services: Services,
@@ -33,6 +34,7 @@ export function createApiRouter(
 
   router.use('/health', createHealthRouter());
   router.use('/auth', createAuthRouter(services));
+  router.use('/auth', createOtpRouter(services, limiters));
   router.use('/users', limiters.write, createUsersRouter(services, limiters));
   router.use('/pros', limiters.write, createProsRouter(services));
   router.use('/customers', limiters.write, createCustomersRouter(services));

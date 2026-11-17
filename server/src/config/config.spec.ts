@@ -152,4 +152,45 @@ describe('loadConfig', () => {
 
     expect(config.corsOrigins).toEqual(['https://a.test', 'https://b.test']);
   });
+
+  it('keeps OTP telemetry off by default', () => {
+    const config = loadConfig(base);
+
+    expect(config.otpTelemetry.enabled).toBe(false);
+    expect(config.otpTelemetry.twilioAuthToken).toBeNull();
+    expect(config.otpTelemetry.webhookUrl).toBeNull();
+    expect(config.otpTelemetry.phoneHashSecret).toBeNull();
+    expect(config.otpTelemetry.correlationWindowMs).toBe(600_000);
+  });
+
+  it('accepts a complete OTP telemetry configuration', () => {
+    const config = loadConfig({
+      ...base,
+      OTP_TELEMETRY_ENABLED: 'true',
+      TWILIO_AUTH_TOKEN: 'token',
+      TWILIO_WEBHOOK_URL: 'https://api.example.com/webhooks/twilio/verify',
+      OTP_PHONE_HASH_SECRET: 'a-secret-at-least-16-chars',
+    });
+
+    expect(config.otpTelemetry.enabled).toBe(true);
+    expect(config.otpTelemetry.webhookUrl).toBe('https://api.example.com/webhooks/twilio/verify');
+  });
+
+  it('rejects OTP telemetry without its whole secret group', () => {
+    expect(() => loadConfig({ ...base, OTP_TELEMETRY_ENABLED: 'true' })).toThrow(
+      /TWILIO_AUTH_TOKEN/,
+    );
+  });
+
+  it('rejects a webhook URL that already carries a query string', () => {
+    expect(() =>
+      loadConfig({
+        ...base,
+        OTP_TELEMETRY_ENABLED: 'true',
+        TWILIO_AUTH_TOKEN: 'token',
+        TWILIO_WEBHOOK_URL: 'https://api.example.com/webhooks/twilio/verify?foo=1',
+        OTP_PHONE_HASH_SECRET: 'a-secret-at-least-16-chars',
+      }),
+    ).toThrow(/without query parameters/);
+  });
 });

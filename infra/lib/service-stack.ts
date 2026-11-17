@@ -13,6 +13,17 @@ export interface SamonaServiceStackProps extends StackProps {
   readonly stage: string;
   readonly supabaseUrl: string;
   readonly corsOrigins: string;
+  /**
+   * Optional OTP delivery telemetry. Omitted the API keeps the feature off and
+   * no extra SSM parameter or secret is required, so a deploy that does not
+   * need it stays a one-flag operation.
+   */
+  readonly otpTelemetry?: {
+    /** Exact public Twilio callback URL, without query parameters. */
+    readonly webhookUrl: string;
+    /** Secrets Manager secret name holding TWILIO_AUTH_TOKEN + OTP_PHONE_HASH_SECRET. */
+    readonly secretName: string;
+  };
 }
 
 /**
@@ -31,7 +42,7 @@ export interface SamonaServiceStackProps extends StackProps {
 export class SamonaServiceStack extends Stack {
   constructor(scope: Construct, id: string, props: SamonaServiceStackProps) {
     super(scope, id, props);
-    const { stage, supabaseUrl, corsOrigins } = props;
+    const { stage, supabaseUrl, corsOrigins, otpTelemetry } = props;
     const paramName = (key: string) => `/samona/${stage}/${key}`;
     // The scope is required: each read is an imported-parameter construct, which
     // is what gives CloudFormation a dependency to order on.
@@ -131,6 +142,12 @@ export class SamonaServiceStack extends Stack {
       S3_BUCKET_BANNERS: read('s3/bucket-banners'),
       SUPABASE_URL: supabaseUrl,
       CORS_ORIGINS: corsOrigins,
+      ...(otpTelemetry
+        ? {
+            OTP_TELEMETRY_ENABLED: 'true',
+            TWILIO_WEBHOOK_URL: otpTelemetry.webhookUrl,
+          }
+        : { OTP_TELEMETRY_ENABLED: 'false' }),
     };
 
     const platform: ecs.RuntimePlatform = {
@@ -173,6 +190,26 @@ export class SamonaServiceStack extends Stack {
         FCM_PRIVATE_KEY: ecs.Secret.fromSecretsManager(fcmSecret, 'FCM_PRIVATE_KEY'),
         EXPO_ACCESS_TOKEN: ecs.Secret.fromSecretsManager(expoSecret),
         SUPABASE_SERVICE_ROLE_KEY: ecs.Secret.fromSecretsManager(supabaseAdminSecret),
+        ...(otpTelemetry
+          ? {
+              TWILIO_AUTH_TOKEN: ecs.Secret.fromSecretsManager(
+                secretsmanager.Secret.fromSecretNameV2(
+                  this,
+                  'OtpTelemetrySecret',
+                  otpTelemetry.secretName,
+                ),
+                'TWILIO_AUTH_TOKEN',
+              ),
+              OTP_PHONE_HASH_SECRET: ecs.Secret.fromSecretsManager(
+                secretsmanager.Secret.fromSecretNameV2(
+                  this,
+                  'OtpTelemetryHashSecret',
+                  otpTelemetry.secretName,
+                ),
+                'OTP_PHONE_HASH_SECRET',
+              ),
+            }
+          : {}),
       },
       healthCheck: {
         command: [

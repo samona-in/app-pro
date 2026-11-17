@@ -18,6 +18,7 @@ import {
   Image,
   Activity,
   ShoppingCart,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdmin } from '@/providers/admin-provider';
@@ -26,6 +27,7 @@ import { Suspense } from 'react';
 const menuItems = [
   { icon: LayoutDashboard, label: 'Overview', href: '/dashboard' },
   { icon: Activity, label: 'Live Operations', href: '/dashboard/live' },
+  { icon: MessageSquare, label: 'OTP Delivery', href: '/dashboard/otp' },
   { icon: Calendar, label: 'Bookings', href: '/dashboard/bookings' },
   { icon: ShoppingCart, label: 'Booking carts', href: '/dashboard/drafts' },
   { icon: Users, label: 'Customers', href: '/dashboard/customers' },

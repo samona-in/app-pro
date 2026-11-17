@@ -1428,3 +1428,94 @@ enum RecipientStatus {
   FAILED
   SKIPPED
 }
+
+/// Which app requested a phone OTP. Delivery problems are sometimes
+/// device/app specific, so the two surfaces are recorded separately.
+enum OtpApp {
+  CUSTOMER
+  PRO
+}
+
+/// Twilio Verify message status, as delivered by the Message Status Stream.
+enum OtpDeliveryStatus {
+  SENT
+  DELIVERED
+  READ
+  UNDELIVERED
+  FAILED
+}
+
+/// One phone-OTP request made from a mobile app.
+///
+/// Supabase Auth performs the actual `signInWithOtp` call and does not expose
+/// Twilio's `verification_sid`/`attempt_sid` to the client. The app therefore
+/// registers the attempt here (phone hash, app, device) so the Twilio delivery
+/// webhook can be correlated by hashed phone + request time.
+///
+/// Privacy: the E.164 number is never stored. `phone_hash` is an HMAC-SHA256
+/// digest keyed by a server-only secret, and `phone_last2` exists only so a
+/// support agent can confirm "the number ending 42" against a ticket.
+model OtpAttempt {
+  id                 String             @id @default(uuid()) @db.Uuid
+  /// Client-generated idempotency key; a retried registration is one row.
+  clientAttemptId    String             @unique @map("client_attempt_id") @db.VarChar(64)
+  /// HMAC-SHA256(E.164), hex. Equality-comparable, not reversible by enumeration.
+  phoneHash          String             @map("phone_hash") @db.VarChar(64)
+  /// Last two digits only, for human support correlation.
+  phoneLast2         String             @map("phone_last2") @db.VarChar(2)
+  app                OtpApp
+  /// Best-effort device context from the client (e.g. iQOO/Vivo diagnosis).
+  deviceManufacturer String?            @map("device_manufacturer") @db.VarChar(64)
+  deviceModel        String?            @map("device_model") @db.VarChar(64)
+  osVersion          String?            @map("os_version") @db.VarChar(32)
+  /// Filled in by the webhook once Twilio reports on this attempt.
+  verificationSid    String?            @map("verification_sid") @db.VarChar(34)
+  attemptSid         String?            @map("attempt_sid") @db.VarChar(34)
+  status             OtpDeliveryStatus  @default(SENT)
+  requestedAt        DateTime           @default(now()) @map("requested_at")
+  /// Event time of the newest status applied, so out-of-order callbacks cannot
+  /// move an attempt backwards from DELIVERED to SENT.
+  lastEventAt        DateTime?          @map("last_event_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  deliveryEvents     OtpDeliveryEvent[]
+
+  @@index([phoneHash, requestedAt])
+  @@index([verificationSid])
+  @@index([requestedAt])
+  @@map("otp_attempts")
+}
+
+/// One callback from Twilio's Verify Message Status Stream.
+///
+/// `eventId` is Twilio's unique event id and is the idempotency key: Event
+/// Streams retries a delivery until it is acknowledged, so the same event can
+/// arrive more than once. `mcc`/`mnc` are the destination network the SMS was
+/// last seen on — the signal needed to tell a carrier problem from a device one.
+model OtpDeliveryEvent {
+  id              String            @id @default(uuid()) @db.Uuid
+  /// Twilio event `id`; unique so a redelivery is a no-op.
+  eventId         String            @unique @map("event_id") @db.VarChar(64)
+  /// e.g. com.twilio.accountsecurity.verify.message.delivered
+  eventType       String            @map("event_type") @db.VarChar(96)
+  verificationSid String?           @map("verification_sid") @db.VarChar(34)
+  attemptSid      String?           @map("attempt_sid") @db.VarChar(34)
+  /// HMAC-SHA256 of the destination E.164 (`data.to`). Never the number itself.
+  phoneHash       String            @map("phone_hash") @db.VarChar(64)
+  phoneLast2      String?           @map("phone_last2") @db.VarChar(2)
+  channel         String?           @db.VarChar(16)
+  status          OtpDeliveryStatus
+  mcc             String?           @db.VarChar(4)
+  mnc             String?           @db.VarChar(4)
+  numberSegments  Int?              @map("number_segments")
+  eventTime       DateTime          @map("event_time")
+  receivedAt      DateTime          @default(now()) @map("received_at")
+  otpAttemptId    String?           @map("otp_attempt_id") @db.Uuid
+  otpAttempt      OtpAttempt?       @relation(fields: [otpAttemptId], references: [id], onDelete: SetNull)
+
+  @@index([verificationSid])
+  @@index([phoneHash, eventTime])
+  @@index([status, eventTime])
+  @@index([otpAttemptId])
+  @@map("otp_delivery_events")
+}

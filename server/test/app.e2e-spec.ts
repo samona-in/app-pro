@@ -54,6 +54,13 @@ const config: AppConfig = {
   jobOfferSecret: null,
   jobOfferTtlMs: 90_000,
   supabaseServiceRoleKey: null,
+  otpTelemetry: {
+    enabled: false,
+    twilioAuthToken: null,
+    webhookUrl: null,
+    phoneHashSecret: null,
+    correlationWindowMs: 600_000,
+  },
   accountDeletionReauthWindowMs: 5 * 60_000,
   accountDeletionTokenTtlMs: 5 * 60_000,
   accountDeletionSweepMs: 30_000,
