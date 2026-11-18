@@ -81,8 +81,8 @@ The project already exists. Confirm its Auth config:
    [`docs/otp-sms-autofill.md`](./otp-sms-autofill.md).
 5. Because it is the **same** Verify service, the message body is unchanged
    (`Your SAMONA verification code is: 1234.`) and **iOS autofill keeps working
-   with no app change**. Android zero-tap stays dormant as before (the app
-   hashes `mqbDHIJEYKA` / `lSIAglKzhjG` are still not in the body).
+   with no app change**. Android OTP entry stays manual (the SMS Retriever
+   integration was removed from both apps).
 6. **Auth → Rate limits**: match the old project's OTP request limits.
 7. **Storage**: create **no public buckets**. The whole incident was cached
    egress on legacy public buckets; the app serves files from S3.

@@ -14,8 +14,9 @@ hypothesis until callback rows confirm it.
 
 - Supabase Auth remains the only OTP issuer and verifier.
 - Twilio Verify remains the only SMS sender; no second code is generated.
-- No new Android SMS permission is requested. The existing SMS Retriever arm is
-  unchanged and still dormant (see [otp-sms-autofill.md](./otp-sms-autofill.md)).
+- No SMS permission is requested. Android OTP entry stays manual; iOS uses the
+  one-time-code keyboard suggestion (see
+  [otp-sms-autofill.md](./otp-sms-autofill.md)).
 - OTP values are never stored or logged. Phone numbers are never logged, and are
   stored only as an HMAC.
 - Existing sessions and sign-in behaviour are untouched; every telemetry call is
@@ -72,12 +73,12 @@ that cap to the raw text before `onChangeText`, so pasting `+91 98765 43210`
 handed JavaScript only the first 10 characters — dial code and spaces included.
 The digits retained were wrong, and there was no way to recover the rest.
 
-### F4 — Resend could break the whole verify screen
+### F4 — Resend could be blocked by autofill arming (resolved)
 
-`onResend` awaited `startOtpListening()` without a guard. If arming the native
-retriever rejected, the resend never ran and the screen surfaced no clear path
-forward. The phone screen already guarded the same call; the verify screen did
-not.
+`onResend` used to await an SMS-retriever arm without a guard. If that native
+call rejected, the resend never ran and the screen surfaced no clear path
+forward. The retriever integration (`expo-otp-autofill`) has since been removed
+from both apps, so resend can no longer be blocked by it.
 
 ### F5 — Success semantics are easy to misread
 
@@ -93,12 +94,12 @@ message. The client cannot tell a *provider* rate limit from a *carrier* one,
 because that distinction only exists after Twilio has looked at the message. The
 Twilio callbacks are the only place a send-side failure can be attributed.
 
-### F7 — Android zero-tap autofill is still dormant
+### F7 — Android has no SMS autofill
 
-The Twilio Verify template carries no app hash, so SMS Retriever never matches.
-Manual entry and paste are the Android path. A user who expects autofill may
-describe a successful delivery as "nothing happened"; this is a UX confounder,
-not a delivery failure. iOS one-time-code autofill is live.
+Manual entry and paste are the Android path; the former SMS Retriever
+integration was removed. A user who expects autofill may describe a successful
+delivery as "nothing happened"; this is a UX confounder, not a delivery failure.
+iOS one-time-code autofill is live.
 
 ### F8 — iQOO/Vivo behaviour cannot be inferred from the app
 
@@ -204,7 +205,8 @@ Both apps now:
 - register the attempt before `signInWithOtp`, fire-and-forget, with a 4 s
   timeout and `skipAuth: true`;
 - log only the attempt id / HTTP status in development;
-- guard `startOtpListening()` on resend so autofill cannot block a real resend.
+- resend no longer depends on any native autofill arm (the SMS Retriever
+  integration was removed).
 
 Telemetry is skipped when `NODE_ENV === 'test'` so hook tests stay hermetic.
 

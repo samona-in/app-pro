@@ -37,7 +37,6 @@
     "expo-linking": "~57.0.9",
     "expo-location": "~57.0.15",
     "expo-notifications": "~57.0.16",
-    "expo-otp-autofill": "^1.1.0",
     "expo-phone-number-hint": "^0.6.0",
     "expo-router": "~57.0.18",
     "expo-secure-store": "~57.0.3",

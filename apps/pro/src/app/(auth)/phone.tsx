@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { OTP_LENGTH } from '@samona/config';
 import { phoneSchema } from '@samona/validation';
 import { AuthHero, CountryCodeButton, CountryPickerSheet } from '@/components/auth';
-import { Button, Screen, Text } from '@/components/ui';
-import { usePhoneAuth, usePhoneHint, startOtpListening } from '@/hooks';
+import { Screen, Text } from '@/components/ui';
+import { usePhoneAuth, usePhoneHint } from '@/hooks';
 import { DEFAULT_COUNTRY, type Country } from '@/constants/countries';
 import { PRIVACY_URL, TERMS_URL } from '@/constants/support';
 import { color } from '@/theme';
@@ -52,7 +53,7 @@ export default function PhoneScreen() {
   const [number, setNumber] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  /** Covers the SMS-retriever arm before `sendCode` starts its own busy state. */
+  /** Keeps the CTA busy until `sendCode` owns the hook's busy state. */
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** Synchronous guard: state updates land a render too late to stop a double tap. */
   const submittingRef = useRef(false);
@@ -98,28 +99,19 @@ export default function PhoneScreen() {
       return;
     }
 
-    // One flow at a time: the retriever arm happens before `sendCode` sets the
-    // hook's busy flag, so this local flag is what keeps Continue disabled for
-    // the whole request and prevents overlapping OTP sends.
+    // One flow at a time: `sendCode` owns the hook's busy state, but that
+    // state lands a render late, so this local flag keeps Continue disabled
+    // for the whole request and prevents overlapping OTP sends.
     submittingRef.current = true;
     setIsSubmitting(true);
 
     try {
-      // Arm the SMS retriever before the code is requested, so Play Services
-      // is already listening when the SMS lands — no gap for it to fall into.
-      // Autofill is a convenience: a failed arm must not block the code request.
-      try {
-        await startOtpListening();
-      } catch {
-        // Manual entry still works when the native retriever is unavailable.
-      }
-
       if (await sendCode(parsed.data)) {
         router.push({ pathname: '/verify', params: { phone: parsed.data } });
       }
     } catch (unexpected) {
       // Never leave the professional on this screen with no explanation: a
-      // failed retriever arm or navigation must surface as a visible error.
+      // failed code request or navigation must surface as a visible error.
       if (__DEV__) {
         console.warn(
           '[phone] continue failed',
@@ -134,8 +126,9 @@ export default function PhoneScreen() {
   }
 
   const hasError = Boolean(localError ?? error);
-  // The whole request, including the retriever arm, owns the loading state.
+  // The whole request owns the loading state.
   const busy = isBusy || isSubmitting;
+  const continueLabel = t('common.continue');
 
   return (
     /* The country sheet is a plain `BottomSheet` mounted beside the screen
@@ -153,12 +146,32 @@ export default function PhoneScreen() {
           /* CTA pinned below the scroll area: it rides above the keyboard
              while the number field is being edited. */
           <View className="gap-5 pb-4 pt-6">
-            <Button
-              label={t('common.continue')}
-              size="lg"
-              loading={busy}
-              onPress={() => void onContinue()}
-            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={continueLabel}
+              accessibilityState={{ disabled: busy, busy }}
+              disabled={busy}
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                void onContinue();
+              }}
+              className={cn(
+                'min-h-[60px] w-full flex-row items-center justify-center rounded-lg bg-brand px-6 active:opacity-80',
+                busy && 'opacity-40',
+              )}
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color={color['brand-contrast']} />
+              ) : (
+                <Text
+                  variant="bodyLg"
+                  className="font-semibold"
+                  style={{ color: color['brand-contrast'] }}
+                >
+                  {continueLabel}
+                </Text>
+              )}
+            </Pressable>
             <View>
               <Text variant="footnote" className="text-center text-text-secondary">
                 {t('phone.legalPrefix')}
