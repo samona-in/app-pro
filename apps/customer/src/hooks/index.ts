@@ -23,13 +23,6 @@ export {
   useSavedAddresses,
   useUpdateSavedAddress,
 } from './use-address';
-export {
-  getAppHash,
-  extractOtpCode,
-  useOtpAutoFill,
-  startOtpListening,
-  stopOtpListening,
-} from './use-otp-autofill';
 export { usePhoneAuth } from './use-phone-auth';
 export { PHONE_HINT_DELAY_MS, usePhoneHint } from './use-phone-hint';
 export { useCountdown, type Countdown } from './use-countdown';

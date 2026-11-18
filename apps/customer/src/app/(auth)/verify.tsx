@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { OTP_LENGTH } from '@samona/config';
 import { AuthHero } from '@/components/auth';
 import { Button, OtpInput, Screen, Text } from '@/components/ui';
-import {
-  useCountdown,
-  useOtpAutoFill,
-  usePhoneAuth,
-  getAppHash,
-  startOtpListening,
-  stopOtpListening,
-} from '@/hooks';
+import { useCountdown, usePhoneAuth } from '@/hooks';
 
 /** A code was just sent on the previous screen, so resend waits a full window. */
 const RESEND_COOLDOWN_MS = 30_000;
@@ -32,30 +25,6 @@ export default function VerifyScreen() {
   /** The last code an automatic attempt fired for, so repeats are skipped. */
   const lastAutoAttemptRef = useRef<string | null>(null);
 
-  // Android zero-tap fill via Google's SMS Retriever, armed on the phone
-  // screen before the code was requested; iOS no-ops here and fills through
-  // the keyboard's one-time-code suggestion instead. The retriever only
-  // fires when the SMS contains this build's app hash, which must be
-  // appended to the Supabase Auth SMS template. The callback fills the
-  // field when the code lands — no effect, no manual state sync.
-  useOtpAutoFill({
-    length: OTP_LENGTH,
-    onOtpReceived: (next) => {
-      if (!next) return;
-      clearError();
-      setCode(next);
-    },
-  });
-
-  useEffect(() => {
-    if (__DEV__ && Platform.OS === 'android') {
-      void getAppHash().then((hash) =>
-        // eslint-disable-next-line no-console
-        console.log('[verify] SMS Retriever app hash:', hash),
-      );
-    }
-  }, []);
-
   /**
    * Verifies `token` against the phone number. Shared by the Verify button
    * and the automatic path; the in-flight lock means a second request can
@@ -70,11 +39,7 @@ export default function VerifyScreen() {
     verifyingRef.current = true;
     clearError();
     try {
-      const signedIn = await verifyCode(phone, token);
-      if (signedIn) {
-        // The session is confirmed; the SMS listener's job is done.
-        void stopOtpListening();
-      }
+      await verifyCode(phone, token);
     } finally {
       verifyingRef.current = false;
     }
@@ -83,10 +48,9 @@ export default function VerifyScreen() {
   /**
    * Auto-verifies as soon as the code is complete. Each distinct code fires
    * at most one request: `lastAutoAttemptRef` skips repeats of the same
-   * digits (effect re-runs, an autofill re-delivery) and `verifyingRef`
-   * blocks anything while a request is in flight. Editing the code or
-   * resending clears both guards; the Verify button always allows a manual
-   * retry of the same digits.
+   * digits and `verifyingRef` blocks anything while a request is in flight.
+   * Editing the code or resending clears both guards; the Verify button
+   * always allows a manual retry of the same digits.
    */
   useEffect(() => {
     if (code.length !== OTP_LENGTH) return;
@@ -107,17 +71,10 @@ export default function VerifyScreen() {
   async function onResend() {
     if (!phone || isResendLocked) return;
     clearError();
-    // A fresh code invalidates the old one: clear the field, forget the last
-    // attempt, and re-arm the retriever before the request goes out.
+    // A fresh code invalidates the old one: clear the field and forget the
+    // last attempt so the new digits can auto-verify.
     setCode('');
     lastAutoAttemptRef.current = null;
-    // Autofill is a convenience: a failed retriever arm must not stop the
-    // resend, exactly as on the phone screen.
-    try {
-      await startOtpListening();
-    } catch {
-      // Manual entry still works when the native retriever is unavailable.
-    }
     if (await sendCode(phone)) restartResendWindow();
   }
 
