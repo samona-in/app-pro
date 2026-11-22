@@ -1,4 +1,5 @@
 import type { ImageSourcePropType } from 'react-native';
+import type { BannerType } from '@samona/types';
 import bannerHomeCare from '@/assets/images/banners/banner-1.png';
 import bannerElectrical from '@/assets/images/banners/banner-2.png';
 import bannerPlumbing from '@/assets/images/banners/banner-3.png';
@@ -13,6 +14,8 @@ import bannerCleaning from '@/assets/images/banners/banner-4.png';
 export interface HomeBanner {
   /** Stable identity for the list and for the pagination dots. */
   id: string;
+  /** PROMO renders copy + illustration; IMAGE renders a full-card picture. */
+  type: BannerType;
   /** Short headline shown at the top of the card. */
   heading: string;
   /** One-line supporting copy under the headline. */
@@ -30,6 +33,8 @@ export interface HomeBanner {
   image: ImageSourcePropType;
   /** Describes the illustration for screen readers. */
   imageDescription: string;
+  /** http(s) destination opened when an IMAGE banner is tapped. */
+  linkUrl?: string | null;
 }
 
 /**
@@ -41,6 +46,7 @@ export interface HomeBanner {
 export const HOME_BANNERS: HomeBanner[] = [
   {
     id: 'home-care',
+    type: 'PROMO',
     heading: 'Your home needs care.',
     subtitle: "We've got the right people.",
     ctaLabel: 'Explore Services',
@@ -50,6 +56,7 @@ export const HOME_BANNERS: HomeBanner[] = [
   },
   {
     id: 'electrical',
+    type: 'PROMO',
     heading: 'Electrical problems?',
     subtitle: 'Find a professional near you.',
     ctaLabel: 'Find an Electrician',
@@ -59,6 +66,7 @@ export const HOME_BANNERS: HomeBanner[] = [
   },
   {
     id: 'plumbing',
+    type: 'PROMO',
     heading: 'Leaky tap? Get it fixed.',
     subtitle: 'Connect with local plumbing professionals.',
     ctaLabel: 'Find a Plumber',
@@ -68,6 +76,7 @@ export const HOME_BANNERS: HomeBanner[] = [
   },
   {
     id: 'cleaning',
+    type: 'PROMO',
     heading: 'A cleaner home, made easier.',
     subtitle: 'Find trusted cleaning professionals nearby.',
     ctaLabel: 'Explore Cleaning',

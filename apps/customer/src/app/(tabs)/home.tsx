@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
@@ -81,9 +81,19 @@ export default function Home() {
     startBooking(service, { preselectedSkillId: skill.id });
   }
 
-  // A banner either promotes one service — and starts the booking flow for
-  // it — or opens the search screen when it is a general promotion.
+  // An IMAGE banner is an advert: its only action is the link admin provided.
+  // A PROMO banner either starts the booking flow for its service or opens the
+  // search screen when it is a general promotion.
   function handlePressBanner(banner: HomeBanner) {
+    if (banner.type === 'IMAGE') {
+      if (banner.linkUrl) {
+        void Linking.openURL(banner.linkUrl).catch((error) => {
+          console.warn('[home] could not open banner link:', error);
+        });
+      }
+      return;
+    }
+
     const service = banner.serviceSlug
       ? (categories.data ?? []).find((item) => item.slug === banner.serviceSlug)
       : undefined;

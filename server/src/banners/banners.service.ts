@@ -1,3 +1,4 @@
+import type { BannerType } from '@samona/types';
 import type { PrismaClient } from '../database/prisma';
 
 export function createBannersService(prisma: PrismaClient) {
@@ -11,10 +12,12 @@ export function createBannersService(prisma: PrismaClient) {
       return banners.map((banner) => ({
         id: banner.key || banner.id,
         key: banner.key,
+        type: banner.type,
         heading: banner.heading,
         subtitle: banner.subtitle,
         ctaLabel: banner.ctaLabel,
         serviceSlug: banner.serviceSlug,
+        linkUrl: banner.linkUrl,
         image: banner.image,
         imageDescription: banner.imageDescription,
         sortOrder: banner.sortOrder,
@@ -30,10 +33,12 @@ export function createBannersService(prisma: PrismaClient) {
 
     async create(data: {
       key: string;
+      type?: BannerType;
       heading: string;
       subtitle: string;
       ctaLabel: string;
       serviceSlug?: string | null;
+      linkUrl?: string | null;
       image: string;
       imageDescription: string;
       sortOrder?: number;
@@ -46,10 +51,12 @@ export function createBannersService(prisma: PrismaClient) {
       id: string,
       data: {
         key?: string;
+        type?: BannerType;
         heading?: string;
         subtitle?: string;
         ctaLabel?: string;
         serviceSlug?: string | null;
+        linkUrl?: string | null;
         image?: string;
         imageDescription?: string;
         sortOrder?: number;

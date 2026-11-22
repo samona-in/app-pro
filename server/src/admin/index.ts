@@ -582,13 +582,18 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
         return;
       }
 
+      const type = req.body.type ?? 'PROMO';
       const banner = await prisma.banner.create({
         data: {
           key: req.body.key,
-          heading: req.body.heading,
-          subtitle: req.body.subtitle,
-          ctaLabel: req.body.ctaLabel,
-          serviceSlug: req.body.serviceSlug ?? null,
+          type,
+          // IMAGE banners have no copy; the columns stay NOT NULL so they are
+          // stored as empty strings and never rendered by the customer app.
+          heading: req.body.heading ?? '',
+          subtitle: req.body.subtitle ?? '',
+          ctaLabel: req.body.ctaLabel ?? '',
+          serviceSlug: type === 'IMAGE' ? null : (req.body.serviceSlug ?? null),
+          linkUrl: type === 'IMAGE' ? (req.body.linkUrl ?? null) : null,
           image: req.body.image,
           imageDescription: req.body.imageDescription,
           sortOrder: req.body.sortOrder ?? 0,
@@ -608,16 +613,32 @@ export function createAdminRouter(services: Services, deps: AdminRouterDeps): Ro
         return;
       }
 
-      const { key, heading, subtitle, ctaLabel, serviceSlug, image, imageDescription, sortOrder, isActive } = req.body;
+      const {
+        key,
+        type,
+        heading,
+        subtitle,
+        ctaLabel,
+        serviceSlug,
+        linkUrl,
+        image,
+        imageDescription,
+        sortOrder,
+        isActive,
+      } = req.body;
 
       const banner = await prisma.banner.update({
         where: { id: req.params.id },
         data: {
           ...(key !== undefined && { key }),
-          ...(heading !== undefined && { heading }),
-          ...(subtitle !== undefined && { subtitle }),
-          ...(ctaLabel !== undefined && { ctaLabel }),
-          ...(serviceSlug !== undefined && { serviceSlug }),
+          ...(type !== undefined && { type }),
+          ...(heading !== undefined && { heading: heading ?? '' }),
+          ...(subtitle !== undefined && { subtitle: subtitle ?? '' }),
+          ...(ctaLabel !== undefined && { ctaLabel: ctaLabel ?? '' }),
+          ...(serviceSlug !== undefined && {
+            serviceSlug: type === 'IMAGE' ? null : serviceSlug,
+          }),
+          ...(linkUrl !== undefined && { linkUrl: type === 'PROMO' ? null : linkUrl }),
           ...(image !== undefined && { image }),
           ...(imageDescription !== undefined && { imageDescription }),
           ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
