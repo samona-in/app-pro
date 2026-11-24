@@ -33,6 +33,33 @@ export function HomeBannerCard({
   height = BANNER_HEIGHT,
   spotlight = true,
 }: HomeBannerCardProps) {
+  // An IMAGE banner is the picture, not a frame around copy: it fills the same
+  // card edge to edge and only becomes tappable when admin supplied a link.
+  if (banner.type === 'IMAGE') {
+    const hasLink = Boolean(banner.linkUrl);
+    return (
+      <Pressable
+        testID="image-banner-card"
+        accessibilityRole={hasLink ? 'button' : undefined}
+        accessibilityLabel={banner.imageDescription}
+        accessibilityHint={hasLink ? 'Opens the advertised website' : undefined}
+        onPress={hasLink ? () => onPress(banner) : undefined}
+        disabled={!hasLink}
+        style={[styles.card, { height }]}
+        className="overflow-hidden rounded-2xl bg-surface"
+      >
+        <Image
+          source={banner.image}
+          style={styles.image}
+          contentFit="cover"
+          transition={0}
+          cachePolicy="memory-disk"
+          accessibilityLabel={banner.imageDescription}
+        />
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -118,6 +145,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   artImage: {
+    width: '100%',
+    height: '100%',
+  },
+  image: {
     width: '100%',
     height: '100%',
   },

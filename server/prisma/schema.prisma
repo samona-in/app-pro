@@ -1022,23 +1022,35 @@ model LegalHold {
   @@map("legal_holds")
 }
 
+/// How a home-screen banner is presented.
+///
+/// `PROMO` is the existing copy + cut-out illustration card. `IMAGE` fills the
+/// whole card with a hosted image and opens `linkUrl` when tapped.
+enum BannerType {
+  PROMO
+  IMAGE
+}
+
 /// Promotional banners displayed on the customer home screen.
 model Banner {
-  id               String   @id @default(uuid()) @db.Uuid
+  id               String     @id @default(uuid()) @db.Uuid
   /// Stable identifier used by the client to track banners.
-  key              String   @unique
+  key              String     @unique
+  type             BannerType @default(PROMO)
   heading          String
   subtitle         String
-  ctaLabel         String   @map("cta_label")
+  ctaLabel         String     @map("cta_label")
   /// Optional service slug to promote. Null opens the search screen.
-  serviceSlug      String?  @map("service_slug")
+  serviceSlug      String?    @map("service_slug")
+  /// Destination of an IMAGE banner tap. Ignored by PROMO banners.
+  linkUrl          String?    @map("link_url")
   /// Image URL or storage path for the banner illustration.
   image            String
-  imageDescription String   @map("image_description")
-  sortOrder        Int      @default(0) @map("sort_order")
-  isActive         Boolean  @default(true) @map("is_active")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  imageDescription String     @map("image_description")
+  sortOrder        Int        @default(0) @map("sort_order")
+  isActive         Boolean    @default(true) @map("is_active")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
   @@index([isActive, sortOrder])
   @@map("banners")
