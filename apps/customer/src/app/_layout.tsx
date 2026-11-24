@@ -29,7 +29,7 @@ export default function RootLayout() {
     <View style={{ flex: 1, backgroundColor: splashVisible ? color.brand : color.surface }}>
       <StatusBar style={splashVisible ? 'light' : 'dark'} />
       <AppProviders>
-        <KeyboardProvider>
+        <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
           <Stack
             screenOptions={{
               headerShown: false,
