@@ -80,6 +80,7 @@ export default function PhoneScreen() {
     }
 
     const parsed = phoneSchema.safeParse(`+${country.dial}${local}`);
+    console.log('[phone] local=', local, 'parsed=', parsed.success, 'error=', localError ?? error);
     if (!parsed.success) {
       setLocalError(`Enter a valid phone number for ${country.name}.`);
       return;
@@ -138,8 +139,9 @@ export default function PhoneScreen() {
               accessibilityState={{ disabled: busy, busy }}
               disabled={busy}
               onPress={() => {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                console.log('[phone] press');
                 void onContinue();
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
               }}
               className={cn(
                 'min-h-[60px] w-full flex-row items-center justify-center rounded-lg bg-brand px-6 active:opacity-80',

@@ -55,7 +55,7 @@ export default function RootLayout() {
       <StatusBar style={splashVisible ? 'light' : 'dark'} />
       {languageReady ? (
         <AppProviders>
-          <KeyboardProvider>
+          <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
             <Stack
               screenOptions={{
                 headerShown: false,
