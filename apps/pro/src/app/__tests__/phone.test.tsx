@@ -1,9 +1,12 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Jest factories need lazy module loading. */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { TextInput } from 'react-native';
 import { router } from 'expo-router';
 import PhoneScreen from '../(auth)/phone';
+import { PRIVACY_URL, TERMS_URL } from '@/constants/support';
 
 const mockSendCode = jest.fn();
+const mockOpenExternalUrl = jest.fn();
 /** Mutated by tests to steer the phone-auth hook's state. */
 const mockAuthState: { isBusy: boolean; error: string | null } = { isBusy: false, error: null };
 
@@ -34,11 +37,38 @@ jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn() },
 }));
 
-jest.mock('@/components/auth', () => ({
-  AuthHero: () => null,
-  CountryCodeButton: () => null,
-  CountryPickerSheet: () => null,
+jest.mock('@/utils/open-url', () => ({
+  openExternalUrl: (...args: unknown[]) => mockOpenExternalUrl(...args),
 }));
+
+jest.mock('@/components/auth', () => {
+  const { jsx } = require('react/jsx-runtime');
+  const { Pressable, View } = require('react-native');
+
+  return {
+    AuthHero: () => null,
+    CountryCodeButton: ({
+      country,
+      expanded,
+      onPress,
+    }: {
+      country: { dial: string };
+      expanded?: boolean;
+      onPress: () => void;
+    }) =>
+      jsx(Pressable, {
+        accessibilityLabel: 'country button',
+        accessibilityState: { expanded },
+        onPress,
+        children: `+${country.dial}`,
+      }),
+    CountryPickerSheet: ({ visible }: { visible: boolean }) =>
+      jsx(View, {
+        testID: 'country-picker',
+        accessibilityLabel: visible ? 'country-picker-open' : 'country-picker-closed',
+      }),
+  };
+});
 
 jest.mock('@/hooks', () => ({
   // Wrapped in lambdas: the factory runs before the mock constants below are
@@ -143,5 +173,38 @@ describe('PhoneScreen', () => {
 
     await waitFor(() => expect(mockSendCode).toHaveBeenCalled());
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('opens the country picker from the country button', () => {
+    render(<PhoneScreen />);
+
+    expect(screen.getByTestId('country-picker').props.accessibilityLabel).toBe(
+      'country-picker-closed',
+    );
+
+    fireEvent.press(screen.getByLabelText('country button'));
+
+    expect(screen.getByTestId('country-picker').props.accessibilityLabel).toBe(
+      'country-picker-open',
+    );
+    expect(screen.getByLabelText('country button').props.accessibilityState?.expanded).toBe(true);
+  });
+
+  it('opens the legal links', () => {
+    render(<PhoneScreen />);
+
+    fireEvent.press(screen.getByRole('link', { name: 'helpSupport.rows.terms' }));
+    expect(mockOpenExternalUrl).toHaveBeenCalledWith(
+      TERMS_URL,
+      expect.any(String),
+      expect.any(String),
+    );
+
+    fireEvent.press(screen.getByRole('link', { name: 'helpSupport.rows.privacy' }));
+    expect(mockOpenExternalUrl).toHaveBeenCalledWith(
+      PRIVACY_URL,
+      expect.any(String),
+      expect.any(String),
+    );
   });
 });

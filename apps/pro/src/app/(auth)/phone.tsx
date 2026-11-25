@@ -139,8 +139,6 @@ export default function PhoneScreen() {
       `+${country.dial}${local}`,
     );
 
-    console.log('[phone] local=', local, 'parsed=', parsed.success, 'error=', localError ?? error);
-
     if (!parsed.success) {
       setLocalError(
         t('phone.invalidForCountry', {
@@ -197,7 +195,6 @@ export default function PhoneScreen() {
               }}
               disabled={busy}
               onPress={() => {
-                console.log('[phone] press');
                 void onContinue();
                 void Haptics.impactAsync(
                   Haptics.ImpactFeedbackStyle.Medium,

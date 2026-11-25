@@ -80,7 +80,6 @@ export default function PhoneScreen() {
     }
 
     const parsed = phoneSchema.safeParse(`+${country.dial}${local}`);
-    console.log('[phone] local=', local, 'parsed=', parsed.success, 'error=', localError ?? error);
     if (!parsed.success) {
       setLocalError(`Enter a valid phone number for ${country.name}.`);
       return;
@@ -139,7 +138,6 @@ export default function PhoneScreen() {
               accessibilityState={{ disabled: busy, busy }}
               disabled={busy}
               onPress={() => {
-                console.log('[phone] press');
                 void onContinue();
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
               }}

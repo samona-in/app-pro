@@ -132,7 +132,11 @@ export function CountryPickerSheet({
       animationConfigs={springConfig}
       backgroundComponent={SheetBackground}
       handleComponent={SheetHandle}
-      backdropComponent={renderBackdrop}
+      /* The backdrop must not exist while the sheet is closed. A mounted
+       * backdrop stays hit-testable until the library's animated index settles
+       * at -1, which can cover the whole phone screen and swallow every tap
+       * except the already-focused input. */
+      backdropComponent={visible ? renderBackdrop : undefined}
       onClose={onClose}
     >
       <View className="flex-1">
