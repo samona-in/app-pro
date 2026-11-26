@@ -325,15 +325,20 @@ historical snapshot and is never re-resolved.
 ## Admin notifications
 
 Admin notifications extend the existing campaign system under
-`/admin/notifications`; do not build a second messaging pipeline. Broadcast
-audiences stay push-only. The individual audiences (`INDIVIDUAL_PRO` and
-`INDIVIDUAL_CUSTOMER`) carry exactly one server-resolved profile id, refuse a
-wrong-surface or unavailable recipient, fan out to every registered pro device
-(or the customer's current single token), and write one `SYSTEM` row into that
-surface's existing inbox so the app's normal list/read behavior applies.
+`/admin/notifications`; do not build a second messaging pipeline. The admin
+notifications page (`/dashboard/notifications`) is for broadcast marketing only
+and stays push-only. A notice to one person is sent from that person's admin
+profile page (`/dashboard/professionals/[id]` or `/dashboard/customers/[id]`);
+the route id is the recipient's profile id and there is no recipient picker.
+The individual audiences (`INDIVIDUAL_PRO` and `INDIVIDUAL_CUSTOMER`) carry
+exactly one server-resolved profile id, refuse a wrong-surface or unavailable
+recipient, fan out to every registered pro device (or the customer's current
+single token), and write one `SYSTEM` row into that surface's existing inbox so
+the app's normal list/read behavior applies. Individual campaigns are hidden
+from the marketing campaign list.
 
 Campaign deep links are an allowlist shared by `@samona/config`, the server and
-both apps (`CAMPAIGN_DEEP_LINKS`). The admin form offers only those routes, the
+both apps (`CAMPAIGN_DEEP_LINKS`). Both admin forms offer only those routes, the
 server rejects anything else on new/updated campaigns, and apps ignore stored
 legacy values rather than navigating to an arbitrary path. Booking/job routes
 are owned by the jobs domain and are unchanged by this rule.

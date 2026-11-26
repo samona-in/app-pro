@@ -3,44 +3,24 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Copy, X, Send, Edit, Trash2 } from 'lucide-react';
-import { CAMPAIGN_DEEP_LINKS } from '@samona/config';
+import { CAMPAIGN_DEEP_LINKS, type CampaignSurface } from '@samona/config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { NOTIFICATION_TYPES } from '@/components/notifications/notification-types';
 import { api, errorMessage } from '@/lib/api';
-import {
-  RecipientPicker,
-  findNotificationRecipients,
-  type NotificationRecipient,
-  type RecipientSurface,
-} from './RecipientPicker';
 
-const NOTIFICATION_TYPES = [
-  'PROMOTIONAL_OFFERS',
-  'BOOKING_REMINDERS',
-  'PRO_ENGAGEMENT',
-  'NEW_SERVICE_ANNOUNCEMENTS',
-  'APPLICATION_UPDATES',
-  'IMPORTANT_ANNOUNCEMENTS',
-  'CUSTOM_NOTIFICATIONS',
-];
+/** Broadcast audiences only. Individual recipients are sent from profile pages. */
+const AUDIENCES = ['ALL_PROFESSIONALS', 'ALL_CUSTOMERS'] as const;
 
-/** The four recipient choices this screen offers for new campaigns. */
-const AUDIENCES = [
-  'ALL_PROFESSIONALS',
-  'ALL_CUSTOMERS',
-  'INDIVIDUAL_PRO',
-  'INDIVIDUAL_CUSTOMER',
-] as const;
+const INDIVIDUAL_AUDIENCES = ['INDIVIDUAL_PRO', 'INDIVIDUAL_CUSTOMER'];
 
 const AUDIENCE_LABELS: Record<string, string> = {
   ALL_PROFESSIONALS: 'All Pros',
   ALL_CUSTOMERS: 'All Customers',
-  INDIVIDUAL_PRO: 'Individual Pro',
-  INDIVIDUAL_CUSTOMER: 'Individual Customer',
 };
 
 const PRO_ONLY_AUDIENCES = [
@@ -80,7 +60,6 @@ type CampaignRow = {
   name: string;
   title: string;
   audience: string;
-  audienceFilters?: { recipientId?: string } | null;
   status: string;
   recipientCount: number;
   createdAt: string;
@@ -104,12 +83,7 @@ const EMPTY_FORM: CampaignForm = {
   scheduledAt: '',
 };
 
-function isIndividual(audience: string): audience is 'INDIVIDUAL_PRO' | 'INDIVIDUAL_CUSTOMER' {
-  return audience === 'INDIVIDUAL_PRO' || audience === 'INDIVIDUAL_CUSTOMER';
-}
-
-function surfaceFor(audience: string): RecipientSurface | null {
-  if (isIndividual(audience)) return audience === 'INDIVIDUAL_PRO' ? 'PRO' : 'CUSTOMER';
+function surfaceFor(audience: string): CampaignSurface | null {
   if (PRO_ONLY_AUDIENCES.includes(audience)) return 'PRO';
   if (CUSTOMER_ONLY_AUDIENCES.includes(audience)) return 'CUSTOMER';
   return null;
@@ -134,7 +108,6 @@ export default function NotificationsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CampaignForm>(EMPTY_FORM);
-  const [recipient, setRecipient] = useState<NotificationRecipient | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: campaignsData } = useQuery({
@@ -151,24 +124,19 @@ export default function NotificationsPage() {
       return res.data;
     },
   });
-  const campaigns: CampaignRow[] = campaignsData?.data || [];
+  const campaigns: CampaignRow[] = (campaignsData?.data ?? []).filter(
+    (campaign: CampaignRow) => !INDIVIDUAL_AUDIENCES.includes(campaign.audience),
+  );
   const automations: AutomationRow[] = automationsData?.data || [];
 
   const estimate = useQuery({
-    queryKey: ['notification-campaign-estimate', form.audience, recipient?.id ?? null],
+    queryKey: ['notification-campaign-estimate', form.audience],
     queryFn: async () => {
-      const payload: { audience: string; audienceFilters?: { recipientId: string } } = {
+      const res = await api.post('/admin/notifications/campaigns/estimate-recipients', {
         audience: form.audience,
-      };
-      if (isIndividual(form.audience)) {
-        // The query is disabled until the picker has made exactly one choice.
-        if (!recipient) return 0;
-        payload.audienceFilters = { recipientId: recipient.id };
-      }
-      const res = await api.post('/admin/notifications/campaigns/estimate-recipients', payload);
+      });
       return Number(res.data.count) || 0;
     },
-    enabled: !isIndividual(form.audience) || Boolean(recipient),
     refetchOnWindowFocus: false,
   });
 
@@ -230,12 +198,11 @@ export default function NotificationsPage() {
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
-    setRecipient(null);
     setFormError(null);
     setEditingId(null);
   };
 
-  const openEdit = async (campaign: CampaignRow) => {
+  const openEdit = (campaign: CampaignRow) => {
     setEditingId(campaign.id);
     setFormError(null);
     let scheduledAtLocal = '';
@@ -256,19 +223,6 @@ export default function NotificationsPage() {
       scheduledAt: scheduledAtLocal,
     });
 
-    const recipientId = campaign.audienceFilters?.recipientId;
-    if (recipientId && isIndividual(campaign.audience)) {
-      const surface: RecipientSurface = campaign.audience === 'INDIVIDUAL_PRO' ? 'PRO' : 'CUSTOMER';
-      try {
-        const found = await findNotificationRecipients({ surface, recipientId });
-        setRecipient(found.find((row) => row.id === recipientId) ?? null);
-      } catch {
-        setRecipient(null);
-        setFormError('The selected recipient is no longer available. Choose another recipient.');
-      }
-    } else {
-      setRecipient(null);
-    }
     setDialogOpen(true);
   };
 
@@ -279,27 +233,18 @@ export default function NotificationsPage() {
       audience,
       deepLink: options.some((option) => option.route === current.deepLink) ? current.deepLink : '',
     }));
-    setRecipient(null);
     setFormError(null);
   };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     setFormError(null);
-    if (isIndividual(form.audience) && !recipient) {
-      setFormError('Select exactly one recipient before sending.');
-      return;
-    }
 
     const payload: Record<string, unknown> = {
       ...form,
       imageUrl: form.imageUrl.trim() || undefined,
       deepLink: form.deepLink.trim() || undefined,
     };
-    if (isIndividual(form.audience) && recipient) {
-      // Only a profile id is sent; the server re-resolves surface and liveness.
-      payload.audienceFilters = { recipientId: recipient.id };
-    }
     if (!form.sendNow && form.scheduledAt.trim()) {
       const [datePart, timePart] = form.scheduledAt.split('T');
       const [year, month, day] = datePart.split('-').map(Number);
@@ -334,8 +279,11 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Marketing & Notifications</h1>
-          <p className="text-gray-500">Create, send, schedule, and monitor notifications</p>
+          <h1 className="text-3xl font-bold">Marketing Campaigns</h1>
+          <p className="text-gray-500">
+            Broadcast campaigns only. To message one person, open their professional or customer
+            profile.
+          </p>
         </div>
         <Button onClick={() => setDialogOpen(true)} className="bg-[#054DFF] hover:bg-[#054DFF]/90">
           <Plus className="mr-2 h-4 w-4" />
@@ -389,14 +337,8 @@ export default function NotificationsPage() {
                         <p className="text-sm font-medium text-gray-900">{campaign.name}</p>
                         <p className="text-xs text-gray-500 truncate max-w-xs">{campaign.title}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-900">{audienceLabel(campaign.audience)}</p>
-                        {isIndividual(campaign.audience) &&
-                        campaign.audienceFilters?.recipientId ? (
-                          <p className="font-mono text-[11px] text-gray-500">
-                            {campaign.audienceFilters.recipientId}
-                          </p>
-                        ) : null}
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {audienceLabel(campaign.audience)}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -412,11 +354,7 @@ export default function NotificationsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex gap-2 justify-end">
                           {(campaign.status === 'DRAFT' || campaign.status === 'SCHEDULED') && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => void openEdit(campaign)}
-                            >
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(campaign)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                           )}
@@ -580,23 +518,9 @@ export default function NotificationsPage() {
               </select>
             </div>
 
-            {isIndividual(form.audience) ? (
-              <RecipientPicker
-                surface={form.audience === 'INDIVIDUAL_PRO' ? 'PRO' : 'CUSTOMER'}
-                selected={recipient}
-                onSelect={(next) => {
-                  setRecipient(next);
-                  setFormError(null);
-                }}
-              />
-            ) : null}
-
             <div className="p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-800">
-                Estimated recipients:{' '}
-                <strong>
-                  {isIndividual(form.audience) && !recipient ? '—' : (estimate.data ?? 0)}
-                </strong>
+                Estimated recipients: <strong>{estimate.data ?? 0}</strong>
               </p>
             </div>
 
@@ -660,11 +584,6 @@ export default function NotificationsPage() {
                     <p className="text-xs text-gray-600 line-clamp-2">
                       {form.body || 'Notification message body'}
                     </p>
-                    {isIndividual(form.audience) && recipient ? (
-                      <p className="mt-1 truncate text-[11px] font-semibold text-[#054DFF]">
-                        To: {recipient.name} · {recipient.id}
-                      </p>
-                    ) : null}
                   </div>
                 </div>
               </div>
@@ -690,7 +609,7 @@ export default function NotificationsPage() {
               <Button
                 type="submit"
                 className="bg-[#054DFF] hover:bg-[#054DFF]/90"
-                disabled={createMutation.isPending || (isIndividual(form.audience) && !recipient)}
+                disabled={createMutation.isPending}
               >
                 {editingId
                   ? 'Update'

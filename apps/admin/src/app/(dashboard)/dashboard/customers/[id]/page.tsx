@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft } from 'lucide-react';
+import { IndividualNotificationCard } from '@/components/notifications/IndividualNotificationCard';
 import { api } from '@/lib/api';
 
 function CustomerEditContent() {
@@ -85,6 +86,13 @@ function CustomerEditContent() {
           <p className="text-gray-500">{customer.profile?.phone}</p>
         </div>
       </div>
+
+      <IndividualNotificationCard
+        surface="CUSTOMER"
+        recipientId={id}
+        recipientName={customer.displayName || customer.profile?.fullName || 'this customer'}
+        recipientDetail={customer.profile?.phone ?? undefined}
+      />
 
       <Card className="max-w-2xl">
         <CardHeader>

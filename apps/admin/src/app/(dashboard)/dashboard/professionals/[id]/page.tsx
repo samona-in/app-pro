@@ -1,7 +1,5 @@
 'use client';
 
-'use client';
-
 import { useState, useEffect, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
@@ -10,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Check, X, FileText } from 'lucide-react';
+import { IndividualNotificationCard } from '@/components/notifications/IndividualNotificationCard';
 import { api } from '@/lib/api';
 
 function ProfessionalEditContent() {
@@ -154,6 +153,15 @@ function ProfessionalEditContent() {
           <p className="text-gray-500">{professional.profile?.phone}</p>
         </div>
       </div>
+
+      <IndividualNotificationCard
+        surface="PRO"
+        recipientId={id}
+        recipientName={
+          professional.displayName || professional.profile?.fullName || 'this professional'
+        }
+        recipientDetail={professional.profile?.phone ?? undefined}
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
