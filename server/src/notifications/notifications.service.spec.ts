@@ -951,3 +951,131 @@ describe('createNotificationsService customer notices', () => {
     await expect(service.countUnreadForCustomer('user-1')).resolves.toBe(0);
   });
 });
+
+describe('createNotificationsService campaign targeting', () => {
+  it('uses every pro device registration and ignores the legacy mirror when devices exist', async () => {
+    const prisma = {
+      proProfile: {
+        findUnique: jest.fn().mockResolvedValue({
+          deletedAt: null,
+          deletionRequestedAt: null,
+          pushToken: 'legacy-token',
+          pushPlatform: 'ANDROID',
+          pushProvider: 'FCM',
+          pushDeviceId: 'legacy-device',
+          pushDevices: [
+            {
+              pushToken: 'fcm-one',
+              pushPlatform: 'ANDROID',
+              pushProvider: 'FCM',
+              deviceId: 'device-one',
+            },
+            {
+              pushToken: 'fcm-two',
+              pushPlatform: 'ANDROID',
+              pushProvider: 'FCM',
+              deviceId: 'device-two',
+            },
+          ],
+        }),
+      },
+    };
+    const service = createNotificationsService({ prisma: prisma as never, config: {} as never });
+
+    await expect(service.campaignTargetsForUser('user-1', 'PRO')).resolves.toEqual([
+      { pushToken: 'fcm-one', pushPlatform: 'ANDROID', pushProvider: 'FCM', deviceId: 'device-one' },
+      { pushToken: 'fcm-two', pushPlatform: 'ANDROID', pushProvider: 'FCM', deviceId: 'device-two' },
+    ]);
+  });
+
+  it('returns no targets for a tombstoned pro', async () => {
+    const prisma = {
+      proProfile: {
+        findUnique: jest.fn().mockResolvedValue({
+          deletedAt: new Date(),
+          deletionRequestedAt: null,
+          pushToken: 'legacy-token',
+          pushDevices: [],
+        }),
+      },
+    };
+    const service = createNotificationsService({ prisma: prisma as never, config: {} as never });
+
+    await expect(service.campaignTargetsForUser('user-1', 'PRO')).resolves.toEqual([]);
+  });
+
+  it('records a targeted pro notice in the existing inbox', async () => {
+    const create = jest.fn().mockResolvedValue({ id: 'notice-1' });
+    const prisma = { notification: { create } };
+    const service = createNotificationsService({ prisma: prisma as never, config: {} as never });
+
+    await service.recordCampaignNotification({
+      surface: 'PRO',
+      profileId: 'pro-1',
+      userId: 'user-1',
+      title: 'Profile approved',
+      body: 'Your profile has been approved.',
+      route: '/profile',
+      delivered: true,
+      providerRef: 'provider-1',
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        proId: 'pro-1',
+        jobId: null,
+        kind: NotificationKind.SYSTEM,
+        title: 'Profile approved',
+        route: '/profile',
+        delivered: true,
+        providerRef: 'provider-1',
+      }),
+    });
+  });
+
+  it('records a targeted customer notice and nudges the unread bell', async () => {
+    const create = jest.fn().mockResolvedValue({
+      id: 'notice-1',
+      readAt: null,
+      createdAt: new Date('2026-11-27T10:00:00.000Z'),
+    });
+    const emitToUser = jest.fn();
+    const prisma = {
+      customerProfile: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'customer-1' }),
+      },
+      customerNotification: {
+        create,
+        count: jest.fn().mockResolvedValue(1),
+      },
+    };
+    const service = createNotificationsService({
+      prisma: prisma as never,
+      config: {} as never,
+      realtime: { emitToUser } as never,
+    });
+
+    await service.recordCampaignNotification({
+      surface: 'CUSTOMER',
+      profileId: 'customer-1',
+      userId: 'user-1',
+      title: 'Account reviewed',
+      body: 'Your account has been reviewed.',
+      route: '/profile',
+      delivered: true,
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        customerId: 'customer-1',
+        kind: NotificationKind.SYSTEM,
+        route: '/profile',
+      }),
+    });
+    expect(emitToUser).toHaveBeenCalledWith(
+      'user-1',
+      REALTIME_EVENTS.NOTIFICATION_UNREAD,
+      { unreadCount: 1 },
+    );
+  });
+});

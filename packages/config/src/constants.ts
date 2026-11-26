@@ -44,6 +44,31 @@ export type AppType = (typeof APP_TYPES)[keyof typeof APP_TYPES];
 /** Socket.IO namespace path; must match the gateway in `server/src/realtime`. */
 export const REALTIME_PATH = '/realtime';
 
+/**
+ * Routes an admin campaign may open in each app.
+ *
+ * Campaign `deepLink` used to be free text that no app consumed. Keeping the
+ * navigable values in one shared allowlist means a stored campaign cannot make
+ * either app open an arbitrary screen, and the admin form can offer the same
+ * choices the server and apps accept.
+ */
+export const CAMPAIGN_DEEP_LINKS = {
+  PRO: [
+    { route: '/profile', label: 'Profile' },
+    { route: '/documents', label: 'Documents' },
+    { route: '/aadhaar', label: 'Verification' },
+    { route: '/notifications', label: 'Notifications' },
+  ],
+  CUSTOMER: [
+    { route: '/profile', label: 'Profile' },
+    { route: '/bookings', label: 'Bookings' },
+    { route: '/notifications', label: 'Notifications' },
+  ],
+} as const;
+
+export type CampaignSurface = keyof typeof CAMPAIGN_DEEP_LINKS;
+export type CampaignDeepLink = (typeof CAMPAIGN_DEEP_LINKS)[CampaignSurface][number]['route'];
+
 /** Location defaults for the Pro app's service-radius feature. */
 export const LOCATION_DEFAULTS = {
   /** Default radius a professional serves, in kilometres. */

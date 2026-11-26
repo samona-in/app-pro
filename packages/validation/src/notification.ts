@@ -90,7 +90,7 @@ export const createCampaignSchema = z.object({
   body: z.string().min(1).max(500),
   imageUrl: emptyStringToUndefined.pipe(z.string().url()).optional(),
   type: z.enum(['PROMOTIONAL_OFFERS', 'BOOKING_REMINDERS', 'PRO_ENGAGEMENT', 'NEW_SERVICE_ANNOUNCEMENTS', 'APPLICATION_UPDATES', 'IMPORTANT_ANNOUNCEMENTS', 'CUSTOM_NOTIFICATIONS']),
-  audience: z.enum(['ALL_CUSTOMERS', 'ALL_PROFESSIONALS', 'EVERYONE', 'VERIFIED_PROFESSIONALS', 'OFFLINE_PROFESSIONALS', 'ONLINE_PROFESSIONALS', 'PROFESSIONALS_INCOMPLETE_PROFILES', 'CUSTOMERS_NOT_BOOKED_RECENTLY', 'CUSTOMERS_WITH_COMPLETED_BOOKINGS', 'CITY_BASED', 'CUSTOM']),
+  audience: z.enum(['ALL_CUSTOMERS', 'ALL_PROFESSIONALS', 'EVERYONE', 'VERIFIED_PROFESSIONALS', 'OFFLINE_PROFESSIONALS', 'ONLINE_PROFESSIONALS', 'PROFESSIONALS_INCOMPLETE_PROFILES', 'CUSTOMERS_NOT_BOOKED_RECENTLY', 'CUSTOMERS_WITH_COMPLETED_BOOKINGS', 'CITY_BASED', 'CUSTOM', 'INDIVIDUAL_PRO', 'INDIVIDUAL_CUSTOMER']),
   audienceFilters: z.any().optional(),
   deepLink: emptyStringToUndefined.pipe(z.string()).optional(),
   sendNow: z.boolean().optional(),
@@ -98,6 +98,42 @@ export const createCampaignSchema = z.object({
 });
 
 export const updateCampaignSchema = createCampaignSchema.partial();
+
+/**
+ * Individual audiences carry exactly one profile id. Kept separate from the
+ * legacy `audienceFilters: z.any()` so the server can reject a missing, extra
+ * or wrong-surface target without changing existing campaign payloads.
+ */
+export const individualAudienceFiltersSchema = z
+  .object({ recipientId: z.string().uuid('Select a valid recipient.') })
+  .strict();
+
+export type IndividualAudienceFiltersInput = z.infer<typeof individualAudienceFiltersSchema>;
+
+export const estimateRecipientsSchema = z.object({
+  audience: z.enum([
+    'ALL_CUSTOMERS', 'ALL_PROFESSIONALS', 'EVERYONE', 'VERIFIED_PROFESSIONALS',
+    'OFFLINE_PROFESSIONALS', 'ONLINE_PROFESSIONALS', 'PROFESSIONALS_INCOMPLETE_PROFILES',
+    'CUSTOMERS_NOT_BOOKED_RECENTLY', 'CUSTOMERS_WITH_COMPLETED_BOOKINGS', 'CITY_BASED',
+    'CUSTOM', 'INDIVIDUAL_PRO', 'INDIVIDUAL_CUSTOMER',
+  ]),
+  audienceFilters: individualAudienceFiltersSchema.optional(),
+});
+
+export type EstimateRecipientsInput = z.infer<typeof estimateRecipientsSchema>;
+
+/** Admin-only recipient lookup by name, phone, profile id or auth user id. */
+export const adminNotificationRecipientSearchSchema = z
+  .object({
+    surface: z.enum(['PRO', 'CUSTOMER']),
+    q: z.string().trim().min(1).max(80).optional(),
+    recipientId: z.string().uuid().optional(),
+  })
+  .refine((value) => Boolean(value.q || value.recipientId), 'Enter a search term or select a recipient.');
+
+export type AdminNotificationRecipientSearchInput = z.infer<
+  typeof adminNotificationRecipientSearchSchema
+>;
 
 export const sendCampaignSchema = z.object({
   testMode: z.boolean().optional(),

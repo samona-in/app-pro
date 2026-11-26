@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveCampaignRoute } from '@samona/config';
 import type { CustomerNotification, NotificationKind } from '@samona/types';
 import { Text } from '@/components/ui';
 import { useDeleteNotification, useMarkNotificationRead } from '@/hooks';
@@ -55,12 +56,17 @@ export function NotificationRow({ notice, unread = notice.readAt === null }: Not
   const { mutate: deleteNotification } = useDeleteNotification();
   const { icon, tint, tile } = KIND_ICON[notice.kind];
   const time = formatNotificationTime(notice.createdAt);
+  // Booking notices keep their existing route. A system notice is an admin
+  // campaign row: only the shared allowlist may become a navigation target.
+  const campaignRoute =
+    notice.kind === 'SYSTEM' ? resolveCampaignRoute(notice.route, 'customer') : null;
+  const route = campaignRoute ?? (notice.kind === 'SYSTEM' ? null : notice.route);
 
   const handleView = useCallback(() => {
     // `readAt` is the server's state; the painted `unread` prop may lag it.
     if (notice.readAt === null) markRead.mutate(notice.id);
-    if (notice.route) router.push(notice.route);
-  }, [markRead, notice]);
+    if (route) router.push(route);
+  }, [markRead, notice.id, notice.readAt, route]);
 
   const handleDelete = useCallback(() => {
     Alert.alert('Delete notification?', 'This removes it from your inbox. It can’t be undone.', [
@@ -85,7 +91,13 @@ export function NotificationRow({ notice, unread = notice.readAt === null }: Not
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`${notice.title}. ${notice.body}. ${time}${unread ? '. Unread' : ''}`}
-          accessibilityHint={notice.route ? 'Opens the related booking.' : undefined}
+          accessibilityHint={
+            route
+              ? campaignRoute
+                ? `Opens ${campaignRoute}.`
+                : 'Opens the related booking.'
+              : undefined
+          }
           onPress={handleView}
           className="min-w-0 flex-1 flex-row items-start active:opacity-60"
         >

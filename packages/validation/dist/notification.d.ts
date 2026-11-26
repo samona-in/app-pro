@@ -80,6 +80,8 @@ export declare const createCampaignSchema: z.ZodObject<{
         CUSTOMERS_WITH_COMPLETED_BOOKINGS: "CUSTOMERS_WITH_COMPLETED_BOOKINGS";
         CITY_BASED: "CITY_BASED";
         CUSTOM: "CUSTOM";
+        INDIVIDUAL_PRO: "INDIVIDUAL_PRO";
+        INDIVIDUAL_CUSTOMER: "INDIVIDUAL_CUSTOMER";
     }>;
     audienceFilters: z.ZodOptional<z.ZodAny>;
     deepLink: z.ZodOptional<z.ZodPipe<z.ZodPreprocess<z.ZodUnknown, unknown>, z.ZodString>>;
@@ -112,12 +114,54 @@ export declare const updateCampaignSchema: z.ZodObject<{
         CUSTOMERS_WITH_COMPLETED_BOOKINGS: "CUSTOMERS_WITH_COMPLETED_BOOKINGS";
         CITY_BASED: "CITY_BASED";
         CUSTOM: "CUSTOM";
+        INDIVIDUAL_PRO: "INDIVIDUAL_PRO";
+        INDIVIDUAL_CUSTOMER: "INDIVIDUAL_CUSTOMER";
     }>>;
     audienceFilters: z.ZodOptional<z.ZodOptional<z.ZodAny>>;
     deepLink: z.ZodOptional<z.ZodOptional<z.ZodPipe<z.ZodPreprocess<z.ZodUnknown, unknown>, z.ZodString>>>;
     sendNow: z.ZodOptional<z.ZodOptional<z.ZodBoolean>>;
     scheduledAt: z.ZodOptional<z.ZodOptional<z.ZodPipe<z.ZodPreprocess<z.ZodUnknown, unknown>, z.ZodString>>>;
 }, z.core.$strip>;
+/**
+ * Individual audiences carry exactly one profile id. Kept separate from the
+ * legacy `audienceFilters: z.any()` so the server can reject a missing, extra
+ * or wrong-surface target without changing existing campaign payloads.
+ */
+export declare const individualAudienceFiltersSchema: z.ZodObject<{
+    recipientId: z.ZodString;
+}, z.core.$strict>;
+export type IndividualAudienceFiltersInput = z.infer<typeof individualAudienceFiltersSchema>;
+export declare const estimateRecipientsSchema: z.ZodObject<{
+    audience: z.ZodEnum<{
+        ALL_CUSTOMERS: "ALL_CUSTOMERS";
+        ALL_PROFESSIONALS: "ALL_PROFESSIONALS";
+        EVERYONE: "EVERYONE";
+        VERIFIED_PROFESSIONALS: "VERIFIED_PROFESSIONALS";
+        OFFLINE_PROFESSIONALS: "OFFLINE_PROFESSIONALS";
+        ONLINE_PROFESSIONALS: "ONLINE_PROFESSIONALS";
+        PROFESSIONALS_INCOMPLETE_PROFILES: "PROFESSIONALS_INCOMPLETE_PROFILES";
+        CUSTOMERS_NOT_BOOKED_RECENTLY: "CUSTOMERS_NOT_BOOKED_RECENTLY";
+        CUSTOMERS_WITH_COMPLETED_BOOKINGS: "CUSTOMERS_WITH_COMPLETED_BOOKINGS";
+        CITY_BASED: "CITY_BASED";
+        CUSTOM: "CUSTOM";
+        INDIVIDUAL_PRO: "INDIVIDUAL_PRO";
+        INDIVIDUAL_CUSTOMER: "INDIVIDUAL_CUSTOMER";
+    }>;
+    audienceFilters: z.ZodOptional<z.ZodObject<{
+        recipientId: z.ZodString;
+    }, z.core.$strict>>;
+}, z.core.$strip>;
+export type EstimateRecipientsInput = z.infer<typeof estimateRecipientsSchema>;
+/** Admin-only recipient lookup by name, phone, profile id or auth user id. */
+export declare const adminNotificationRecipientSearchSchema: z.ZodObject<{
+    surface: z.ZodEnum<{
+        PRO: "PRO";
+        CUSTOMER: "CUSTOMER";
+    }>;
+    q: z.ZodOptional<z.ZodString>;
+    recipientId: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type AdminNotificationRecipientSearchInput = z.infer<typeof adminNotificationRecipientSearchSchema>;
 export declare const sendCampaignSchema: z.ZodOptional<z.ZodObject<{
     testMode: z.ZodOptional<z.ZodBoolean>;
     testToken: z.ZodOptional<z.ZodString>;

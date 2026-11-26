@@ -175,11 +175,33 @@ export const AudienceType = {
   CUSTOMERS_WITH_COMPLETED_BOOKINGS: 'CUSTOMERS_WITH_COMPLETED_BOOKINGS',
   CITY_BASED: 'CITY_BASED',
   CUSTOM: 'CUSTOM',
+  INDIVIDUAL_PRO: 'INDIVIDUAL_PRO',
+  INDIVIDUAL_CUSTOMER: 'INDIVIDUAL_CUSTOMER',
 } as const;
 
 export type AudienceType = (typeof AudienceType)[keyof typeof AudienceType];
 
 export const AUDIENCE_TYPES = Object.values(AudienceType);
+
+/** Surface an individual admin notification is addressed to. */
+export type IndividualNotificationSurface = 'PRO' | 'CUSTOMER';
+
+/** The only filter shape used by the two individual audiences. */
+export interface IndividualAudienceFilters {
+  /** `pro_profiles.id` or `customer_profiles.id`, never an auth user id. */
+  recipientId: string;
+}
+
+/** One row returned by the admin's recipient search. No push tokens are exposed. */
+export interface AdminNotificationRecipient {
+  id: string;
+  userId: string | null;
+  surface: IndividualNotificationSurface;
+  name: string;
+  phone: string | null;
+  isOnline: boolean | null;
+  isVerified: boolean | null;
+}
 
 export const AutomationType = {
   OFFLINE_REMINDER: 'OFFLINE_REMINDER',
@@ -203,7 +225,7 @@ export interface NotificationCampaign {
   imageUrl: string | null;
   type: NotificationTargetType;
   audience: AudienceType;
-  audienceFilters: any;
+  audienceFilters: IndividualAudienceFilters | Record<string, unknown> | null;
   deepLink: string | null;
   status: CampaignStatus;
   sendNow: boolean;
