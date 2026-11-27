@@ -1,7 +1,9 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveCampaignRoute } from '@samona/config';
 import type { AppNotification, NotificationKind } from '@samona/types';
 import { Text } from '@/components/ui';
 import { color } from '@/theme';
@@ -62,8 +64,14 @@ export function NotificationCard({
     ? translateServerMessage(t, notification.messageBodyKey, notification.params)
     : notification.body;
 
-  return (
-    <View className={cn('flex-row items-center gap-3 py-3', className)}>
+  // Only admin campaign rows become tappable. Job alerts keep their existing
+  // native/overlay flow, and an unknown legacy route is never navigated to.
+  const campaignRoute =
+    notification.kind === 'SYSTEM'
+      ? resolveCampaignRoute(notification.route, 'pro')
+      : null;
+  const content = (
+    <View className="flex-row items-center gap-3 py-3">
       <Ionicons name={icon} size={22} color={open ? tint : color['text-muted']} />
       <View className="flex-1 pr-4">
         <View className="flex-row items-center justify-between gap-2">
@@ -84,5 +92,20 @@ export function NotificationCard({
         ) : null}
       </View>
     </View>
+  );
+
+  if (!campaignRoute) {
+    return <View className={className}>{content}</View>;
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${body}. Opens ${campaignRoute}`}
+      onPress={() => router.push(campaignRoute)}
+      className={cn('active:opacity-60', className)}
+    >
+      {content}
+    </Pressable>
   );
 }

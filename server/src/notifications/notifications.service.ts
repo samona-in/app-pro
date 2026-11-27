@@ -149,6 +149,9 @@ type PushTarget = {
   deviceId: string | null;
 };
 
+/** A registered target resolved for an admin campaign, never supplied by a client. */
+export type CampaignPushTarget = PushTarget;
+
 const pushDeviceSelect = {
   pushToken: true,
   pushPlatform: true,
@@ -1685,6 +1688,104 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     return result;
   }
 
+  /* ------------------------------------------------------------------------ */
+  /* Admin campaigns                                                           */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * All registered devices for one campaign recipient. Pros keep a table of
+   * per-install tokens, so every device gets the notification; the profile's
+   * legacy token is only used when no device registration exists. Customers
+   * still have one token today, so their path stays deliberately simple.
+   *
+   * Both queries refuse tombstoned or deletion-pending profiles: an admin
+   * targeting a stored id must never revive an erased surface.
+   */
+  async function campaignTargetsForUser(
+    userId: string,
+    surface: 'PRO' | 'CUSTOMER',
+  ): Promise<CampaignPushTarget[]> {
+    if (surface === 'PRO') {
+      const pro = await prisma.proProfile.findUnique({
+        where: { userId },
+        select: {
+          deletedAt: true,
+          deletionRequestedAt: true,
+          pushToken: true,
+          pushPlatform: true,
+          pushProvider: true,
+          pushDeviceId: true,
+          pushDevices: { select: pushDeviceSelect },
+        },
+      });
+      if (!pro || pro.deletedAt || pro.deletionRequestedAt) return [];
+      return pushTargetsOf(pro);
+    }
+
+    const customer = await prisma.customerProfile.findUnique({
+      where: { userId },
+      select: {
+        deletedAt: true,
+        deletionRequestedAt: true,
+        pushToken: true,
+        pushPlatform: true,
+        pushProvider: true,
+      },
+    });
+    if (!customer || customer.deletedAt || customer.deletionRequestedAt || !customer.pushToken) {
+      return [];
+    }
+    return [
+      {
+        pushToken: customer.pushToken,
+        pushPlatform: customer.pushPlatform ?? null,
+        pushProvider: customer.pushProvider ?? null,
+        deviceId: null,
+      },
+    ];
+  }
+
+  /**
+   * Persists the recipient-facing half of an individual admin notification.
+   * Broadcast campaigns stay push-only; only targeted notices enter a user's
+   * existing inbox, so the current list/read/unread screens need no new model.
+   */
+  async function recordCampaignNotification(input: {
+    surface: 'PRO' | 'CUSTOMER';
+    profileId: string;
+    userId: string;
+    title: string;
+    body: string;
+    route?: string | null;
+    delivered: boolean;
+    providerRef?: string | null;
+  }): Promise<void> {
+    if (input.surface === 'CUSTOMER') {
+      await recordCustomerNotification({
+        customerId: input.profileId,
+        customerUserId: input.userId,
+        kind: NotificationKind.SYSTEM,
+        title: input.title,
+        body: input.body,
+        route: input.route ?? null,
+      });
+      return;
+    }
+
+    await prisma.notification.create({
+      data: {
+        proId: input.profileId,
+        jobId: null,
+        kind: NotificationKind.SYSTEM,
+        title: input.title,
+        body: input.body,
+        route: input.route ?? null,
+        delivered: input.delivered,
+        providerRef: input.providerRef ?? null,
+      },
+    });
+  }
+
   // -------------------------------------------------------------------------
   // Repeating job-alert scheduler
   // -------------------------------------------------------------------------
@@ -1849,6 +1950,8 @@ export function createNotificationsService(deps: NotificationsServiceDeps) {
     sendChatPush,
     sendCustomerPush,
     sendCampaignNotification,
+    campaignTargetsForUser,
+    recordCampaignNotification,
     start,
     stop,
   };

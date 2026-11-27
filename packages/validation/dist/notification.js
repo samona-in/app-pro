@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateAutomationSchema = exports.createAutomationSchema = exports.sendCampaignSchema = exports.updateCampaignSchema = exports.createCampaignSchema = exports.notificationListQuerySchema = exports.pushSettingsSchema = exports.unregisterPushTokenSchema = exports.registerPushTokenSchema = exports.pushProviderSchema = exports.pushPlatformSchema = exports.expoPushTokenSchema = void 0;
+exports.updateAutomationSchema = exports.createAutomationSchema = exports.sendCampaignSchema = exports.adminNotificationHistoryQuerySchema = exports.adminNotificationHistoryParamsSchema = exports.adminNotificationRecipientSearchSchema = exports.estimateRecipientsSchema = exports.individualAudienceFiltersSchema = exports.updateCampaignSchema = exports.createCampaignSchema = exports.notificationListQuerySchema = exports.pushSettingsSchema = exports.unregisterPushTokenSchema = exports.registerPushTokenSchema = exports.pushProviderSchema = exports.pushPlatformSchema = exports.expoPushTokenSchema = void 0;
 const zod_1 = require("zod");
 const job_1 = require("./job");
 /**
@@ -70,13 +70,46 @@ exports.createCampaignSchema = zod_1.z.object({
     body: zod_1.z.string().min(1).max(500),
     imageUrl: emptyStringToUndefined.pipe(zod_1.z.string().url()).optional(),
     type: zod_1.z.enum(['PROMOTIONAL_OFFERS', 'BOOKING_REMINDERS', 'PRO_ENGAGEMENT', 'NEW_SERVICE_ANNOUNCEMENTS', 'APPLICATION_UPDATES', 'IMPORTANT_ANNOUNCEMENTS', 'CUSTOM_NOTIFICATIONS']),
-    audience: zod_1.z.enum(['ALL_CUSTOMERS', 'ALL_PROFESSIONALS', 'EVERYONE', 'VERIFIED_PROFESSIONALS', 'OFFLINE_PROFESSIONALS', 'ONLINE_PROFESSIONALS', 'PROFESSIONALS_INCOMPLETE_PROFILES', 'CUSTOMERS_NOT_BOOKED_RECENTLY', 'CUSTOMERS_WITH_COMPLETED_BOOKINGS', 'CITY_BASED', 'CUSTOM']),
+    audience: zod_1.z.enum(['ALL_CUSTOMERS', 'ALL_PROFESSIONALS', 'EVERYONE', 'VERIFIED_PROFESSIONALS', 'OFFLINE_PROFESSIONALS', 'ONLINE_PROFESSIONALS', 'PROFESSIONALS_INCOMPLETE_PROFILES', 'CUSTOMERS_NOT_BOOKED_RECENTLY', 'CUSTOMERS_WITH_COMPLETED_BOOKINGS', 'CITY_BASED', 'CUSTOM', 'INDIVIDUAL_PRO', 'INDIVIDUAL_CUSTOMER']),
     audienceFilters: zod_1.z.any().optional(),
     deepLink: emptyStringToUndefined.pipe(zod_1.z.string()).optional(),
     sendNow: zod_1.z.boolean().optional(),
     scheduledAt: emptyStringToUndefined.pipe(zod_1.z.string()).optional(),
 });
 exports.updateCampaignSchema = exports.createCampaignSchema.partial();
+/**
+ * Individual audiences carry exactly one profile id. Kept separate from the
+ * legacy `audienceFilters: z.any()` so the server can reject a missing, extra
+ * or wrong-surface target without changing existing campaign payloads.
+ */
+exports.individualAudienceFiltersSchema = zod_1.z
+    .object({ recipientId: zod_1.z.string().uuid('Select a valid recipient.') })
+    .strict();
+exports.estimateRecipientsSchema = zod_1.z.object({
+    audience: zod_1.z.enum([
+        'ALL_CUSTOMERS', 'ALL_PROFESSIONALS', 'EVERYONE', 'VERIFIED_PROFESSIONALS',
+        'OFFLINE_PROFESSIONALS', 'ONLINE_PROFESSIONALS', 'PROFESSIONALS_INCOMPLETE_PROFILES',
+        'CUSTOMERS_NOT_BOOKED_RECENTLY', 'CUSTOMERS_WITH_COMPLETED_BOOKINGS', 'CITY_BASED',
+        'CUSTOM', 'INDIVIDUAL_PRO', 'INDIVIDUAL_CUSTOMER',
+    ]),
+    audienceFilters: exports.individualAudienceFiltersSchema.optional(),
+});
+/** Admin-only recipient lookup by name, phone, profile id or auth user id. */
+exports.adminNotificationRecipientSearchSchema = zod_1.z
+    .object({
+    surface: zod_1.z.enum(['PRO', 'CUSTOMER']),
+    q: zod_1.z.string().trim().min(1).max(80).optional(),
+    recipientId: zod_1.z.string().uuid().optional(),
+})
+    .refine((value) => Boolean(value.q || value.recipientId), 'Enter a search term or select a recipient.');
+/** Admin history for one profile: the route identifies both surface and recipient. */
+exports.adminNotificationHistoryParamsSchema = zod_1.z.object({
+    surface: zod_1.z.enum(['PRO', 'CUSTOMER']),
+    recipientId: zod_1.z.string().uuid(),
+});
+exports.adminNotificationHistoryQuerySchema = zod_1.z.object({
+    limit: zod_1.z.coerce.number().int().min(1).max(50).default(20),
+});
 exports.sendCampaignSchema = zod_1.z.object({
     testMode: zod_1.z.boolean().optional(),
     testToken: zod_1.z.string().optional(),

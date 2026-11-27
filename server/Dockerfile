@@ -182,18 +182,30 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "server/docker-entrypoint.mjs"]
 
 # --- migrate -----------------------------------------------------------------
-# The same application code, plus the Prisma CLI and everything needed to apply
-# migrations. It boots the shared entrypoint in migrate mode, so DATABASE_URL is
-# assembled from DB_SECRET exactly the way the runtime does it — one composition
-# path, one set of migration history to keep in sync. The entrypoint runs Prisma
-# with cwd /app/server, where prisma.config.ts and prisma/ live.
-FROM build AS migrate
+# A deliberately small, single-purpose image: the Prisma CLI, the schema and
+# migrations, and the shared entrypoint. It used to be `FROM build`, which made a
+# one-off migration task carry the full 1.4GB dev install — including jest and
+# tsc — and made image pushes fail through restricted networks. `migrate deploy`
+# needs none of that: only the CLI, prisma.config.ts and prisma/.
+FROM base AS migrate
 WORKDIR /app
 ENV NODE_ENV=production \
     SAMONA_START=migrate \
-    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca-bundle.pem
+    NODE_EXTRA_CA_CERTS=/etc/ssl/certs/rds-ca-bundle.pem \
+    npm_config_update_notifier=false
 COPY --from=rds-certs /rds-ca-bundle.pem /etc/ssl/certs/rds-ca-bundle.pem
+COPY package-lock.json ./
+COPY server/package.json server/
+# Keep the CLI version pinned to the workspace lockfile rather than the semver
+# range in package.json. A replaceable minimal manifest also stops npm from
+# installing every mobile workspace here.
+RUN node -e 'const fs=require("node:fs");const lock=JSON.parse(fs.readFileSync("package-lock.json","utf8"));const version=lock.packages["node_modules/prisma"].version;fs.writeFileSync("package.json",JSON.stringify({name:"samona-migrate",private:true,dependencies:{prisma:version}}))' \
+  && npm install --no-audit --no-fund \
+  && npm cache clean --force
+ENV PATH="/app/node_modules/.bin:${PATH}"
+COPY server/prisma ./server/prisma
 COPY server/prisma.config.ts ./server/
+COPY server/docker-entrypoint.mjs ./server/
 # No tini here: migrate is a one-off task, not a process supervisor, and this
 # image is not built on the runtime stage.
 CMD ["node", "server/docker-entrypoint.mjs"]

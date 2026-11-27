@@ -1,15 +1,23 @@
 import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { useRouter, useRootNavigationState } from 'expo-router';
+import { resolveCampaignRoute } from '@samona/config';
 
 interface PushData {
   type?: unknown;
   jobId?: unknown;
+  deepLink?: unknown;
 }
 
 function chatRouteFor(data: PushData, pathFor: (jobId: string) => string) {
   if (data.type !== 'CHAT_MESSAGE' || typeof data.jobId !== 'string') return null;
   return pathFor(data.jobId);
+}
+
+/** Admin campaign pushes may only open routes in the shared allowlist. */
+function campaignRouteFor(data: PushData) {
+  if (data.type !== 'CAMPAIGN') return null;
+  return resolveCampaignRoute(data.deepLink, 'pro');
 }
 
 /**
@@ -40,7 +48,7 @@ export function usePushNavigation(routeFor: (jobId: string) => string) {
       }
       try {
         const data = (response.notification.request.content.data ?? {}) as PushData;
-        const route = chatRouteFor(data, routeFor);
+        const route = chatRouteFor(data, routeFor) ?? campaignRouteFor(data);
         if (route) {
           console.log('[usePushNavigation] Navigating from push to', route);
           router.push(route);
