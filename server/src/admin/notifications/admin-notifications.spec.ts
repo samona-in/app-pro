@@ -5,6 +5,7 @@ import type { AppConfig } from '../../config';
 import type { Services } from '../../context';
 import { isHttpError } from '../../common/errors';
 import { createAdminNotificationsRouter } from './admin-notifications.routes';
+import { validateCampaignDeepLink } from './admin-notifications.shared';
 
 const PRO_ID = '11111111-1111-4111-8111-111111111111';
 const PRO_USER_ID = '22222222-2222-4222-8222-222222222222';
@@ -358,6 +359,15 @@ describe('admin individual notifications', () => {
     expect(response.status).toBe(400);
     expect(prisma.notificationCampaign.create).not.toHaveBeenCalled();
     expect(notifications.sendCampaignNotification).not.toHaveBeenCalled();
+  });
+
+  it('allows the real home route and rejects the nonexistent singular notification route', () => {
+    expect(validateCampaignDeepLink('ALL_PROFESSIONALS', '/home')).toBe('/home');
+    expect(validateCampaignDeepLink('ALL_CUSTOMERS', '/home')).toBe('/home');
+    expect(validateCampaignDeepLink('EVERYONE', '/home')).toBe('/home');
+
+    expect(() => validateCampaignDeepLink('INDIVIDUAL_PRO', '/notification')).toThrow();
+    expect(() => validateCampaignDeepLink('INDIVIDUAL_CUSTOMER', '/notification')).toThrow();
   });
 
   it('lists a pro notification history without exposing delivery credentials', async () => {

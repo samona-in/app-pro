@@ -54,12 +54,14 @@ export const REALTIME_PATH = '/realtime';
  */
 export const CAMPAIGN_DEEP_LINKS = {
   PRO: [
+    { route: '/home', label: 'Home' },
     { route: '/profile', label: 'Profile' },
     { route: '/documents', label: 'Documents' },
     { route: '/aadhaar', label: 'Verification' },
     { route: '/notifications', label: 'Notifications' },
   ],
   CUSTOMER: [
+    { route: '/home', label: 'Home' },
     { route: '/profile', label: 'Profile' },
     { route: '/bookings', label: 'Bookings' },
     { route: '/notifications', label: 'Notifications' },
