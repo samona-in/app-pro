@@ -1,11 +1,15 @@
 import { Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
-import { InstagramIcon } from '@/components/home/InstagramIcon';
+import instagramIcon from '@/assets/images/instagram.png';
 import { Text } from '@/components/ui';
 import { openExternalUrl } from '@/utils/open-url';
 
 /** SAMONA's public Instagram profile. */
 const INSTAGRAM_URL = 'https://www.instagram.com/samona.in';
+
+/** The attached square brand artwork is rendered small, without cropping. */
+const ICON_SIZE = 20;
 
 export interface InstagramLinkProps {
   className?: string;
@@ -29,7 +33,14 @@ export function InstagramLink({ className }: InstagramLinkProps) {
         }
         className="min-h-[44px] flex-row items-center justify-center active:opacity-60"
       >
-        <InstagramIcon size={20} />
+        <Image
+          source={instagramIcon}
+          style={{ width: ICON_SIZE, height: ICON_SIZE }}
+          contentFit="contain"
+          transition={0}
+          cachePolicy="memory-disk"
+          testID="instagram-icon"
+        />
         <Text variant="caption" className="ml-2 font-semibold text-brand">
           @samona.in
         </Text>

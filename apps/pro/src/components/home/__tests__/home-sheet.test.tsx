@@ -34,8 +34,8 @@ jest.mock('@/utils/open-url', () => ({
 jest.mock('expo-image', () => {
   const { View } = jest.requireActual('react-native');
   return {
-    Image: ({ accessibilityLabel }: { accessibilityLabel?: string }) => (
-      <View testID="brand-banner" accessibilityLabel={accessibilityLabel} />
+    Image: ({ accessibilityLabel, testID }: { accessibilityLabel?: string; testID?: string }) => (
+      <View testID={testID ?? 'brand-banner'} accessibilityLabel={accessibilityLabel} />
     ),
   };
 });
