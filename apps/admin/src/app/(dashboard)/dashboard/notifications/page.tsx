@@ -14,13 +14,24 @@ import { NOTIFICATION_TYPES } from '@/components/notifications/notification-type
 import { api, errorMessage } from '@/lib/api';
 
 /** Broadcast audiences only. Individual recipients are sent from profile pages. */
-const AUDIENCES = ['ALL_PROFESSIONALS', 'ALL_CUSTOMERS'] as const;
+const AUDIENCES = [
+  'ALL_PROFESSIONALS',
+  'ALL_CUSTOMERS',
+  'EVERYONE',
+  'VERIFIED_PROFESSIONALS',
+  'ONLINE_PROFESSIONALS',
+  'OFFLINE_PROFESSIONALS',
+] as const;
 
 const INDIVIDUAL_AUDIENCES = ['INDIVIDUAL_PRO', 'INDIVIDUAL_CUSTOMER'];
 
 const AUDIENCE_LABELS: Record<string, string> = {
   ALL_PROFESSIONALS: 'All Pros',
   ALL_CUSTOMERS: 'All Customers',
+  EVERYONE: 'Everyone',
+  VERIFIED_PROFESSIONALS: 'Verified Pros',
+  ONLINE_PROFESSIONALS: 'Online Pros',
+  OFFLINE_PROFESSIONALS: 'Offline Pros',
 };
 
 const PRO_ONLY_AUDIENCES = [
@@ -307,7 +318,7 @@ export default function NotificationsPage() {
                     Campaign
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Recipient type
+                    Target audience
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
@@ -503,7 +514,7 @@ export default function NotificationsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="audience">Recipient type</Label>
+              <Label htmlFor="audience">Target audience</Label>
               <select
                 id="audience"
                 value={form.audience}
@@ -516,6 +527,9 @@ export default function NotificationsPage() {
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-gray-500">
+                Broadcast audiences only. To message one person, use their profile page.
+              </p>
             </div>
 
             <div className="p-3 bg-blue-50 rounded-lg">
@@ -534,7 +548,7 @@ export default function NotificationsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="deepLink">Open in app (optional)</Label>
+                <Label htmlFor="deepLink">Deep link (optional)</Label>
                 <select
                   id="deepLink"
                   value={form.deepLink}
