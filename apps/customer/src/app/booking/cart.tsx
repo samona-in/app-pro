@@ -15,7 +15,6 @@ import {
   cartWorksCount,
   draftItemName,
   draftTotalPaise,
-  draftUnitCount,
   useBookingDraft,
   type DraftGroup,
   type DraftItem,
@@ -152,9 +151,7 @@ function ServiceGroup({
   onRemove: (skillId: string) => void;
 }) {
   return (
-    <View
-      className={cn('rounded-lg border border-border bg-surface', first ? undefined : 'mt-4')}
-    >
+    <View className={cn('rounded-lg border border-border bg-surface', first ? undefined : 'mt-4')}>
       {/* The service head straddles the top border, centred like a legend. */}
       <View className="absolute left-0 right-0 items-start pl-3" style={{ top: -10 }}>
         <View className="flex-row items-center gap-2 rounded-full bg-surface px-3">
@@ -225,12 +222,15 @@ export default function BookingCart() {
         headerCloseLabel="Close cart"
         contentClassName="pt-2"
       >
+        {/* The sticky header sits over the scroll content, so nudge the
+            centred icon clear of it instead of letting it clip at the top. */}
         <EmptyState
           icon="cart-outline"
           title="Nothing booked yet"
           message="Pick the works you need from any service."
           actionLabel="Browse works"
           onAction={() => router.back()}
+          className="mt-6"
         />
       </BookingStep>
     );
