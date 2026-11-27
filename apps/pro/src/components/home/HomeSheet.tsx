@@ -11,8 +11,9 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { Text } from '@/components/ui';
-import { ServicesVerificationCard } from '@/components/services/ServicesVerificationCard';
+import { BrandBanner } from '@/components/home/BrandBanner';
 import { CompleteProfileCard } from '@/components/home/CompleteProfileCard';
+import { ServicesVerificationCard } from '@/components/services/ServicesVerificationCard';
 import { useProProfile, useProfileCompletion, useSession } from '@/hooks';
 import { color } from '@/theme';
 import { onboardingHref } from '@/utils/onboarding-route';
@@ -272,11 +273,8 @@ export const HomeSheet = memo(function HomeSheet() {
                 </View>
               )}
 
-              <View className="mt-8 items-center">
-                <Text variant="caption" className="text-text-muted">
-                  {t('dashboard.sheet.madeIn')}
-                </Text>
-              </View>
+              {/* Closing brand artwork, in place of the old made-in text. */}
+              <BrandBanner className="mt-6" />
             </ScrollView>
           </View>
         </GestureDetector>

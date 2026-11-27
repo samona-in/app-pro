@@ -284,8 +284,7 @@
       "noServices": "आपको अभी तक किसी सेवा के लिए स्वीकृत नहीं किया गया है।",
       "addServices": "सेवाएँ जोड़ें",
       "jobRequests": "काम के अनुरोध",
-      "noRequests": "अभी कोई काम का अनुरोध नहीं है।",
-      "madeIn": "SAMONA made in Hyderabad"
+      "noRequests": "अभी कोई काम का अनुरोध नहीं है।"
     },
     "incoming": {
       "title": "आने वाले अनुरोध",

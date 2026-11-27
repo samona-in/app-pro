@@ -26,6 +26,14 @@ jest.mock('@/hooks', () => ({
 }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
+jest.mock('expo-image', () => {
+  const { View } = jest.requireActual('react-native');
+  return {
+    Image: ({ accessibilityLabel }: { accessibilityLabel?: string }) => (
+      <View testID="brand-banner" accessibilityLabel={accessibilityLabel} />
+    ),
+  };
+});
 jest.mock('../CompleteProfileCard', () => {
   const { View } = jest.requireActual('react-native');
   return { CompleteProfileCard: () => <View testID="complete-profile-card" /> };
@@ -122,6 +130,17 @@ describe('HomeSheet', () => {
 
     expect(view.getByText('Your services')).toBeTruthy();
     expect(view.queryByTestId('complete-profile-card')).toBeNull();
+  });
+
+  it('closes the sheet with the brand banner instead of the made-in text', () => {
+    mockSession.isOnboardingComplete = true;
+    mockProfile.proServices = [{ id: 'svc-1' }];
+    mockCompletion.isVerified = true;
+
+    const view = render(<HomeSheet />);
+
+    expect(view.getByTestId('brand-banner')).toBeTruthy();
+    expect(view.queryByText('SAMONA made in Hyderabad')).toBeNull();
   });
 
   it('does not flash the completion prompt while completion data is loading', () => {

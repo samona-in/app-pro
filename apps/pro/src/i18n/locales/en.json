@@ -284,8 +284,7 @@
       "noServices": "You haven't been approved for any services yet.",
       "addServices": "Add services",
       "jobRequests": "Job requests",
-      "noRequests": "No job requests right now.",
-      "madeIn": "SAMONA made in Hyderabad"
+      "noRequests": "No job requests right now."
     },
     "incoming": {
       "title": "Incoming requests",
