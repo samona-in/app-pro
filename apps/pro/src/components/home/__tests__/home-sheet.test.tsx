@@ -1,5 +1,7 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { HomeSheet } from '../HomeSheet';
+
+const mockOpenExternalUrl = jest.fn();
 
 const mockSession: { isOnboardingComplete: boolean; nextStep?: string } = {
   isOnboardingComplete: false,
@@ -26,6 +28,17 @@ jest.mock('@/hooks', () => ({
 }));
 jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
+jest.mock('@/utils/open-url', () => ({
+  openExternalUrl: (...args: unknown[]) => mockOpenExternalUrl(...args),
+}));
+jest.mock('expo-image', () => {
+  const { View } = jest.requireActual('react-native');
+  return {
+    Image: ({ accessibilityLabel, testID }: { accessibilityLabel?: string; testID?: string }) => (
+      <View testID={testID ?? 'brand-banner'} accessibilityLabel={accessibilityLabel} />
+    ),
+  };
+});
 jest.mock('../CompleteProfileCard', () => {
   const { View } = jest.requireActual('react-native');
   return { CompleteProfileCard: () => <View testID="complete-profile-card" /> };
@@ -122,6 +135,32 @@ describe('HomeSheet', () => {
 
     expect(view.getByText('Your services')).toBeTruthy();
     expect(view.queryByTestId('complete-profile-card')).toBeNull();
+  });
+
+  it('closes the sheet with the brand banner instead of the made-in text', () => {
+    mockSession.isOnboardingComplete = true;
+    mockProfile.proServices = [{ id: 'svc-1' }];
+    mockCompletion.isVerified = true;
+
+    const view = render(<HomeSheet />);
+
+    expect(view.getByTestId('brand-banner')).toBeTruthy();
+    expect(view.queryByText('SAMONA made in Hyderabad')).toBeNull();
+  });
+
+  it('opens SAMONA Instagram from the link below the brand banner', () => {
+    const view = render(<HomeSheet />);
+
+    const link = view.getByLabelText('Open SAMONA on Instagram');
+    expect(link).toBeTruthy();
+    expect(view.getByTestId('instagram-icon')).toBeTruthy();
+
+    fireEvent.press(link);
+    expect(mockOpenExternalUrl).toHaveBeenCalledWith(
+      'https://www.instagram.com/samona.in',
+      'Could not open page',
+      'Check your connection and try again.',
+    );
   });
 
   it('does not flash the completion prompt while completion data is loading', () => {

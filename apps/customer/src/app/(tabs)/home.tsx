@@ -12,6 +12,7 @@ import {
   HOME_BANNERS,
   HomeBannerCarousel,
   HomeHeader,
+  InstagramLink,
   PopularSkills,
   SearchBar,
   SectionHeader,
@@ -199,8 +200,9 @@ export default function Home() {
           onSeeAll={() => router.navigate('/search')}
         />
 
-        {/* Closing brand image, full-bleed and last before the tab-bar clearance. */}
+        {/* Closing brand image and follow link, last before tab-bar clearance. */}
         <BrandBanner className="mt-6" />
+        <InstagramLink className="mt-1" />
 
         {/* Keep the last rail scrollable clear of the floating tab pill. */}
         <View style={{ height: insets.bottom + FLOATING_TAB_BAR_CLEARANCE }} />
