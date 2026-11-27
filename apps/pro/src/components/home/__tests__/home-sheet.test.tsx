@@ -153,6 +153,7 @@ describe('HomeSheet', () => {
 
     const link = view.getByLabelText('Open SAMONA on Instagram');
     expect(link).toBeTruthy();
+    expect(view.getByTestId('instagram-icon')).toBeTruthy();
 
     fireEvent.press(link);
     expect(mockOpenExternalUrl).toHaveBeenCalledWith(

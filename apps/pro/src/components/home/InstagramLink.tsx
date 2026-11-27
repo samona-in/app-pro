@@ -1,8 +1,7 @@
 import { Pressable, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { InstagramIcon } from '@/components/home/InstagramIcon';
 import { Text } from '@/components/ui';
-import { color } from '@/theme';
 import { openExternalUrl } from '@/utils/open-url';
 
 /** SAMONA's public Instagram profile. */
@@ -30,7 +29,7 @@ export function InstagramLink({ className }: InstagramLinkProps) {
         }
         className="min-h-[44px] flex-row items-center justify-center active:opacity-60"
       >
-        <Ionicons name="logo-instagram" size={18} color={color.brand} />
+        <InstagramIcon size={20} />
         <Text variant="caption" className="ml-2 font-semibold text-brand">
           @samona.in
         </Text>
