@@ -162,6 +162,19 @@ export declare const adminNotificationRecipientSearchSchema: z.ZodObject<{
     recipientId: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type AdminNotificationRecipientSearchInput = z.infer<typeof adminNotificationRecipientSearchSchema>;
+/** Admin history for one profile: the route identifies both surface and recipient. */
+export declare const adminNotificationHistoryParamsSchema: z.ZodObject<{
+    surface: z.ZodEnum<{
+        PRO: "PRO";
+        CUSTOMER: "CUSTOMER";
+    }>;
+    recipientId: z.ZodString;
+}, z.core.$strip>;
+export declare const adminNotificationHistoryQuerySchema: z.ZodObject<{
+    limit: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+}, z.core.$strip>;
+export type AdminNotificationHistoryParams = z.infer<typeof adminNotificationHistoryParamsSchema>;
+export type AdminNotificationHistoryQuery = z.infer<typeof adminNotificationHistoryQuerySchema>;
 export declare const sendCampaignSchema: z.ZodOptional<z.ZodObject<{
     testMode: z.ZodOptional<z.ZodBoolean>;
     testToken: z.ZodOptional<z.ZodString>;

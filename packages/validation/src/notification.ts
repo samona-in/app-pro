@@ -135,6 +135,19 @@ export type AdminNotificationRecipientSearchInput = z.infer<
   typeof adminNotificationRecipientSearchSchema
 >;
 
+/** Admin history for one profile: the route identifies both surface and recipient. */
+export const adminNotificationHistoryParamsSchema = z.object({
+  surface: z.enum(['PRO', 'CUSTOMER']),
+  recipientId: z.string().uuid(),
+});
+
+export const adminNotificationHistoryQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export type AdminNotificationHistoryParams = z.infer<typeof adminNotificationHistoryParamsSchema>;
+export type AdminNotificationHistoryQuery = z.infer<typeof adminNotificationHistoryQuerySchema>;
+
 export const sendCampaignSchema = z.object({
   testMode: z.boolean().optional(),
   testToken: z.string().optional(),

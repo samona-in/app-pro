@@ -9,10 +9,17 @@ import {
   updateAutomationSchema,
   estimateRecipientsSchema,
   adminNotificationRecipientSearchSchema,
+  adminNotificationHistoryParamsSchema,
+  adminNotificationHistoryQuerySchema,
+  type AdminNotificationHistoryParams,
+  type AdminNotificationHistoryQuery,
   type AdminNotificationRecipientSearchInput,
   type EstimateRecipientsInput,
 } from '@samona/validation';
-import type { AdminNotificationRecipient } from '@samona/types';
+import type {
+  AdminNotificationHistoryItem,
+  AdminNotificationRecipient,
+} from '@samona/types';
 import { resolveCampaignRoute } from '@samona/config';
 import type { AppConfig } from '../../config';
 import type { Services } from '../../context';
@@ -385,6 +392,71 @@ export function createAdminNotificationsRouter({ prisma: client, config, service
       next(error);
     }
   });
+
+  /**
+   * History of individual notices already sent to one profile. Scoped by the
+   * surface so a pro id can never be used to read a customer's history (or the
+   * reverse), and no device token or provider reference is returned.
+   */
+  router.get(
+    '/recipients/:surface/:recipientId/history',
+    validate(adminNotificationHistoryParamsSchema, 'params'),
+    validate(adminNotificationHistoryQuerySchema, 'query'),
+    async (req, res, next) => {
+      try {
+        if (!client) {
+          res.status(503).json({ error: { message: 'Database unavailable' } });
+          return;
+        }
+        const { surface, recipientId } = req.params as unknown as AdminNotificationHistoryParams;
+        const { limit } = req.query as unknown as AdminNotificationHistoryQuery;
+        const audience: 'INDIVIDUAL_PRO' | 'INDIVIDUAL_CUSTOMER' =
+          surface === 'PRO' ? 'INDIVIDUAL_PRO' : 'INDIVIDUAL_CUSTOMER';
+        const where: Prisma.NotificationCampaignRecipientWhereInput = {
+          campaign: { audience },
+          ...(surface === 'PRO' ? { proId: recipientId } : { customerId: recipientId }),
+        };
+
+        const rows = await client.notificationCampaignRecipient.findMany({
+          where,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            sentAt: true,
+            createdAt: true,
+            campaign: {
+              select: {
+                id: true,
+                title: true,
+                body: true,
+                type: true,
+                deepLink: true,
+                sentAt: true,
+                createdAt: true,
+              },
+            },
+          },
+        });
+
+        const data: AdminNotificationHistoryItem[] = rows.map((row) => ({
+          id: row.id,
+          campaignId: row.campaign.id,
+          title: row.campaign.title,
+          body: row.campaign.body,
+          type: row.campaign.type,
+          deepLink: row.campaign.deepLink,
+          status: row.status,
+          createdAt: row.campaign.createdAt.toISOString(),
+          sentAt: (row.sentAt ?? row.campaign.sentAt)?.toISOString() ?? null,
+        }));
+        res.json({ data });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   router.get('/campaigns', async (req, res, next) => {
     try {

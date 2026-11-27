@@ -203,6 +203,23 @@ export interface AdminNotificationRecipient {
   isVerified: boolean | null;
 }
 
+/**
+ * One individual notice an admin sent to a profile. Delivery credentials and
+ * provider references are deliberately absent; the admin only needs the copy,
+ * destination and outcome.
+ */
+export interface AdminNotificationHistoryItem {
+  id: string;
+  campaignId: string;
+  title: string;
+  body: string;
+  type: NotificationTargetType;
+  deepLink: string | null;
+  status: string;
+  createdAt: string;
+  sentAt: string | null;
+}
+
 export const AutomationType = {
   OFFLINE_REMINDER: 'OFFLINE_REMINDER',
   PROFILE_COMPLETION_REMINDER: 'PROFILE_COMPLETION_REMINDER',

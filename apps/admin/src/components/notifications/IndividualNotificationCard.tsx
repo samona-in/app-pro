@@ -91,6 +91,9 @@ export function IndividualNotificationCard({
       setError(null);
       setSent(true);
       void queryClient.invalidateQueries({ queryKey: ['notification-campaigns'] });
+      void queryClient.invalidateQueries({
+        queryKey: ['admin-notification-history', surface, recipientId],
+      });
     },
     onError: (mutationError) =>
       setError(errorMessage(mutationError, 'Unable to send the notification.')),

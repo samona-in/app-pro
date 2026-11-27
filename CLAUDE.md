@@ -335,7 +335,8 @@ exactly one server-resolved profile id, refuse a wrong-surface or unavailable
 recipient, fan out to every registered pro device (or the customer's current
 single token), and write one `SYSTEM` row into that surface's existing inbox so
 the app's normal list/read behavior applies. Individual campaigns are hidden
-from the marketing campaign list.
+from the marketing campaign list; an admin views what was sent from the
+recipient's profile page, where delivery credentials are never exposed.
 
 Campaign deep links are an allowlist shared by `@samona/config`, the server and
 both apps (`CAMPAIGN_DEEP_LINKS`). Both admin forms offer only those routes, the

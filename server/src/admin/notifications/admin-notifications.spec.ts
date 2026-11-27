@@ -55,6 +55,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
     },
     notificationCampaignRecipient: {
       findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({ id: 'recipient-1' }),
       update: jest.fn().mockResolvedValue({}),
     },
@@ -357,5 +358,77 @@ describe('admin individual notifications', () => {
     expect(response.status).toBe(400);
     expect(prisma.notificationCampaign.create).not.toHaveBeenCalled();
     expect(notifications.sendCampaignNotification).not.toHaveBeenCalled();
+  });
+
+  it('lists a pro notification history without exposing delivery credentials', async () => {
+    const sentAt = new Date('2026-11-27T10:00:00.000Z');
+    const prisma = makePrisma({
+      notificationCampaignRecipient: {
+        ...makePrisma().notificationCampaignRecipient,
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'recipient-1',
+            status: 'SENT',
+            sentAt,
+            createdAt: sentAt,
+            campaign: {
+              id: 'campaign-1',
+              title: 'Profile approved',
+              body: 'Your profile has been approved.',
+              type: 'CUSTOM_NOTIFICATIONS',
+              deepLink: '/profile',
+              sentAt,
+              createdAt: sentAt,
+              pushToken: 'secret-device-token',
+              providerRef: 'secret-provider-ref',
+            },
+          },
+        ]),
+      },
+    });
+
+    const response = await request(makeApp(prisma, makeNotifications()))
+      .get(`/recipients/PRO/${PRO_ID}/history`)
+      .query({ limit: 10 });
+
+    expect(response.status).toBe(200);
+    expect(prisma.notificationCampaignRecipient.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          proId: PRO_ID,
+          campaign: { audience: 'INDIVIDUAL_PRO' },
+        }),
+        take: 10,
+      }),
+    );
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0]).toMatchObject({
+      id: 'recipient-1',
+      campaignId: 'campaign-1',
+      title: 'Profile approved',
+      status: 'SENT',
+      sentAt: sentAt.toISOString(),
+    });
+    expect(JSON.stringify(response.body)).not.toContain('secret-device-token');
+    expect(JSON.stringify(response.body)).not.toContain('secret-provider-ref');
+  });
+
+  it('scopes history to the requested surface and validates the profile id', async () => {
+    const prisma = makePrisma();
+    const app = makeApp(prisma, makeNotifications());
+
+    expect((await request(app).get(`/recipients/CUSTOMER/${CUSTOMER_ID}/history`)).status).toBe(
+      200,
+    );
+    expect(prisma.notificationCampaignRecipient.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          customerId: CUSTOMER_ID,
+          campaign: { audience: 'INDIVIDUAL_CUSTOMER' },
+        }),
+      }),
+    );
+
+    expect((await request(app).get('/recipients/PRO/not-a-uuid/history')).status).toBe(422);
   });
 });

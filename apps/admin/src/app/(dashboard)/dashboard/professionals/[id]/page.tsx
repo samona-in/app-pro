@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Check, X, FileText } from 'lucide-react';
 import { IndividualNotificationCard } from '@/components/notifications/IndividualNotificationCard';
+import { IndividualNotificationHistory } from '@/components/notifications/IndividualNotificationHistory';
 import { api } from '@/lib/api';
 
 function ProfessionalEditContent() {
@@ -162,6 +163,8 @@ function ProfessionalEditContent() {
         }
         recipientDetail={professional.profile?.phone ?? undefined}
       />
+
+      <IndividualNotificationHistory surface="PRO" recipientId={id} />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
