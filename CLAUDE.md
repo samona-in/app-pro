@@ -339,7 +339,8 @@ from the marketing campaign list; an admin views what was sent from the
 recipient's profile page, where delivery credentials are never exposed.
 
 Campaign deep links are an allowlist shared by `@samona/config`, the server and
-both apps (`CAMPAIGN_DEEP_LINKS`). Both admin forms offer only those routes, the
+both apps (`CAMPAIGN_DEEP_LINKS`). Both admin forms allow admins to type a route
+or choose a suggestion, but only those allowlisted routes are accepted; the
 server rejects anything else on new/updated campaigns, and apps ignore stored
 legacy values rather than navigating to an arbitrary path. Booking/job routes
 are owned by the jobs domain and are unchanged by this rule.

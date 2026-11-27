@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BellRing, Send } from 'lucide-react';
-import { CAMPAIGN_DEEP_LINKS, type CampaignSurface } from '@samona/config';
+import type { CampaignSurface } from '@samona/config';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage } from '@/lib/api';
+import { CampaignDeepLinkInput, isAllowedCampaignDeepLink } from './CampaignDeepLinkInput';
 import { NOTIFICATION_TYPES } from './notification-types';
 
 export interface IndividualNotificationTarget {
@@ -111,11 +112,16 @@ export function IndividualNotificationCard({
       setError('Title and message are required.');
       return;
     }
+    if (!isAllowedCampaignDeepLink(form.deepLink, [surface])) {
+      setError('Choose an allowlisted deep link for this app.');
+      return;
+    }
     setError(null);
     sendMutation.mutate({
       ...form,
       title: form.title.trim(),
       body: form.body.trim(),
+      deepLink: form.deepLink.trim(),
     });
   };
 
@@ -211,22 +217,12 @@ export function IndividualNotificationCard({
                     ))}
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="individual-notification-deep-link">Open in app (optional)</Label>
-                  <select
-                    id="individual-notification-deep-link"
-                    value={form.deepLink}
-                    onChange={(event) => setForm({ ...form, deepLink: event.target.value })}
-                    className="w-full px-3 py-2 border rounded-md"
-                  >
-                    <option value="">No destination</option>
-                    {CAMPAIGN_DEEP_LINKS[surface].map((option) => (
-                      <option key={option.route} value={option.route}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <CampaignDeepLinkInput
+                  id="individual-notification-deep-link"
+                  value={form.deepLink}
+                  onChange={(deepLink) => setForm({ ...form, deepLink })}
+                  surfaces={[surface]}
+                />
               </div>
 
               <div className="rounded-lg border bg-gray-50 p-3">

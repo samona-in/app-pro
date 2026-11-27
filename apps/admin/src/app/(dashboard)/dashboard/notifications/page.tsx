@@ -3,13 +3,18 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Copy, X, Send, Edit, Trash2 } from 'lucide-react';
-import { CAMPAIGN_DEEP_LINKS, type CampaignSurface } from '@samona/config';
+import type { CampaignSurface } from '@samona/config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  allowedDeepLinkOptions,
+  CampaignDeepLinkInput,
+  isAllowedCampaignDeepLink,
+} from '@/components/notifications/CampaignDeepLinkInput';
 import { NOTIFICATION_TYPES } from '@/components/notifications/notification-types';
 import { api, errorMessage } from '@/lib/api';
 
@@ -100,13 +105,14 @@ function surfaceFor(audience: string): CampaignSurface | null {
   return null;
 }
 
+function deepLinkSurfaces(audience: string): CampaignSurface[] {
+  const surface = surfaceFor(audience);
+  return surface ? [surface] : ['PRO', 'CUSTOMER'];
+}
+
 /** One shared allowlist drives the admin choices and what the apps may open. */
 function deepLinkOptions(audience: string) {
-  const surface = surfaceFor(audience);
-  if (surface) return CAMPAIGN_DEEP_LINKS[surface];
-  return CAMPAIGN_DEEP_LINKS.PRO.filter((option) =>
-    CAMPAIGN_DEEP_LINKS.CUSTOMER.some((customer) => customer.route === option.route),
-  );
+  return allowedDeepLinkOptions(deepLinkSurfaces(audience));
 }
 
 function audienceLabel(audience: string): string {
@@ -251,6 +257,11 @@ export default function NotificationsPage() {
     event.preventDefault();
     setFormError(null);
 
+    if (!isAllowedCampaignDeepLink(form.deepLink, deepLinkSurfaces(form.audience))) {
+      setFormError('Choose an allowlisted deep link for this audience.');
+      return;
+    }
+
     const payload: Record<string, unknown> = {
       ...form,
       imageUrl: form.imageUrl.trim() || undefined,
@@ -284,8 +295,6 @@ export default function NotificationsPage() {
   const audienceOptions = AUDIENCES.includes(form.audience as (typeof AUDIENCES)[number])
     ? AUDIENCES
     : [form.audience, ...AUDIENCES];
-  const linkOptions = deepLinkOptions(form.audience);
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -547,22 +556,12 @@ export default function NotificationsPage() {
                   onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="deepLink">Deep link (optional)</Label>
-                <select
-                  id="deepLink"
-                  value={form.deepLink}
-                  onChange={(e) => setForm({ ...form, deepLink: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md"
-                >
-                  <option value="">No destination</option>
-                  {linkOptions.map((option) => (
-                    <option key={option.route} value={option.route}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <CampaignDeepLinkInput
+                id="deepLink"
+                value={form.deepLink}
+                onChange={(deepLink) => setForm({ ...form, deepLink })}
+                surfaces={deepLinkSurfaces(form.audience)}
+              />
             </div>
 
             <div className="flex items-center gap-2">
