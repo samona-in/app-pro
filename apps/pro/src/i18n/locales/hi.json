@@ -284,7 +284,8 @@
       "noServices": "आपको अभी तक किसी सेवा के लिए स्वीकृत नहीं किया गया है।",
       "addServices": "सेवाएँ जोड़ें",
       "jobRequests": "काम के अनुरोध",
-      "noRequests": "अभी कोई काम का अनुरोध नहीं है।"
+      "noRequests": "अभी कोई काम का अनुरोध नहीं है।",
+      "instagramA11y": "Instagram पर SAMONA खोलें"
     },
     "incoming": {
       "title": "आने वाले अनुरोध",

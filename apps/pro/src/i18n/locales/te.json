@@ -284,7 +284,8 @@
       "noServices": "మీరు ఇంకా ఏ సేవకు ఆమోదించబడలేదు.",
       "addServices": "సేవలను జోడించండి",
       "jobRequests": "పని అభ్యర్థనలు",
-      "noRequests": "ఇప్పుడు పని అభ్యర్థనలు లేవు."
+      "noRequests": "ఇప్పుడు పని అభ్యర్థనలు లేవు.",
+      "instagramA11y": "Instagram లో SAMONA తెరవండి"
     },
     "incoming": {
       "title": "వచ్చే అభ్యర్థనలు",

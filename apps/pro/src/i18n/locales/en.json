@@ -284,7 +284,8 @@
       "noServices": "You haven't been approved for any services yet.",
       "addServices": "Add services",
       "jobRequests": "Job requests",
-      "noRequests": "No job requests right now."
+      "noRequests": "No job requests right now.",
+      "instagramA11y": "Open SAMONA on Instagram"
     },
     "incoming": {
       "title": "Incoming requests",
