@@ -78,9 +78,10 @@ aws secretsmanager create-secret \
 
 ### Migrations
 
-Migrations are not run by the service. The `:migrate` image is the same
-application plus the Prisma CLI, and its task definition is registered by the
-service stack as an output. Run it once after each fresh database:
+Migrations are not run by the service. The `:migrate` image contains only the
+Prisma CLI, schema, migrations and the shared entrypoint, and its task definition
+is registered by the service stack as an output. Run it once after each fresh
+database:
 
 ```bash
 cd infra
